@@ -108,7 +108,7 @@ export default function DashboardLayout({
         <div className="p-4 border-b flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="flex-shrink-0 items-center ">
+              <div className="flex-shrink-0 ">
                 <img
                   src="/images/laha-logo.png"
                   alt="LAHA Marchand"
