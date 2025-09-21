@@ -95,22 +95,16 @@ export default function NotificationChainePage() {
   }
 
   return (
-    <DashboardLayout title="Les chaînes de notification" breadcrumb="Tableau de bord - Clients" >
-      <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
+    <DashboardLayout title="" >
+            <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold">Les chaînes de notification</h2>
           </div>
           <div className="flex items-center space-x-4">
-            <span className="text-sm text-slate-300">Tableau de bord - Clients</span>
-            <div className="flex items-center space-x-2">
-              <button onClick={handleRefresh} className="p-2 hover:bg-slate-600 rounded-lg" title="Actualiser">
-                <RefreshCw className="w-5 h-5" />
-              </button>
-              <button onClick={handleFullscreen} className="p-2 hover:bg-slate-600 rounded-lg" title="Plein écran">
-                <Maximize2 className="w-5 h-5" />
-              </button>
-            </div>
+            <span className="text-sm text-slate-300">
+              Tableau de bord - Clients
+            </span>
           </div>
         </div>
       </div>
