@@ -211,7 +211,7 @@ export default function DashboardLayout({
           </Link>
 
           <Link
-            href="/dashboard/pdg/profil"
+            href="/dashboard/client/profil"
             className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100"
           >
             <User className="w-5 h-5" />
