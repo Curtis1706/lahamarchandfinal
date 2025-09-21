@@ -5,9 +5,8 @@ import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
-  generator: 'v0.app',
+  title: 'Laha Marchand - Panneau de contrôle',
+  description: 'Plateforme de gestion de la librairie Laha Marchand',
 }
 
 export default function RootLayout({
