@@ -108,11 +108,12 @@ export default function DashboardLayout({
         <div className="p-4 border-b flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="flex-shrink-0 ">
+              <div className="flex justify-center items-center">
                 <img
                   src="/images/laha-logo.png"
                   alt="LAHA Marchand"
-                  className="w-12 h-12 object-contain p-1"
+                  className="w-20 h-20 object-contain p-1"
+                  /* ajuste w-20 h-20 → w-24 h-24 si tu veux encore plus grand */
                 />
               </div>
             </div>
@@ -247,7 +248,9 @@ export default function DashboardLayout({
                 <Link
                   href="/dashboard/pdg/livres/liste"
                   className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/livres/liste") ? "bg-blue-50 text-blue-600" : "hover:bg-gray-100"
+                    isActivePath("/dashboard/pdg/livres/liste")
+                      ? "bg-blue-50 text-blue-600"
+                      : "hover:bg-gray-100"
                   }`}
                 >
                   Liste
@@ -255,7 +258,9 @@ export default function DashboardLayout({
                 <Link
                   href="/dashboard/pdg/livres/collections"
                   className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/livres/collections") ? "bg-blue-50 text-blue-600" : "hover:bg-gray-100"
+                    isActivePath("/dashboard/pdg/livres/collections")
+                      ? "bg-blue-50 text-blue-600"
+                      : "hover:bg-gray-100"
                   }`}
                 >
                   Collections
@@ -263,7 +268,9 @@ export default function DashboardLayout({
                 <Link
                   href="/dashboard/pdg/livres/categories"
                   className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/livres/categories") ? "bg-blue-50 text-blue-600" : "hover:bg-gray-100"
+                    isActivePath("/dashboard/pdg/livres/categories")
+                      ? "bg-blue-50 text-blue-600"
+                      : "hover:bg-gray-100"
                   }`}
                 >
                   Catégories
@@ -271,7 +278,9 @@ export default function DashboardLayout({
                 <Link
                   href="/dashboard/pdg/livres/classes"
                   className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/livres/classes") ? "bg-blue-50 text-blue-600" : "hover:bg-gray-100"
+                    isActivePath("/dashboard/pdg/livres/classes")
+                      ? "bg-blue-50 text-blue-600"
+                      : "hover:bg-gray-100"
                   }`}
                 >
                   Classes
@@ -279,7 +288,9 @@ export default function DashboardLayout({
                 <Link
                   href="/dashboard/pdg/livres/matieres"
                   className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/livres/matieres") ? "bg-blue-50 text-blue-600" : "hover:bg-gray-100"
+                    isActivePath("/dashboard/pdg/livres/matieres")
+                      ? "bg-blue-50 text-blue-600"
+                      : "hover:bg-gray-100"
                   }`}
                 >
                   Matières
@@ -287,7 +298,9 @@ export default function DashboardLayout({
                 <Link
                   href="/dashboard/pdg/livres/code-promo"
                   className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/livres/code-promo") ? "bg-blue-50 text-blue-600" : "hover:bg-gray-100"
+                    isActivePath("/dashboard/pdg/livres/code-promo")
+                      ? "bg-blue-50 text-blue-600"
+                      : "hover:bg-gray-100"
                   }`}
                 >
                   Code Promo
