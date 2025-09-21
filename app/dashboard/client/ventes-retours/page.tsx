@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Filter, Plus, RotateCcw, Calendar } from "lucide-react"
+import { Filter, Plus, RotateCcw, Calendar, Printer } from "lucide-react"
 
 export default function VentesRetoursPage() {
   const [showFilterModal, setShowFilterModal] = useState(false)
@@ -84,75 +84,6 @@ export default function VentesRetoursPage() {
           {/* Action Buttons */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-4">
-              <Dialog open={showFilterModal} onOpenChange={setShowFilterModal}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" className="bg-indigo-600 text-white hover:bg-indigo-700">
-                    <Filter className="w-4 h-4 mr-2" />
-                    Filtre compte
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Filtre</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Compte :</Label>
-                        <Select>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Client" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="client">Client</SelectItem>
-                            <SelectItem value="partenaire">Partenaire</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Département :</Label>
-                        <Select>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Tous les départements" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">Tous les départements</SelectItem>
-                            <SelectItem value="atlantique">Atlantique</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Zone :</Label>
-                        <Select>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Toutes les zones" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">Toutes les zones</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Client :</Label>
-                        <Select>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Tous les clients" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">Tous les clients</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="flex justify-end space-x-2">
-                      <Button className="bg-indigo-600 hover:bg-indigo-700">Appliquer ✓</Button>
-                      <Button variant="outline">Remise à zéro ✗</Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
 
               <Dialog open={showSaleModal} onOpenChange={setShowSaleModal}>
                 <DialogTrigger asChild>
@@ -167,41 +98,6 @@ export default function VentesRetoursPage() {
                   </DialogHeader>
                   <div className="space-y-6">
                     {/* Form Fields */}
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <Label>Département :</Label>
-                        <Select>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Tous les départements" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">Tous les départements</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Zone :</Label>
-                        <Select>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Toutes les zones" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">Toutes les zones</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Client :</Label>
-                        <Select>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Sélectionner un client" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="client1">Client 1</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
 
                     <div className="grid grid-cols-3 gap-4">
                       <div>
@@ -303,6 +199,7 @@ export default function VentesRetoursPage() {
                           <SelectItem value="transfer">Virement</SelectItem>
                         </SelectContent>
                       </Select>
+                      <p>Pour toute information, veuillez contacter votre responsable sur le +22964100939</p>
                     </div>
 
                     <div className="flex justify-end space-x-2">
@@ -328,41 +225,6 @@ export default function VentesRetoursPage() {
                   </DialogHeader>
                   <div className="space-y-6">
                     {/* Same form structure as sale modal but for returns */}
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <Label>Département :</Label>
-                        <Select>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Tous les départements" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">Tous les départements</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Zone :</Label>
-                        <Select>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Toutes les zones" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">Toutes les zones</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Client :</Label>
-                        <Select>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Sélectionner un client" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="client1">Client 1</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
 
                     <div className="grid grid-cols-3 gap-4">
                       <div>
@@ -450,6 +312,7 @@ export default function VentesRetoursPage() {
                     <div>
                       <Label>Observation</Label>
                       <Textarea className="mt-1" rows={3} />
+                      <p>Pour toute information, veuillez contacter votre responsable sur le +22964100939</p>
                     </div>
 
                     <div className="flex justify-end space-x-2">
@@ -527,7 +390,6 @@ export default function VentesRetoursPage() {
                   <th className="text-left py-3 px-4 font-medium text-gray-900">QTÉ</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">MONTANT</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">STATUT</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900">COMPTE</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">PAIEMENTS</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">MÉTHODE</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">CRÉÉ LE</th>
@@ -561,6 +423,19 @@ export default function VentesRetoursPage() {
               </Button>
               <Button variant="outline" size="sm">
                 Dernier
+              </Button>
+            </div>
+          </div>
+            <div className="p-6 border-t bg-gray-50">
+            <div className="flex justify-end space-x-2">
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                PDF
+              </Button>
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                EXCEL
+              </Button>
+              <Button variant="outline">
+                <Printer className="w-4 h-4" />
               </Button>
             </div>
           </div>
