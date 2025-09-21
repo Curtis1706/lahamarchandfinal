@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Calendar } from "lucide-react";
-import DashboardLayout from "@/components/dashboard-layout";
+import DashboardLayout from "@/components/dashboard-layout-client";
 
 export default function ClientDashboard() {
   const [dateRange, setDateRange] = useState({

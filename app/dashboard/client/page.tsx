@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { User, BookOpen, ShoppingCart } from "lucide-react";
-import DashboardLayout from "@/components/dashboard-layout";
+import DashboardLayout from "@/components/dashboard-layout-client";
 import { PieChart, Pie, Cell, Legend, ResponsiveContainer } from "recharts";
 
 const books = [

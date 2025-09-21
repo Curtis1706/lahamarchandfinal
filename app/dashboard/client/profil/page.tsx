@@ -4,7 +4,7 @@ import { RefreshCw, Maximize2, Trash2, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import DashboardLayout from "@/components/dashboard-layout"
+import DashboardLayout from "@/components/dashboard-layout-client"
 
 export default function ProfilPage() {
   return (

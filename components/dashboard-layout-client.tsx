@@ -127,9 +127,9 @@ export default function DashboardLayout({
 
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           <Link
-            href="/dashboard/pdg"
+            href="/dashboard/client"
             className={`flex items-center space-x-3 px-3 py-2 rounded-lg ${
-              isActivePath("/dashboard/pdg") && pathname === "/dashboard/pdg"
+              isActivePath("/dashboard/pdg") && pathname === "/dashboard/client"
                 ? "bg-blue-50 text-blue-600"
                 : "hover:bg-gray-100"
             }`}
@@ -139,7 +139,7 @@ export default function DashboardLayout({
           </Link>
 
           <Link
-            href="/dashboard/pdg/commandes"
+            href="/dashboard/client/commandes"
             className={`flex items-center space-x-3 px-3 py-2 rounded-lg ${
               isActivePath("/dashboard/pdg/commandes")
                 ? "bg-blue-50 text-blue-600"
@@ -147,224 +147,61 @@ export default function DashboardLayout({
             }`}
           >
             <ShoppingCart className="w-5 h-5" />
-            <span>Les commandes</span>
+            <span>Mes commandes</span>
           </Link>
 
           <Link
-            href="/dashboard/pdg/bon-sortie"
+            href="/dashboard/client/effectif"
             className={`flex items-center space-x-3 px-3 py-2 rounded-lg ${
-              isActivePath("/dashboard/pdg/bon-sortie")
+              isActivePath("/dashboard/client/effectif")
                 ? "bg-blue-50 text-blue-600"
                 : "hover:bg-gray-100"
             }`}
           >
             <FileText className="w-5 h-5" />
-            <span>Bon de sortie</span>
+            <span>Effectif</span>
           </Link>
 
           <Link
-            href="/dashboard/pdg/proforma"
+            href="/dashboard/client/livres"
             className={`flex items-center space-x-3 px-3 py-2 rounded-lg ${
-              isActivePath("/dashboard/pdg/proforma")
+              isActivePath("/dashboard/client/livres")
                 ? "bg-blue-50 text-blue-600"
                 : "hover:bg-gray-100"
             }`}
           >
             <FileText className="w-5 h-5" />
-            <span>Proforma</span>
+            <span>Nos Livres</span>
           </Link>
 
-          <div className="space-y-1">
-            <button
-              onClick={() => toggleSection("gestion-stock")}
-              className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100"
-            >
-              <div className="flex items-center space-x-3">
-                <Package className="w-5 h-5" />
-                <span>Gestion du stock</span>
-              </div>
-              {expandedSections["gestion-stock"] ? (
-                <ChevronDown className="w-4 h-4" />
-              ) : (
-                <ChevronRight className="w-4 h-4" />
-              )}
-            </button>
-            {expandedSections["gestion-stock"] && (
-              <div className="ml-8 space-y-1">
-                <Link
-                  href="/dashboard/pdg/stock/niveau"
-                  className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/stock/niveau")
-                      ? "bg-blue-50 text-blue-600"
-                      : "hover:bg-gray-100"
-                  }`}
-                >
-                  Niveau stock
-                </Link>
-                <Link
-                  href="/dashboard/pdg/stock/demande"
-                  className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/stock/demande")
-                      ? "bg-blue-50 text-blue-600"
-                      : "hover:bg-gray-100"
-                  }`}
-                >
-                  Demande stock
-                </Link>
-              </div>
-            )}
-          </div>
-
-          <Link
-            href="/dashboard/pdg/suivi-rapport"
+                    <Link
+            href="/dashboard/client/stock"
             className={`flex items-center space-x-3 px-3 py-2 rounded-lg ${
-              isActivePath("/dashboard/pdg/suivi-rapport")
+              isActivePath("/dashboard/client/stock")
                 ? "bg-blue-50 text-blue-600"
                 : "hover:bg-gray-100"
             }`}
           >
             <FileText className="w-5 h-5" />
-            <span>Suivi et rapport</span>
+            <span>Niveau stock</span>
           </Link>
 
-          <div className="space-y-1">
-            <button
-              onClick={() => toggleSection("nos-livres")}
-              className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100"
-            >
-              <div className="flex items-center space-x-3">
-                <BookOpen className="w-5 h-5" />
-                <span>Nos livres</span>
-              </div>
-              {expandedSections["nos-livres"] ? (
-                <ChevronDown className="w-4 h-4" />
-              ) : (
-                <ChevronRight className="w-4 h-4" />
-              )}
-            </button>
-            {expandedSections["nos-livres"] && (
-              <div className="ml-8 space-y-1">
-                <Link
-                  href="/dashboard/pdg/livres/liste"
-                  className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/livres/liste") ? "bg-blue-50 text-blue-600" : "hover:bg-gray-100"
-                  }`}
-                >
-                  Liste
-                </Link>
-                <Link
-                  href="/dashboard/pdg/livres/collections"
-                  className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/livres/collections") ? "bg-blue-50 text-blue-600" : "hover:bg-gray-100"
-                  }`}
-                >
-                  Collections
-                </Link>
-                <Link
-                  href="/dashboard/pdg/livres/categories"
-                  className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/livres/categories") ? "bg-blue-50 text-blue-600" : "hover:bg-gray-100"
-                  }`}
-                >
-                  Catégories
-                </Link>
-                <Link
-                  href="/dashboard/pdg/livres/classes"
-                  className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/livres/classes") ? "bg-blue-50 text-blue-600" : "hover:bg-gray-100"
-                  }`}
-                >
-                  Classes
-                </Link>
-                <Link
-                  href="/dashboard/pdg/livres/matieres"
-                  className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/livres/matieres") ? "bg-blue-50 text-blue-600" : "hover:bg-gray-100"
-                  }`}
-                >
-                  Matières
-                </Link>
-                <Link
-                  href="/dashboard/pdg/livres/code-promo"
-                  className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/livres/code-promo") ? "bg-blue-50 text-blue-600" : "hover:bg-gray-100"
-                  }`}
-                >
-                  Code Promo
-                </Link>
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-1">
-            <button
-              onClick={() => toggleSection("ristournes")}
-              className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100"
-            >
-              <div className="flex items-center space-x-3">
-                <Package className="w-5 h-5" />
-                <span>Ristournes</span>
-              </div>
-              {expandedSections["ristournes"] ? (
-                <ChevronDown className="w-4 h-4" />
-              ) : (
-                <ChevronRight className="w-4 h-4" />
-              )}
-            </button>
-            {expandedSections["ristournes"] && (
-              <div className="ml-8 space-y-1">
-                <Link
-                  href="/dashboard/pdg/ristournes/partenaire"
-                  className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/ristournes/partenaire")
-                      ? "bg-blue-50 text-blue-600"
-                      : "hover:bg-gray-100"
-                  }`}
-                >
-                  Partenaire
-                </Link>
-                <Link
-                  href="/dashboard/pdg/ristournes/droit-auteur"
-                  className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/ristournes/droit-auteur")
-                      ? "bg-blue-50 text-blue-600"
-                      : "hover:bg-gray-100"
-                  }`}
-                >
-                  Droits d'auteur
-                </Link>
-              </div>
-            )}
-          </div>
-
           <Link
-            href="/dashboard/pdg/utilisateurs"
+            href="/dashboard/client/rapport-stock"
             className={`flex items-center space-x-3 px-3 py-2 rounded-lg ${
-              isActivePath("/dashboard/pdg/utilisateurs")
+              isActivePath("/dashboard/client/rapport-stock")
                 ? "bg-blue-50 text-blue-600"
                 : "hover:bg-gray-100"
             }`}
           >
-            <Users className="w-5 h-5" />
-            <span>Utilisateurs</span>
+            <FileText className="w-5 h-5" />
+            <span>Rapports Stock</span>
           </Link>
 
           <Link
-            href="/dashboard/pdg/clients"
+            href="/dashboard/client/ventes-retours"
             className={`flex items-center space-x-3 px-3 py-2 rounded-lg ${
-              isActivePath("/dashboard/pdg/clients")
-                ? "bg-blue-50 text-blue-600"
-                : "hover:bg-gray-100"
-            }`}
-          >
-            <Users className="w-5 h-5" />
-            <span>Clients</span>
-          </Link>
-
-          <Link
-            href="/dashboard/pdg/ventes-retours"
-            className={`flex items-center space-x-3 px-3 py-2 rounded-lg ${
-              isActivePath("/dashboard/pdg/ventes-retours")
+              isActivePath("/dashboard/client/ventes-retours")
                 ? "bg-blue-50 text-blue-600"
                 : "hover:bg-gray-100"
             }`}
@@ -372,138 +209,6 @@ export default function DashboardLayout({
             <Camera className="w-5 h-5" />
             <span>Ventes & retours</span>
           </Link>
-
-          <div className="space-y-1">
-            <button
-              onClick={() => toggleSection("notifications")}
-              className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100"
-            >
-              <div className="flex items-center space-x-3">
-                <Bell className="w-5 h-5 text-red-500" />
-                <span>Notifications</span>
-              </div>
-              {expandedSections["notifications"] ? (
-                <ChevronDown className="w-4 h-4" />
-              ) : (
-                <ChevronRight className="w-4 h-4" />
-              )}
-            </button>
-            {expandedSections["notifications"] && (
-              <div className="ml-8 space-y-1">
-                <Link
-                  href="/dashboard/pdg/notifications/liste"
-                  className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/notifications/liste")
-                      ? "bg-blue-50 text-blue-600"
-                      : "hover:bg-gray-100"
-                  }`}
-                >
-                  Liste
-                </Link>
-                <Link
-                  href="/dashboard/pdg/notifications/diffusion"
-                  className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/notifications/diffusion")
-                      ? "bg-blue-50 text-blue-600"
-                      : "hover:bg-gray-100"
-                  }`}
-                >
-                  Diffusion
-                </Link>
-                <Link
-                  href="/dashboard/pdg/notifications/chaine"
-                  className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/notifications/chaine")
-                      ? "bg-blue-50 text-blue-600"
-                      : "hover:bg-gray-100"
-                  }`}
-                >
-                  Chaîne
-                </Link>
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-1">
-            <button
-              onClick={() => toggleSection("parametres")}
-              className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100"
-            >
-              <div className="flex items-center space-x-3">
-                <Settings className="w-5 h-5 text-red-500" />
-                <span>Paramètres</span>
-              </div>
-              {expandedSections["parametres"] ? (
-                <ChevronDown className="w-4 h-4" />
-              ) : (
-                <ChevronRight className="w-4 h-4" />
-              )}
-            </button>
-            {expandedSections["parametres"] && (
-              <div className="ml-8 space-y-1">
-                <Link
-                  href="/dashboard/pdg/parametres/departements"
-                  className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/parametres/departements")
-                      ? "bg-blue-50 text-blue-600"
-                      : "hover:bg-gray-100"
-                  }`}
-                >
-                  Départements
-                </Link>
-                <Link
-                  href="/dashboard/pdg/parametres/zones"
-                  className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/parametres/zones")
-                      ? "bg-blue-50 text-blue-600"
-                      : "hover:bg-gray-100"
-                  }`}
-                >
-                  Zones
-                </Link>
-                <Link
-                  href="/dashboard/pdg/parametres/effectifs"
-                  className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/parametres/effectifs")
-                      ? "bg-blue-50 text-blue-600"
-                      : "hover:bg-gray-100"
-                  }`}
-                >
-                  Effectifs
-                </Link>
-                <Link
-                  href="/dashboard/pdg/parametres/reductions"
-                  className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/parametres/reductions")
-                      ? "bg-blue-50 text-blue-600"
-                      : "hover:bg-gray-100"
-                  }`}
-                >
-                  Réductions
-                </Link>
-                <Link
-                  href="/dashboard/pdg/parametres/logs"
-                  className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/parametres/logs")
-                      ? "bg-blue-50 text-blue-600"
-                      : "hover:bg-gray-100"
-                  }`}
-                >
-                  Logs
-                </Link>
-                <Link
-                  href="/dashboard/pdg/parametres/avance"
-                  className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/parametres/avance")
-                      ? "bg-blue-50 text-blue-600"
-                      : "hover:bg-gray-100"
-                  }`}
-                >
-                  Avancé
-                </Link>
-              </div>
-            )}
-          </div>
 
           <Link
             href="/dashboard/pdg/profil"
@@ -631,7 +336,7 @@ export default function DashboardLayout({
                         <div className="w-12 h-12 bg-gray-300 rounded-full mx-auto mb-2"></div>
                         <p className="font-semibold">Super</p>
                         <span className="inline-block px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
-                          PDG
+                          Client
                         </span>
                       </div>
                       <div className="p-2">

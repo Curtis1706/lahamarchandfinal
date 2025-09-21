@@ -25,7 +25,7 @@ import {
   Printer,
   X,
 } from "lucide-react"
-import DashboardLayout from "@/components/dashboard-layout"
+import DashboardLayout from "@/components/dashboard-layout-client"
 
 export default function NiveauStockPage() {
   const [open, setOpen] = useState(false)

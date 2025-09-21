@@ -24,7 +24,7 @@ import {
   Printer,
 } from "lucide-react"
 import Link from "next/link"
-import DashboardLayout from "@/components/dashboard-layout"
+import DashboardLayout from "@/components/dashboard-layout-client"
 
 export default function ClientCommandePage() {
   const [showDatePicker, setShowDatePicker] = useState(false)
