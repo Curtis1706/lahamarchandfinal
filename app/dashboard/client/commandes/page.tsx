@@ -72,10 +72,6 @@ export default function ClientCommandePage() {
           <div className="p-6 border-b">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-2">
-                <Button className="bg-indigo-600 hover:bg-indigo-700">
-                  <Filter className="w-4 h-4 mr-2" />
-                  Filtre compte
-                </Button>
 
                 <Dialog open={showCreateOrderModal} onOpenChange={setShowCreateOrderModal}>
                   <DialogTrigger asChild>
