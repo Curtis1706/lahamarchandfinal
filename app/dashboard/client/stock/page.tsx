@@ -91,27 +91,6 @@ export default function NiveauStockPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
               <Select>
                 <SelectTrigger>
-                  <SelectValue placeholder="Par quantité" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="croissant">Croissant</SelectItem>
-                  <SelectItem value="decroissant">Décroissant</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Tous les stocks" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tous">Tous les stocks</SelectItem>
-                  <SelectItem value="en-stock">En stock</SelectItem>
-                  <SelectItem value="en-depot">En dépôt</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select>
-                <SelectTrigger>
                   <SelectValue placeholder="Toutes catégories" />
                 </SelectTrigger>
                 <SelectContent>
@@ -160,7 +139,7 @@ export default function NiveauStockPage() {
 
               <Select>
                 <SelectTrigger>
-                  <SelectValue placeholder="Tous les livre" />
+                  <SelectValue placeholder="Tous les livres" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="tous">Tous les livres</SelectItem>
@@ -171,13 +150,6 @@ export default function NiveauStockPage() {
             </div>
 
             <div className="flex justify-between items-center">
-              <Button
-                className="bg-indigo-600 hover:bg-indigo-700"
-                onClick={() => setOpen(true)}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Approvisionner
-              </Button>
 
               <Button className="bg-indigo-600 hover:bg-indigo-700">Appliquer</Button>
             </div>
@@ -220,10 +192,8 @@ export default function NiveauStockPage() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="text-left p-4">LIVRE</th>
-                    <th className="text-left p-4">RENTRÉE</th>
-                    <th className="text-left p-4">VACANCES</th>
                     <th className="text-left p-4">DÉPÔT</th>
-                    <th className="text-left p-4">TOTAL</th>
+                    <th className="text-left p-4">MONTANT</th>
                     <th className="text-left p-4">ACTIONS</th>
                   </tr>
                 </thead>
@@ -237,8 +207,6 @@ export default function NiveauStockPage() {
                         <span className="text-sm">Philosophie Tle Bac Facile TOME 2</span>
                       </div>
                     </td>
-                    <td className="p-4">0</td>
-                    <td className="p-4">0</td>
                     <td className="p-4">0</td>
                     <td className="p-4">0</td>
                     <td className="p-4">

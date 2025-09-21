@@ -26,7 +26,7 @@ import {
 import Link from "next/link"
 import DashboardLayout from "@/components/dashboard-layout"
 
-export default function CommandesPage() {
+export default function ClientCommandePage() {
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [showCreateOrderModal, setShowCreateOrderModal] = useState(false)
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
@@ -414,6 +414,7 @@ export default function CommandesPage() {
                 <th className="text-left p-4">Livraison</th>
                 <th className="text-left p-4">État Réception</th>
                 <th className="text-left p-4">Paiement</th>
+                <th className="text-left p-4">Méthode</th>
                 <th className="text-left p-4">Actions</th>
               </tr>
             </thead>

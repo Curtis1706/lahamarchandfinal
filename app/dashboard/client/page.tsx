@@ -29,15 +29,15 @@ const books = [
 const COLORS = ["#00C853", "#2962FF", "#FF4081"];
 
 const dataQuantites = [
-  { name: "Commandes validées", value: 0 },
-  { name: "Livraisons en cours", value: 0 },
-  { name: "Livrées/Réceptionnées", value: 0 },
+  { name: "Commandes validées", value:10 },
+  { name: "Livraisons en cours", value: 4 },
+  { name: "Livrées/Réceptionnées", value: 6 },
 ];
 
 const dataMontants = [
-  { name: "Commandes validées", value: 0 },
-  { name: "Livraisons en cours", value: 0 },
-  { name: "Livrées/Réceptionnées", value: 0 },
+  { name: "Commandes validées", value: 10 },
+  { name: "Livraisons en cours", value: 4 },
+  { name: "Livrées/Réceptionnées", value: 6 },
 ];
 
 export default function ClientDashboard() {
