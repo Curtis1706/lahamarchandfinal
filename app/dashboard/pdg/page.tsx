@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { User, BookOpen, ShoppingCart } from "lucide-react";
-import DashboardLayout from "@/components/dashboard-layout";
+import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout";
+import { apiClient } from "@/lib/api-client";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { toast } from "sonner";
 
 const books = [
   {
@@ -26,7 +29,16 @@ const books = [
 ];
 
 export default function PDGDashboard() {
+  const { user } = useCurrentUser();
   const [currentBookIndex, setCurrentBookIndex] = useState(0);
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalWorks: 0,
+    totalOrders: 0,
+    totalRevenue: 0
+  });
+  const [works, setWorks] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -35,10 +47,54 @@ export default function PDGDashboard() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      const [usersData, worksData, ordersData] = await Promise.all([
+        apiClient.getUsers(),
+        apiClient.getWorks(),
+        apiClient.getOrders().catch(() => []) // Orders API might not exist yet
+      ]);
+
+      setStats({
+        totalUsers: usersData.length,
+        totalWorks: worksData.length,
+        totalOrders: ordersData.length || 0,
+        totalRevenue: worksData.reduce((sum: number, work: any) => {
+          return sum + (work.sales?.reduce((salesSum: number, sale: any) => salesSum + sale.amount, 0) || 0);
+        }, 0)
+      });
+
+      setWorks(worksData.slice(0, 3)); // Show only first 3 works
+    } catch (error) {
+      console.error("Error loading dashboard data:", error);
+      toast.error("Erreur lors du chargement des données");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const currentBook = books[currentBookIndex];
 
+  if (loading) {
+    return (
+      <DynamicDashboardLayout title="Tableau de bord">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Chargement...</p>
+          </div>
+        </div>
+      </DynamicDashboardLayout>
+    );
+  }
+
   return (
-    <DashboardLayout title="">
+    <DynamicDashboardLayout title="Tableau de bord" showActions={true} onRefresh={loadDashboardData}>
       {/* Zone graphique */}
       <div className="relative mb-6 w-full">
         <div className="h-80 bg-slate-700 relative overflow-hidden rounded-lg">
@@ -96,10 +152,10 @@ export default function PDGDashboard() {
                 <User className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-semibold">PDG</h3>
-                <p className="text-indigo-200">+22952734444</p>
+                <h3 className="font-semibold">{user?.name || "PDG"}</h3>
+                <p className="text-indigo-200">{user?.email || "pdg@laha.gabon"}</p>
                 <span className="inline-block mt-2 px-3 py-1 bg-yellow-500 text-yellow-900 rounded-full text-xs font-medium">
-                  PDG
+                  {user?.role || "PDG"}
                 </span>
               </div>
             </div>
@@ -131,33 +187,33 @@ export default function PDGDashboard() {
           <div className="bg-[#FA626B] rounded-2xl p-6 text-white shadow-lg h-40 flex items-center">
             <ShoppingCart className="w-8 h-8 mr-4 opacity-80" />
             <div>
-              <h3 className="text-lg font-semibold mb-2">Total des dettes</h3>
+              <h3 className="text-lg font-semibold mb-2">Utilisateurs</h3>
               <p className="text-2xl font-bold">
-                0 <span className="text-base">Livre(s)</span>
+                {stats.totalUsers} <span className="text-base">Utilisateur(s)</span>
               </p>
-              <p className="text-red-100">0 F CFA</p>
+              <p className="text-red-100">Total inscrits</p>
             </div>
           </div>
 
           <div className="bg-gray-700 rounded-2xl p-6 text-white shadow-lg h-40 flex items-center">
             <BookOpen className="w-8 h-8 mr-4 opacity-80" />
             <div>
-              <h3 className="text-lg font-semibold mb-2">Stock en dépôt</h3>
+              <h3 className="text-lg font-semibold mb-2">Œuvres publiées</h3>
               <p className="text-2xl font-bold">
-                0 <span className="text-base">Livre(s)</span>
+                {stats.totalWorks} <span className="text-base">Livre(s)</span>
               </p>
-              <p className="text-gray-300">0 F CFA</p>
+              <p className="text-gray-300">Catalogue</p>
             </div>
           </div>
 
           <div className="bg-[#5ED84F] rounded-2xl p-6 text-white shadow-lg h-40 flex items-center">
             <ShoppingCart className="w-8 h-8 mr-4 opacity-80" />
             <div>
-              <h3 className="text-lg font-semibold mb-2">Vente/Retour</h3>
+              <h3 className="text-lg font-semibold mb-2">Revenus totaux</h3>
               <p className="text-2xl font-bold">
-                0 <span className="text-base">Livre(s)</span>
+                {stats.totalRevenue.toLocaleString()} <span className="text-base">F CFA</span>
               </p>
-              <p className="text-green-100">0 F CFA</p>
+              <p className="text-green-100">Ventes cumulées</p>
             </div>
           </div>
         </div>
@@ -224,6 +280,6 @@ export default function PDGDashboard() {
           </table>
         </div>
       </div>
-    </DashboardLayout>
+    </DynamicDashboardLayout>
   );
 }

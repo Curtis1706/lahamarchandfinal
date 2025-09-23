@@ -1,17 +1,53 @@
 "use client"
 
 import { useState } from "react"
+import { signIn, getSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { User, Eye, EyeOff, Lock } from "lucide-react"
 import { CountrySelector } from "@/components/country-selector"
 import Link from "next/link"
+import { toast } from "sonner"
 
 export default function LoginPage() {
   const [loginMethod, setLoginMethod] = useState<"email" | "phone">("email")
   const [showPassword, setShowPassword] = useState(false)
   const [phoneValue, setPhoneValue] = useState("")
   const [emailValue, setEmailValue] = useState("")
+  const [password, setPassword] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+
+    try {
+      const result = await signIn("credentials", {
+        email: emailValue,
+        password: password,
+        redirect: false,
+      })
+
+      if (result?.error) {
+        toast.error("Email ou mot de passe incorrect")
+      } else {
+        // Récupérer la session pour obtenir le rôle
+        const session = await getSession()
+        if (session?.user?.role) {
+          // Rediriger vers le dashboard approprié selon le rôle
+          const role = session.user.role.toLowerCase()
+          router.push(`/dashboard/${role}`)
+          toast.success("Connexion réussie !")
+        }
+      }
+    } catch (error) {
+      toast.error("Une erreur est survenue")
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
     <div
@@ -28,7 +64,7 @@ export default function LoginPage() {
         <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-6 sm:p-8 w-full max-w-md shadow-2xl">
           <h1 className="text-2xl font-bold text-gray-800 text-center mb-8">CONNEXION</h1>
 
-          <div className="space-y-6">
+          <form onSubmit={handleLogin} className="space-y-6">
             {/* Email ou Téléphone */}
             {loginMethod === "email" ? (
               <div>
@@ -63,13 +99,16 @@ export default function LoginPage() {
             {/* Mot de passe */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Mot de passe</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Mot de passe"
-                  className="pl-10 pr-10 h-12 bg-gray-50 border-0 rounded-xl"
-                />
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Mot de passe"
+                    className="pl-10 pr-10 h-12 bg-gray-50 border-0 rounded-xl"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
@@ -87,12 +126,14 @@ export default function LoginPage() {
 
             {/* Bouton Connexion */}
             <Button
+              type="submit"
+              disabled={isLoading}
               className="w-full h-14 text-white font-semibold text-lg rounded-2xl border-0"
               style={{
                 background: "linear-gradient(90deg, #00d4ff 0%, #5b9bd5 25%, #8b5fbf 50%, #b83dba 75%, #e91e63 100%)",
               }}
             >
-              CONNEXION
+              {isLoading ? "CONNEXION..." : "CONNEXION"}
             </Button>
 
             {/* Créer un compte */}
@@ -101,7 +142,7 @@ export default function LoginPage() {
                 CRÉER UN COMPTE
               </Link>
             </div>
-          </div>
+          </form>
         </div>
 
         {/* Politique de confidentialité */}

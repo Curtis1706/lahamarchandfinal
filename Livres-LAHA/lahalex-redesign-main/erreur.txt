@@ -1,0 +1,65 @@
+npm run dev
+
+> lahalex@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.0.3
+   - Local:        http://localhost:3000
+   - Environments: .env
+
+ ✓ Starting...
+ ✓ Ready in 9s
+ ○ Compiling / ...
+ ✓ Compiled / in 13.2s (1833 modules)
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET / 200 in 14671ms
+ ✓ Compiled in 2.1s (1818 modules)
+ ○ Compiling /api/articles ...
+ ✓ Compiled /api/articles in 3s (1840 modules)
+ GET /api/categories 200 in 3344ms
+ GET /api/articles?page=1&limit=10&sortBy=publishedAt&sortOrder=desc 200 in 3339ms
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 1019ms (91 modules)
+ ○ Compiling /admin/login ...
+ ✓ Compiled /admin/login in 2.1s (1859 modules)
+ GET /admin/login 200 in 3125ms
+ ✓ Compiled /api/admin/auth in 485ms (1861 modules)
+ POST /api/admin/auth 200 in 583ms
+ ○ Compiling /admin ...
+ ✓ Compiled /admin in 1357ms (1898 modules)
+ GET /admin 200 in 1563ms
+ ○ Compiling /api/admin/stats ...
+ ✓ Compiled /api/admin/stats in 694ms (1900 modules)
+ GET /api/admin/stats 200 in 787ms
+ GET /api/admin/stats 200 in 25ms
+ ✓ Compiled /api/admin/documents/upload in 287ms (1904 modules)
+Erreur upload document: TypeError: Content-Type was not one of "multipart/form-data" or "application/x-www-form-urlencoded".
+    at async POST (app\api\admin\documents\upload\route.ts:7:21)
+    at async AppRouteRouteModule.do (webpack://next/dist/src/server/route-modules/app-route/module.ts:529:14)
+    at async AppRouteRouteModule.handle (webpack://next/dist/src/server/route-modules/app-route/module.ts:658:30)
+    at async doRender (node_modules\next\src\server\base-server.ts:2504:29)
+    at async responseGenerator (node_modules\next\src\server\base-server.ts:3027:21)  
+    at async DevServer.renderToResponseWithComponentsImpl (node_modules\next\src\server\base-server.ts:3039:23)
+    at async DevServer.renderPageComponent (node_modules\next\src\server\base-server.ts:3597:15)
+    at async DevServer.renderToResponseImpl (node_modules\next\src\server\base-server.ts:3659:23)
+    at async DevServer.pipeImpl (node_modules\next\src\server\base-server.ts:1698:20) 
+    at async NextNodeServer.handleCatchallRenderRequest (node_modules\next\src\server\next-server.ts:1034:6)
+    at async DevServer.handleRequestImpl (node_modules\next\src\server\base-server.ts:1462:8)
+    at async (node_modules\next\src\server\dev\next-dev-server.ts:514:13)
+    at async Span.traceAsyncFn (node_modules\next\src\trace\trace.ts:143:13)
+    at async DevServer.handleRequest (node_modules\next\src\server\dev\next-dev-server.ts:512:19)
+    at async invokeRender (node_modules\next\src\server\lib\router-server.ts:284:10)  
+    at async handleRequest (node_modules\next\src\server\lib\router-server.ts:530:15) 
+    at async requestHandlerImpl (node_modules\next\src\server\lib\router-server.ts:576:6)
+    at async Server.requestListener (node_modules\next\src\server\lib\start-server.ts:146:6)
+   5 | export async function POST(request: NextRequest) {
+   6 |   try {
+>  7 |     const formData = await request.formData()
+     |                     ^
+   8 |     const markdownFile = formData.get('markdown') as File
+   9 |     const metadataFile = formData.get('metadata') as File
+  10 |
+ POST /api/admin/documents/upload 500 in 478ms
+ ✓ Compiled in 1022ms (937 modules)
+ GET / 200 in 177ms
+ GET /admin 200 in 142ms

@@ -1,559 +1,461 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
+import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout"
+import { useCurrentUser } from "@/hooks/use-current-user"
+import { useOrders } from "@/hooks/use-orders"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
 import {
-  Plus,
-  Filter,
+  ShoppingCart,
+  Package,
   Calendar,
   Eye,
-  Edit,
-  Trash2,
-  MoreHorizontal,
-  FileText,
-  Package,
-  User,
-  LogOut,
-  Bell,
-  ChevronDown,
+  Truck,
+  CreditCard,
+  Search,
+  Filter,
+  Loader2,
   X,
-  Printer,
+  CheckCircle,
+  Clock,
+  AlertCircle
 } from "lucide-react"
+import { toast } from "sonner"
 import Link from "next/link"
-import DashboardLayout from "@/components/dashboard-layout-client"
+import Image from "next/image"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Separator } from "@/components/ui/separator"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+
+// Types pour les commandes (importés du hook)
+interface OrderItem {
+  id: string
+  title: string
+  isbn: string
+  price: number
+  quantity: number
+  image: string
+}
+
+interface Order {
+  id: string
+  reference: string
+  date: string
+  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled'
+  total: number
+  itemCount: number
+  paymentMethod: string
+  deliveryAddress: string
+  items: OrderItem[]
+  trackingNumber?: string
+  estimatedDelivery?: string
+  notes?: string
+  customerInfo: {
+    fullName: string
+    email: string
+    phone: string
+    address: string
+    city: string
+  }
+}
 
 export default function ClientCommandePage() {
-  const [showDatePicker, setShowDatePicker] = useState(false)
-  const [showCreateOrderModal, setShowCreateOrderModal] = useState(false)
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
-  const [showNotifications, setShowNotifications] = useState(false)
-  const [showUserMenu, setShowUserMenu] = useState(false)
+  const { user, isLoading: userLoading } = useCurrentUser()
+  const { orders, updateOrderStatus, isLoading: ordersLoading, refreshOrders } = useOrders()
+  const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [openOrderId, setOpenOrderId] = useState<string | null>(null)
+  const searchParams = useSearchParams()
 
-  const toggleSection = (section: string) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }))
+
+
+  // Pas de rafraîchissement automatique pour éviter les boucles
+
+  // Détecter les nouvelles commandes et ouvrir automatiquement les détails
+  useEffect(() => {
+    const newOrderId = searchParams.get('newOrder')
+    if (newOrderId && !ordersLoading && orders.length > 0) {
+      const orderExists = orders.find(order => order.id === newOrderId)
+      if (orderExists) {
+        setOpenOrderId(newOrderId)
+        // Nettoyer l'URL après avoir ouvert les détails
+        setTimeout(() => {
+          window.history.replaceState({}, '', '/dashboard/client/commandes')
+        }, 2000)
+      }
+    }
+  }, [searchParams, orders, ordersLoading])
+
+  const getStatusBadge = (status: Order['status']) => {
+    const variants = {
+      pending: { variant: "secondary" as const, label: "En attente", color: "bg-yellow-100 text-yellow-800" },
+      confirmed: { variant: "default" as const, label: "Confirmée", color: "bg-blue-100 text-blue-800" },
+      shipped: { variant: "default" as const, label: "Expédiée", color: "bg-purple-100 text-purple-800" },
+      delivered: { variant: "default" as const, label: "Livrée", color: "bg-green-100 text-green-800" },
+      cancelled: { variant: "destructive" as const, label: "Annulée", color: "bg-red-100 text-red-800" }
+    }
+    
+    const config = variants[status]
+    return (
+      <Badge className={config.color}>
+        {config.label}
+      </Badge>
+    )
   }
 
-  const handleRefresh = () => {
-    console.log("[v0] Refreshing table data...")
+  const filteredOrders = orders.filter(order => {
+    const matchesSearch = order.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         order.deliveryAddress.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesStatus = statusFilter === "all" || order.status === statusFilter
+    return matchesSearch && matchesStatus
+  })
+
+  // Fonctions pour gérer les actions
+  const handleCancelOrder = (orderId: string) => {
+    updateOrderStatus(orderId, 'cancelled')
+    toast.success("Commande annulée avec succès")
   }
 
-  const handleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen()
-    } else {
-      document.exitFullscreen()
+  const getStatusIcon = (status: Order['status']) => {
+    switch (status) {
+      case 'pending':
+        return <Clock className="h-4 w-4" />
+      case 'confirmed':
+        return <CheckCircle className="h-4 w-4" />
+      case 'shipped':
+        return <Truck className="h-4 w-4" />
+      case 'delivered':
+        return <CheckCircle className="h-4 w-4" />
+      case 'cancelled':
+        return <X className="h-4 w-4" />
+      default:
+        return <AlertCircle className="h-4 w-4" />
     }
   }
 
+  if (userLoading || ordersLoading) {
+    return (
+      <DynamicDashboardLayout>
+        <div className="flex items-center justify-center h-96">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </DynamicDashboardLayout>
+    )
+  }
+
+  if (!user) {
+    return (
+      <DynamicDashboardLayout>
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Vous devez être connecté pour voir vos commandes.</p>
+        </div>
+      </DynamicDashboardLayout>
+    )
+  }
+
   return (
-    <DashboardLayout title=''>
-       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
+    <DynamicDashboardLayout>
+      <div className="space-y-8">
+        {/* En-tête */}
+        <div className="flex flex-col space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold">Les commandes</h2>
-          </div>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-slate-300">Tableau de bord - Les commandes</span>
-
-          </div>
+              <h1 className="text-3xl font-bold">Mes Commandes</h1>
+              <p className="text-muted-foreground">
+                Suivez l'état de vos commandes de livres scolaires
+              </p>
         </div>
       </div>
 
-      <div className="p-6">
-        <div className="bg-white rounded-lg shadow-sm">
-          {/* Toolbar */}
-          <div className="p-6 border-b">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-2">
-
-                <Dialog open={showCreateOrderModal} onOpenChange={setShowCreateOrderModal}>
-                  <DialogTrigger asChild>
-                    <Button className="bg-indigo-600 hover:bg-indigo-700">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Commande
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>Création de nouvelle commande</DialogTitle>
-                    </DialogHeader>
-
-                    <div className="space-y-6">
-                      {/* Client Selection */}
-                      <div>
-                        <Label>Sélectionner le client</Label>
-                        <Select>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Sélectionnez un client" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="client1">ECOLE CONTRACTUELLE</SelectItem>
-                            <SelectItem value="client2">EPP AZALO</SelectItem>
-                          </SelectContent>
-                        </Select>
+          {/* Filtres */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Rechercher par référence ou adresse..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
                       </div>
-
-                      {/* Form Grid */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <Label>Choix de la catégorie</Label>
-                          <Select>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Sélectionnez une catégorie" />
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Statut" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="primaire">Primaire</SelectItem>
-                              <SelectItem value="secondaire">Secondaire</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <Label>Choix de la Matière</Label>
-                          <Select>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Sélectionnez une matière" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="francais">Français</SelectItem>
-                              <SelectItem value="mathematiques">Mathématiques</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <Label>Choix de la classe</Label>
-                          <Select>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Sélectionnez la classe" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="ce1">CE1</SelectItem>
-                              <SelectItem value="ce2">CE2</SelectItem>
-                              <SelectItem value="cm1">CM1</SelectItem>
-                              <SelectItem value="cm2">CM2</SelectItem>
+                <SelectItem value="all">Tous les statuts</SelectItem>
+                <SelectItem value="pending">En attente</SelectItem>
+                <SelectItem value="confirmed">Confirmée</SelectItem>
+                <SelectItem value="shipped">Expédiée</SelectItem>
+                <SelectItem value="delivered">Livrée</SelectItem>
+                <SelectItem value="cancelled">Annulée</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <Label>Choix du livre</Label>
-                          <Select>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Sélectionnez un livre" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="livre1">Réussir en Dictée Orthographe CE1-CE2</SelectItem>
-                              <SelectItem value="livre2">Coffret Réussir en Français CE2</SelectItem>
-                              <SelectItem value="livre3">Réussir en Mathématiques CE1</SelectItem>
-                            </SelectContent>
-                          </Select>
+        {/* Statistiques rapides */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total commandes</CardTitle>
+              <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{orders.length}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">En cours</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {orders.filter(o => ['pending', 'confirmed', 'shipped'].includes(o.status)).length}
                         </div>
-
-                        <div>
-                          <Label>Quantité</Label>
-                          <Input type="number" placeholder="0" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Livrées</CardTitle>
+              <Truck className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {orders.filter(o => o.status === 'delivered').length}
                         </div>
-
-                        <div className="flex items-end">
-                          <Button className="w-full bg-indigo-600 hover:bg-indigo-700">
-                            Ajouter <ChevronDown className="w-4 h-4 ml-2" />
-                          </Button>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total dépensé</CardTitle>
+              <CreditCard className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {orders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + o.total, 0).toLocaleString()} F CFA
                         </div>
+            </CardContent>
+          </Card>
                       </div>
 
-                      <Button variant="outline" className="bg-indigo-600 text-white hover:bg-indigo-700">
-                        Auto
+        {/* Liste des commandes */}
+        {filteredOrders.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <ShoppingCart className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Aucune commande trouvée</h3>
+              <p className="text-muted-foreground text-center mb-4">
+                {searchTerm || statusFilter !== "all" 
+                  ? "Essayez de modifier vos critères de recherche"
+                  : "Vous n'avez pas encore passé de commande"
+                }
+              </p>
+              {!searchTerm && statusFilter === "all" && (
+                <Link href="/dashboard/client/catalogue">
+                  <Button className="mt-4">
+                    <ShoppingCart className="h-4 w-4 mr-2" />
+                    Explorer le catalogue
                       </Button>
-
-                      {/* Order Table */}
-                      <div className="border rounded-lg overflow-hidden">
-                        <div className="overflow-x-auto">
-                          <table className="w-full min-w-[600px]">
-                            <thead className="bg-gray-50">
-                              <tr>
-                                <th className="text-left p-3">Livre</th>
-                                <th className="text-left p-3">Prix</th>
-                                <th className="text-left p-3">Quantité</th>
-                                <th className="text-left p-3">Montant</th>
-                                <th className="text-left p-3">Action</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              <tr>
-                                <td colSpan={5} className="p-8 text-center text-gray-500">
-                                  Aucune commande ajoutée
-                                </td>
-                              </tr>
-                            </tbody>
-                          </table>
+                </Link>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {filteredOrders.map((order) => (
+              <Card key={order.id} className={openOrderId === order.id ? "ring-2 ring-blue-500" : ""}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                        <div>
+                      <CardTitle className="text-lg flex items-center space-x-2">
+                        <span>{order.reference}</span>
+                        {openOrderId === order.id && (
+                          <Badge className="bg-blue-100 text-blue-800 animate-pulse">
+                            Nouvelle commande
+                          </Badge>
+                        )}
+                      </CardTitle>
+                      <CardDescription>
+                        Commandé le {new Date(order.date).toLocaleDateString('fr-FR')}
+                      </CardDescription>
+                        </div>
+                    {getStatusBadge(order.status)}
+                      </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                      <p className="text-sm font-medium text-muted-foreground">Articles</p>
+                      <p className="text-lg font-semibold">{order.itemCount} livre{order.itemCount > 1 ? 's' : ''}</p>
+                      </div>
+                        <div>
+                      <p className="text-sm font-medium text-muted-foreground">Total</p>
+                      <p className="text-lg font-semibold">{order.total.toLocaleString()} F CFA</p>
+                        </div>
+                        <div>
+                      <p className="text-sm font-medium text-muted-foreground">Paiement</p>
+                      <p className="text-sm">{order.paymentMethod}</p>
                         </div>
                       </div>
-
-                      <div className="text-right">
-                        <p className="text-xl font-semibold">Total: 0 XOF</p>
+                  <div className="mt-4">
+                    <p className="text-sm font-medium text-muted-foreground">Adresse de livraison</p>
+                    <p className="text-sm">{order.deliveryAddress}</p>
                       </div>
-
-                      {/* Bottom Form */}
+                  <div className="flex items-center justify-end mt-4 space-x-2">
+                    <Dialog open={openOrderId === order.id} onOpenChange={(open) => {
+                      if (!open) setOpenOrderId(null)
+                    }}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Eye className="h-4 w-4 mr-2" />
+                          Voir détails
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle className="flex items-center space-x-2">
+                            {getStatusIcon(order.status)}
+                            <span>Détails de la commande {order.reference}</span>
+                          </DialogTitle>
+                          <DialogDescription>
+                            Informations complètes sur votre commande
+                          </DialogDescription>
+                        </DialogHeader>
+                        
+                        <div className="space-y-6">
+                          {/* Informations générales */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <Label>Code promo</Label>
-                          <div className="flex gap-2">
-                            <Input placeholder="CODE PROMO" className="flex-1" />
-                            <Button className="bg-indigo-600 hover:bg-indigo-700">Appliquer</Button>
+                              <h4 className="font-semibold mb-2">Informations de commande</h4>
+                              <div className="space-y-2 text-sm">
+                                <p><span className="font-medium">Référence:</span> {order.reference}</p>
+                                <p><span className="font-medium">Date:</span> {new Date(order.date).toLocaleDateString('fr-FR')}</p>
+                                <p><span className="font-medium">Statut:</span> {getStatusBadge(order.status)}</p>
+                                <p><span className="font-medium">Paiement:</span> {order.paymentMethod}</p>
+                                {order.trackingNumber && (
+                                  <p><span className="font-medium">N° de suivi:</span> {order.trackingNumber}</p>
+                                )}
+                                {order.estimatedDelivery && (
+                                  <p><span className="font-medium">Livraison estimée:</span> {new Date(order.estimatedDelivery).toLocaleDateString('fr-FR')}</p>
+                                )}
+                              </div>
+                        </div>
+                        <div>
+                              <h4 className="font-semibold mb-2">Adresse de livraison</h4>
+                              <p className="text-sm">{order.deliveryAddress}</p>
+                              {order.notes && (
+                                <div className="mt-2">
+                                  <h5 className="font-medium text-sm">Notes:</h5>
+                                  <p className="text-sm text-muted-foreground">{order.notes}</p>
                           </div>
-                        </div>
-
-                        <div>
-                          <Label>Type de commande</Label>
-                          <Select>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Commande pour la rentrée scolaire" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="commande">Commande</SelectItem>
-                              <SelectItem value="precommande">Précommande</SelectItem>
-                              <SelectItem value="depot">Dépôt</SelectItem>
-                            </SelectContent>
-                          </Select>
+                              )}
                         </div>
                       </div>
 
-                      {/* Delivery coordination section */}
-                      <div className="bg-black text-white p-4 rounded-lg">
-                        <h3 className="font-semibold text-center">Coordonnées de Livraison</h3>
-                      </div>
+                          <Separator />
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label>Date de livraison</Label>
-                          <Input type="date" defaultValue="2025-09-20" />
-                        </div>
-                        <div>
-                          <Label>Plage horaire</Label>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm">De</span>
-                            <Input type="time" defaultValue="07:00" className="flex-1" />
-                            <span className="text-sm">à</span>
-                            <Input type="time" defaultValue="19:00" className="flex-1" />
-                          </div>
-                        </div>
-                      </div>
-
+                          {/* Articles commandés */}
                       <div>
-                        <Label>Adresse de livraison</Label>
-                        <textarea
-                          className="w-full p-3 border rounded-lg resize-none"
-                          rows={3}
-                          placeholder="Adresse de livraison"
+                            <h4 className="font-semibold mb-4">Articles commandés</h4>
+                            <div className="space-y-3">
+                              {order.items.map((item) => (
+                                <div key={item.id} className="flex items-center space-x-4 p-3 border rounded-lg">
+                                  <div className="relative w-16 h-20 bg-gray-100 rounded">
+                                    <Image
+                                      src={item.image}
+                                      alt={item.title}
+                                      fill
+                                      className="object-cover rounded"
+                                      sizes="64px"
                         />
                       </div>
-
-                      <div>
-                        <Label>Sélectionnez Mode de paiement</Label>
-                        <Select>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Sélectionnez mode de règlement" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="mtn-benin">MTN Benin (Mobile Money)</SelectItem>
-                            <SelectItem value="autre-reseau">Autre réseau (Moov, Celtiis, ...)</SelectItem>
-                            <SelectItem value="depot-stock">Dépôt de stock</SelectItem>
-                            <SelectItem value="momopay">MomoPay (Paiement comptant)</SelectItem>
-                            <SelectItem value="carte-bancaire">Carte bancaire</SelectItem>
-                            <SelectItem value="cheque-virement">Chèque/Virement</SelectItem>
-                            <SelectItem value="reapprovisionnement">Réapprovisionnement</SelectItem>
-                            <SelectItem value="proform">Proform</SelectItem>
-                          </SelectContent>
-                        </Select>
+                                  <div className="flex-1">
+                                    <h5 className="font-medium text-sm">{item.title}</h5>
+                                    <p className="text-xs text-muted-foreground">ISBN: {item.isbn}</p>
+                                    <p className="text-sm font-semibold text-blue-600">
+                                      {item.price.toLocaleString()} F CFA
+                                    </p>
                       </div>
-
-                      {/* Action buttons */}
-                      <div className="flex gap-4 pt-4">
-                        <Button className="bg-indigo-600 hover:bg-indigo-700 flex-1">
-                          Enregistrer <Package className="w-4 h-4 ml-2" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="flex-1 bg-transparent"
-                          onClick={() => setShowCreateOrderModal(false)}
-                        >
-                          Fermer <X className="w-4 h-4 ml-2" />
-                        </Button>
+                                  <div className="text-sm">
+                                    <span className="font-medium">Quantité:</span> {item.quantity}
                       </div>
                     </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-
-
+                              ))}
             </div>
           </div>
 
-          {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
-            <div className="relative">
-              <button
-                onClick={() => setShowDatePicker(!showDatePicker)}
-                className="flex items-center space-x-2 px-4 py-2 border rounded-lg hover:bg-gray-50 w-full"
-              >
-                <Calendar className="w-4 h-4" />
-                <span className="text-sm">20 juin 2025 - 20 sept. 2025</span>
-              </button>
+                          <Separator />
+
+                          {/* Total */}
+                          <div className="flex justify-between items-center">
+                            <span className="text-lg font-semibold">Total de la commande:</span>
+                            <span className="text-xl font-bold text-blue-600">
+                              {order.total.toLocaleString()} F CFA
+                            </span>
+          </div>
+        </div>
+                      </DialogContent>
+                    </Dialog>
+
+                    {order.status === 'pending' && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                            Annuler
+              </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Annuler la commande</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Êtes-vous sûr de vouloir annuler la commande {order.reference} ? 
+                              Cette action est irréversible.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Non, garder la commande</AlertDialogCancel>
+                            <AlertDialogAction 
+                              onClick={() => handleCancelOrder(order.id)}
+                              className="bg-red-600 hover:bg-red-700"
+                            >
+                              Oui, annuler la commande
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
             </div>
-
-            <Select>
-              <SelectTrigger>
-                <SelectValue placeholder="Tous les statuts" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="tous">Tous les statuts</SelectItem>
-                <SelectItem value="commande">Commande</SelectItem>
-                <SelectItem value="precommande">Précommande</SelectItem>
-                <SelectItem value="depot">Dépôt</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select>
-              <SelectTrigger>
-                <SelectValue placeholder="Tous les types" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="tous">Tous les types</SelectItem>
-                <SelectItem value="commande">Commande</SelectItem>
-                <SelectItem value="precommande">Précommande</SelectItem>
-                <SelectItem value="depot">Dépôt</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select>
-              <SelectTrigger>
-                <SelectValue placeholder="Toutes les méthodes" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="toutes">Toutes les méthodes</SelectItem>
-                <SelectItem value="mtn-benin">MTN Benin (Mobile Money)</SelectItem>
-                <SelectItem value="autre-reseau">Autre réseau (Moov, Celtis, ...)</SelectItem>
-                <SelectItem value="depot-stock">Dépôt de stock</SelectItem>
-                <SelectItem value="momopay">MomoPay (Paiement comptant)</SelectItem>
-                <SelectItem value="carte-bancaire">Carte bancaire</SelectItem>
-                <SelectItem value="cheque-virement">Chèque/Virement</SelectItem>
-                <SelectItem value="reapprovisionnement">Réapprovisionnement</SelectItem>
-                <SelectItem value="proform">Proform</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select>
-              <SelectTrigger>
-                <SelectValue placeholder="Vacances et rentrée scolaire" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="cours-vacances">Cours de vacances</SelectItem>
-                <SelectItem value="rentree-scolaire">Rentrée scolaire</SelectItem>
-              </SelectContent>
-            </Select>
+                </CardContent>
+              </Card>
+            ))}
           </div>
-
-          <div className="flex justify-end">
-            <Button className="bg-indigo-600 hover:bg-indigo-700">
-              <Filter className="w-4 h-4 mr-2" />
-              Appliquer
-            </Button>
-          </div>
+        )}
         </div>
-
-        {/* Table Controls */}
-        <div className="p-6 border-b">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-600">Afficher</span>
-              <Select defaultValue="25">
-                <SelectTrigger className="w-20">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="25">25</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                  <SelectItem value="100">100</SelectItem>
-                </SelectContent>
-              </Select>
-              <span className="text-sm text-gray-600">éléments</span>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-600">Rechercher:</span>
-              <Input placeholder="Rechercher..." className="w-64" />
-            </div>
-          </div>
-        </div>
-
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1200px]">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="text-left p-4">Référence</th>
-                <th className="text-left p-4">Nbr. livre</th>
-                <th className="text-left p-4">Demandé par</th>
-                <th className="text-left p-4">Date livraison</th>
-                <th className="text-left p-4">Type</th>
-                <th className="text-left p-4">Statut</th>
-                <th className="text-left p-4">Livraison</th>
-                <th className="text-left p-4">État Réception</th>
-                <th className="text-left p-4">Paiement</th>
-                <th className="text-left p-4">Méthode</th>
-                <th className="text-left p-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b">
-                <td className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span>2025COM28</span>
-                  </div>
-                </td>
-                <td className="p-4">5</td>
-                <td className="p-4">
-                  <div>
-                    <p>ECOLE CONTRACTUELLE (</p>
-                    <p className="text-sm text-gray-500">+22994551975)</p>
-                  </div>
-                </td>
-                <td className="p-4">22/08/2025</td>
-                <td className="p-4">
-                  <span className="px-2 py-1 bg-pink-100 text-pink-800 rounded text-sm">Commande</span>
-                </td>
-                <td className="p-4">
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">Validée</span>
-                </td>
-                <td className="p-4">
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">Livraison partielle</span>
-                </td>
-                <td className="p-4">
-                  <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-sm">Aucune réception</span>
-                </td>
-                <td className="p-4">
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">Enregistrée</span>
-                </td>
-                <td className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <button className="p-1 hover:bg-gray-100 rounded">
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    <button className="p-1 hover:bg-gray-100 rounded">
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button className="p-1 hover:bg-gray-100 rounded">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                    <button className="p-1 hover:bg-gray-100 rounded">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-
-              <tr className="border-b">
-                <td className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span>2025COM27</span>
-                  </div>
-                </td>
-                <td className="p-4">5</td>
-                <td className="p-4">
-                  <div>
-                    <p>EPP AZALO (</p>
-                    <p className="text-sm text-gray-500">+22997648441)</p>
-                  </div>
-                </td>
-                <td className="p-4">25/07/2025</td>
-                <td className="p-4">
-                  <span className="px-2 py-1 bg-pink-100 text-pink-800 rounded text-sm">Commande</span>
-                </td>
-                <td className="p-4">
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">Validée</span>
-                </td>
-                <td className="p-4">
-                  <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded text-sm">en attente de validation</span>
-                </td>
-                <td className="p-4">
-                  <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-sm">Aucune réception</span>
-                </td>
-                <td className="p-4">
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">Enregistrée</span>
-                </td>
-                <td className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <button className="p-1 hover:bg-gray-100 rounded">
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    <button className="p-1 hover:bg-gray-100 rounded">
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button className="p-1 hover:bg-gray-100 rounded">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                    <button className="p-1 hover:bg-gray-100 rounded">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        <div className="p-6 border-t">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-600">Affichage de 1 à 2 sur 2 éléments</p>
-
-            <div className="flex items-center space-x-2">
-              <Button variant="outline" size="sm">
-                Premier
-              </Button>
-              <Button variant="outline" size="sm">
-                Précédent
-              </Button>
-              <Button variant="outline" size="sm" className="bg-indigo-600 text-white">
-                1
-              </Button>
-              <Button variant="outline" size="sm">
-                Suivant
-              </Button>
-              <Button variant="outline" size="sm">
-                Dernier
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Export Buttons */}
-        <div className="p-6 border-t bg-gray-50">
-          <div className="flex justify-end space-x-2">
-            <Button variant="outline" className="bg-blue-600 text-white hover:bg-blue-700">
-              PDF
-            </Button>
-            <Button variant="outline" className="bg-blue-600 text-white hover:bg-blue-700">
-              EXCEL
-            </Button>
-            <Button variant="outline">
-              <Printer className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-    </DashboardLayout>
+    </DynamicDashboardLayout>
   )
 }

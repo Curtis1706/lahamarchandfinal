@@ -1,0 +1,277 @@
+  // This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String    @id @default(cuid())
+  name            String
+  email           String    @unique
+  emailVerified   DateTime? // Changé en DateTime? pour stocker quand l'email a été validé
+  image           String?
+  password        String
+  role            Role
+  disciplineId    String?   // Ajout du champ disciplineId
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  authoredWorks     Work[]        @relation("AuthorWorks")
+  conceivedWorks    Work[]        @relation("ConceptorWorks")
+  conceivedProjects Project[]     @relation("ConceptorProjects")
+  reviewedProjects  Project[]     @relation("ReviewedProjects")
+  partner           Partner?      
+  partnerClients    Partner[]     @relation("PartnerRepresentant")
+  orders            Order[]
+  royalties         Royalty[]
+  notifications     Notification[]
+  discipline        Discipline?   @relation(fields: [disciplineId], references: [id]) // Relation avec Discipline
+
+  // NextAuth relations
+  accounts        Account[]
+  sessions        Session[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+
+model Project {
+  id           String        @id @default(cuid())
+  title        String
+  description  String?
+  discipline   Discipline    @relation(fields: [disciplineId], references: [id])
+  disciplineId String
+  status       ProjectStatus @default(DRAFT)
+  submittedAt  DateTime?
+  reviewedAt   DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  // Relations
+  concepteurId String
+  concepteur   User         @relation("ConceptorProjects", fields: [concepteurId], references: [id])
+  reviewerId   String?
+  reviewer     User?        @relation("ReviewedProjects", fields: [reviewerId], references: [id])
+  
+  // Relation vers l'œuvre créée (si validé)
+  workId       String?      @unique
+  work         Work?        @relation(fields: [workId], references: [id])
+}
+
+model Work {
+  id           String     @id @default(cuid())
+  title        String
+  isbn         String     @unique
+  price        Float
+  tva          Float      @default(0.18) // 18% TVA par défaut
+  stock        Int        @default(0)
+  minStock     Int        @default(10) // Seuil d'alerte de stock faible
+  maxStock     Int?       // Stock maximum recommandé
+  discipline   Discipline @relation(fields: [disciplineId], references: [id])
+  disciplineId String
+  status       WorkStatus @default(PUBLISHED)
+  publishedAt  DateTime   @default(now())
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @default(now()) @updatedAt
+
+  // Relations
+  authorId     String?
+  author       User?       @relation("AuthorWorks", fields: [authorId], references: [id])
+  concepteurId String?
+  concepteur   User?       @relation("ConceptorWorks", fields: [concepteurId], references: [id])
+  
+  // Relation vers le projet d'origine
+  project      Project?
+  
+  sales        Sale[]
+  orderItems   OrderItem[]
+  royalties    Royalty[]
+  stockMovements StockMovement[]
+}
+
+model StockMovement {
+  id          String           @id @default(cuid())
+  workId      String
+  work        Work             @relation(fields: [workId], references: [id])
+  type        StockMovementType
+  quantity    Int              // Quantité positive pour ajout, négative pour retrait
+  reason      String?          // Raison du mouvement (vente, réimpression, ajustement, etc.)
+  reference   String?          // Référence (ID de commande, numéro de facture, etc.)
+  performedBy String?          // ID de l'utilisateur qui a effectué le mouvement
+  createdAt   DateTime         @default(now())
+  
+  @@index([workId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model Discipline {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  projects  Project[]
+  works     Work[]
+  users     User[]    // Relation avec les utilisateurs (concepteurs)
+}
+
+model Sale {
+  id        String   @id @default(cuid())
+  workId    String
+  work      Work     @relation(fields: [workId], references: [id])
+  quantity  Int
+  amount    Float
+  createdAt DateTime @default(now())
+}
+
+model Partner {
+  id          String   @id @default(cuid())
+  name        String   // Nom de l'organisation
+  type        String   // Type: école, librairie, institution, maison d'édition, association
+  address     String?  // Adresse complète
+  phone       String?  // Téléphone
+  email       String?  // Email de contact
+  contact     String?  // Personne de contact
+  website     String?  // Site web
+  description String?  // Description de l'organisation
+  representantId String? // ID du représentant assigné
+  representant User? @relation("PartnerRepresentant", fields: [representantId], references: [id])
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  orders      Order[]  @relation("PartnerOrders")
+}
+
+model Order {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  partnerId String?  // ID du partenaire si c'est une commande partenaire
+  partner   Partner? @relation("PartnerOrders", fields: [partnerId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  status    OrderStatus @default(PENDING)
+
+  // Relations
+  items     OrderItem[]
+}
+
+model OrderItem {
+  id       String @id @default(cuid())
+  orderId  String
+  order    Order  @relation(fields: [orderId], references: [id])
+  workId   String
+  work     Work   @relation(fields: [workId], references: [id])
+  quantity Int
+  price    Float
+}
+
+model Royalty {
+  id        String   @id @default(cuid())
+  workId    String
+  work      Work     @relation(fields: [workId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  amount    Float
+  paid      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+enum Role {
+  PDG
+  REPRESENTANT
+  CONCEPTEUR
+  AUTEUR
+  PARTENAIRE
+  CLIENT
+}
+
+enum ProjectStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  ACCEPTED
+  REJECTED
+}
+
+enum WorkStatus {
+  PUBLISHED
+  ON_SALE
+  OUT_OF_STOCK
+  DISCONTINUED
+}
+
+enum OrderStatus {
+  PENDING
+  VALIDATED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum StockMovementType {
+  INBOUND        // Entrée de stock (réimpression, réception)
+  OUTBOUND       // Sortie de stock (vente, retrait)
+  ADJUSTMENT     // Ajustement de stock (inventaire, correction)
+  TRANSFER       // Transfert entre entrepôts
+  DAMAGED        // Stock endommagé
+  EXPIRED        // Stock expiré
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  message   String
+  type      String   // Type de notification (STOCK_UPDATE, ORDER_UPDATE, etc.)
+  data      String?  // Données JSON additionnelles
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  action       String   // Type d'action (VALIDATE_CONCEPTEUR, SUSPEND_USER, etc.)
+  userId       String?  // ID de l'utilisateur concerné
+  performedBy  String   // Qui a effectué l'action (PDG, etc.)
+  details      String   // Détails JSON de l'action
+  createdAt    DateTime @default(now())
+}

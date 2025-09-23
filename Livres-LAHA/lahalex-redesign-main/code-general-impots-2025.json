@@ -1,0 +1,1555 @@
+{
+  "id": "code-general-impots-2025",
+  "title": "Code Général des Impôts - République du Bénin (2025)",
+  "type": "codes",
+  "description": "Code fiscal régissant l'ensemble des impositions directes et indirectes, procédures et obligations fiscales en République du Bénin pour l'année 2025.",
+  "structure": {
+    "sections": [
+      {
+        "id": "livre-1",
+        "title": "LIVRE 1 : IMPOTS DIRECTS",
+        "type": "livre",
+        "level": 1,
+        "order": 0,
+        "path": [
+          "livre-1"
+        ],
+        "children": [
+          "titre-1",
+          "livre-2"
+        ]
+      },
+      {
+        "id": "titre-1",
+        "title": "TITRE 1 :IMPOTS SUR LE REVENU",
+        "type": "titre",
+        "level": 2,
+        "order": 1,
+        "path": [
+          "livre-1",
+          "titre-1"
+        ],
+        "children": [
+          "chapitre-1",
+          "titre-2",
+          "article-317-"
+        ]
+      },
+      {
+        "id": "chapitre-1",
+        "title": "CHAPITRE 1 : IMPOT SUR LES SOCIÉTÉS",
+        "type": "chapitre",
+        "level": 3,
+        "order": 2,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-1"
+        ],
+        "children": [
+          "article-2-",
+          "section-1",
+          "chapitre-2",
+          "article-151-",
+          "chapitre-99",
+          "chapitre-115",
+          "article-291-",
+          "article-292-",
+          "article-293-",
+          "article-294-",
+          "article-295-",
+          "article-484-",
+          "article-594-"
+        ]
+      },
+      {
+        "id": "section-1",
+        "title": "SECTION 1 : CHAMP D’APPLICATION",
+        "type": "section",
+        "level": 4,
+        "order": 3,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-1",
+          "section-1"
+        ],
+        "children": [
+          "sous-section-1",
+          "section-2",
+          "article-55-",
+          "article-56-",
+          "article-57-",
+          "article-58-",
+          "article-59-",
+          "article-101-",
+          "article-102-",
+          "article-108-",
+          "article-109-",
+          "article-110-",
+          "article-119-",
+          "article-120-",
+          "article-121-",
+          "article-174-",
+          "article-178-",
+          "article-179-",
+          "article-180-",
+          "article-181-",
+          "article-182-",
+          "article-264-",
+          "article-265-",
+          "article-266-",
+          "article-274-",
+          "article-275-",
+          "article-281-",
+          "article-282-",
+          "article-285-",
+          "article-286-",
+          "article-287-",
+          "article-296-",
+          "article-297-",
+          "article-298-",
+          "article-299-",
+          "article-318-",
+          "article-319-",
+          "article-322-",
+          "article-323-",
+          "article-329-",
+          "article-355-",
+          "article-356-",
+          "article-371-",
+          "article-372-",
+          "article-373-",
+          "article-374-",
+          "article-375-",
+          "article-376-",
+          "article-399-",
+          "article-400-",
+          "article-442-",
+          "article-453-",
+          "article-454-",
+          "article-455-",
+          "article-456-",
+          "article-457-",
+          "article-458-",
+          "article-466-",
+          "article-467-",
+          "article-479-",
+          "article-481-",
+          "article-485-",
+          "article-504-",
+          "article-505-",
+          "article-506-",
+          "article-507-",
+          "article-508-",
+          "article-509-",
+          "article-510-",
+          "article-516-",
+          "article-533-",
+          "article-534-",
+          "article-572-",
+          "article-573-",
+          "article-574-",
+          "article-575-",
+          "article-576-",
+          "article-577-",
+          "article-583-",
+          "article-584-",
+          "article-588-",
+          "article-589-",
+          "article-590-",
+          "article-595-",
+          "article-596-",
+          "article-597-",
+          "article-598-",
+          "article-599-",
+          "article-648-",
+          "article-649-"
+        ]
+      },
+      {
+        "id": "sous-section-1",
+        "title": "SOUS-SECTION 1 : PERSONNES IMPOSABLES",
+        "type": "sous-section",
+        "level": 5,
+        "order": 4,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-1",
+          "section-1",
+          "sous-section-1"
+        ],
+        "children": [
+          "article-3-",
+          "sous-section-2",
+          "article-8-",
+          "article-9-",
+          "article-49-",
+          "article-50-",
+          "article-69-",
+          "article-70-",
+          "article-71-",
+          "article-82-",
+          "article-83-",
+          "article-84-",
+          "article-94-",
+          "article-95-",
+          "article-130-",
+          "article-131-",
+          "article-145-",
+          "article-152-",
+          "article-196-",
+          "article-197-",
+          "article-198-",
+          "article-213-",
+          "article-214-",
+          "article-223-",
+          "article-224-",
+          "article-225-",
+          "article-235-",
+          "article-237-",
+          "article-238-",
+          "article-239-",
+          "article-240-",
+          "article-243-",
+          "article-244-",
+          "article-245-",
+          "article-246-",
+          "article-258-",
+          "article-259-",
+          "article-260-",
+          "article-261-",
+          "article-262-",
+          "article-330-",
+          "article-331-",
+          "article-332-",
+          "article-333-",
+          "article-362-",
+          "article-363-",
+          "article-364-",
+          "article-365-",
+          "article-366-",
+          "article-384-",
+          "article-385-",
+          "article-406-",
+          "article-407-",
+          "article-408-",
+          "article-409-",
+          "article-410-",
+          "article-411-",
+          "article-412-",
+          "article-413-",
+          "article-414-",
+          "article-424-",
+          "article-425-",
+          "article-426-",
+          "article-427-",
+          "article-428-",
+          "article-460-",
+          "article-461-",
+          "article-493-",
+          "article-495-",
+          "article-537-",
+          "article-538-",
+          "article-539-",
+          "article-540-",
+          "article-541-",
+          "article-553-",
+          "article-554-",
+          "article-555-",
+          "article-556-",
+          "article-557-",
+          "article-600-",
+          "article-601-",
+          "article-605-",
+          "article-606-",
+          "article-607-",
+          "article-608-",
+          "article-609-",
+          "article-610-",
+          "article-611-",
+          "article-618-",
+          "article-632-",
+          "article-633-",
+          "article-634-"
+        ]
+      },
+      {
+        "id": "sous-section-2",
+        "title": "SOUS-SECTION 2 : EXONERATIONS",
+        "type": "sous-section",
+        "level": 5,
+        "order": 5,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-1",
+          "section-1",
+          "sous-section-1",
+          "sous-section-2"
+        ],
+        "children": [
+          "article-4-",
+          "sous-section-3",
+          "paragraphe-1",
+          "article-51-",
+          "article-52-",
+          "article-85-",
+          "article-96-",
+          "article-97-",
+          "article-132-",
+          "article-133-",
+          "article-134-",
+          "article-146-",
+          "article-153-",
+          "article-154-",
+          "article-155-",
+          "article-199-",
+          "article-215-",
+          "article-226-",
+          "article-227-",
+          "article-228-",
+          "article-229-",
+          "article-230-",
+          "article-231-",
+          "article-236-",
+          "article-241-",
+          "article-242-",
+          "article-247-",
+          "article-263-",
+          "article-334-",
+          "article-335-",
+          "article-336-",
+          "article-337-",
+          "article-338-",
+          "article-367-",
+          "article-368-",
+          "article-369-",
+          "article-415-",
+          "article-416-",
+          "article-417-",
+          "article-418-",
+          "article-419-",
+          "article-420-",
+          "article-421-",
+          "article-422-",
+          "article-429-",
+          "article-462-",
+          "article-486-",
+          "article-494-",
+          "article-496-",
+          "article-497-",
+          "article-498-",
+          "article-499-",
+          "article-542-",
+          "article-543-",
+          "article-544-",
+          "article-558-",
+          "article-602-",
+          "article-603-",
+          "article-612-",
+          "article-613-",
+          "article-614-",
+          "article-619-",
+          "article-635-",
+          "article-636-"
+        ]
+      },
+      {
+        "id": "sous-section-3",
+        "title": "SOUS-SECTION 3 : TERRITORIALITE",
+        "type": "sous-section",
+        "level": 5,
+        "order": 6,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-1",
+          "section-1",
+          "sous-section-2",
+          "sous-section-3"
+        ],
+        "children": [
+          "article-5-",
+          "article-6-",
+          "article-7-",
+          "article-20-",
+          "article-21-",
+          "sous-section-4",
+          "article-53-",
+          "article-81-",
+          "article-98-",
+          "article-99-",
+          "article-100-",
+          "article-147-",
+          "article-156-",
+          "article-209-",
+          "article-210-",
+          "article-216-",
+          "article-217-",
+          "article-248-",
+          "article-249-",
+          "article-339-",
+          "article-470-",
+          "article-471-",
+          "article-500-",
+          "article-501-",
+          "article-559-",
+          "article-560-",
+          "article-561-",
+          "article-615-",
+          "article-637-"
+        ]
+      },
+      {
+        "id": "section-2",
+        "title": "SECTION 2 : DETERMINATION DU BENEFICE IMPOSABLE",
+        "type": "section",
+        "level": 4,
+        "order": 7,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-1",
+          "section-1",
+          "section-2"
+        ],
+        "children": [
+          "section-3",
+          "article-60-",
+          "article-61-",
+          "article-62-",
+          "article-103-",
+          "article-111-",
+          "article-112-",
+          "article-113-",
+          "article-114-",
+          "article-122-",
+          "article-123-",
+          "article-124-",
+          "article-135-",
+          "article-136-",
+          "article-137-",
+          "article-138-",
+          "article-139-",
+          "article-140-",
+          "article-148-",
+          "article-157-",
+          "article-158-",
+          "article-175-",
+          "article-183-",
+          "article-268-",
+          "article-269-",
+          "article-276-",
+          "article-277-",
+          "article-278-",
+          "article-283-",
+          "article-288-",
+          "article-289-",
+          "article-300-",
+          "article-320-",
+          "article-324-",
+          "article-325-",
+          "article-340-",
+          "article-341-",
+          "article-342-",
+          "article-357-",
+          "article-358-",
+          "article-377-",
+          "article-378-",
+          "article-379-",
+          "article-394-",
+          "article-395-",
+          "article-401-",
+          "article-402-",
+          "article-443-",
+          "article-444-",
+          "article-459-",
+          "article-463-",
+          "article-468-",
+          "article-469-",
+          "article-480-",
+          "article-482-",
+          "article-483-",
+          "article-487-",
+          "article-488-",
+          "article-489-",
+          "article-490-",
+          "article-491-",
+          "article-492-",
+          "article-511-",
+          "article-517-",
+          "article-518-",
+          "article-519-",
+          "article-520-",
+          "article-521-",
+          "article-522-",
+          "article-523-",
+          "article-524-",
+          "article-525-",
+          "article-535-",
+          "article-536-",
+          "article-564-",
+          "article-565-",
+          "article-566-",
+          "article-567-",
+          "article-578-",
+          "article-585-",
+          "article-586-",
+          "article-591-",
+          "article-616-",
+          "article-617-",
+          "article-650-"
+        ]
+      },
+      {
+        "id": "paragraphe-1",
+        "title": "PARAGRAPHE 1 : DETERMINATION DES PRODUITS IMPOSABLES",
+        "type": "paragraphe",
+        "level": 6,
+        "order": 10,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-1",
+          "section-2",
+          "sous-section-2",
+          "paragraphe-1"
+        ],
+        "children": [
+          "article-10-",
+          "article-11-",
+          "article-12-",
+          "article-13-",
+          "paragraphe-2",
+          "article-22-",
+          "article-23-",
+          "article-24-",
+          "article-72-",
+          "article-200-",
+          "article-201-",
+          "article-202-",
+          "article-203-",
+          "article-386-",
+          "article-387-",
+          "article-388-",
+          "article-389-",
+          "article-430-",
+          "article-620-",
+          "article-621-",
+          "article-622-",
+          "article-623-",
+          "article-624-",
+          "article-625-",
+          "article-626-",
+          "article-628-"
+        ]
+      },
+      {
+        "id": "paragraphe-2",
+        "title": "PARAGRAPHE 2 : PRODUITS EXONERES",
+        "type": "paragraphe",
+        "level": 6,
+        "order": 11,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-1",
+          "section-2",
+          "sous-section-2",
+          "paragraphe-1",
+          "paragraphe-2"
+        ],
+        "children": [
+          "article-14-",
+          "article-15-",
+          "paragraphe-3",
+          "article-25-",
+          "article-73-",
+          "article-204-",
+          "article-205-",
+          "article-206-",
+          "article-390-",
+          "article-391-",
+          "article-392-",
+          "article-393-",
+          "article-431-",
+          "article-432-",
+          "article-433-",
+          "article-434-",
+          "article-627-",
+          "article-629-",
+          "article-630-",
+          "article-631-"
+        ]
+      },
+      {
+        "id": "paragraphe-3",
+        "title": "PARAGRAPHE 3 : REGIME DES SUBVENTIONS",
+        "type": "paragraphe",
+        "level": 6,
+        "order": 12,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-1",
+          "section-2",
+          "sous-section-2",
+          "paragraphe-2",
+          "paragraphe-3"
+        ],
+        "children": [
+          "article-16-",
+          "paragraphe-4",
+          "article-26-",
+          "article-27-",
+          "article-28-",
+          "article-29-",
+          "article-30-",
+          "paragraphe-29",
+          "article-74-",
+          "article-207-",
+          "article-435-"
+        ]
+      },
+      {
+        "id": "paragraphe-4",
+        "title": "PARAGRAPHE 4 : REGIME DES PLUS-VALUES",
+        "type": "paragraphe",
+        "level": 6,
+        "order": 13,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-1",
+          "section-2",
+          "sous-section-2",
+          "paragraphe-3",
+          "paragraphe-4"
+        ],
+        "children": [
+          "article-17-",
+          "article-18-",
+          "article-19-",
+          "article-75-",
+          "article-208-",
+          "article-436-"
+        ]
+      },
+      {
+        "id": "paragraphe-29",
+        "title": "PARAGRAPHE 29 : PRIMES D’ASSURANCES",
+        "type": "paragraphe",
+        "level": 6,
+        "order": 18,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-1",
+          "section-2",
+          "sous-section-3",
+          "paragraphe-3",
+          "paragraphe-29"
+        ],
+        "children": [
+          "article-31-",
+          "paragraphe-5"
+        ]
+      },
+      {
+        "id": "paragraphe-5",
+        "title": "PARAGRAPHE 5 : AIDES, LIBERALITES, DONS ET SUBVENTIONS",
+        "type": "paragraphe",
+        "level": 6,
+        "order": 19,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-1",
+          "section-2",
+          "sous-section-3",
+          "paragraphe-29",
+          "paragraphe-5"
+        ],
+        "children": [
+          "article-32-",
+          "article-33-",
+          "paragraphe-7",
+          "article-76-",
+          "paragraphe-6",
+          "article-437-"
+        ]
+      },
+      {
+        "id": "paragraphe-7",
+        "title": "PARAGRAPHE 7 : REMUNERATIONS OCCULTES",
+        "type": "paragraphe",
+        "level": 6,
+        "order": 20,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-1",
+          "section-2",
+          "sous-section-3",
+          "paragraphe-5",
+          "paragraphe-7"
+        ],
+        "children": [
+          "article-34-",
+          "paragraphe-8",
+          "article-78-"
+        ]
+      },
+      {
+        "id": "paragraphe-8",
+        "title": "PARAGRAPHE 8 : IMPOTS, TAXES ET AMENDES",
+        "type": "paragraphe",
+        "level": 6,
+        "order": 21,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-1",
+          "section-2",
+          "sous-section-3",
+          "paragraphe-7",
+          "paragraphe-8"
+        ],
+        "children": [
+          "article-35-",
+          "article-36-",
+          "paragraphe-9",
+          "article-79-"
+        ]
+      },
+      {
+        "id": "paragraphe-9",
+        "title": "PARAGRAPHE 9 : ETALEMENT DES CHARGES ET AMORTISSEMENTS",
+        "type": "paragraphe",
+        "level": 6,
+        "order": 22,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-1",
+          "section-2",
+          "sous-section-3",
+          "paragraphe-8",
+          "paragraphe-9"
+        ],
+        "children": [
+          "article-37-",
+          "article-38-",
+          "article-39-",
+          "article-40-",
+          "paragraphe-10",
+          "article-80-"
+        ]
+      },
+      {
+        "id": "paragraphe-10",
+        "title": "PARAGRAPHE 10 : PROVISIONS",
+        "type": "paragraphe",
+        "level": 6,
+        "order": 23,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-1",
+          "section-2",
+          "sous-section-3",
+          "paragraphe-9",
+          "paragraphe-10"
+        ],
+        "children": [
+          "article-41-",
+          "article-42-",
+          "paragraphe-11"
+        ]
+      },
+      {
+        "id": "paragraphe-11",
+        "title": "PARAGRAPHE 11 : REPORTS DEFICITAIRES",
+        "type": "paragraphe",
+        "level": 6,
+        "order": 24,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-1",
+          "section-2",
+          "sous-section-3",
+          "paragraphe-10",
+          "paragraphe-11"
+        ],
+        "children": [
+          "article-43-",
+          "paragraphe-12"
+        ]
+      },
+      {
+        "id": "paragraphe-12",
+        "title": "PARAGRAPHE 12 : DEROGATIONS SECTORIELLES",
+        "type": "paragraphe",
+        "level": 6,
+        "order": 25,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-1",
+          "section-2",
+          "sous-section-3",
+          "paragraphe-11",
+          "paragraphe-12"
+        ],
+        "children": [
+          "article-44-"
+        ]
+      },
+      {
+        "id": "sous-section-4",
+        "title": "SOUS-SECTION 4 : PRIX DE TRANSFERTS",
+        "type": "sous-section",
+        "level": 5,
+        "order": 26,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-1",
+          "section-2",
+          "sous-section-3",
+          "sous-section-4"
+        ],
+        "children": [
+          "article-45-",
+          "article-211-",
+          "article-212-",
+          "article-232-",
+          "article-233-",
+          "article-234-",
+          "article-250-",
+          "article-251-",
+          "sous-section-5",
+          "article-439-",
+          "article-472-",
+          "article-502-",
+          "article-562-",
+          "article-563-"
+        ]
+      },
+      {
+        "id": "section-3",
+        "title": "SECTION 3 : CALCUL DE L’IMPOT",
+        "type": "section",
+        "level": 4,
+        "order": 27,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-1",
+          "section-2",
+          "section-3"
+        ],
+        "children": [
+          "article-46-",
+          "article-47-",
+          "article-48-",
+          "section-4",
+          "article-63-",
+          "article-64-",
+          "article-65-",
+          "article-86-",
+          "article-87-",
+          "article-88-",
+          "article-89-",
+          "article-104-",
+          "article-115-",
+          "article-125-",
+          "article-126-",
+          "article-141-",
+          "article-142-",
+          "article-143-",
+          "article-149-",
+          "article-159-",
+          "article-160-",
+          "article-184-",
+          "article-185-",
+          "article-186-",
+          "article-187-",
+          "article-270-",
+          "article-271-",
+          "article-272-",
+          "article-273-",
+          "article-279-",
+          "article-280-",
+          "article-284-",
+          "article-290-",
+          "article-301-",
+          "article-302-",
+          "article-303-",
+          "article-321-",
+          "article-326-",
+          "article-327-",
+          "article-328-",
+          "article-343-",
+          "article-344-",
+          "article-359-",
+          "article-360-",
+          "article-361-",
+          "article-380-",
+          "article-381-",
+          "article-382-",
+          "article-396-",
+          "article-397-",
+          "article-398-",
+          "article-403-",
+          "article-404-",
+          "article-423-",
+          "article-445-",
+          "article-446-",
+          "article-447-",
+          "article-448-",
+          "article-449-",
+          "article-464-",
+          "article-465-",
+          "article-476-",
+          "article-477-",
+          "article-526-",
+          "article-527-",
+          "article-568-",
+          "article-569-",
+          "article-570-",
+          "article-571-",
+          "article-579-",
+          "article-580-",
+          "article-581-",
+          "article-587-",
+          "article-592-",
+          "article-604-",
+          "article-651-",
+          "article-652-",
+          "article-653-",
+          "article-654-",
+          "article-655-",
+          "article-656-"
+        ]
+      },
+      {
+        "id": "section-4",
+        "title": "SECTION 4 :DECLARATION ET PAIEMENT",
+        "type": "section",
+        "level": 4,
+        "order": 28,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-1",
+          "section-3",
+          "section-4"
+        ],
+        "children": [
+          "article-66-",
+          "article-67-",
+          "article-90-",
+          "article-91-",
+          "article-92-",
+          "article-93-",
+          "section-5",
+          "article-105-",
+          "article-106-",
+          "article-107-",
+          "article-116-",
+          "article-117-",
+          "article-118-",
+          "article-127-",
+          "article-128-",
+          "article-129-",
+          "article-144-",
+          "article-150-",
+          "article-161-",
+          "article-188-",
+          "article-189-",
+          "article-345-",
+          "article-450-",
+          "article-451-",
+          "article-452-",
+          "article-478-",
+          "article-528-",
+          "article-529-",
+          "article-530-",
+          "article-531-",
+          "article-532-",
+          "article-545-",
+          "article-546-",
+          "article-547-",
+          "article-548-",
+          "article-593-",
+          "article-638-",
+          "article-639-",
+          "article-640-",
+          "article-641-",
+          "article-642-",
+          "article-643-",
+          "article-644-",
+          "article-657-"
+        ]
+      },
+      {
+        "id": "chapitre-2",
+        "title": "CHAPITRE 2 : IMPOT SUR LES BENEFICES D’AFFAIRES (IBA)",
+        "type": "chapitre",
+        "level": 3,
+        "order": 32,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-1",
+          "chapitre-2"
+        ],
+        "children": [
+          "article-54-",
+          "chapitre-3",
+          "chapitre-163",
+          "chapitre-183",
+          "article-405-"
+        ]
+      },
+      {
+        "id": "chapitre-3",
+        "title": "CHAPITRE 3 : IMPOT SUR LE REVENU DES CAPITAUX MOBILIERS (IRCM)",
+        "type": "chapitre",
+        "level": 3,
+        "order": 37,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-2",
+          "chapitre-3"
+        ],
+        "children": [
+          "article-68-",
+          "chapitre-4",
+          "article-441-"
+        ]
+      },
+      {
+        "id": "paragraphe-6",
+        "title": "PARAGRAPHE 6 : SOCIETES DE GESTION D’UN PORTEFEUILLE DE VALEURS MOBILIERES",
+        "type": "paragraphe",
+        "level": 6,
+        "order": 46,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-3",
+          "section-1",
+          "sous-section-2",
+          "paragraphe-5",
+          "paragraphe-6"
+        ],
+        "children": [
+          "article-77-",
+          "article-438-"
+        ]
+      },
+      {
+        "id": "section-5",
+        "title": "SECTION 5 : OBLIGATIONS DES CONTRIBUABLES",
+        "type": "section",
+        "level": 4,
+        "order": 56,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-3",
+          "section-4",
+          "section-5"
+        ],
+        "children": [
+          "article-190-",
+          "article-346-",
+          "section-6",
+          "article-370-",
+          "article-549-",
+          "article-550-",
+          "article-551-",
+          "article-552-",
+          "article-645-",
+          "article-646-"
+        ]
+      },
+      {
+        "id": "chapitre-4",
+        "title": "CHAPITRE 4 : IMPOT SUR LES REVENUS FONCIERS (IRF)",
+        "type": "chapitre",
+        "level": 3,
+        "order": 60,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-3",
+          "chapitre-4"
+        ],
+        "children": [
+          "chapitre-5",
+          "article-647-"
+        ]
+      },
+      {
+        "id": "chapitre-5",
+        "title": "CHAPITRE 5 : TAXE SUR LES PLUS-VALUES IMMOBILIERES (TPVI)",
+        "type": "chapitre",
+        "level": 3,
+        "order": 65,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-4",
+          "chapitre-5"
+        ],
+        "children": [
+          "chapitre-6",
+          "article-582-"
+        ]
+      },
+      {
+        "id": "chapitre-6",
+        "title": "CHAPITRE 6 : IMPOT SUR LES TRAITEMENTS ET SALAIRES (ITS)",
+        "type": "chapitre",
+        "level": 3,
+        "order": 70,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-5",
+          "chapitre-6"
+        ],
+        "children": [
+          "chapitre-7",
+          "article-383-"
+        ]
+      },
+      {
+        "id": "chapitre-7",
+        "title": "CHAPITRE 7 : RETENUES A LA SOURCE",
+        "type": "chapitre",
+        "level": 3,
+        "order": 75,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-6",
+          "chapitre-7"
+        ],
+        "children": [
+          "chapitre-8"
+        ]
+      },
+      {
+        "id": "chapitre-8",
+        "title": "CHAPITRE 8 : REGIMES INCITATIFS",
+        "type": "chapitre",
+        "level": 3,
+        "order": 82,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "chapitre-7",
+          "chapitre-8"
+        ],
+        "children": []
+      },
+      {
+        "id": "titre-2",
+        "title": "TITRE 2 : TAXES SUR LE PATRIMOINE",
+        "type": "titre",
+        "level": 2,
+        "order": 90,
+        "path": [
+          "livre-1",
+          "titre-1",
+          "titre-2"
+        ],
+        "children": [
+          "titre-3"
+        ]
+      },
+      {
+        "id": "chapitre-99",
+        "title": "CHAPITRE 99 :",
+        "type": "chapitre",
+        "level": 3,
+        "order": 99,
+        "path": [
+          "livre-1",
+          "titre-2",
+          "chapitre-1",
+          "chapitre-99"
+        ],
+        "children": [
+          "article-162-",
+          "article-163-",
+          "article-164-",
+          "article-165-",
+          "article-166-",
+          "article-167-",
+          "article-168-",
+          "article-169-",
+          "article-170-",
+          "article-171-",
+          "chapitre-103"
+        ]
+      },
+      {
+        "id": "chapitre-103",
+        "title": "CHAPITRE 103 : TAXE SUR LES ARMES A FEU",
+        "type": "chapitre",
+        "level": 3,
+        "order": 100,
+        "path": [
+          "livre-1",
+          "titre-2",
+          "chapitre-99",
+          "chapitre-103"
+        ],
+        "children": [
+          "article-172-",
+          "article-173-",
+          "chapitre-105"
+        ]
+      },
+      {
+        "id": "chapitre-105",
+        "title": "CHAPITRE 105 : TAXE SUR LES PIROGUES MOTORISEES ET BARQUES MOTORISEES",
+        "type": "chapitre",
+        "level": 3,
+        "order": 103,
+        "path": [
+          "livre-1",
+          "titre-2",
+          "chapitre-103",
+          "chapitre-105"
+        ],
+        "children": [
+          "article-176-",
+          "article-177-"
+        ]
+      },
+      {
+        "id": "titre-3",
+        "title": "TITRE 3 : AUTRES IMPOTS DIRECTS ET TAXES ASSIMILEES",
+        "type": "titre",
+        "level": 2,
+        "order": 104,
+        "path": [
+          "livre-1",
+          "titre-2",
+          "titre-3"
+        ],
+        "children": []
+      },
+      {
+        "id": "chapitre-115",
+        "title": "CHAPITRE 115 : VERSEMENT PATRONAL SUR SALAIRES (VPS)",
+        "type": "chapitre",
+        "level": 3,
+        "order": 111,
+        "path": [
+          "livre-1",
+          "titre-3",
+          "chapitre-1",
+          "chapitre-115"
+        ],
+        "children": [
+          "article-191-",
+          "article-192-",
+          "article-193-",
+          "article-194-",
+          "article-195-",
+          "chapitre-127"
+        ]
+      },
+      {
+        "id": "chapitre-127",
+        "title": "CHAPITRE 127 : TAXE DE DEVELOPPEMENT DU SPORT",
+        "type": "chapitre",
+        "level": 3,
+        "order": 125,
+        "path": [
+          "livre-1",
+          "titre-3",
+          "chapitre-115",
+          "chapitre-127"
+        ],
+        "children": [
+          "article-218-",
+          "article-219-",
+          "article-220-",
+          "article-221-",
+          "article-222-"
+        ]
+      },
+      {
+        "id": "livre-2",
+        "title": "LIVRE 2 : IMPOTS INDIRECTS",
+        "type": "livre",
+        "level": 1,
+        "order": 126,
+        "path": [
+          "livre-1",
+          "livre-2"
+        ],
+        "children": [
+          "livre-3"
+        ]
+      },
+      {
+        "id": "sous-section-5",
+        "title": "SOUS-SECTION 5 : REMBOURSEMENT DES CREDITS DE TAXE SUR LA VALEUR AJOUTEE",
+        "type": "sous-section",
+        "level": 5,
+        "order": 145,
+        "path": [
+          "livre-2",
+          "titre-1",
+          "chapitre-1",
+          "section-4",
+          "sous-section-4",
+          "sous-section-5"
+        ],
+        "children": [
+          "article-252-",
+          "article-253-",
+          "article-254-",
+          "article-255-",
+          "article-256-",
+          "article-257-",
+          "article-440-",
+          "article-473-",
+          "sous-section-6"
+        ]
+      },
+      {
+        "id": "chapitre-163",
+        "title": "CHAPITRE 163 :",
+        "type": "chapitre",
+        "level": 3,
+        "order": 151,
+        "path": [
+          "livre-2",
+          "titre-1",
+          "chapitre-2",
+          "chapitre-163"
+        ],
+        "children": [
+          "article-267-"
+        ]
+      },
+      {
+        "id": "chapitre-183",
+        "title": "CHAPITRE 183 : PRELEVEMENT FORFAITAIRE SPECIAL SUR LES VEHICULES D’OCCASION",
+        "type": "chapitre",
+        "level": 3,
+        "order": 173,
+        "path": [
+          "livre-2",
+          "titre-3",
+          "chapitre-2",
+          "chapitre-183"
+        ],
+        "children": [
+          "article-304-",
+          "article-305-",
+          "article-306-",
+          "article-307-",
+          "article-308-",
+          "article-309-",
+          "article-310-",
+          "article-311-",
+          "article-312-",
+          "article-313-",
+          "article-314-",
+          "article-315-",
+          "chapitre-185"
+        ]
+      },
+      {
+        "id": "chapitre-185",
+        "title": "CHAPITRE 185 : TAXE SUR LA CONSOMMATION D’ELECTRICITE ET D’EAU",
+        "type": "chapitre",
+        "level": 3,
+        "order": 174,
+        "path": [
+          "livre-2",
+          "titre-3",
+          "chapitre-183",
+          "chapitre-185"
+        ],
+        "children": [
+          "article-316-"
+        ]
+      },
+      {
+        "id": "livre-3",
+        "title": "LIVRE 3 : ENREGISTREMENT - TIMBRE",
+        "type": "livre",
+        "level": 1,
+        "order": 175,
+        "path": [
+          "livre-2",
+          "livre-3"
+        ],
+        "children": [
+          "livre-4"
+        ]
+      },
+      {
+        "id": "section-6",
+        "title": "SECTION 6 : ACTES DE SOCIETES",
+        "type": "section",
+        "level": 4,
+        "order": 192,
+        "path": [
+          "livre-3",
+          "titre-1",
+          "chapitre-1",
+          "section-5",
+          "section-6"
+        ],
+        "children": [
+          "article-347-",
+          "article-348-",
+          "section-7",
+          "article-503-"
+        ]
+      },
+      {
+        "id": "section-7",
+        "title": "SECTION 7 : ACTES JUDICIAIRES - JUGEMENTS",
+        "type": "section",
+        "level": 4,
+        "order": 193,
+        "path": [
+          "livre-3",
+          "titre-1",
+          "chapitre-1",
+          "section-6",
+          "section-7"
+        ],
+        "children": [
+          "article-349-",
+          "article-350-",
+          "article-351-",
+          "article-352-",
+          "section-8"
+        ]
+      },
+      {
+        "id": "section-8",
+        "title": "SECTION 8 : ACTES DIVERS",
+        "type": "section",
+        "level": 4,
+        "order": 194,
+        "path": [
+          "livre-3",
+          "titre-1",
+          "chapitre-1",
+          "section-7",
+          "section-8"
+        ],
+        "children": [
+          "article-353-",
+          "article-354-"
+        ]
+      },
+      {
+        "id": "livre-4",
+        "title": "LIVRE 4 : DISPOSITIONS GENERALES",
+        "type": "livre",
+        "level": 1,
+        "order": 246,
+        "path": [
+          "livre-3",
+          "livre-4"
+        ],
+        "children": [
+          "livre-5"
+        ]
+      },
+      {
+        "id": "sous-section-6",
+        "title": "SOUS-SECTION 6 : DECLARATION DES ENTREPRENEURS DU SECTEUR DU BATIMENT ET DES TRAVAUX PUBLICS",
+        "type": "sous-section",
+        "level": 5,
+        "order": 261,
+        "path": [
+          "livre-4",
+          "titre-1",
+          "chapitre-2",
+          "section-2",
+          "sous-section-5",
+          "sous-section-6"
+        ],
+        "children": [
+          "article-474-",
+          "sous-section-7"
+        ]
+      },
+      {
+        "id": "sous-section-7",
+        "title": "SOUS-SECTION 7 : DECLARATION DES ENTREPRISES DE TELEPHONIE, DE L’ECONOMIE COLLABORATIVE  ET DES PLATEFORMES NUMERIQUES",
+        "type": "sous-section",
+        "level": 5,
+        "order": 262,
+        "path": [
+          "livre-4",
+          "titre-1",
+          "chapitre-2",
+          "section-2",
+          "sous-section-6",
+          "sous-section-7"
+        ],
+        "children": [
+          "article-475-"
+        ]
+      },
+      {
+        "id": "livre-5",
+        "title": "LIVRE 5 : PROCEDURES FISCALES",
+        "type": "livre",
+        "level": 1,
+        "order": 287,
+        "path": [
+          "livre-4",
+          "livre-5"
+        ],
+        "children": [
+          "article-512-",
+          "article-513-",
+          "article-514-",
+          "article-515-",
+          "livre-6"
+        ]
+      },
+      {
+        "id": "livre-6",
+        "title": "LIVRE 6 : DISPOSITIONS FINALES",
+        "type": "livre",
+        "level": 1,
+        "order": 356,
+        "path": [
+          "livre-5",
+          "livre-6"
+        ],
+        "children": [
+          "article-658-",
+          "article-659-"
+        ]
+      }
+    ],
+    "totalArticles": 659
+  },
+  "source": "nationale"
+}
