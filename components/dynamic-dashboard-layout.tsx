@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
   Home,
@@ -29,11 +28,21 @@ import {
   DollarSign,
   History,
   MessageSquare,
-  Building2
+  Building2,
+  Camera
 } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+
+type NavigationChild = { href: string; label: string };
+type NavigationItem = {
+  href: string;
+  icon: any;
+  label: string;
+  exact?: boolean;
+  children?: NavigationChild[];
+};
 
 interface DynamicDashboardLayoutProps {
   children: React.ReactNode;
@@ -43,8 +52,8 @@ interface DynamicDashboardLayoutProps {
   onRefresh?: () => void;
 }
 
-const getNavigationForRole = (role: string, basePath: string) => {
-  const commonItems = [
+const getNavigationForRole = (role: string, basePath: string): NavigationItem[] => {
+  const commonItems: NavigationItem[] = [
     {
       href: basePath,
       icon: Home,
@@ -141,9 +150,19 @@ const getNavigationForRole = (role: string, basePath: string) => {
           label: "Mes projets"
         },
         {
-          href: `${basePath}/oeuvres`,
+          href: `${basePath}/livres/liste`,
           icon: BookOpen,
           label: "Mes œuvres"
+        },
+        {
+          href: `${basePath}/notifications`,
+          icon: Bell,
+          label: "Notifications"
+        },
+        {
+          href: `${basePath}/suivi-rapport`,
+          icon: FileText,
+          label: "Rapports discipline"
         }
       ];
 
@@ -151,14 +170,19 @@ const getNavigationForRole = (role: string, basePath: string) => {
       return [
         ...commonItems,
         {
-          href: `${basePath}/oeuvres`,
+          href: `${basePath}/livres/liste`,
           icon: BookOpen,
           label: "Mes œuvres"
         },
         {
-          href: `${basePath}/royalties`,
-          icon: Package,
-          label: "Mes royalties"
+          href: `${basePath}/ristournes/droit-auteur`,
+          icon: DollarSign,
+          label: "Mes droits"
+        },
+        {
+          href: `${basePath}/notifications`,
+          icon: Bell,
+          label: "Notifications"
         }
       ];
 
@@ -166,14 +190,29 @@ const getNavigationForRole = (role: string, basePath: string) => {
       return [
         ...commonItems,
         {
-          href: `${basePath}/partenaires`,
+          href: `${basePath}/clients`,
           icon: Briefcase,
-          label: "Mes partenaires"
+          label: "Partenaires"
+        },
+        {
+          href: `${basePath}/proforma`,
+          icon: FileText,
+          label: "Bons de commande"
         },
         {
           href: `${basePath}/commandes`,
           icon: ShoppingCart,
           label: "Commandes"
+        },
+        {
+          href: `${basePath}/stock/niveau`,
+          icon: Package,
+          label: "Stock (lecture)"
+        },
+        {
+          href: `${basePath}/suivi-rapport`,
+          icon: FileText,
+          label: "Rapports"
         }
       ];
 
@@ -181,14 +220,24 @@ const getNavigationForRole = (role: string, basePath: string) => {
       return [
         ...commonItems,
         {
+          href: `${basePath}/livres/liste`,
+          icon: BookOpen,
+          label: "Catalogue"
+        },
+        {
           href: `${basePath}/commandes`,
           icon: ShoppingCart,
           label: "Mes commandes"
         },
         {
-          href: `${basePath}/catalogue`,
-          icon: BookOpen,
-          label: "Catalogue"
+          href: `${basePath}/stock/niveau`,
+          icon: Package,
+          label: "Stock alloué"
+        },
+        {
+          href: `${basePath}/ventes-retours`,
+          icon: Camera,
+          label: "Ventes & retours"
         }
       ];
 
@@ -240,7 +289,6 @@ export default function DynamicDashboardLayout({
   }, [pathname]);
 
   const handleLogout = async () => {
-    await signOut({ redirect: false });
     router.push("/auth/login");
   };
 
@@ -269,6 +317,23 @@ export default function DynamicDashboardLayout({
 
   const basePath = `/dashboard/${user.role.toLowerCase()}`;
   const navigation = getNavigationForRole(user.role, basePath);
+
+  // Restreindre l'accès aux routes non prévues pour le rôle
+  useEffect(() => {
+    const allowed: string[] = [];
+    navigation.forEach((item) => {
+      allowed.push(item.href);
+      if (item.children) {
+        item.children.forEach((child) => allowed.push(child.href));
+      }
+    });
+    allowed.push(`${basePath}/profil`);
+
+    const isAllowed = allowed.some((p) => pathname === p || pathname.startsWith(p + "/"));
+    if (!isAllowed) {
+      router.replace(basePath);
+    }
+  }, [pathname, basePath, navigation, router]);
 
   return (
     <div className="h-screen bg-gray-50 flex overflow-hidden">
@@ -422,8 +487,8 @@ export default function DynamicDashboardLayout({
                   </div>
                 )}
 
-                {/* Notifications - Only for CLIENT role */}
-                {user?.role === 'CLIENT' && (
+                {/* Notifications - for CLIENT, AUTEUR, CONCEPTEUR */}
+                {['CLIENT', 'AUTEUR', 'CONCEPTEUR'].includes(user?.role as string) && (
                   <NotificationBell />
                 )}
 

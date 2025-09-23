@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { ShoppingCart, BookOpen, Package, TrendingDown } from "lucide-react";
+import Link from "next/link";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
@@ -86,7 +89,7 @@ export default function PartenaireDashboard() {
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <button className="text-left p-4 rounded-lg border border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50 transition-colors">
+              <Link href="/dashboard/partenaire/livres/liste" className="text-left p-4 rounded-lg border border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50 transition-colors">
                 <div className="flex items-center space-x-3">
                   <div className="p-2 bg-blue-100 rounded-lg">
                     <BookOpen className="w-5 h-5 text-blue-600" />
@@ -96,9 +99,9 @@ export default function PartenaireDashboard() {
                     <p className="text-sm text-gray-500">Voir tous les livres disponibles</p>
                   </div>
                 </div>
-              </button>
+              </Link>
 
-              <button className="text-left p-4 rounded-lg border border-dashed border-gray-300 hover:border-green-400 hover:bg-green-50 transition-colors">
+              <Link href="/dashboard/partenaire/commandes" className="text-left p-4 rounded-lg border border-dashed border-gray-300 hover:border-green-400 hover:bg-green-50 transition-colors">
                 <div className="flex items-center space-x-3">
                   <div className="p-2 bg-green-100 rounded-lg">
                     <ShoppingCart className="w-5 h-5 text-green-600" />
@@ -108,7 +111,7 @@ export default function PartenaireDashboard() {
                     <p className="text-sm text-gray-500">Passer une nouvelle commande</p>
                   </div>
                 </div>
-              </button>
+              </Link>
             </div>
           </div>
         </div>

@@ -5,11 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { RefreshCw, Maximize2, Edit, Trash2, Play, ChevronsUpDown } from "lucide-react"
-import DashboardLayout from "@/components/dashboard-layout"
+import { RefreshCw, Maximize2, ChevronsUpDown } from "lucide-react"
+import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout"
 
 interface Notification {
   code: string
@@ -48,12 +45,6 @@ const mockNotifications: Notification[] = [
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>(mockNotifications)
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [formData, setFormData] = useState({
-    code: "",
-    titre: "",
-    note: "",
-  })
 
   const handleRefresh = () => {
     console.log("[v0] Refreshing notifications...")
@@ -67,14 +58,8 @@ export default function NotificationsPage() {
     }
   }
 
-  const handleAddNotification = () => {
-    console.log("[v0] Adding notification:", formData)
-    setShowAddModal(false)
-    setFormData({ code: "", titre: "", note: "" })
-  }
-
   return (
-    <DashboardLayout title="Gestions des notifications" breadcrumb="Tableau de bord - Notifications" >
+    <DynamicDashboardLayout title="Notifications" breadcrumb="Auteur - Notifications" >
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -100,9 +85,6 @@ export default function NotificationsPage() {
           <div className="p-6 border-b">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Liste des notifications</h3>
-              <Button onClick={() => setShowAddModal(true)} className="bg-indigo-600 hover:bg-indigo-700">
-                Ajouter
-              </Button>
             </div>
 
             {/* Filters */}
@@ -188,19 +170,7 @@ export default function NotificationsPage() {
                       <Badge className="bg-blue-100 text-blue-800 text-xs">{notification.creePar}</Badge>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">{notification.texte}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="flex items-center gap-2">
-                        <button className="text-blue-600 hover:text-blue-800">
-                          <Play className="w-4 h-4" />
-                        </button>
-                        <button className="text-yellow-600 hover:text-yellow-800">
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button className="text-red-600 hover:text-red-800">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">—</td>
                   </tr>
                 ))}
               </tbody>
@@ -233,58 +203,6 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      {/* Add Modal */}
-      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Ajouter</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="code">Code</Label>
-                <Input
-                  id="code"
-                  value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                  placeholder="Code"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="titre">Titre</Label>
-                <Input
-                  id="titre"
-                  value={formData.titre}
-                  onChange={(e) => setFormData({ ...formData, titre: e.target.value })}
-                  placeholder="title"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="note">Note</Label>
-              <Textarea
-                id="note"
-                value={formData.note}
-                onChange={(e) => setFormData({ ...formData, note: e.target.value })}
-                placeholder="note"
-                rows={4}
-              />
-            </div>
-          </div>
-          <div className="flex justify-end gap-3 pt-4">
-            <Button
-              variant="outline"
-              onClick={() => setShowAddModal(false)}
-              className="text-red-600 border-red-600 hover:bg-red-50"
-            >
-              Fermer
-            </Button>
-            <Button onClick={handleAddNotification} className="bg-indigo-600 hover:bg-indigo-700">
-              Enregistrer
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </DashboardLayout>
+    </DynamicDashboardLayout>
   )
 }

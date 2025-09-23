@@ -2,6 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { BookOpen, PenTool, Clock, CheckCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import Link from "next/link";
 import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout";
 import { apiClient } from "@/lib/api-client";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -9,6 +15,10 @@ import { toast } from "sonner";
 
 export default function ConcepteurDashboard() {
   const { user } = useCurrentUser();
+  const [showProjectModal, setShowProjectModal] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newDiscipline, setNewDiscipline] = useState("");
+  const [newResume, setNewResume] = useState("");
   const [stats, setStats] = useState({
     totalProjects: 0,
     publishedWorks: 0,
@@ -186,7 +196,7 @@ export default function ConcepteurDashboard() {
             </div>
             <div className="p-6">
               <div className="space-y-4">
-                <button className="w-full text-left p-4 rounded-lg border border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50 transition-colors">
+              <button onClick={() => setShowProjectModal(true)} className="w-full text-left p-4 rounded-lg border border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50 transition-colors">
                   <div className="flex items-center space-x-3">
                     <div className="p-2 bg-blue-100 rounded-lg">
                       <PenTool className="w-5 h-5 text-blue-600" />
@@ -198,7 +208,7 @@ export default function ConcepteurDashboard() {
                   </div>
                 </button>
 
-                <button className="w-full text-left p-4 rounded-lg border border-dashed border-gray-300 hover:border-green-400 hover:bg-green-50 transition-colors">
+              <Link href="/dashboard/concepteur/livres/liste" className="block w-full text-left p-4 rounded-lg border border-dashed border-gray-300 hover:border-green-400 hover:bg-green-50 transition-colors">
                   <div className="flex items-center space-x-3">
                     <div className="p-2 bg-green-100 rounded-lg">
                       <BookOpen className="w-5 h-5 text-green-600" />
@@ -208,7 +218,7 @@ export default function ConcepteurDashboard() {
                       <p className="text-sm text-gray-500">Gérer toutes mes œuvres publiées</p>
                     </div>
                   </div>
-                </button>
+              </Link>
 
                 <button className="w-full text-left p-4 rounded-lg border border-dashed border-gray-300 hover:border-purple-400 hover:bg-purple-50 transition-colors">
                   <div className="flex items-center space-x-3">
@@ -224,6 +234,45 @@ export default function ConcepteurDashboard() {
               </div>
             </div>
           </div>
+
+        {/* Modal Nouveau projet */}
+        <Dialog open={showProjectModal} onOpenChange={setShowProjectModal}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Nouveau projet</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Titre</label>
+                <Input value={newTitle} onChange={(e)=>setNewTitle(e.target.value)} placeholder="Titre du projet"/>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Discipline</label>
+                <Select value={newDiscipline} onValueChange={setNewDiscipline}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionnez une discipline" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sciences">Sciences</SelectItem>
+                    <SelectItem value="litterature">Littérature</SelectItem>
+                    <SelectItem value="philosophie">Philosophie</SelectItem>
+                    <SelectItem value="arts">Arts</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Résumé</label>
+                <Textarea rows={4} value={newResume} onChange={(e)=>setNewResume(e.target.value)} placeholder="Brève description"/>
+              </div>
+              <div className="flex justify-between">
+                <Link href="/dashboard/concepteur/projets" className="text-sm text-blue-600 hover:underline">Ouvrir la page Projets</Link>
+                <Button className="bg-indigo-600 hover:bg-indigo-700" disabled={!newTitle || !newDiscipline} onClick={()=>setShowProjectModal(false)}>
+                  Soumettre
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
         </div>
       </div>
     </DynamicDashboardLayout>
