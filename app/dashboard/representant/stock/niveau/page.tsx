@@ -25,7 +25,7 @@ import {
   Printer,
   X,
 } from "lucide-react"
-import DashboardLayout from "@/components/dashboard-layout"
+import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout"
 
 export default function NiveauStockPage() {
   const [open, setOpen] = useState(false)
@@ -43,7 +43,7 @@ export default function NiveauStockPage() {
   }
 
   return (
-    <DashboardLayout title="">
+    <DynamicDashboardLayout title="Stock (lecture)" breadcrumb="Représentant - Stock">
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -170,15 +170,8 @@ export default function NiveauStockPage() {
               </Select>
             </div>
 
-            <div className="flex justify-between items-center">
-              <Button
-                className="bg-indigo-600 hover:bg-indigo-700"
-                onClick={() => setOpen(true)}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Approvisionner
-              </Button>
-
+            {/* Lecture seule: aucune action d'approvisionnement */}
+            <div className="flex justify-end">
               <Button className="bg-indigo-600 hover:bg-indigo-700">Appliquer</Button>
             </div>
           </div>
@@ -241,16 +234,7 @@ export default function NiveauStockPage() {
                     <td className="p-4">0</td>
                     <td className="p-4">0</td>
                     <td className="p-4">0</td>
-                    <td className="p-4">
-                      <div className="flex items-center space-x-2">
-                        <button className="p-1 hover:bg-gray-100 rounded">
-                          <FileText className="w-4 h-4" />
-                        </button>
-                        <button className="p-1 hover:bg-gray-100 rounded text-red-500">
-                          <Package className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
+                    <td className="p-4 text-gray-400">—</td>
                   </tr>
                 </tbody>
               </table>
@@ -299,152 +283,7 @@ export default function NiveauStockPage() {
         </div>
       </div>
 
-      {/* Modale Approvisionner (strictement la modale, page inchangée) */}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader className="flex items-start justify-between p-0">
-            <DialogTitle className="text-2xl font-medium py-4">Approvisionnement</DialogTitle>
-            
-          </DialogHeader>
-
-          {/* Top selects with labels */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-2 mb-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Choix de la catégorie</label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Toutes catégories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="toutes">Toutes catégories</SelectItem>
-                  <SelectItem value="primaire">Primaire</SelectItem>
-                  <SelectItem value="secondaire">Secondaire</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Choix de la Matière</label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Toutes matières" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="francais">Français</SelectItem>
-                  <SelectItem value="mathematiques">Mathématiques</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Choix de la classe</label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Toutes classes" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="toutes">Toutes classes</SelectItem>
-                  <SelectItem value="ce1">CE1</SelectItem>
-                  <SelectItem value="ce2">CE2</SelectItem>
-                  <SelectItem value="cm1">CM1</SelectItem>
-                  <SelectItem value="cm2">CM2</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Choix du livre / Quantité / Ajouter */}
-          <div className="grid grid-cols-12 gap-4 items-end mb-4">
-            <div className="col-span-7">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Choix du livre</label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionnez un livre" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="livre1">Réussir en Dictée Orthographe CE1-CE2</SelectItem>
-                  <SelectItem value="livre2">Coffret Réussir en Français CE2</SelectItem>
-                  <SelectItem value="livre3">Coffret Réussir en Mathématiques CE1</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="col-span-3">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Quantité</label>
-              <Input type="number" defaultValue={0} />
-            </div>
-
-            <div className="col-span-2">
-              <div className="w-full">
-                <Button className="w-full bg-indigo-600 hover:bg-indigo-700">Ajouter ▾</Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Auto button under left area */}
-          <div className="mb-4">
-            <Button className="bg-indigo-500 hover:bg-indigo-600 px-4 py-2">Auto</Button>
-          </div>
-
-          <hr className="my-4 border-t border-gray-200" />
-
-          {/* Table + Total */}
-          <div className="relative mb-6">
-            <table className="w-full">
-              <thead>
-                <tr className="text-left text-sm text-gray-600">
-                  <th className="p-3">Livre</th>
-                  <th className="p-3">Prix</th>
-                  <th className="p-3">Quantité</th>
-                  <th className="p-3">Montant</th>
-                  <th className="p-3">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td className="p-3 text-sm text-gray-400">Aucun livre ajouté</td>
-                  <td className="p-3">-</td>
-                  <td className="p-3">-</td>
-                  <td className="p-3">-</td>
-                  <td className="p-3">-</td>
-                </tr>
-              </tbody>
-            </table>
-
-            {/* Total on the right, matching the screenshot size/placement */}
-            <div className="absolute right-0 top-0 text-2xl md:text-3xl font-semibold text-gray-700 mt-6 mr-2">
-              Total: 0 XOF
-            </div>
-          </div>
-
-          {/* Stock select and footer buttons */}
-          <div className="flex items-center justify-between gap-4">
-            <div className="w-1/2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Stock :</label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Rentrée scolaire" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="rentree">Rentrée scolaire</SelectItem>
-                  <SelectItem value="vacances">Vacances</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex space-x-3">
-              <Button className="bg-indigo-600 text-white hover:bg-indigo-700">Enregistrer</Button>
-              <Button
-                variant="outline"
-                className="border border-red-200 text-red-600 hover:bg-red-50"
-                onClick={() => setOpen(false)}
-              >
-                Fermer
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </DashboardLayout>
+      {/* Lecture seule: modale d'approvisionnement retirée */}
+    </DynamicDashboardLayout>
   )
 }

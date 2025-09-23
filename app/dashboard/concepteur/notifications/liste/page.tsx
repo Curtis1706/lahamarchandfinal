@@ -16,7 +16,7 @@ import {
   Play,
   ChevronsUpDown,
 } from "lucide-react"
-import DashboardLayout from "@/components/dashboard-layout"
+import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout"
 
 interface Notification {
   code: string
@@ -81,10 +81,7 @@ export default function NotificationsPage() {
   }
 
   return (
-    <DashboardLayout
-      title="Gestions des notifications"
-      breadcrumb="Tableau de bord - Notifications"
-    >
+    <DynamicDashboardLayout title="Notifications" breadcrumb="Concepteur - Notifications">
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -328,6 +325,6 @@ export default function NotificationsPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </DashboardLayout>
+    </DynamicDashboardLayout>
   )
 }

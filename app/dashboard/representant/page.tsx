@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Users, Briefcase, TrendingUp, Target } from "lucide-react";
+import Link from "next/link";
 import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
@@ -86,7 +87,7 @@ export default function RepresentantDashboard() {
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <button className="text-left p-4 rounded-lg border border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50 transition-colors">
+              <Link href="/dashboard/representant/clients" className="text-left p-4 rounded-lg border border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50 transition-colors">
                 <div className="flex items-center space-x-3">
                   <div className="p-2 bg-blue-100 rounded-lg">
                     <Users className="w-5 h-5 text-blue-600" />
@@ -96,9 +97,9 @@ export default function RepresentantDashboard() {
                     <p className="text-sm text-gray-500">Enregistrer un nouveau partenaire</p>
                   </div>
                 </div>
-              </button>
+              </Link>
 
-              <button className="text-left p-4 rounded-lg border border-dashed border-gray-300 hover:border-green-400 hover:bg-green-50 transition-colors">
+              <Link href="/dashboard/representant/commandes" className="text-left p-4 rounded-lg border border-dashed border-gray-300 hover:border-green-400 hover:bg-green-50 transition-colors">
                 <div className="flex items-center space-x-3">
                   <div className="p-2 bg-green-100 rounded-lg">
                     <Target className="w-5 h-5 text-green-600" />
@@ -108,7 +109,7 @@ export default function RepresentantDashboard() {
                     <p className="text-sm text-gray-500">Créer une commande pour un partenaire</p>
                   </div>
                 </div>
-              </button>
+              </Link>
             </div>
           </div>
         </div>

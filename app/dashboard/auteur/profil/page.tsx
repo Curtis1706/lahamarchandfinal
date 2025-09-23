@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RefreshCw, Maximize2, Trash2 } from "lucide-react"
-import DashboardLayout from "@/components/dashboard-layout"
+import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout"
 
 export default function ProfilPage() {
   const [profileData, setProfileData] = useState({
@@ -13,7 +13,7 @@ export default function ProfilPage() {
     prenoms: "Administrateur",
     email: "support@lahamarchand.com",
     telephone: "+229 52 73 44 44",
-    role: "PDG",
+    role: "AUTEUR",
     imageProfile: "",
   })
 
@@ -39,7 +39,7 @@ export default function ProfilPage() {
   }
 
   return (
-    <DashboardLayout title="Profil" breadcrumb="Tableau de bord - Mon profil" >
+    <DynamicDashboardLayout title="Mon profil" breadcrumb="Auteur - Mon profil" >
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -178,6 +178,6 @@ export default function ProfilPage() {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </DynamicDashboardLayout>
   )
 }

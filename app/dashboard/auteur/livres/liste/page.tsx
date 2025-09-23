@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import DashboardLayout from "@/components/dashboard-layout";
+import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,21 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Upload, Edit, Trash2 } from "lucide-react";
 
 export default function LivresListePage() {
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false);
 
   const livres = [
     {
@@ -67,21 +55,16 @@ export default function LivresListePage() {
   ];
 
   return (
-    <DashboardLayout title="">
+    <DynamicDashboardLayout title="Mes œuvres" breadcrumb="Auteur - Mes œuvres">
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold">Nos livres</h2>
-          </div>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-slate-300">
-              Commandes - Collections - Catégories - Matières - Classes
-            </span>
+            <h2 className="text-xl font-semibold">Mes œuvres</h2>
           </div>
         </div>
       </div>
       <div className="p-6">
-        {/* Header with filters */}
+        {/* Filtres (lecture seule) */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <Select defaultValue="toutes-categories">
@@ -135,231 +118,7 @@ export default function LivresListePage() {
             </Select>
           </div>
 
-          <div className="flex flex-col lg:flex-row gap-4 justify-between">
-            <div className="flex gap-2">
-              <Dialog open={showImportModal} onOpenChange={setShowImportModal}>
-                <DialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="bg-indigo-600 text-white hover:bg-indigo-700 flex items-center gap-2"
-                  >
-                    Importer
-                    <Upload className="w-4 h-4" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Importer un fichier</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Option d'importation</Label>
-                        <Select defaultValue="prix">
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="prix">Prix</SelectItem>
-                            <SelectItem value="stock">Stock</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Client</Label>
-                        <Select defaultValue="particulier">
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="particulier">
-                              Particulier
-                            </SelectItem>
-                            <SelectItem value="ecole">École</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div>
-                      <Label>Fichier excel :</Label>
-                      <div className="flex gap-2 mt-2">
-                        <Button variant="outline">Choisir un fichier</Button>
-                        <span className="text-sm text-gray-500 self-center">
-                          Aucun fichier choisi
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-sm text-blue-600">
-                      Télécharger le modèle du fichier{" "}
-                      <a href="#" className="underline">
-                        ici
-                      </a>
-                    </p>
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        onClick={() => setShowImportModal(false)}
-                        variant="outline"
-                      >
-                        Fermer
-                      </Button>
-                      <Button className="bg-indigo-600 hover:bg-indigo-700">
-                        Exécuter
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-
-            <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
-              <DialogTrigger asChild>
-                <Button className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2">
-                  Ajouter
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Enregistrement de Livre</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <Label>Libellé du livre</Label>
-                      <Input placeholder="Nom du livre" />
-                    </div>
-                    <div>
-                      <Label>Code du livre</Label>
-                      <Input placeholder="Code du livre" />
-                    </div>
-                    <div>
-                      <Label>Collection du livre</Label>
-                      <Select>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Aucune collection" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="laha">Collection LAHA</SelectItem>
-                          <SelectItem value="citoyenne">
-                            Collection citoyenne
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <Label>Catégorie du livre</Label>
-                      <Select>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Aucune catégorie" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="manuels">
-                            Manuels (Primaire et Secondaire)
-                          </SelectItem>
-                          <SelectItem value="exercices">
-                            Livre Exercices (secondaire)
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Associer une matière</Label>
-                      <Select>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Aucune matière" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="francais">Français</SelectItem>
-                          <SelectItem value="anglais">Anglais</SelectItem>
-                          <SelectItem value="maths">Mathématiques</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Associer des classes</Label>
-                      <Input placeholder="Sélectionnez les classes" />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label>Courte Description</Label>
-                      <Textarea placeholder="Courte description" rows={3} />
-                    </div>
-                    <div>
-                      <Label>Longue Description</Label>
-                      <Textarea placeholder="Courte description" rows={3} />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label>Image de couverture du livre</Label>
-                    <div className="flex gap-2 mt-2">
-                      <Button variant="outline">Choisir un fichier</Button>
-                      <span className="text-sm text-gray-500 self-center">
-                        Aucun fichier choisi
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label>Auteur du livre</Label>
-                      <Select>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sélectionnez un auteur" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="auteur1">Auteur 1</SelectItem>
-                          <SelectItem value="auteur2">Auteur 2</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Concepteurs du livre</Label>
-                      <Input />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                    <Select defaultValue="droit">
-                      <SelectTrigger className="w-40">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="droit">Droit d'auteur</SelectItem>
-                        <SelectItem value="royalty">Royalty</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select defaultValue="percent">
-                      <SelectTrigger className="w-20">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="percent">%</SelectItem>
-                        <SelectItem value="fixed">Fixe</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      onClick={() => setShowCreateModal(false)}
-                      variant="outline"
-                    >
-                      Fermer
-                    </Button>
-                    <Button className="bg-indigo-600 hover:bg-indigo-700">
-                      Enregistrer
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
+          {/* Aucune action de création/import pour Auteur */}
         </div>
 
         {/* Table */}
@@ -422,9 +181,7 @@ export default function LivresListePage() {
                     <th className="text-left py-3 px-4 font-medium text-gray-900">
                       Code
                     </th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-900">
-                      Action
-                    </th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-900">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -459,20 +216,7 @@ export default function LivresListePage() {
                       <td className="py-3 px-4 text-sm font-mono">
                         {livre.code}
                       </td>
-                      <td className="py-3 px-4">
-                        <div className="flex gap-1">
-                          <Button size="sm" variant="outline">
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-red-600 bg-transparent"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-400">—</td>
                     </tr>
                   ))}
                 </tbody>
@@ -501,6 +245,6 @@ export default function LivresListePage() {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </DynamicDashboardLayout>
   );
 }
