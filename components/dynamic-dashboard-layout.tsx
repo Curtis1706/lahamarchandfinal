@@ -83,6 +83,11 @@ const getNavigationForRole = (role: string, basePath: string) => {
           label: "Gestion Commandes"
         },
         {
+          href: `${basePath}/gestion-stock`,
+          icon: Package,
+          label: "Gestion Stock"
+        },
+        {
           href: `${basePath}/gestion-partenaires`,
           icon: Building2,
           label: "Gestion Partenaires"
