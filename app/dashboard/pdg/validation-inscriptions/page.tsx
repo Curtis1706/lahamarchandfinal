@@ -27,11 +27,34 @@ import { toast } from "sonner"
 import { formatDistanceToNow } from "date-fns"
 import { fr } from "date-fns/locale"
 
+// Fonction utilitaire pour formater le numéro de téléphone
+const formatPhone = (phone: string | null | undefined): string => {
+  if (!phone) return "Non renseigné"
+  
+  // Nettoyer le numéro (supprimer les espaces, tirets, parenthèses)
+  const cleanPhone = phone.replace(/[\s\-\(\)]/g, '')
+  
+  // Si c'est un numéro béninois sans indicatif
+  if (cleanPhone.length === 9 && cleanPhone.startsWith('9')) {
+    return `+229 ${cleanPhone.slice(0, 2)} ${cleanPhone.slice(2, 4)} ${cleanPhone.slice(4, 6)} ${cleanPhone.slice(6, 8)}`
+  }
+  
+  // Si c'est un numéro béninois avec indicatif
+  if (cleanPhone.length === 12 && cleanPhone.startsWith('229')) {
+    const number = cleanPhone.slice(3)
+    return `+229 ${number.slice(0, 2)} ${number.slice(2, 4)} ${number.slice(4, 6)} ${number.slice(6, 8)}`
+  }
+  
+  // Retourner tel quel si le format n'est pas reconnu
+  return phone
+}
+
 // Types pour les utilisateurs en attente
 interface PendingUser {
   id: string
   name: string
   email: string
+  phone?: string
   role: string
   disciplineId?: string
   discipline?: {
@@ -39,7 +62,8 @@ interface PendingUser {
     name: string
   }
   createdAt: string
-  status: 'pending' | 'approved' | 'rejected'
+  updatedAt: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'ACTIVE' | 'INACTIVE' | 'SUSPENDED'
 }
 
 interface Discipline {
@@ -54,22 +78,28 @@ export default function ConcepteurValidationPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [roleFilter, setRoleFilter] = useState("all")
-  const [statusFilter, setStatusFilter] = useState("pending")
+  const [statusFilter, setStatusFilter] = useState("PENDING")
+  
+  // Compteurs pour les statistiques
+  const [approvedCount, setApprovedCount] = useState(0)
+  const [rejectedCount, setRejectedCount] = useState(0)
 
   // Charger les données
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true)
-        const [usersData, disciplinesData] = await Promise.all([
-          apiClient.getUsers(),
-          apiClient.getDisciplines()
+        const [pendingUsersData, disciplinesData, approvedUsersData, rejectedUsersData] = await Promise.all([
+          apiClient.getPendingUsers('PENDING'),
+          apiClient.getDisciplines(),
+          apiClient.getPendingUsers('APPROVED'),
+          apiClient.getPendingUsers('REJECTED')
         ])
         
-        // Filtrer les utilisateurs en attente de validation
-        const pending = usersData.filter((u: any) => u.status === 'pending')
-        setPendingUsers(pending)
-        setDisciplines(disciplinesData)
+        setPendingUsers(Array.isArray(pendingUsersData) ? pendingUsersData : [])
+        setDisciplines(Array.isArray(disciplinesData) ? disciplinesData : [])
+        setApprovedCount(Array.isArray(approvedUsersData) ? approvedUsersData.length : 0)
+        setRejectedCount(Array.isArray(rejectedUsersData) ? rejectedUsersData.length : 0)
       } catch (error: any) {
         console.error("Error fetching data:", error)
         toast.error("Erreur lors du chargement des données")
@@ -84,56 +114,61 @@ export default function ConcepteurValidationPage() {
   // Fonctions de gestion
   const handleApproveUser = async (userId: string) => {
     try {
-      // Simuler l'approbation
+      await apiClient.validateUser(userId, 'APPROVED')
+      
+      // Mettre à jour la liste locale et les compteurs
       setPendingUsers(prev => 
-        prev.map(u => 
-          u.id === userId 
-            ? { ...u, status: 'approved' as const }
-            : u
-        )
+        prev.filter(u => u.id !== userId)
       )
+      setApprovedCount(prev => prev + 1)
       
       toast.success("Utilisateur approuvé avec succès")
-    } catch (error) {
-      toast.error("Erreur lors de l'approbation")
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de l'approbation")
     }
   }
 
   const handleRejectUser = async (userId: string) => {
     try {
-      // Simuler le rejet
+      await apiClient.validateUser(userId, 'REJECTED')
+      
+      // Mettre à jour la liste locale et les compteurs
       setPendingUsers(prev => 
-        prev.map(u => 
-          u.id === userId 
-            ? { ...u, status: 'rejected' as const }
-            : u
-        )
+        prev.filter(u => u.id !== userId)
       )
+      setRejectedCount(prev => prev + 1)
       
       toast.success("Utilisateur rejeté")
-    } catch (error) {
-      toast.error("Erreur lors du rejet")
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors du rejet")
     }
   }
 
   // Filtrage
-  const filteredUsers = pendingUsers.filter(user => {
+  const filteredUsers = Array.isArray(pendingUsers) ? pendingUsers.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase())
+                         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (user.phone && user.phone.includes(searchTerm))
     const matchesRole = roleFilter === "all" || user.role === roleFilter
     const matchesStatus = statusFilter === "all" || user.status === statusFilter
     
     return matchesSearch && matchesRole && matchesStatus
-  })
+  }) : []
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'pending':
+      case 'PENDING':
         return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800"><Clock className="h-3 w-3 mr-1" />En attente</Badge>
-      case 'approved':
+      case 'APPROVED':
         return <Badge variant="default" className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Approuvé</Badge>
-      case 'rejected':
+      case 'REJECTED':
         return <Badge variant="destructive" className="bg-red-100 text-red-800"><XCircle className="h-3 w-3 mr-1" />Rejeté</Badge>
+      case 'ACTIVE':
+        return <Badge variant="default" className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Actif</Badge>
+      case 'INACTIVE':
+        return <Badge variant="secondary" className="bg-gray-100 text-gray-800"><Clock className="h-3 w-3 mr-1" />Inactif</Badge>
+      case 'SUSPENDED':
+        return <Badge variant="destructive" className="bg-red-100 text-red-800"><XCircle className="h-3 w-3 mr-1" />Suspendu</Badge>
       default:
         return <Badge variant="secondary">Inconnu</Badge>
     }
@@ -205,7 +240,7 @@ export default function ConcepteurValidationPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-yellow-600">
-                {pendingUsers.filter(u => u.status === 'pending').length}
+                {pendingUsers.filter(u => u.status === 'PENDING').length}
               </div>
             </CardContent>
           </Card>
@@ -216,7 +251,7 @@ export default function ConcepteurValidationPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                {pendingUsers.filter(u => u.status === 'approved').length}
+                {approvedCount}
               </div>
             </CardContent>
           </Card>
@@ -227,7 +262,7 @@ export default function ConcepteurValidationPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                {pendingUsers.filter(u => u.status === 'rejected').length}
+                {rejectedCount}
               </div>
             </CardContent>
           </Card>
@@ -274,12 +309,49 @@ export default function ConcepteurValidationPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tous les statuts</SelectItem>
-              <SelectItem value="pending">En attente</SelectItem>
-              <SelectItem value="approved">Approuvés</SelectItem>
-              <SelectItem value="rejected">Rejetés</SelectItem>
+              <SelectItem value="PENDING">En attente</SelectItem>
+              <SelectItem value="APPROVED">Approuvés</SelectItem>
+              <SelectItem value="REJECTED">Rejetés</SelectItem>
             </SelectContent>
           </Select>
         </div>
+
+        {/* Actions en lot */}
+        {filteredUsers.length > 0 && filteredUsers.some(u => u.status === 'PENDING') && (
+          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <span className="text-sm font-medium text-gray-700">
+                {filteredUsers.filter(u => u.status === 'PENDING').length} inscription(s) en attente
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                onClick={() => {
+                  filteredUsers
+                    .filter(u => u.status === 'PENDING')
+                    .forEach(user => handleApproveUser(user.id))
+                }}
+                className="bg-green-600 hover:bg-green-700 text-white"
+                size="sm"
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Tout approuver
+              </Button>
+              <Button
+                onClick={() => {
+                  filteredUsers
+                    .filter(u => u.status === 'PENDING')
+                    .forEach(user => handleRejectUser(user.id))
+                }}
+                variant="destructive"
+                size="sm"
+              >
+                <XCircle className="h-4 w-4 mr-2" />
+                Tout rejeter
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Liste des utilisateurs */}
         {filteredUsers.length === 0 ? (
@@ -319,6 +391,11 @@ export default function ConcepteurValidationPage() {
                           </div>
                           
                           <div className="flex items-center space-x-2">
+                            <Phone className="h-4 w-4" />
+                            <span>{formatPhone(pendingUser.phone)}</span>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2">
                             <Users className="h-4 w-4" />
                             <span>Rôle: {pendingUser.role}</span>
                           </div>
@@ -343,26 +420,34 @@ export default function ConcepteurValidationPage() {
                       </div>
                     </div>
                     
-                    {pendingUser.status === 'pending' && (
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          onClick={() => handleApproveUser(pendingUser.id)}
-                          className="bg-green-600 hover:bg-green-700"
-                          size="sm"
-                        >
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Approuver
-                        </Button>
-                        <Button
-                          onClick={() => handleRejectUser(pendingUser.id)}
-                          variant="destructive"
-                          size="sm"
-                        >
-                          <XCircle className="h-4 w-4 mr-2" />
-                          Rejeter
-                        </Button>
-                      </div>
-                    )}
+                    {/* Boutons d'action */}
+                    <div className="flex flex-col space-y-2 ml-4 flex-shrink-0">
+                      {pendingUser.status === 'PENDING' ? (
+                        <>
+                          <Button
+                            onClick={() => handleApproveUser(pendingUser.id)}
+                            className="bg-green-600 hover:bg-green-700 text-white min-w-[100px]"
+                            size="sm"
+                          >
+                            <UserCheck className="h-4 w-4 mr-2" />
+                            Approuver
+                          </Button>
+                          <Button
+                            onClick={() => handleRejectUser(pendingUser.id)}
+                            variant="destructive"
+                            size="sm"
+                            className="min-w-[100px]"
+                          >
+                            <UserX className="h-4 w-4 mr-2" />
+                            Rejeter
+                          </Button>
+                        </>
+                      ) : (
+                        <div className="text-sm text-muted-foreground">
+                          {pendingUser.status === 'APPROVED' ? 'Approuvé' : 'Rejeté'}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>

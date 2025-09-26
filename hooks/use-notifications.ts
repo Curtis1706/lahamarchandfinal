@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { toast } from "sonner"
+import { useCurrentUser } from "./use-current-user"
+import { apiClient } from "@/lib/api-client"
 
 // Types pour les notifications
 export interface Notification {
@@ -24,25 +26,61 @@ interface UseNotificationsResult {
 
 export const useNotifications = (): UseNotificationsResult => {
   const [notifications, setNotifications] = useState<Notification[]>([])
+  const { user } = useCurrentUser()
 
-  // Charger les notifications depuis localStorage
-  const loadNotifications = useCallback(() => {
-    const storedNotifications = localStorage.getItem("client-notifications")
-    if (storedNotifications) {
-      try {
-        const parsedNotifications = JSON.parse(storedNotifications)
-        setNotifications(parsedNotifications)
-      } catch (error) {
-        console.error("Erreur lors du chargement des notifications:", error)
-        setNotifications([])
-      }
+  // Charger les notifications depuis l'API
+  const loadNotifications = useCallback(async () => {
+    if (!user) {
+      setNotifications([])
+      return
     }
-  }, [])
 
-  // Sauvegarder les notifications dans localStorage
-  useEffect(() => {
-    localStorage.setItem("client-notifications", JSON.stringify(notifications))
-  }, [notifications])
+    try {
+      // Charger les notifications depuis l'API
+      const response = await apiClient.getNotifications(user.id)
+      console.log("🔍 Réponse notifications hook:", response);
+      
+      // L'API retourne { notifications: [...], unreadCount: number }
+      const apiNotifications = response.notifications || response || [];
+      
+      // Convertir au format attendu par le frontend
+      const formattedNotifications: Notification[] = Array.isArray(apiNotifications) ? apiNotifications.map(notif => ({
+        id: notif.id,
+        type: mapNotificationType(notif.type),
+        title: notif.title,
+        message: notif.message,
+        read: notif.read,
+        createdAt: notif.createdAt,
+        data: notif.data ? JSON.parse(notif.data) : undefined
+      })) : [];
+      
+      setNotifications(formattedNotifications)
+    } catch (error) {
+      console.error("Erreur lors du chargement des notifications:", error)
+      setNotifications([])
+    }
+  }, [user])
+
+  // Mapper les types de notification de l'API vers le frontend
+  const mapNotificationType = (apiType: string): Notification['type'] => {
+    switch (apiType) {
+      case 'ORDER_UPDATE':
+      case 'ORDER_DELIVERED':
+        return 'order'
+      case 'NEW_BOOK':
+        return 'info'
+      case 'SUCCESS':
+        return 'success'
+      case 'WARNING':
+        return 'warning'
+      case 'ERROR':
+        return 'error'
+      default:
+        return 'info'
+    }
+  }
+
+  // Plus besoin de sauvegarder dans localStorage car on utilise l'API
 
   // Charger au montage
   useEffect(() => {

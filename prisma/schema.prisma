@@ -14,10 +14,12 @@ model User {
   id              String    @id @default(cuid())
   name            String
   email           String    @unique
+  phone           String?   // Numéro de téléphone
   emailVerified   DateTime? // Changé en DateTime? pour stocker quand l'email a été validé
   image           String?
   password        String
   role            Role
+  status          UserStatus @default(PENDING) // Statut de validation
   disciplineId    String?   // Ajout du champ disciplineId
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -25,6 +27,7 @@ model User {
   // Relations
   authoredWorks     Work[]        @relation("AuthorWorks")
   conceivedWorks    Work[]        @relation("ConceptorWorks")
+  reviewedWorks     Work[]        @relation("ReviewedWorks")
   conceivedProjects Project[]     @relation("ConceptorProjects")
   reviewedProjects  Project[]     @relation("ReviewedProjects")
   partner           Partner?      
@@ -32,7 +35,10 @@ model User {
   orders            Order[]
   royalties         Royalty[]
   notifications     Notification[]
+  sentMessages      Message[]     @relation("SentMessages")
+  receivedMessages  Message[]     @relation("ReceivedMessages")
   discipline        Discipline?   @relation(fields: [disciplineId], references: [id]) // Relation avec Discipline
+  performedStockMovements StockMovement[] @relation("StockMovements")
 
   // NextAuth relations
   accounts        Account[]
@@ -68,16 +74,21 @@ model Session {
 
 
 model Project {
-  id           String        @id @default(cuid())
-  title        String
-  description  String?
-  discipline   Discipline    @relation(fields: [disciplineId], references: [id])
-  disciplineId String
-  status       ProjectStatus @default(DRAFT)
-  submittedAt  DateTime?
-  reviewedAt   DateTime?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id                    String        @id @default(cuid())
+  title                 String
+  description           String?
+  objectives            String?       // Objectifs du projet
+  expectedDeliverables  String?       // Livrables attendus
+  requiredResources     String?       // Ressources nécessaires
+  timeline              String?       // Planning prévisionnel
+  rejectionReason       String?       // Motif de refus (si rejeté)
+  discipline            Discipline    @relation(fields: [disciplineId], references: [id])
+  disciplineId          String
+  status                ProjectStatus @default(DRAFT)
+  submittedAt           DateTime?
+  reviewedAt            DateTime?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
 
   // Relations
   concepteurId String
@@ -85,35 +96,55 @@ model Project {
   reviewerId   String?
   reviewer     User?        @relation("ReviewedProjects", fields: [reviewerId], references: [id])
   
-  // Relation vers l'œuvre créée (si validé)
-  workId       String?      @unique
-  work         Work?        @relation(fields: [workId], references: [id])
+  // Relation vers les œuvres créées (un projet peut générer plusieurs œuvres)
+  works        Work[]       @relation("ProjectWorks")
 }
 
 model Work {
   id           String     @id @default(cuid())
   title        String
+  description  String?    // Description détaillée de l'œuvre
   isbn         String     @unique
-  price        Float
+  price        Float      @default(0)
   tva          Float      @default(0.18) // 18% TVA par défaut
   stock        Int        @default(0)
   minStock     Int        @default(10) // Seuil d'alerte de stock faible
   maxStock     Int?       // Stock maximum recommandé
+  
+  // Nouveaux champs pour le workflow amélioré
+  category               String?    // Catégorie de l'œuvre
+  targetAudience        String?    // Public cible
+  educationalObjectives String?    // Objectifs pédagogiques
+  contentType           String?    // Type de contenu (manuel, cahier, etc.)
+  keywords              String?    // Mots-clés séparés par des virgules
+  files                 String?    // JSON des fichiers associés
+  
+  // Validation et commentaires
+  validationComment     String?    // Commentaire du PDG lors de la validation
+  rejectionReason       String?    // Raison du refus si rejeté
+  
   discipline   Discipline @relation(fields: [disciplineId], references: [id])
   disciplineId String
-  status       WorkStatus @default(PUBLISHED)
-  publishedAt  DateTime   @default(now())
+  status       WorkStatus @default(PENDING) // Changé par défaut à PENDING
+  publishedAt  DateTime?  // Nullable, défini seulement lors de la publication
+  submittedAt  DateTime?  // Date de soumission
+  reviewedAt   DateTime?  // Date de validation/refus
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @default(now()) @updatedAt
 
   // Relations
-  authorId     String?
-  author       User?       @relation("AuthorWorks", fields: [authorId], references: [id])
+  authorId     String      // Obligatoire - seuls les auteurs peuvent créer des œuvres
+  author       User        @relation("AuthorWorks", fields: [authorId], references: [id])
+  reviewerId   String?     // PDG qui a validé/refusé
+  reviewer     User?       @relation("ReviewedWorks", fields: [reviewerId], references: [id])
+  
+  // Relation vers le concepteur (optionnelle - pour les œuvres rattachées à un projet)
   concepteurId String?
   concepteur   User?       @relation("ConceptorWorks", fields: [concepteurId], references: [id])
   
-  // Relation vers le projet d'origine
-  project      Project?
+  // Relation vers le projet d'origine (optionnelle - pour les œuvres créées à partir de projets)
+  projectId    String?
+  project      Project?    @relation("ProjectWorks", fields: [projectId], references: [id])
   
   sales        Sale[]
   orderItems   OrderItem[]
@@ -130,6 +161,7 @@ model StockMovement {
   reason      String?          // Raison du mouvement (vente, réimpression, ajustement, etc.)
   reference   String?          // Référence (ID de commande, numéro de facture, etc.)
   performedBy String?          // ID de l'utilisateur qui a effectué le mouvement
+  performedByUser User?        @relation("StockMovements", fields: [performedBy], references: [id])
   createdAt   DateTime         @default(now())
   
   @@index([workId])
@@ -210,6 +242,21 @@ model Royalty {
   createdAt DateTime @default(now())
 }
 
+model Message {
+  id          String   @id @default(cuid())
+  subject     String
+  content     String
+  type        String   @default("MESSAGE") // MESSAGE, SYSTEM, NOTIFICATION
+  read        Boolean  @default(false)
+  readAt      DateTime?
+  senderId    String
+  sender      User     @relation("SentMessages", fields: [senderId], references: [id])
+  recipientId String
+  recipient   User     @relation("ReceivedMessages", fields: [recipientId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 enum Role {
   PDG
   REPRESENTANT
@@ -217,6 +264,15 @@ enum Role {
   AUTEUR
   PARTENAIRE
   CLIENT
+}
+
+enum UserStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ACTIVE
+  INACTIVE
+  SUSPENDED
 }
 
 enum ProjectStatus {
@@ -228,7 +284,10 @@ enum ProjectStatus {
 }
 
 enum WorkStatus {
+  DRAFT
+  PENDING
   PUBLISHED
+  REJECTED
   ON_SALE
   OUT_OF_STOCK
   DISCONTINUED
@@ -272,6 +331,7 @@ model AuditLog {
   action       String   // Type d'action (VALIDATE_CONCEPTEUR, SUSPEND_USER, etc.)
   userId       String?  // ID de l'utilisateur concerné
   performedBy  String   // Qui a effectué l'action (PDG, etc.)
-  details      String   // Détails JSON de l'action
+  details      String   // Description textuelle de l'action
+  metadata     String?  // Métadonnées JSON de l'action (optionnel)
   createdAt    DateTime @default(now())
 }

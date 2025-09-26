@@ -1,685 +1,825 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout"
-import { useCurrentUser } from "@/hooks/use-current-user"
-import { apiClient } from "@/lib/api-client"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useState, useEffect } from "react";
+import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { 
-  Building2, 
-  Plus, 
   Search, 
-  Filter,
-  Edit,
-  Trash2,
+  Eye, 
   CheckCircle,
   XCircle,
-  Clock,
-  Users,
-  Mail,
-  Phone,
-  MapPin,
+  AlertTriangle, 
+  Trash2, 
+  Building2,
+  User,
   Calendar,
-  GraduationCap,
-  School
-} from "lucide-react"
-import { toast } from "sonner"
-import { formatDistanceToNow } from "date-fns"
-import { fr } from "date-fns/locale"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+  TrendingUp,
+  BarChart3,
+  FileText,
+  Edit,
+  Users,
+  DollarSign,
+  Package,
+  MapPin,
+  Phone,
+  Mail,
+  Globe
+} from "lucide-react";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
 
-// Types pour les partenaires et écoles
 interface Partner {
-  id: string
-  name: string
-  type: 'school' | 'institution' | 'organization'
-  contactPerson: string
-  email: string
-  phone: string
-  address: string
-  city: string
-  status: 'active' | 'inactive' | 'pending'
-  partnershipType: 'exclusive' | 'preferred' | 'standard'
-  contractStartDate: string
-  contractEndDate?: string
-  totalOrders: number
-  totalValue: number
-  createdAt: string
+  id: string;
+  name: string;
+  type: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  contact?: string;
+  website?: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    phone?: string;
+    status: string;
+    role: string;
+    createdAt: string;
+  };
+  representant?: {
+    id: string;
+    name: string;
+    email: string;
+    phone?: string;
+  };
+  _count: {
+    orders: number;
+  };
+}
+
+interface PartnerStats {
+  total: number;
+  active: number;
+  pending: number;
+  suspended: number;
+  totalOrders: number;
+  totalRevenue: number;
 }
 
 export default function GestionPartenairesPage() {
-  const { user, isLoading: userLoading } = useCurrentUser()
-  const [partners, setPartners] = useState<Partner[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [typeFilter, setTypeFilter] = useState("all")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [partners, setPartners] = useState<Partner[]>([]);
+  const [representants, setRepresentants] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [typeFilter, setTypeFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [partnerStats, setPartnerStats] = useState<PartnerStats>({
+    total: 0,
+    active: 0,
+    pending: 0,
+    suspended: 0,
+    totalOrders: 0,
+    totalRevenue: 0
+  });
+  const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
+  const [newStatus, setNewStatus] = useState("");
+  const [newReason, setNewReason] = useState("");
+  const [newRepresentantId, setNewRepresentantId] = useState("");
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [partnerToDelete, setPartnerToDelete] = useState<Partner | null>(null);
 
   // Charger les données
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true)
-        
-        // Simuler des partenaires
-        const mockPartners: Partner[] = [
-          {
-            id: 'partner-1',
-            name: 'École Primaire de Cotonou',
-            type: 'school',
-            contactPerson: 'Mme Adjoa Koffi',
-            email: 'contact@ecole-cotonou.bj',
-            phone: '+229 21 12 34 56',
-            address: 'Quartier Cadjehoun',
-            city: 'Cotonou',
-            status: 'active',
-            partnershipType: 'preferred',
-            contractStartDate: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString(),
-            contractEndDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-            totalOrders: 15,
-            totalValue: 1250000,
-            createdAt: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString()
-          },
-          {
-            id: 'partner-2',
-            name: 'Collège Saint-Joseph',
-            type: 'school',
-            contactPerson: 'Père Jean-Baptiste',
-            email: 'admin@stjoseph.bj',
-            phone: '+229 21 23 45 67',
-            address: 'Avenue Clozel',
-            city: 'Cotonou',
-            status: 'active',
-            partnershipType: 'exclusive',
-            contractStartDate: new Date(Date.now() - 200 * 24 * 60 * 60 * 1000).toISOString(),
-            contractEndDate: new Date(Date.now() + 165 * 24 * 60 * 60 * 1000).toISOString(),
-            totalOrders: 8,
-            totalValue: 680000,
-            createdAt: new Date(Date.now() - 200 * 24 * 60 * 60 * 1000).toISOString()
-          },
-          {
-            id: 'partner-3',
-            name: 'Ministère de l\'Éducation',
-            type: 'institution',
-            contactPerson: 'Dr. Marie Traoré',
-            email: 'marie.traore@education.gouv.bj',
-            phone: '+229 21 34 56 78',
-            address: 'Ministère de l\'Éducation',
-            city: 'Porto-Novo',
-            status: 'pending',
-            partnershipType: 'standard',
-            contractStartDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-            totalOrders: 0,
-            totalValue: 0,
-            createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-          },
-          {
-            id: 'partner-4',
-            name: 'Association des Parents d\'Élèves',
-            type: 'organization',
-            contactPerson: 'M. Koffi Mensah',
-            email: 'koffi.mensah@ape.bj',
-            phone: '+229 21 45 67 89',
-            address: 'Centre Culturel',
-            city: 'Abomey-Calavi',
-            status: 'active',
-            partnershipType: 'standard',
-            contractStartDate: new Date(Date.now() - 150 * 24 * 60 * 60 * 1000).toISOString(),
-            totalOrders: 3,
-            totalValue: 180000,
-            createdAt: new Date(Date.now() - 150 * 24 * 60 * 60 * 1000).toISOString()
-          }
-        ]
-        
-        setPartners(mockPartners)
-      } catch (error: any) {
-        console.error("Error fetching data:", error)
-        toast.error("Erreur lors du chargement des données")
-      } finally {
-        setIsLoading(false)
+    fetchPartners();
+    fetchRepresentants();
+  }, [currentPage, searchTerm, typeFilter, statusFilter]);
+
+  const fetchPartners = async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: "10"
+      });
+
+      if (searchTerm) params.append("search", searchTerm);
+      if (typeFilter !== "ALL") params.append("type", typeFilter);
+      if (statusFilter !== "ALL") params.append("status", statusFilter);
+
+      const response = await fetch(`/api/partners?${params}`);
+      const data = await response.json();
+
+      if (response.ok) {
+        setPartners(data.partners);
+        setTotalPages(data.pagination.pages);
+
+        // Calculer les statistiques
+        const total = data.partners.length;
+        const active = data.partners.filter((partner: Partner) => partner.user.status === "ACTIVE").length;
+        const pending = data.partners.filter((partner: Partner) => partner.user.status === "PENDING").length;
+        const suspended = data.partners.filter((partner: Partner) => partner.user.status === "SUSPENDED").length;
+        const totalOrders = data.partners.reduce((sum: number, partner: Partner) => sum + partner._count.orders, 0);
+
+        // Calculer le chiffre d'affaires (simulation)
+        const totalRevenue = totalOrders * 200; // Estimation moyenne de 200€ par commande
+
+        setPartnerStats({ total, active, pending, suspended, totalOrders, totalRevenue });
+      } else {
+        toast.error(data.error || "Erreur lors du chargement des partenaires");
       }
+    } catch (error) {
+      console.error("Error fetching partners:", error);
+      toast.error("Erreur lors du chargement des partenaires");
+    } finally {
+      setLoading(false);
     }
+  };
 
-    fetchData()
-  }, [])
-
-  // Fonctions de gestion
-  const handleCreatePartner = async (partnerData: any) => {
+  const fetchRepresentants = async () => {
     try {
-      const newPartner: Partner = {
-        ...partnerData,
-        id: `partner-${Date.now()}`,
-        totalOrders: 0,
-        totalValue: 0,
-        createdAt: new Date().toISOString()
+      const response = await fetch("/api/users?role=REPRESENTANT");
+      const data = await response.json();
+
+      if (response.ok) {
+        setRepresentants(data.filter((user: any) => user.status === "ACTIVE"));
       }
-      
-      setPartners(prev => [newPartner, ...prev])
-      setIsCreateDialogOpen(false)
-      toast.success("Partenaire créé avec succès")
-    } catch (error: any) {
-      toast.error(error.message || "Erreur lors de la création")
-    }
-  }
-
-  const handleUpdatePartner = async (partnerId: string, updates: any) => {
-    try {
-      setPartners(prev => 
-        prev.map(p => 
-          p.id === partnerId 
-            ? { ...p, ...updates }
-            : p
-        )
-      )
-      
-      toast.success("Partenaire modifié avec succès")
     } catch (error) {
-      toast.error("Erreur lors de la modification")
+      console.error("Error fetching representants:", error);
     }
-  }
-
-  const handleDeletePartner = async (partnerId: string) => {
-    try {
-      setPartners(prev => prev.filter(p => p.id !== partnerId))
-      toast.success("Partenaire supprimé avec succès")
-    } catch (error) {
-      toast.error("Erreur lors de la suppression")
-    }
-  }
-
-  const handleToggleStatus = async (partnerId: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'active' ? 'inactive' : 'active'
-    handleUpdatePartner(partnerId, { status: newStatus })
-  }
-
-  // Filtrage
-  const filteredPartners = partners.filter(partner => {
-    const matchesSearch = partner.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         partner.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         partner.email.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesType = typeFilter === "all" || partner.type === typeFilter
-    const matchesStatus = statusFilter === "all" || partner.status === statusFilter
-    
-    return matchesSearch && matchesType && matchesStatus
-  })
+  };
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active':
-        return <Badge variant="default" className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Actif</Badge>
-      case 'inactive':
-        return <Badge variant="secondary" className="bg-gray-100 text-gray-800"><XCircle className="h-3 w-3 mr-1" />Inactif</Badge>
-      case 'pending':
-        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800"><Clock className="h-3 w-3 mr-1" />En attente</Badge>
-      default:
-        return <Badge variant="secondary">Inconnu</Badge>
-    }
-  }
+    const statusConfig = {
+      PENDING: { label: "En attente", variant: "secondary" as const },
+      APPROVED: { label: "Approuvé", variant: "default" as const },
+      REJECTED: { label: "Rejeté", variant: "destructive" as const },
+      ACTIVE: { label: "Actif", variant: "default" as const },
+      INACTIVE: { label: "Inactif", variant: "secondary" as const },
+      SUSPENDED: { label: "Suspendu", variant: "destructive" as const }
+    };
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'school':
-        return <School className="h-5 w-5 text-blue-600" />
-      case 'institution':
-        return <Building2 className="h-5 w-5 text-green-600" />
-      case 'organization':
-        return <Users className="h-5 w-5 text-purple-600" />
-      default:
-        return <Building2 className="h-5 w-5 text-gray-600" />
-    }
-  }
+    const config = statusConfig[status as keyof typeof statusConfig] || {
+      label: status,
+      variant: "secondary" as const
+    };
 
-  const getPartnershipTypeBadge = (type: string) => {
-    switch (type) {
-      case 'exclusive':
-        return <Badge variant="default" className="bg-purple-100 text-purple-800">Exclusif</Badge>
-      case 'preferred':
-        return <Badge variant="default" className="bg-blue-100 text-blue-800">Privilégié</Badge>
-      case 'standard':
-        return <Badge variant="outline" className="bg-gray-100 text-gray-800">Standard</Badge>
-      default:
-        return <Badge variant="secondary">Inconnu</Badge>
-    }
-  }
-
-  if (userLoading || isLoading) {
     return (
-      <DynamicDashboardLayout>
-        <div className="flex items-center justify-center h-96">
-          <div className="text-center">
-            <Building2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-            <p className="text-muted-foreground">Chargement des partenaires...</p>
-          </div>
-        </div>
-      </DynamicDashboardLayout>
-    )
-  }
+      <Badge variant={config.variant} className="text-xs">
+        {config.label}
+      </Badge>
+    );
+  };
 
-  if (!user || user.role !== 'PDG') {
+  const getTypeBadge = (type: string) => {
+    const typeConfig = {
+      "ÉCOLE": { label: "École", variant: "default" as const },
+      "LIBRAIRIE": { label: "Librairie", variant: "secondary" as const },
+      "DISTRIBUTEUR": { label: "Distributeur", variant: "outline" as const },
+      "PARTENAIRE": { label: "Partenaire", variant: "default" as const }
+    };
+
+    const config = typeConfig[type as keyof typeof typeConfig] || {
+      label: type,
+      variant: "secondary" as const
+    };
+
     return (
-      <DynamicDashboardLayout>
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Accès non autorisé</p>
-        </div>
-      </DynamicDashboardLayout>
-    )
-  }
+      <Badge variant={config.variant} className="text-xs">
+        {config.label}
+      </Badge>
+    );
+  };
+
+  const handleStatusChange = async () => {
+    if (!selectedPartner || !newStatus) return;
+
+    try {
+      const response = await fetch("/api/partners", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          id: selectedPartner.id,
+          status: newStatus,
+          reason: newReason || null,
+          representantId: (newRepresentantId && newRepresentantId !== "none") ? newRepresentantId : null
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success(`Statut du partenaire modifié en ${newStatus}`);
+        fetchPartners();
+        setIsStatusDialogOpen(false);
+        setNewStatus("");
+        setNewReason("");
+        setNewRepresentantId("");
+        setSelectedPartner(null);
+      } else {
+        toast.error(data.error || "Erreur lors de la modification du statut");
+      }
+    } catch (error) {
+      console.error("Error updating partner status:", error);
+      toast.error("Erreur lors de la modification du statut");
+    }
+  };
+
+  const handleDeletePartner = async () => {
+    if (!partnerToDelete) return;
+
+    try {
+      const response = await fetch(`/api/partners?id=${partnerToDelete.id}`, {
+        method: "DELETE"
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success("Partenaire supprimé avec succès");
+        fetchPartners();
+        setIsDeleteDialogOpen(false);
+        setPartnerToDelete(null);
+      } else {
+        toast.error(data.error || "Erreur lors de la suppression");
+      }
+    } catch (error) {
+      console.error("Error deleting partner:", error);
+      toast.error("Erreur lors de la suppression");
+    }
+  };
 
   return (
-    <DynamicDashboardLayout title="Gestion des Partenaires">
+    <DynamicDashboardLayout title="Gestion des Partenaires" showActions>
       <div className="space-y-6">
-        {/* En-tête */}
-        <div className="flex items-center justify-between">
+        {/* Statistiques */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-2">
+                <Building2 className="h-5 w-5 text-blue-600" />
           <div>
-            <h1 className="text-3xl font-bold">Gestion des Partenaires</h1>
-            <p className="text-muted-foreground">
-              Gérez les écoles, institutions et organisations partenaires
-            </p>
+                  <p className="text-sm font-medium text-gray-600">Total</p>
+                  <p className="text-2xl font-bold">{partnerStats.total}</p>
+                </div>
           </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
           <div className="flex items-center space-x-2">
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-blue-600 hover:bg-blue-700">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Nouveau partenaire
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Ajouter un nouveau partenaire</DialogTitle>
-                  <DialogDescription>
-                    Créez un nouveau partenariat avec une école ou institution
-                  </DialogDescription>
-                </DialogHeader>
-                <CreatePartnerForm 
-                  onSubmit={handleCreatePartner}
-                  onCancel={() => setIsCreateDialogOpen(false)}
-                />
-              </DialogContent>
-            </Dialog>
-            <Badge variant="outline" className="text-sm">
-              <Building2 className="h-3 w-3 mr-1" />
-              {filteredPartners.length} partenaire{filteredPartners.length > 1 ? 's' : ''}
-            </Badge>
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Actifs</p>
+                  <p className="text-2xl font-bold">{partnerStats.active}</p>
           </div>
         </div>
+            </CardContent>
+          </Card>
 
-        {/* Statistiques rapides */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total</CardTitle>
-              <Building2 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{partners.length}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Écoles</CardTitle>
-              <School className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">
-                {partners.filter(p => p.type === 'school').length}
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-2">
+                <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                <div>
+                  <p className="text-sm font-medium text-gray-600">En attente</p>
+                  <p className="text-2xl font-bold">{partnerStats.pending}</p>
+                </div>
               </div>
             </CardContent>
           </Card>
+
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Actifs</CardTitle>
-              <CheckCircle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {partners.filter(p => p.status === 'active').length}
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-2">
+                <XCircle className="h-5 w-5 text-red-600" />
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Suspendus</p>
+                  <p className="text-2xl font-bold">{partnerStats.suspended}</p>
+                </div>
               </div>
             </CardContent>
           </Card>
+
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">En attente</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">
-                {partners.filter(p => p.status === 'pending').length}
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-2">
+                <Package className="h-5 w-5 text-purple-600" />
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Commandes</p>
+                  <p className="text-2xl font-bold">{partnerStats.totalOrders}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-2">
+                <TrendingUp className="h-5 w-5 text-green-600" />
+                <div>
+                  <p className="text-sm font-medium text-gray-600">CA Estimé</p>
+                  <p className="text-2xl font-bold">{partnerStats.totalRevenue.toFixed(0)} €</p>
+                </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Filtres */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+        <Tabs defaultValue="partners" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="partners">Gestion des Partenaires</TabsTrigger>
+            <TabsTrigger value="analytics">Analyses</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="partners" className="space-y-4">
+            {/* Filtres et recherche */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Filtres et Recherche</span>
+                  <Button onClick={fetchPartners} variant="outline" size="sm">
+                    <BarChart3 className="h-4 w-4 mr-2" />
+                    Actualiser
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="search">Rechercher</Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
-              placeholder="Rechercher par nom, contact..."
+                        id="search"
+                        placeholder="Nom du partenaire, contact..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
             />
           </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="type">Type</Label>
           <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-full sm:w-[200px]">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Type" />
+                      <SelectTrigger>
+                        <SelectValue placeholder="Tous les types" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tous les types</SelectItem>
-              <SelectItem value="school">Écoles</SelectItem>
-              <SelectItem value="institution">Institutions</SelectItem>
-              <SelectItem value="organization">Organisations</SelectItem>
+                        <SelectItem value="ALL">Tous les types</SelectItem>
+                        <SelectItem value="ÉCOLE">École</SelectItem>
+                        <SelectItem value="LIBRAIRIE">Librairie</SelectItem>
+                        <SelectItem value="DISTRIBUTEUR">Distributeur</SelectItem>
+                        <SelectItem value="PARTENAIRE">Partenaire</SelectItem>
             </SelectContent>
           </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Statut</Label>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-[200px]">
-              <SelectValue placeholder="Statut" />
+                      <SelectTrigger>
+                        <SelectValue placeholder="Tous les statuts" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tous les statuts</SelectItem>
-              <SelectItem value="active">Actifs</SelectItem>
-              <SelectItem value="inactive">Inactifs</SelectItem>
-              <SelectItem value="pending">En attente</SelectItem>
+                        <SelectItem value="ALL">Tous les statuts</SelectItem>
+                        <SelectItem value="PENDING">En attente</SelectItem>
+                        <SelectItem value="APPROVED">Approuvé</SelectItem>
+                        <SelectItem value="ACTIVE">Actif</SelectItem>
+                        <SelectItem value="INACTIVE">Inactif</SelectItem>
+                        <SelectItem value="SUSPENDED">Suspendu</SelectItem>
             </SelectContent>
           </Select>
         </div>
-
-        {/* Liste des partenaires */}
-        {filteredPartners.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Building2 className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Aucun partenaire trouvé</h3>
-              <p className="text-muted-foreground text-center">
-                {searchTerm || typeFilter !== "all" || statusFilter !== "all"
-                  ? "Essayez de modifier vos critères de recherche"
-                  : "Aucun partenaire dans le système"
-                }
-              </p>
+                </div>
             </CardContent>
           </Card>
+
+            {/* Table des partenaires */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Liste des Partenaires</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="flex justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  </div>
         ) : (
           <div className="space-y-4">
-            {filteredPartners.map((partner) => (
-              <Card key={partner.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start space-x-4">
-                      <div className="flex-shrink-0 mt-1">
-                        {getTypeIcon(partner.type)}
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Partenaire</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Contact</TableHead>
+                          <TableHead>Représentant</TableHead>
+                          <TableHead>Statut</TableHead>
+                          <TableHead>Commandes</TableHead>
+                          <TableHead>Inscription</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {partners.map((partner) => (
+                          <TableRow key={partner.id}>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{partner.name}</div>
+                                {partner.email && (
+                                  <div className="text-sm text-gray-500">{partner.email}</div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>{getTypeBadge(partner.type)}</TableCell>
+                            <TableCell>
+                              <div className="space-y-1">
+                                <div className="text-sm">{partner.user.name}</div>
+                                {partner.user.phone && (
+                                  <div className="text-xs text-gray-500">{partner.user.phone}</div>
+                                )}
                       </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <h3 className="text-lg font-semibold">{partner.name}</h3>
-                          {getStatusBadge(partner.status)}
-                          {getPartnershipTypeBadge(partner.partnershipType)}
+                            </TableCell>
+                            <TableCell>
+                              {partner.representant ? (
+                                <div className="space-y-1">
+                                  <div className="text-sm">{partner.representant.name}</div>
+                                  <div className="text-xs text-gray-500">{partner.representant.email}</div>
                         </div>
-                        
-                        <div className="space-y-2 text-sm text-muted-foreground">
-                          <div className="flex items-center space-x-4">
+                              ) : (
+                                <span className="text-gray-500 text-sm">Non assigné</span>
+                              )}
+                            </TableCell>
+                            <TableCell>{getStatusBadge(partner.user.status)}</TableCell>
+                            <TableCell>
                             <div className="flex items-center space-x-1">
-                              <Users className="h-4 w-4" />
-                              <span>Contact: {partner.contactPerson}</span>
+                                <Package className="h-4 w-4 text-gray-400" />
+                                <span>{partner._count.orders}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {format(new Date(partner.createdAt), "dd/MM/yyyy", { locale: fr })}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedPartner(partner);
+                                    setIsDetailsOpen(true);
+                                  }}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedPartner(partner);
+                                    setNewStatus("");
+                                    setNewReason("");
+                                    setNewRepresentantId(partner.representant?.id || "");
+                                    setIsStatusDialogOpen(true);
+                                  }}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
                             </div>
-                            
-                            <div className="flex items-center space-x-1">
-                              <Mail className="h-4 w-4" />
-                              <span>{partner.email}</span>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-gray-500">
+                          Page {currentPage} sur {totalPages}
+                        </p>
+                        <div className="flex space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(currentPage - 1)}
+                            disabled={currentPage === 1}
+                          >
+                            Précédent
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                          >
+                            Suivant
+                          </Button>
                             </div>
                           </div>
-                          
-                          <div className="flex items-center space-x-4">
-                            <div className="flex items-center space-x-1">
-                              <Phone className="h-4 w-4" />
-                              <span>{partner.phone}</span>
-                            </div>
-                            
-                            <div className="flex items-center space-x-1">
-                              <MapPin className="h-4 w-4" />
-                              <span>{partner.city}</span>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center space-x-4">
-                            <div className="flex items-center space-x-1">
-                              <GraduationCap className="h-4 w-4" />
-                              <span>{partner.totalOrders} commandes</span>
-                            </div>
-                            
-                            <div className="flex items-center space-x-1">
-                              <Building2 className="h-4 w-4" />
-                              <span>{partner.totalValue.toLocaleString()} F CFA</span>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center space-x-1">
-                            <Calendar className="h-4 w-4" />
-                            <span>
-                              Partenariat depuis {formatDistanceToNow(new Date(partner.createdAt), { 
-                                addSuffix: true, 
-                                locale: fr 
-                              })}
-                            </span>
-                          </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="analytics" className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Répartition par type */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <BarChart3 className="h-5 w-5" />
+                    <span>Répartition par type</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {Object.entries(
+                      partners.reduce((acc, partner) => {
+                        acc[partner.type] = (acc[partner.type] || 0) + 1;
+                        return acc;
+                      }, {} as Record<string, number>)
+                    ).map(([type, count]) => (
+                      <div key={type} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                          {getTypeBadge(type)}
+                          <span className="font-medium">{type}</span>
                         </div>
+                        <span className="font-bold">{count}</span>
+                      </div>
+                    ))}
+                            </div>
+                </CardContent>
+              </Card>
+
+              {/* Répartition par statut */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <BarChart3 className="h-5 w-5" />
+                    <span>Répartition par statut</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                      <div className="flex items-center space-x-2">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <span className="font-medium">Actifs</span>
+                      </div>
+                      <span className="font-bold text-green-600">{partnerStats.active}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+                      <div className="flex items-center space-x-2">
+                        <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                        <span className="font-medium">En attente</span>
+                      </div>
+                      <span className="font-bold text-yellow-600">{partnerStats.pending}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                      <div className="flex items-center space-x-2">
+                        <XCircle className="h-4 w-4 text-red-600" />
+                        <span className="font-medium">Suspendus</span>
+                      </div>
+                      <span className="font-bold text-red-600">{partnerStats.suspended}</span>
+                            </div>
+                          </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        {/* Dialog de détails du partenaire */}
+        <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Détails du partenaire</DialogTitle>
+            </DialogHeader>
+            {selectedPartner && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="font-medium">Nom du partenaire</Label>
+                    <p>{selectedPartner.name}</p>
+                  </div>
+                  <div>
+                    <Label className="font-medium">Type</Label>
+                    <div>{getTypeBadge(selectedPartner.type)}</div>
+                  </div>
+                  <div>
+                    <Label className="font-medium">Statut</Label>
+                    <div>{getStatusBadge(selectedPartner.user.status)}</div>
+                            </div>
+                  <div>
+                    <Label className="font-medium">Commandes</Label>
+                    <p>{selectedPartner._count.orders}</p>
+                            </div>
+                          </div>
+                          
+                <div>
+                  <Label className="font-medium">Contact principal</Label>
+                  <div className="bg-gray-50 p-3 rounded-lg space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <User className="h-4 w-4" />
+                      <span>{selectedPartner.user.name}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Mail className="h-4 w-4" />
+                      <span>{selectedPartner.user.email}</span>
+                          </div>
+                    {selectedPartner.user.phone && (
+                      <div className="flex items-center space-x-2">
+                        <Phone className="h-4 w-4" />
+                        <span>{selectedPartner.user.phone}</span>
+                        </div>
+                    )}
                       </div>
                     </div>
                     
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleToggleStatus(partner.id, partner.status)}
-                      >
-                        <Edit className="h-4 w-4 mr-2" />
-                        {partner.status === 'active' ? 'Désactiver' : 'Activer'}
-                      </Button>
-                      
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="destructive" size="sm">
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Supprimer
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Supprimer le partenaire</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Êtes-vous sûr de vouloir supprimer {partner.name} ? 
-                              Cette action est irréversible.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Annuler</AlertDialogCancel>
-                            <AlertDialogAction 
-                              onClick={() => handleDeletePartner(partner.id)}
-                              className="bg-red-600 hover:bg-red-700"
-                            >
-                              Supprimer
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                {selectedPartner.address && (
+                  <div>
+                    <Label className="font-medium">Adresse</Label>
+                    <div className="flex items-start space-x-2">
+                      <MapPin className="h-4 w-4 mt-1" />
+                      <p>{selectedPartner.address}</p>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                )}
+
+                {selectedPartner.website && (
+                  <div>
+                    <Label className="font-medium">Site web</Label>
+                    <div className="flex items-center space-x-2">
+                      <Globe className="h-4 w-4" />
+                      <a
+                        href={selectedPartner.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        {selectedPartner.website}
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {selectedPartner.representant && (
+                  <div>
+                    <Label className="font-medium">Représentant assigné</Label>
+                    <div className="bg-gray-50 p-3 rounded-lg space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <User className="h-4 w-4" />
+                        <span>{selectedPartner.representant.name}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Mail className="h-4 w-4" />
+                        <span>{selectedPartner.representant.email}</span>
+                      </div>
+                      {selectedPartner.representant.phone && (
+                        <div className="flex items-center space-x-2">
+                          <Phone className="h-4 w-4" />
+                          <span>{selectedPartner.representant.phone}</span>
           </div>
         )}
       </div>
-    </DynamicDashboardLayout>
-  )
-}
+                  </div>
+                )}
 
-// Composant pour créer un partenaire
-function CreatePartnerForm({ onSubmit, onCancel }: {
-  onSubmit: (data: any) => void
-  onCancel: () => void
-}) {
-  const [formData, setFormData] = useState({
-    name: '',
-    type: 'school' as const,
-    contactPerson: '',
-    email: '',
-    phone: '',
-    address: '',
-    city: '',
-    partnershipType: 'standard' as const,
-    contractStartDate: new Date().toISOString().split('T')[0],
-    contractEndDate: ''
-  })
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="font-medium">Date d'inscription</Label>
+                    <p>{format(new Date(selectedPartner.createdAt), "dd/MM/yyyy HH:mm", { locale: fr })}</p>
+                  </div>
+                  <div>
+                    <Label className="font-medium">Dernière mise à jour</Label>
+                    <p>{format(new Date(selectedPartner.updatedAt), "dd/MM/yyyy HH:mm", { locale: fr })}</p>
+                  </div>
+                </div>
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    onSubmit(formData)
-  }
+                {selectedPartner.description && (
+                  <div>
+                    <Label className="font-medium">Description</Label>
+                    <p className="text-sm text-gray-600">{selectedPartner.description}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Dialog de modification du statut */}
+        <Dialog open={isStatusDialogOpen} onOpenChange={setIsStatusDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Modifier le partenaire</DialogTitle>
+            </DialogHeader>
+            {selectedPartner && (
+              <div className="space-y-4">
       <div>
-        <label className="text-sm font-medium">Nom de l'organisation</label>
-        <Input
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          placeholder="Ex: École Primaire de Cotonou"
-          required
-        />
+                  <Label className="font-medium">Partenaire</Label>
+                  <p className="text-sm text-gray-600">{selectedPartner.name}</p>
       </div>
       
       <div>
-        <label className="text-sm font-medium">Type</label>
-        <Select value={formData.type} onValueChange={(value: any) => setFormData({ ...formData, type: value })}>
+                  <Label htmlFor="newStatus">Statut</Label>
+                  <Select value={newStatus} onValueChange={setNewStatus}>
           <SelectTrigger>
-            <SelectValue />
+                      <SelectValue placeholder="Sélectionner un statut" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="school">École</SelectItem>
-            <SelectItem value="institution">Institution</SelectItem>
-            <SelectItem value="organization">Organisation</SelectItem>
+                      <SelectItem value="PENDING">En attente</SelectItem>
+                      <SelectItem value="APPROVED">Approuvé</SelectItem>
+                      <SelectItem value="ACTIVE">Actif</SelectItem>
+                      <SelectItem value="INACTIVE">Inactif</SelectItem>
+                      <SelectItem value="SUSPENDED">Suspendu</SelectItem>
           </SelectContent>
         </Select>
       </div>
       
       <div>
-        <label className="text-sm font-medium">Personne de contact</label>
-        <Input
-          value={formData.contactPerson}
-          onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-          placeholder="Nom complet du contact"
-          required
+                  <Label htmlFor="reason">Raison (optionnel)</Label>
+                  <Textarea
+                    id="reason"
+                    placeholder="Raison du changement de statut..."
+                    value={newReason}
+                    onChange={(e) => setNewReason(e.target.value)}
+                    rows={3}
         />
       </div>
       
       <div>
-        <label className="text-sm font-medium">Email</label>
-        <Input
-          type="email"
-          value={formData.email}
-          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-          placeholder="contact@example.com"
-          required
-        />
-      </div>
-      
-      <div>
-        <label className="text-sm font-medium">Téléphone</label>
-        <Input
-          value={formData.phone}
-          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-          placeholder="+229 XX XX XX XX"
-          required
-        />
-      </div>
-      
-      <div>
-        <label className="text-sm font-medium">Adresse</label>
-        <Input
-          value={formData.address}
-          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-          placeholder="Adresse complète"
-          required
-        />
-      </div>
-      
-      <div>
-        <label className="text-sm font-medium">Ville</label>
-        <Input
-          value={formData.city}
-          onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-          placeholder="Ville"
-          required
-        />
-      </div>
-      
-      <div>
-        <label className="text-sm font-medium">Type de partenariat</label>
-        <Select value={formData.partnershipType} onValueChange={(value: any) => setFormData({ ...formData, partnershipType: value })}>
+                  <Label htmlFor="representant">Représentant</Label>
+                  <Select value={newRepresentantId} onValueChange={setNewRepresentantId}>
           <SelectTrigger>
-            <SelectValue />
+                      <SelectValue placeholder="Sélectionner un représentant" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="standard">Standard</SelectItem>
-            <SelectItem value="preferred">Privilégié</SelectItem>
-            <SelectItem value="exclusive">Exclusif</SelectItem>
+                      <SelectItem value="none">Aucun représentant</SelectItem>
+                      {representants.map((rep) => (
+                        <SelectItem key={rep.id} value={rep.id}>
+                          {rep.name} ({rep.email})
+                        </SelectItem>
+                      ))}
           </SelectContent>
         </Select>
-      </div>
-      
-      <div>
-        <label className="text-sm font-medium">Date de début du contrat</label>
-        <Input
-          type="date"
-          value={formData.contractStartDate}
-          onChange={(e) => setFormData({ ...formData, contractStartDate: e.target.value })}
-          required
-        />
-      </div>
-      
-      <div>
-        <label className="text-sm font-medium">Date de fin du contrat (optionnel)</label>
-        <Input
-          type="date"
-          value={formData.contractEndDate}
-          onChange={(e) => setFormData({ ...formData, contractEndDate: e.target.value })}
-        />
       </div>
       
       <div className="flex justify-end space-x-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+                  <Button variant="outline" onClick={() => setIsStatusDialogOpen(false)}>
           Annuler
         </Button>
-        <Button type="submit">
-          Créer le partenaire
+                  <Button onClick={handleStatusChange} disabled={!newStatus}>
+                    Modifier
         </Button>
       </div>
-    </form>
-  )
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog de suppression */}
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Supprimer le partenaire</AlertDialogTitle>
+              <AlertDialogDescription>
+                Êtes-vous sûr de vouloir supprimer le partenaire "{partnerToDelete?.name}" ?
+                Cette action est irréversible et ne peut être effectuée que si le partenaire n'a pas de commandes associées.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Annuler</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeletePartner}>
+                Supprimer
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </DynamicDashboardLayout>
+  );
 }

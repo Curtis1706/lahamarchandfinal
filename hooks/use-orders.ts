@@ -1,18 +1,18 @@
 import { useState, useEffect, useCallback } from "react"
 import { toast } from "sonner"
 import { useNotifications } from "./use-notifications"
+import { useCurrentUser } from "./use-current-user"
+import { apiClient } from "@/lib/api-client"
 
-// Types pour les commandes
-interface OrderItem {
+export interface OrderItem {
   id: string
   title: string
-  isbn: string
-  price: number
   quantity: number
+  price: number
   image: string
 }
 
-interface Order {
+export interface Order {
   id: string
   reference: string
   date: string
@@ -22,21 +22,20 @@ interface Order {
   paymentMethod: string
   deliveryAddress: string
   items: OrderItem[]
-  trackingNumber?: string
-  estimatedDelivery?: string
-  notes?: string
   customerInfo: {
     fullName: string
     email: string
-    phone: string
     address: string
     city: string
   }
+  trackingNumber?: string
+  estimatedDelivery?: string
+  notes?: string
 }
 
-interface UseOrdersResult {
+export interface UseOrdersResult {
   orders: Order[]
-  addOrder: (order: Omit<Order, 'id' | 'reference' | 'date'>) => Order
+  addOrder: (orderData: Omit<Order, 'id' | 'reference' | 'date'>) => Promise<Order>
   updateOrderStatus: (orderId: string, status: Order['status']) => void
   isLoading: boolean
   refreshOrders: () => void
@@ -46,84 +45,148 @@ export const useOrders = (): UseOrdersResult => {
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const { addNotification } = useNotifications()
+  const { user } = useCurrentUser()
 
-  const loadOrders = useCallback(() => {
-    // Charger les commandes depuis localStorage
-    const storedOrders = localStorage.getItem("client-orders")
-    if (storedOrders) {
-      try {
-        const parsedOrders = JSON.parse(storedOrders)
-        setOrders(parsedOrders)
-      } catch (error) {
-        console.error("Erreur lors du chargement des commandes:", error)
-        setOrders([])
-      }
-    } else {
-      setOrders([])
+  // Mapper les statuts de l'API vers le frontend
+  const mapOrderStatus = (apiStatus: string): string => {
+    switch (apiStatus) {
+      case 'PENDING':
+        return 'pending'
+      case 'VALIDATED':
+        return 'confirmed'
+      case 'PROCESSING':
+        return 'confirmed'
+      case 'SHIPPED':
+        return 'shipped'
+      case 'DELIVERED':
+        return 'delivered'
+      case 'CANCELLED':
+        return 'cancelled'
+      default:
+        console.warn('Statut de commande non reconnu:', apiStatus)
+        return 'pending'
     }
-    setIsLoading(false)
-  }, [])
+  }
+
+  const loadOrders = useCallback(async () => {
+    if (!user) {
+      setOrders([])
+      setIsLoading(false)
+      return
+    }
+
+    try {
+      setIsLoading(true)
+      // Charger les commandes depuis l'API
+      const apiOrders = await apiClient.getOrders()
+      
+      // Filtrer les commandes pour l'utilisateur actuel
+      const userOrders = apiOrders.filter(order => order.userId === user.id)
+      
+      // Convertir au format attendu par le frontend
+      const formattedOrders: Order[] = userOrders.map(order => ({
+        id: order.id,
+        reference: order.id.substring(0, 8).toUpperCase(),
+        date: order.createdAt,
+        status: mapOrderStatus(order.status) as Order['status'],
+        total: order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+        itemCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
+        paymentMethod: 'Carte bancaire',
+        deliveryAddress: 'Adresse par défaut',
+        items: order.items.map(item => ({
+          id: item.id,
+          title: item.work.title,
+          quantity: item.quantity,
+          price: item.price,
+          image: '/placeholder-book.jpg'
+        })),
+        customerInfo: {
+          fullName: order.user.name,
+          email: order.user.email,
+          address: 'Adresse par défaut',
+          city: 'Libreville'
+        }
+      }))
+      
+      setOrders(formattedOrders)
+    } catch (error) {
+      console.error("Erreur lors du chargement des commandes:", error)
+      setOrders([])
+    } finally {
+      setIsLoading(false)
+    }
+  }, [user])
 
   useEffect(() => {
     loadOrders()
-    
-    // Écouter les changements dans localStorage pour mettre à jour en temps réel
-    const handleStorageChange = () => {
-      loadOrders()
-    }
-    
-    window.addEventListener('storage', handleStorageChange)
-    
-    // Vérifier les changements toutes les 2 secondes
-    const interval = setInterval(loadOrders, 2000)
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange)
-      clearInterval(interval)
-    }
   }, [loadOrders])
 
   // Sauvegarde manuelle seulement pour éviter les boucles infinies
 
-  const addOrder = (orderData: Omit<Order, 'id' | 'reference' | 'date'>) => {
-    const newOrder: Order = {
-      ...orderData,
-      id: `order-${Date.now()}`,
-      reference: `CMD-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
-      date: new Date().toISOString(),
-      status: 'pending',
-      trackingNumber: `TRK-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}-${new Date().getFullYear()}`,
-      estimatedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // +7 jours
-      notes: "Commande en attente de confirmation"
+  const addOrder = async (orderData: Omit<Order, 'id' | 'reference' | 'date'>) => {
+    if (!user) {
+      toast.error("Vous devez être connecté pour créer une commande")
+      throw new Error("User not authenticated")
     }
 
-    // Sauvegarder immédiatement dans localStorage
-    const currentOrders = JSON.parse(localStorage.getItem("client-orders") || "[]")
-    const updatedOrders = [newOrder, ...currentOrders]
-    localStorage.setItem("client-orders", JSON.stringify(updatedOrders))
-    
-    // Mettre à jour l'état
-    setOrders(updatedOrders)
-    
-    // Marquer cette commande comme nouvelle pour l'affichage
-    localStorage.setItem('new-order-id', newOrder.id)
-    
-    // Ajouter une notification
-    addNotification({
-      type: 'order',
-      title: 'Nouvelle commande créée',
-      message: `Votre commande ${newOrder.reference} a été créée avec succès. Total: ${newOrder.total.toLocaleString()} F CFA`,
-      data: { orderId: newOrder.id, orderReference: newOrder.reference }
-    })
-    
-    toast.success(`Commande ${newOrder.reference} créée avec succès !`)
-    
-    return newOrder
+    try {
+      // Créer la commande via l'API
+      const apiOrderData = {
+        userId: user.id,
+        items: orderData.items.map(item => ({
+          workId: item.id, // Assumer que item.id est l'ID de l'œuvre
+          quantity: item.quantity,
+          price: item.price
+        }))
+      }
+
+      const createdOrder = await apiClient.createOrder(apiOrderData)
+      
+      // Recharger les commandes pour avoir les données à jour
+      await loadOrders()
+      
+      // Ajouter une notification
+      addNotification({
+        type: 'order',
+        title: 'Commande créée',
+        message: `Votre commande a été créée avec succès !`,
+        data: { orderId: createdOrder.id }
+      })
+
+      toast.success("Commande créée avec succès !")
+      
+      // Retourner l'ordre formaté pour le frontend
+      return {
+        id: createdOrder.id,
+        reference: createdOrder.id.substring(0, 8).toUpperCase(),
+        date: createdOrder.createdAt,
+        status: mapOrderStatus(createdOrder.status) as Order['status'],
+        total: createdOrder.items.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+        itemCount: createdOrder.items.reduce((sum, item) => sum + item.quantity, 0),
+        paymentMethod: 'Carte bancaire',
+        deliveryAddress: 'Adresse par défaut',
+        items: createdOrder.items.map(item => ({
+          id: item.id,
+          title: item.work.title,
+          quantity: item.quantity,
+          price: item.price,
+          image: '/placeholder-book.jpg'
+        })),
+        customerInfo: {
+          fullName: orderData.customerInfo.fullName,
+          email: orderData.customerInfo.email,
+          address: orderData.customerInfo.address,
+          city: orderData.customerInfo.city
+        }
+      }
+    } catch (error) {
+      console.error("Erreur lors de la création de la commande:", error)
+      toast.error("Erreur lors de la création de la commande")
+      throw error
+    }
   }
 
   const updateOrderStatus = (orderId: string, status: Order['status']) => {
-    const order = orders.find(o => o.id === orderId)
-    
     setOrders(prevOrders => 
       prevOrders.map(order => 
         order.id === orderId 
@@ -131,44 +194,7 @@ export const useOrders = (): UseOrdersResult => {
           : order
       )
     )
-
-    // Ajouter des notifications selon le statut
-    if (order) {
-      switch (status) {
-        case 'confirmed':
-          addNotification({
-            type: 'success',
-            title: 'Commande confirmée',
-            message: `Votre commande ${order.reference} a été confirmée et sera traitée sous peu.`,
-            data: { orderId, orderReference: order.reference }
-          })
-          break
-        case 'shipped':
-          addNotification({
-            type: 'delivery',
-            title: 'Commande expédiée',
-            message: `Votre commande ${order.reference} a été expédiée. Numéro de suivi: ${order.trackingNumber}`,
-            data: { orderId, orderReference: order.reference, trackingNumber: order.trackingNumber }
-          })
-          break
-        case 'delivered':
-          addNotification({
-            type: 'success',
-            title: 'Commande livrée',
-            message: `Votre commande ${order.reference} a été livrée avec succès. Merci pour votre achat !`,
-            data: { orderId, orderReference: order.reference }
-          })
-          break
-        case 'cancelled':
-          addNotification({
-            type: 'warning',
-            title: 'Commande annulée',
-            message: `Votre commande ${order.reference} a été annulée.`,
-            data: { orderId, orderReference: order.reference }
-          })
-          break
-      }
-    }
+    toast.success(`Statut de la commande mis à jour : ${status}`)
   }
 
   const refreshOrders = useCallback(() => {

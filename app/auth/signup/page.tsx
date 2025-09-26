@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { User, Eye, EyeOff, Lock, Mail, BookOpen, Users, Briefcase } from "lucide-react"
+import { User, Eye, EyeOff, Lock, Mail, BookOpen, Users, Briefcase, Phone } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 import { apiClient } from "@/lib/api-client"
@@ -22,6 +22,7 @@ export default function SignupPage() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    phone: "",
     password: "",
     confirmPassword: "",
     role: "",
@@ -40,8 +41,15 @@ export default function SignupPage() {
       return
     }
 
-    if (!formData.name || !formData.email || !formData.password || !formData.role) {
+    if (!formData.name || !formData.email || !formData.phone || !formData.password || !formData.role) {
       toast.error("Veuillez remplir tous les champs obligatoires")
+      return
+    }
+
+    // Validation du format du téléphone
+    const phoneRegex = /^(\+229|229)?[\s\-]?[0-9]{2}[\s\-]?[0-9]{2}[\s\-]?[0-9]{2}[\s\-]?[0-9]{2}$/
+    if (!phoneRegex.test(formData.phone.replace(/\s/g, ''))) {
+      toast.error("Veuillez entrer un numéro de téléphone valide (format: +229 40 76 76 76)")
       return
     }
 
@@ -50,6 +58,7 @@ export default function SignupPage() {
       await apiClient.createUser({
         name: formData.name,
         email: formData.email,
+        phone: formData.phone,
         password: formData.password,
         role: formData.role,
         disciplineId: formData.disciplineId || null
@@ -119,6 +128,24 @@ export default function SignupPage() {
               </div>
             </div>
 
+            {/* Téléphone */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Numéro de téléphone *</label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Input
+                  type="tel"
+                  placeholder="+229 40 76 76 76"
+                  className="pl-10 h-12 bg-gray-50 border-0 rounded-xl"
+                  value={formData.phone}
+                  onChange={(e) => handleInputChange("phone", e.target.value)}
+                  pattern="[+]?[0-9\s\-\(\)]+"
+                  title="Format: +229 40 76 76 76 ou 22940767676"
+                  required
+                />
+              </div>
+            </div>
+
             {/* Rôle */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Votre rôle *</label>
@@ -127,34 +154,34 @@ export default function SignupPage() {
                   <SelectValue placeholder="Sélectionnez votre rôle" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="CONCEPTEUR">
-                    <div className="flex items-center space-x-2">
-                      <BookOpen className="w-4 h-4" />
-                      <span>Concepteur pédagogique</span>
-                    </div>
-                  </SelectItem>
                   <SelectItem value="AUTEUR">
                     <div className="flex items-center space-x-2">
                       <User className="w-4 h-4" />
                       <span>Auteur</span>
                     </div>
                   </SelectItem>
-                  <SelectItem value="REPRESENTANT">
+                  <SelectItem value="CONCEPTEUR">
                     <div className="flex items-center space-x-2">
-                      <Users className="w-4 h-4" />
-                      <span>Représentant commercial</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="PARTENAIRE">
-                    <div className="flex items-center space-x-2">
-                      <Briefcase className="w-4 h-4" />
-                      <span>Partenaire (École, Librairie)</span>
+                      <BookOpen className="w-4 h-4" />
+                      <span>Concepteur</span>
                     </div>
                   </SelectItem>
                   <SelectItem value="CLIENT">
                     <div className="flex items-center space-x-2">
                       <User className="w-4 h-4" />
-                      <span>Client particulier</span>
+                      <span>Client</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="PARTENAIRE">
+                    <div className="flex items-center space-x-2">
+                      <Briefcase className="w-4 h-4" />
+                      <span>Partenaire</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="REPRESENTANT">
+                    <div className="flex items-center space-x-2">
+                      <Users className="w-4 h-4" />
+                      <span>Représentant</span>
                     </div>
                   </SelectItem>
                 </SelectContent>
