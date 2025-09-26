@@ -365,24 +365,26 @@ export async function GET(request: NextRequest) {
       prisma.work.count({ where: whereClause })
     ]);
 
-    // Calculer les statistiques
-    const stats = await prisma.work.groupBy({
+    // Calculer les statistiques globales (sans filtre de statut)
+    const globalStats = await prisma.work.groupBy({
       by: ['status'],
-      where: whereClause,
       _count: {
         status: true
       }
     });
 
+    const totalGlobal = await prisma.work.count();
+
     const statsFormatted = {
-      total,
-      pending: stats.find(s => s.status === 'PENDING')?._count.status || 0,
-      published: stats.find(s => s.status === 'PUBLISHED')?._count.status || 0,
-      rejected: stats.find(s => s.status === 'REJECTED')?._count.status || 0,
-      draft: stats.find(s => s.status === 'DRAFT')?._count.status || 0
+      total: totalGlobal,
+      pending: globalStats.find(s => s.status === 'PENDING')?._count.status || 0,
+      published: globalStats.find(s => s.status === 'PUBLISHED')?._count.status || 0,
+      rejected: globalStats.find(s => s.status === 'REJECTED')?._count.status || 0,
+      draft: globalStats.find(s => s.status === 'DRAFT')?._count.status || 0
     };
 
     console.log(`🔍 ${works.length} œuvre(s) trouvée(s) sur ${total}`);
+    console.log("🔍 Statistiques globales calculées:", statsFormatted);
 
     return NextResponse.json({
       works,
