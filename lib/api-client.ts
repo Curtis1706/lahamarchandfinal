@@ -377,33 +377,40 @@ export class ApiClient {
   }
 
   // Disciplines API
-  async getDisciplines(params?: { search?: string }) {
+  async getDisciplines(params?: { search?: string; includeInactive?: boolean }) {
     const queryParams = new URLSearchParams()
     if (params?.search) queryParams.append('search', params.search)
+    if (params?.includeInactive) queryParams.append('includeInactive', 'true')
     
     const queryString = queryParams.toString()
     return this.request(`/disciplines${queryString ? `?${queryString}` : ''}`)
   }
 
-  async createDiscipline(data: { name: string }) {
+  async createDiscipline(data: any) {
     return this.request('/disciplines', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   }
 
-  async updateDiscipline(disciplineId: string, data: { name: string }) {
+  async updateDiscipline(disciplineId: string, data: any) {
     return this.request('/disciplines', {
       method: 'PUT',
       body: JSON.stringify({ id: disciplineId, ...data }),
     })
   }
 
-  async deleteDiscipline(disciplineId: string) {
-    return this.request(`/disciplines?id=${disciplineId}`, {
+  async deleteDiscipline(disciplineId: string, force = false) {
+    const params = new URLSearchParams()
+    params.append('id', disciplineId)
+    if (force) params.append('force', 'true')
+    return this.request(`/disciplines?${params.toString()}`, {
       method: 'DELETE',
     })
   }
+
+
+
 
   // Partners API
   async getPartners(params?: { search?: string, type?: string, status?: string, page?: number, limit?: number }) {

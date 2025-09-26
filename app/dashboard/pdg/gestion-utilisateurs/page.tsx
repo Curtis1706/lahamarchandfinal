@@ -97,20 +97,45 @@ export default function GestionUtilisateursPage() {
     const fetchData = async () => {
       try {
         setIsLoading(true)
+        console.log("🔍 Début du chargement des données...")
+        
         const [usersData, disciplinesData] = await Promise.all([
           apiClient.getUsers(),
           apiClient.getDisciplines()
         ])
         
-        console.log("🔍 Données reçues:", { usersData, disciplinesData })
-        setUsers(Array.isArray(usersData) ? usersData : [])
-        setDisciplines(Array.isArray(disciplinesData) ? disciplinesData : [])
-        console.log("🔍 Utilisateurs définis:", Array.isArray(usersData) ? usersData : [])
+        console.log("🔍 Données reçues:", { 
+          usersData, 
+          usersDataType: typeof usersData,
+          usersDataLength: Array.isArray(usersData) ? usersData.length : 'N/A',
+          disciplinesData,
+          disciplinesDataType: typeof disciplinesData,
+          disciplinesDataLength: Array.isArray(disciplinesData) ? disciplinesData.length : 'N/A'
+        })
+        
+        const usersArray = Array.isArray(usersData) ? usersData : []
+        const disciplinesArray = Array.isArray(disciplinesData) ? disciplinesData : []
+        
+        setUsers(usersArray)
+        setDisciplines(disciplinesArray)
+        
+        console.log("🔍 État mis à jour:", {
+          usersCount: usersArray.length,
+          disciplinesCount: disciplinesArray.length,
+          firstUser: usersArray[0] || 'Aucun utilisateur',
+          firstDiscipline: disciplinesArray[0] || 'Aucune discipline'
+        })
       } catch (error: any) {
-        console.error("Error fetching data:", error)
-        toast.error("Erreur lors du chargement des données")
+        console.error("❌ Error fetching data:", error)
+        console.error("❌ Error details:", {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        })
+        toast.error("Erreur lors du chargement des données: " + error.message)
       } finally {
         setIsLoading(false)
+        console.log("🔍 Chargement terminé")
       }
     }
 
@@ -213,11 +238,32 @@ export default function GestionUtilisateursPage() {
     return matchesSearch && matchesRole && matchesStatus
   }) : []
 
+  // Logs de debug pour le filtrage
+  console.log("🔍 Filtrage des utilisateurs:", {
+    totalUsers: users.length,
+    searchTerm,
+    roleFilter,
+    statusFilter,
+    filteredCount: filteredUsers.length,
+    filteredUsers: filteredUsers.map(u => ({ id: u.id, name: u.name, role: u.role, status: u.status }))
+  })
+
   // Pagination
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
   const paginatedUsers = filteredUsers.slice(startIndex, endIndex)
+
+  // Logs de debug pour la pagination
+  console.log("🔍 Pagination des utilisateurs:", {
+    totalPages,
+    currentPage,
+    itemsPerPage,
+    startIndex,
+    endIndex,
+    paginatedCount: paginatedUsers.length,
+    paginatedUsers: paginatedUsers.map(u => ({ id: u.id, name: u.name }))
+  })
 
   const getStatusBadge = (status: string | undefined) => {
     switch (status) {
@@ -288,6 +334,15 @@ export default function GestionUtilisateursPage() {
     return phone // Retourner tel quel si pas de format reconnu
   }
 
+  // Logs de debug pour l'état de chargement
+  console.log("🔍 État de chargement:", {
+    userLoading,
+    isLoading,
+    user: user ? { id: user.id, name: user.name, role: user.role } : null,
+    usersCount: users.length,
+    disciplinesCount: disciplines.length
+  })
+
   if (userLoading || isLoading) {
     return (
       <DynamicDashboardLayout>
@@ -295,6 +350,9 @@ export default function GestionUtilisateursPage() {
           <div className="text-center">
             <Users className="h-8 w-8 animate-spin mx-auto mb-4" />
             <p className="text-muted-foreground">Chargement des utilisateurs...</p>
+            <p className="text-sm text-gray-500 mt-2">
+              {userLoading ? "Authentification..." : "Chargement des données..."}
+            </p>
           </div>
         </div>
       </DynamicDashboardLayout>
@@ -507,7 +565,32 @@ export default function GestionUtilisateursPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedUsers.map((user) => (
+              {paginatedUsers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8">
+                    <div className="text-center">
+                      <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-500 text-lg">Aucun utilisateur trouvé</p>
+                      <p className="text-gray-400 text-sm mt-2">
+                        {users.length === 0 
+                          ? "Aucun utilisateur enregistré dans le système"
+                          : "Aucun utilisateur ne correspond aux filtres appliqués"
+                        }
+                      </p>
+                      {users.length === 0 && (
+                        <Button 
+                          className="mt-4"
+                          onClick={() => setIsCreateDialogOpen(true)}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Créer le premier utilisateur
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                paginatedUsers.map((user) => (
                 <>
                   <TableRow key={user.id} className="hover:bg-gray-50">
                     <TableCell>
@@ -739,7 +822,8 @@ export default function GestionUtilisateursPage() {
                     </TableRow>
                   )}
                 </>
-              ))}
+              ))
+              )}
             </TableBody>
           </Table>
         </div>
@@ -881,12 +965,13 @@ function EditUserForm({ user, disciplines, onSubmit, onCancel }: {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="PDG">PDG</SelectItem>
             <SelectItem value="AUTEUR">Auteur</SelectItem>
             <SelectItem value="CONCEPTEUR">Concepteur</SelectItem>
             <SelectItem value="CLIENT">Client</SelectItem>
             <SelectItem value="PARTENAIRE">Partenaire</SelectItem>
             <SelectItem value="REPRESENTANT">Représentant</SelectItem>
-            <SelectItem value="PDG">PDG</SelectItem>
+            <SelectItem value="LIVREUR">Livreur</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -1007,11 +1092,13 @@ function CreateUserForm({ disciplines, onSubmit, onCancel }: {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="PDG">PDG</SelectItem>
             <SelectItem value="AUTEUR">Auteur</SelectItem>
             <SelectItem value="CONCEPTEUR">Concepteur</SelectItem>
             <SelectItem value="CLIENT">Client</SelectItem>
             <SelectItem value="PARTENAIRE">Partenaire</SelectItem>
             <SelectItem value="REPRESENTANT">Représentant</SelectItem>
+            <SelectItem value="LIVREUR">Livreur</SelectItem>
           </SelectContent>
         </Select>
       </div>

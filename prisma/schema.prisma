@@ -170,11 +170,17 @@ model StockMovement {
 }
 
 model Discipline {
-  id        String    @id @default(cuid())
-  name      String    @unique
-  projects  Project[]
-  works     Work[]
-  users     User[]    // Relation avec les utilisateurs (concepteurs)
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?   // Description de la discipline
+  isActive    Boolean   @default(true) // Statut actif/inactif
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relations
+  projects    Project[]
+  works       Work[]
+  users       User[]    // Relation avec les utilisateurs (concepteurs)
 }
 
 model Sale {

@@ -1,14 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 const prisma = new PrismaClient();
 
-// POST /api/users - Créer un utilisateur (auteur, concepteur ou partenaire)
+// POST /api/users - Créer un utilisateur (pour le PDG)
 export async function POST(request: NextRequest) {
   console.log("🔍 API POST /users - Création d'utilisateur");
   
   try {
+    // Vérifier l'authentification
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      console.log("❌ Non authentifié");
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+    }
+
+    // Vérifier que l'utilisateur est PDG
+    if (session.user.role !== 'PDG') {
+      console.log("❌ Accès refusé - Rôle:", session.user.role);
+      return NextResponse.json({ error: "Accès refusé - Seul le PDG peut créer des utilisateurs" }, { status: 403 });
+    }
+
+    console.log("✅ PDG authentifié:", session.user.email, "Création d'utilisateur autorisée");
     const body = await request.json();
     console.log("🔍 Body reçu:", body);
     
@@ -31,11 +47,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validation du rôle (AUTEUR, CONCEPTEUR et PARTENAIRE peuvent être créés)
-    const allowedRoles = ["AUTEUR", "CONCEPTEUR", "PARTENAIRE"];
-    if (!allowedRoles.includes(role)) {
+    // Validation du rôle - Le PDG peut créer tous les rôles
+    const validRoles = ["PDG", "AUTEUR", "CONCEPTEUR", "PARTENAIRE", "REPRESENTANT", "CLIENT", "LIVREUR"];
+    if (!validRoles.includes(role)) {
       return NextResponse.json(
-        { error: "Seuls les rôles AUTEUR, CONCEPTEUR et PARTENAIRE peuvent être créés" },
+        { error: "Rôle invalide. Rôles valides: " + validRoles.join(", ") },
         { status: 400 }
       );
     }
@@ -91,7 +107,7 @@ export async function POST(request: NextRequest) {
         phone: phone.trim(),
         password: hashedPassword,
         role: role,
-        status: "PENDING", // En attente de validation par le PDG
+        status: "ACTIVE", // Actif directement car créé par le PDG
         discipline: disciplineId ? {
           connect: { id: disciplineId }
         } : undefined,
@@ -114,14 +130,17 @@ export async function POST(request: NextRequest) {
         data: {
           action: "USER_CREATE",
           userId: user.id,
-          performedBy: user.id, // Auto-création
-          details: JSON.stringify({
+          performedBy: session.user.id, // Créé par le PDG
+          details: `Utilisateur ${user.name} (${user.role}) créé par le PDG ${session.user.name}`,
+          metadata: JSON.stringify({
             userId: user.id,
             userName: user.name,
             userEmail: user.email,
             userRole: user.role,
             discipline: user.discipline?.name,
-            status: "PENDING"
+            status: "ACTIVE",
+            createdBy: session.user.name,
+            createdByEmail: session.user.email
           })
         }
       });
@@ -130,7 +149,7 @@ export async function POST(request: NextRequest) {
       console.error("⚠️ Erreur création log d'audit:", auditError);
     }
 
-    // Créer une notification pour le PDG pour validation
+    // Créer une notification pour le PDG (utilisateur créé directement)
     try {
       const pdgUser = await prisma.user.findFirst({
         where: { role: "PDG" }
@@ -140,9 +159,9 @@ export async function POST(request: NextRequest) {
         await prisma.notification.create({
           data: {
             userId: pdgUser.id,
-            title: "Nouvelle demande de compte",
-            message: `Un nouveau compte ${role.toLowerCase()} a été créé par ${user.name} et attend votre validation.`,
-            type: "USER_PENDING_APPROVAL",
+            title: "Nouvel utilisateur créé",
+            message: `Un nouveau compte ${role.toLowerCase()} a été créé par le PDG: ${user.name} (${user.email}).`,
+            type: "USER_CREATED",
             data: JSON.stringify({
               userId: user.id,
               userName: user.name,
@@ -164,12 +183,12 @@ export async function POST(request: NextRequest) {
         data: {
           userId: user.id,
           title: "Compte créé avec succès",
-          message: `Votre compte ${role.toLowerCase()} a été créé et est en attente de validation par l'administrateur.`,
+          message: `Votre compte ${role.toLowerCase()} a été créé par l'administrateur et est maintenant actif.`,
           type: "USER_ACCOUNT_CREATED",
           data: JSON.stringify({
             userId: user.id,
             userRole: user.role,
-            status: "PENDING"
+            status: "ACTIVE"
           })
         }
       });
@@ -213,6 +232,20 @@ export async function GET(request: NextRequest) {
   console.log("🔍 API GET /users - Récupération des utilisateurs");
   
   try {
+    // Vérifier l'authentification
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      console.log("❌ Non authentifié");
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+    }
+
+    // Vérifier que l'utilisateur est PDG
+    if (session.user.role !== 'PDG') {
+      console.log("❌ Accès refusé - Rôle:", session.user.role);
+      return NextResponse.json({ error: "Accès refusé - Seul le PDG peut accéder à cette ressource" }, { status: 403 });
+    }
+
+    console.log("✅ Utilisateur authentifié:", session.user.email, "Rôle:", session.user.role);
     const { searchParams } = new URL(request.url);
     const role = searchParams.get('role');
     const status = searchParams.get('status');
