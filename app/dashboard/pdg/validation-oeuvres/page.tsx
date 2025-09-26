@@ -203,9 +203,9 @@ export default function ValidationOeuvresPage() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          id: workId,
+          workId: workId,
           status,
-          reason: reason || null
+          validationComment: reason || null
         })
       });
 

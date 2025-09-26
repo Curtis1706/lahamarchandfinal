@@ -341,6 +341,13 @@ export async function GET(request: NextRequest) {
               status: true
             }
           },
+          concepteur: {
+            select: {
+              id: true,
+              name: true,
+              email: true
+            }
+          },
           reviewer: {
             select: {
               id: true,
@@ -438,7 +445,26 @@ export async function PUT(request: NextRequest) {
     // Si c'est une validation/refus par le PDG
     if (status && isPDG) {
       dataToUpdate.status = status;
-      dataToUpdate.reviewerId = session.user.id;
+      // Vérifier que l'utilisateur PDG existe avant d'assigner reviewerId
+      let pdgUser = await prisma.user.findUnique({
+        where: { id: session.user.id }
+      });
+      
+      // Si l'utilisateur n'existe pas avec cet ID, chercher par email
+      if (!pdgUser) {
+        pdgUser = await prisma.user.findUnique({
+          where: { email: session.user.email }
+        });
+        console.log(`🔍 Utilisateur PDG trouvé par email: ${pdgUser ? pdgUser.name : 'Non trouvé'}`);
+      }
+      
+      if (pdgUser) {
+        dataToUpdate.reviewerId = pdgUser.id;
+        console.log(`✅ Reviewer assigné: ${pdgUser.name} (${pdgUser.id})`);
+      } else {
+        console.log("⚠️ Utilisateur PDG non trouvé, validation sans reviewerId");
+      }
+      
       dataToUpdate.reviewedAt = new Date();
       
       if (status === "PUBLISHED") {
@@ -477,6 +503,13 @@ export async function PUT(request: NextRequest) {
           select: {
             id: true,
             title: true
+          }
+        },
+        concepteur: {
+          select: {
+            id: true,
+            name: true,
+            email: true
           }
         }
       }
