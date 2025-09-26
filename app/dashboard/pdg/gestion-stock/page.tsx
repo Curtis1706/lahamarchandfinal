@@ -49,10 +49,19 @@ import {
   Plus,
   Minus,
   Edit,
-  History
+  History,
+  GitBranch,
+  Users,
+  BookOpen,
+  Settings,
+  Zap,
+  FileText,
+  Link
 } from "lucide-react"
 import { toast } from "sonner"
 import { apiClient } from '@/lib/api-client'
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 
 // Types
 interface Work {
@@ -63,11 +72,108 @@ interface Work {
   stock: number
   minStock: number
   maxStock?: number
+  publicationDate?: string
+  version?: string
   discipline: {
     id: string
     name: string
   }
+  author?: {
+    id: string
+    name: string
+    email: string
+  }
+  project?: {
+    id: string
+    title: string
+  }
   status: string
+}
+
+interface CreateVersionFormProps {
+  onSubmit: (data: {
+    version: string
+    title: string
+    description?: string
+    publishedAt?: string
+  }) => void
+  onCancel: () => void
+}
+
+// Composant pour créer une nouvelle version
+function CreateVersionForm({ onSubmit, onCancel }: CreateVersionFormProps) {
+  const [version, setVersion] = useState('')
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [publishedAt, setPublishedAt] = useState('')
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!version || !title) return
+
+    onSubmit({
+      version,
+      title,
+      description: description || undefined,
+      publishedAt: publishedAt || undefined
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <Label htmlFor="version">Version *</Label>
+        <Input
+          id="version"
+          value={version}
+          onChange={(e) => setVersion(e.target.value)}
+          placeholder="ex: 2.0, Édition 2024"
+          required
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="title">Titre de la version *</Label>
+        <Input
+          id="title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="ex: Édition révisée 2024"
+          required
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="description">Description des changements</Label>
+        <Textarea
+          id="description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Décrivez les principales modifications de cette version..."
+          rows={3}
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="publishedAt">Date de publication</Label>
+        <Input
+          id="publishedAt"
+          type="date"
+          value={publishedAt}
+          onChange={(e) => setPublishedAt(e.target.value)}
+        />
+      </div>
+
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Annuler
+        </Button>
+        <Button type="submit" disabled={!version || !title}>
+          Créer la version
+        </Button>
+      </DialogFooter>
+    </form>
+  )
 }
 
 interface StockMovement {
@@ -130,6 +236,18 @@ export default function GestionStockPage() {
   const [pendingOperations, setPendingOperations] = useState<PendingOperation[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
+  // États pour les statistiques
+  const [statisticsData, setStatisticsData] = useState<any>(null)
+  const [statisticsLoading, setStatisticsLoading] = useState(false)
+  const [statisticsPeriod, setStatisticsPeriod] = useState(30)
+  const [selectedDiscipline, setSelectedDiscipline] = useState<string>('all')
+
+  // États pour l'automatisation
+  const [alertRules, setAlertRules] = useState<any[]>([])
+  const [stockReports, setStockReports] = useState<any[]>([])
+  const [integrations, setIntegrations] = useState<any[]>([])
+  const [automationLoading, setAutomationLoading] = useState(false)
+
   // États des filtres
   const [searchTerm, setSearchTerm] = useState('')
   const [disciplineFilter, setDisciplineFilter] = useState<string>('all')
@@ -141,7 +259,8 @@ export default function GestionStockPage() {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const [selectedOperation, setSelectedOperation] = useState<PendingOperation | null>(null)
   const [isValidationOpen, setIsValidationOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<'overview' | 'inventory' | 'movements' | 'alerts' | 'pending'>('overview')
+  const [isVersionModalOpen, setIsVersionModalOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<'overview' | 'inventory' | 'movements' | 'alerts' | 'pending' | 'versions' | 'statistics' | 'automation'>('overview')
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
@@ -149,31 +268,7 @@ export default function GestionStockPage() {
 
   // Charger les données
   useEffect(() => {
-    const fetchStockData = async () => {
-      try {
-        setIsLoading(true)
-        const [worksData, movementsData, alertsData, statsData, pendingData] = await Promise.all([
-          apiClient.getWorksWithStock(),
-          apiClient.getStockMovements(),
-          apiClient.getStockAlerts(),
-          apiClient.getStockStats(),
-          apiClient.getPendingStockOperations()
-        ])
-        
-        setWorks(worksData)
-        setStockMovements(movementsData)
-        setStockAlerts(alertsData)
-        setStockStats(statsData)
-        setPendingOperations(pendingData)
-      } catch (error) {
-        console.error("Error fetching stock data:", error)
-        toast.error("Erreur lors du chargement des données de stock")
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchStockData()
+    loadData()
   }, [])
 
   // Fonctions utilitaires
@@ -257,6 +352,97 @@ export default function GestionStockPage() {
     }
   }
 
+  const handleCreateVersion = async (data: {
+    version: string
+    title: string
+    description?: string
+    publishedAt?: string
+  }) => {
+    if (!selectedWork) return
+
+    try {
+      await apiClient.createWorkVersion({
+        workId: selectedWork.id,
+        ...data
+      })
+      
+      toast.success("Version créée avec succès")
+      setIsVersionModalOpen(false)
+      // Recharger les données
+      await loadData()
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de la création de la version")
+    }
+  }
+
+  const handleArchiveVersion = async (versionId: string, isActive: boolean) => {
+    try {
+      await apiClient.archiveWorkVersion(versionId, isActive)
+      toast.success(isActive ? "Version réactivée" : "Version archivée")
+      // Recharger les données
+      await loadData()
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de l'archivage")
+    }
+  }
+
+  const loadStatistics = async (type: 'discipline' | 'sales' | 'popular' | 'overview') => {
+    setStatisticsLoading(true)
+    try {
+      const data = await apiClient.getStockStatistics(type, {
+        period: statisticsPeriod,
+        disciplineId: selectedDiscipline !== 'all' ? selectedDiscipline : undefined
+      })
+      setStatisticsData(data)
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors du chargement des statistiques")
+    } finally {
+      setStatisticsLoading(false)
+    }
+  }
+
+  const loadData = async () => {
+    try {
+      setIsLoading(true)
+      const [worksData, movementsData, alertsData, statsData, pendingData] = await Promise.all([
+        apiClient.getWorksWithStock(),
+        apiClient.getStockMovements(),
+        apiClient.getStockAlerts(),
+        apiClient.getStockStats(),
+        apiClient.getPendingStockOperations()
+      ])
+      
+      setWorks(worksData)
+      setStockMovements(movementsData)
+      setStockAlerts(alertsData)
+      setStockStats(statsData)
+      setPendingOperations(pendingData)
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors du chargement des données")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const loadAutomationData = async () => {
+    setAutomationLoading(true)
+    try {
+      const [rulesData, reportsData, integrationsData] = await Promise.all([
+        apiClient.getStockAlerts('rules'),
+        apiClient.getStockReports('reports'),
+        apiClient.getStockIntegrations('list')
+      ])
+      
+      setAlertRules(rulesData)
+      setStockReports(reportsData)
+      setIntegrations(integrationsData)
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors du chargement des données d'automatisation")
+    } finally {
+      setAutomationLoading(false)
+    }
+  }
+
   // Filtrage des données
   const filteredWorks = works.filter(work => {
     const matchesSearch = work.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -321,7 +507,10 @@ export default function GestionStockPage() {
             { id: 'inventory', label: 'Inventaire', icon: Package },
             { id: 'movements', label: 'Mouvements', icon: Activity },
             { id: 'alerts', label: 'Alertes', icon: AlertTriangle },
-            { id: 'pending', label: 'En attente', icon: Eye }
+            { id: 'pending', label: 'En attente', icon: Eye },
+            { id: 'versions', label: 'Versions', icon: GitBranch },
+            { id: 'statistics', label: 'Statistiques', icon: BarChart3 },
+            { id: 'automation', label: 'Automatisation', icon: Activity }
           ].map((tab) => {
             const Icon = tab.icon
             return (
@@ -515,6 +704,10 @@ export default function GestionStockPage() {
                       <TableHead>Livre</TableHead>
                       <TableHead>ISBN</TableHead>
                       <TableHead>Discipline</TableHead>
+                      <TableHead>Projet lié</TableHead>
+                      <TableHead>Auteur(s)</TableHead>
+                      <TableHead>Date de publication</TableHead>
+                      <TableHead>Version</TableHead>
                       <TableHead>Stock Actuel</TableHead>
                       <TableHead>Min / Max</TableHead>
                       <TableHead>Statut</TableHead>
@@ -525,7 +718,7 @@ export default function GestionStockPage() {
                   <TableBody>
                     {currentWorks.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8">
+                        <TableCell colSpan={12} className="text-center py-8">
                           <div className="text-gray-500">
                             <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
                             Aucun livre trouvé
@@ -543,6 +736,43 @@ export default function GestionStockPage() {
                           <TableCell className="font-mono text-sm">{work.isbn}</TableCell>
                           <TableCell>
                             <Badge variant="outline">{work.discipline.name}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            {work.project ? (
+                              <Badge variant="secondary" className="text-xs">
+                                {work.project.title}
+                              </Badge>
+                            ) : (
+                              <span className="text-gray-400 text-sm">Aucun</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {work.author ? (
+                              <div className="text-sm">
+                                <div className="font-medium">{work.author.name}</div>
+                                <div className="text-gray-500">{work.author.email}</div>
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 text-sm">Non défini</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {work.publicationDate ? (
+                              <span className="text-sm">
+                                {new Date(work.publicationDate).toLocaleDateString('fr-FR')}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-sm">Non définie</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {work.version ? (
+                              <Badge variant="outline" className="text-xs">
+                                {work.version}
+                              </Badge>
+                            ) : (
+                              <span className="text-gray-400 text-sm">1.0</span>
+                            )}
                           </TableCell>
                           <TableCell>
                             <span className={`font-semibold ${
@@ -981,6 +1211,765 @@ export default function GestionStockPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Modal de création de version */}
+        <Dialog open={isVersionModalOpen} onOpenChange={setIsVersionModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Créer une Nouvelle Version</DialogTitle>
+              <DialogDescription>
+                Créez une nouvelle version pour l'œuvre "{selectedWork?.title}"
+              </DialogDescription>
+            </DialogHeader>
+            
+            <CreateVersionForm 
+              onSubmit={handleCreateVersion}
+              onCancel={() => setIsVersionModalOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
+
+        {/* Gestion des versions */}
+        {activeTab === 'versions' && (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center">
+                      <GitBranch className="h-5 w-5 mr-2 text-blue-500" />
+                      Gestion des Versions
+                    </CardTitle>
+                    <CardDescription>
+                      Suivez et gérez les différentes versions des œuvres, archivez les anciennes versions
+                    </CardDescription>
+                  </div>
+                  <Button 
+                    onClick={() => setIsVersionModalOpen(true)}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Nouvelle Version
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {/* Filtres pour les versions */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      <Input
+                        placeholder="Rechercher une œuvre..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+
+                    <Select value={disciplineFilter} onValueChange={setDisciplineFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Discipline" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Toutes les disciplines</SelectItem>
+                        <SelectItem value="math">Mathématiques</SelectItem>
+                        <SelectItem value="french">Français</SelectItem>
+                        <SelectItem value="science">Sciences</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(parseInt(value))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="25">25 par page</SelectItem>
+                        <SelectItem value="50">50 par page</SelectItem>
+                        <SelectItem value="100">100 par page</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Tableau des versions */}
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Œuvre</TableHead>
+                        <TableHead>Version Actuelle</TableHead>
+                        <TableHead>Date de Publication</TableHead>
+                        <TableHead>Statut</TableHead>
+                        <TableHead>Projet Lié</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {currentWorks.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8">
+                            <div className="text-gray-500">
+                              <GitBranch className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                              Aucune œuvre trouvée
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        currentWorks.map((work) => (
+                          <TableRow key={work.id}>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{work.title}</div>
+                                <div className="text-sm text-gray-500">ISBN: {work.isbn}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-2">
+                                <Badge variant="outline" className="text-xs">
+                                  {work.version || '1.0'}
+                                </Badge>
+                                {work.version && work.version !== '1.0' && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    Mise à jour
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {work.publicationDate ? (
+                                <span className="text-sm">
+                                  {new Date(work.publicationDate).toLocaleDateString('fr-FR')}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 text-sm">Non définie</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {getStockStatusBadge(getStockStatus(work))}
+                            </TableCell>
+                            <TableCell>
+                              {work.project ? (
+                                <Badge variant="secondary" className="text-xs">
+                                  {work.project.title}
+                                </Badge>
+                              ) : (
+                                <span className="text-gray-400 text-sm">Aucun</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex space-x-1">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => handleViewDetails(work)}
+                                  title="Voir détails"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  title="Historique des versions"
+                                >
+                                  <History className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  title="Archiver cette version"
+                                  className="text-orange-600 hover:text-orange-700"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-gray-700">
+                        Affichage de {startIndex + 1} à {Math.min(endIndex, filteredWorks.length)} sur {filteredWorks.length} résultats
+                      </p>
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                        >
+                          Précédent
+                        </Button>
+                        <span className="flex items-center px-3 py-1 text-sm">
+                          Page {currentPage} sur {totalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                          disabled={currentPage === totalPages}
+                        >
+                          Suivant
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Statistiques des versions */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Versions Actives</CardTitle>
+                  <GitBranch className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{works.length}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Œuvres en version active
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Versions Archivées</CardTitle>
+                  <History className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">0</div>
+                  <p className="text-xs text-muted-foreground">
+                    Versions archivées
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Mises à Jour</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {works.filter(w => w.version && w.version !== '1.0').length}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Œuvres avec versions multiples
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {/* Statistiques avancées */}
+        {activeTab === 'statistics' && (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <BarChart3 className="h-5 w-5 mr-2 text-blue-500" />
+                  Statistiques Avancées
+                </CardTitle>
+                <CardDescription>
+                  Analysez les performances par discipline, suivez les ventes et identifiez les œuvres les plus demandées
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {/* Filtres pour les statistiques */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="period">Période (jours)</Label>
+                      <Select value={statisticsPeriod.toString()} onValueChange={(value) => setStatisticsPeriod(parseInt(value))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="7">7 jours</SelectItem>
+                          <SelectItem value="30">30 jours</SelectItem>
+                          <SelectItem value="90">90 jours</SelectItem>
+                          <SelectItem value="365">1 an</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="discipline">Discipline</Label>
+                      <Select value={selectedDiscipline} onValueChange={setSelectedDiscipline}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Toutes les disciplines</SelectItem>
+                          <SelectItem value="math">Mathématiques</SelectItem>
+                          <SelectItem value="french">Français</SelectItem>
+                          <SelectItem value="science">Sciences</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-end space-x-2">
+                      <Button 
+                        onClick={() => loadStatistics('overview')}
+                        disabled={statisticsLoading}
+                        className="flex-1"
+                      >
+                        {statisticsLoading ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        ) : (
+                          <BarChart3 className="h-4 w-4 mr-2" />
+                        )}
+                        Charger
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Vue d'ensemble */}
+                  {statisticsData && (
+                    <div className="space-y-6">
+                      {/* Métriques principales */}
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <Card>
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Œuvres Publiées</CardTitle>
+                            <BookOpen className="h-4 w-4 text-muted-foreground" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-2xl font-bold">{statisticsData.totalWorks || 0}</div>
+                            <p className="text-xs text-muted-foreground">
+                              Total des œuvres
+                            </p>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Ventes</CardTitle>
+                            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-2xl font-bold">{statisticsData.totalSales || 0}</div>
+                            <p className="text-xs text-muted-foreground">
+                              Sur {statisticsPeriod} jours
+                            </p>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Chiffre d'Affaires</CardTitle>
+                            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-2xl font-bold">
+                              {(statisticsData.totalRevenue || 0).toFixed(2)} €
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Sur {statisticsPeriod} jours
+                            </p>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Consultations</CardTitle>
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-2xl font-bold">{statisticsData.totalViews || 0}</div>
+                            <p className="text-xs text-muted-foreground">
+                              Sur {statisticsPeriod} jours
+                            </p>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* Top disciplines */}
+                      {statisticsData.topDisciplines && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Top Disciplines par Chiffre d'Affaires</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-4">
+                              {statisticsData.topDisciplines.map((discipline: any, index: number) => (
+                                <div key={discipline.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                  <div className="flex items-center space-x-3">
+                                    <div className="flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-600 rounded-full text-sm font-medium">
+                                      {index + 1}
+                                    </div>
+                                    <div>
+                                      <p className="font-medium">{discipline.name}</p>
+                                      <p className="text-sm text-gray-500">{discipline.workCount} œuvres</p>
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="font-medium">{discipline.revenue.toFixed(2)} €</p>
+                                    <p className="text-sm text-gray-500">CA</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* Ventes récentes */}
+                      {statisticsData.recentSales && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Ventes Récentes</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-3">
+                              {statisticsData.recentSales.slice(0, 5).map((sale: any) => (
+                                <div key={sale.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                  <div>
+                                    <p className="font-medium">{sale.work.title}</p>
+                                    <p className="text-sm text-gray-500">{sale.work.discipline.name}</p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="font-medium">{sale.quantity} unités</p>
+                                    <p className="text-sm text-gray-500">{sale.amount.toFixed(2)} €</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Actions pour charger d'autres statistiques */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Button 
+                      onClick={() => loadStatistics('discipline')}
+                      disabled={statisticsLoading}
+                      variant="outline"
+                      className="h-20 flex flex-col items-center justify-center"
+                    >
+                      <BarChart3 className="h-6 w-6 mb-2" />
+                      <span>Par Discipline</span>
+                    </Button>
+
+                    <Button 
+                      onClick={() => loadStatistics('sales')}
+                      disabled={statisticsLoading}
+                      variant="outline"
+                      className="h-20 flex flex-col items-center justify-center"
+                    >
+                      <TrendingUp className="h-6 w-6 mb-2" />
+                      <span>Ventes</span>
+                    </Button>
+
+                    <Button 
+                      onClick={() => loadStatistics('popular')}
+                      disabled={statisticsLoading}
+                      variant="outline"
+                      className="h-20 flex flex-col items-center justify-center"
+                    >
+                      <Users className="h-6 w-6 mb-2" />
+                      <span>Plus Consultées</span>
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Automatisation */}
+        {activeTab === 'automation' && (
+          <div className="space-y-6">
+            {/* En-tête avec actions */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Automatisation</h2>
+                <p className="text-gray-600">Gérez les alertes intelligentes, rapports automatisés et intégrations</p>
+              </div>
+              <Button 
+                onClick={loadAutomationData}
+                disabled={automationLoading}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {automationLoading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                ) : (
+                  <Zap className="h-4 w-4 mr-2" />
+                )}
+                Actualiser
+              </Button>
+            </div>
+
+            {/* Vue d'ensemble de l'automatisation */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Règles d'Alerte</CardTitle>
+                  <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{alertRules.length}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Règles actives
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Rapports</CardTitle>
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stockReports.length}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Rapports configurés
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Intégrations</CardTitle>
+                  <Link className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{integrations.length}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Systèmes connectés
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Sections d'automatisation */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Règles d'alerte */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <AlertTriangle className="h-5 w-5 mr-2 text-orange-500" />
+                    Règles d'Alerte
+                  </CardTitle>
+                  <CardDescription>
+                    Configurez des alertes automatiques pour surveiller votre stock
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {alertRules.length === 0 ? (
+                      <div className="text-center py-8">
+                        <AlertTriangle className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                        <p className="text-gray-500">Aucune règle d'alerte configurée</p>
+                        <Button className="mt-4" size="sm">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Créer une règle
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {alertRules.slice(0, 3).map((rule) => (
+                          <div key={rule.id} className="flex items-center justify-between p-3 border rounded-lg">
+                            <div>
+                              <p className="font-medium">{rule.name}</p>
+                              <p className="text-sm text-gray-500">{rule.type}</p>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Badge variant={rule.isActive ? "default" : "secondary"}>
+                                {rule.isActive ? "Active" : "Inactive"}
+                              </Badge>
+                              <Badge variant="outline">
+                                {rule._count.triggeredAlerts} alertes
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                        {alertRules.length > 3 && (
+                          <Button variant="outline" size="sm" className="w-full">
+                            Voir toutes les règles ({alertRules.length})
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Rapports automatisés */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <FileText className="h-5 w-5 mr-2 text-blue-500" />
+                    Rapports Automatisés
+                  </CardTitle>
+                  <CardDescription>
+                    Planifiez et générez des rapports automatiquement
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {stockReports.length === 0 ? (
+                      <div className="text-center py-8">
+                        <FileText className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                        <p className="text-gray-500">Aucun rapport automatisé configuré</p>
+                        <Button className="mt-4" size="sm">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Créer un rapport
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {stockReports.slice(0, 3).map((report) => (
+                          <div key={report.id} className="flex items-center justify-between p-3 border rounded-lg">
+                            <div>
+                              <p className="font-medium">{report.name}</p>
+                              <p className="text-sm text-gray-500">{report.type}</p>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Badge variant={report.isActive ? "default" : "secondary"}>
+                                {report.isActive ? "Actif" : "Inactif"}
+                              </Badge>
+                              {report.schedule && (
+                                <Badge variant="outline">
+                                  {report.schedule}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                        {stockReports.length > 3 && (
+                          <Button variant="outline" size="sm" className="w-full">
+                            Voir tous les rapports ({stockReports.length})
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Intégrations */}
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Link className="h-5 w-5 mr-2 text-green-500" />
+                    Intégrations Système
+                  </CardTitle>
+                  <CardDescription>
+                    Connectez votre gestion de stock avec d'autres systèmes
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {integrations.length === 0 ? (
+                      <div className="text-center py-8">
+                        <Link className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                        <p className="text-gray-500">Aucune intégration configurée</p>
+                        <Button className="mt-4" size="sm">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Ajouter une intégration
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {integrations.map((integration) => (
+                          <div key={integration.id} className="flex items-center justify-between p-4 border rounded-lg">
+                            <div>
+                              <p className="font-medium">{integration.name}</p>
+                              <p className="text-sm text-gray-500">{integration.type}</p>
+                              {integration.lastSync && (
+                                <p className="text-xs text-gray-400">
+                                  Dernière sync: {new Date(integration.lastSync).toLocaleDateString('fr-FR')}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Badge variant={integration.isActive ? "default" : "secondary"}>
+                                {integration.isActive ? "Active" : "Inactive"}
+                              </Badge>
+                              <Badge 
+                                variant={
+                                  integration.syncStatus === 'SUCCESS' ? "default" :
+                                  integration.syncStatus === 'FAILED' ? "destructive" : "secondary"
+                                }
+                              >
+                                {integration.syncStatus}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Actions rapides */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Actions Rapides</CardTitle>
+                <CardDescription>
+                  Générez des rapports ou synchronisez les intégrations
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <Button 
+                    variant="outline" 
+                    className="h-20 flex flex-col items-center justify-center"
+                    onClick={() => apiClient.generateReport('INVENTORY_SUMMARY')}
+                  >
+                    <Package className="h-6 w-6 mb-2" />
+                    <span>Résumé Stock</span>
+                  </Button>
+
+                  <Button 
+                    variant="outline" 
+                    className="h-20 flex flex-col items-center justify-center"
+                    onClick={() => apiClient.generateReport('SALES_ANALYSIS')}
+                  >
+                    <TrendingUp className="h-6 w-6 mb-2" />
+                    <span>Analyse Ventes</span>
+                  </Button>
+
+                  <Button 
+                    variant="outline" 
+                    className="h-20 flex flex-col items-center justify-center"
+                    onClick={() => apiClient.generateReport('ALERTS_SUMMARY')}
+                  >
+                    <AlertTriangle className="h-6 w-6 mb-2" />
+                    <span>Résumé Alertes</span>
+                  </Button>
+
+                  <Button 
+                    variant="outline" 
+                    className="h-20 flex flex-col items-center justify-center"
+                    onClick={() => {
+                      integrations.forEach(integration => {
+                        if (integration.isActive) {
+                          apiClient.syncIntegration(integration.id)
+                        }
+                      })
+                      toast.success("Synchronisation des intégrations lancée")
+                    }}
+                  >
+                    <Link className="h-6 w-6 mb-2" />
+                    <span>Sync Toutes</span>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </DynamicDashboardLayout>
   )

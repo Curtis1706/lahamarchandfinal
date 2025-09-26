@@ -39,6 +39,13 @@ model User {
   receivedMessages  Message[]     @relation("ReceivedMessages")
   discipline        Discipline?   @relation(fields: [disciplineId], references: [id]) // Relation avec Discipline
   performedStockMovements StockMovement[] @relation("StockMovements")
+  createdWorkVersions WorkVersion[] // Versions d'œuvres créées par cet utilisateur
+  workSales        WorkSale[] // Ventes effectuées par cet utilisateur
+  workViews        WorkView[] // Consultations d'œuvres par cet utilisateur
+  createdAlertRules StockAlertRule[] // Règles d'alerte créées par cet utilisateur
+  resolvedAlerts  StockAlert[] // Alertes résolues par cet utilisateur
+  createdReports  StockReport[] // Rapports créés par cet utilisateur
+  createdIntegrations StockIntegration[] // Intégrations créées par cet utilisateur
 
   // NextAuth relations
   accounts        Account[]
@@ -127,6 +134,8 @@ model Work {
   disciplineId String
   status       WorkStatus @default(PENDING) // Changé par défaut à PENDING
   publishedAt  DateTime?  // Nullable, défini seulement lors de la publication
+  publicationDate DateTime? // Date de publication pour le stock (peut différer de publishedAt)
+  version      String?    // Version de l'œuvre (ex: "1.0", "2.0", "Édition 2024")
   submittedAt  DateTime?  // Date de soumission
   reviewedAt   DateTime?  // Date de validation/refus
   createdAt    DateTime   @default(now())
@@ -150,6 +159,11 @@ model Work {
   orderItems   OrderItem[]
   royalties    Royalty[]
   stockMovements StockMovement[]
+  versions     WorkVersion[]
+  workSales    WorkSale[]
+  workDistributions WorkDistribution[]
+  workViews    WorkView[]
+  stockAlerts  StockAlert[]
 }
 
 model StockMovement {
@@ -340,4 +354,261 @@ model AuditLog {
   details      String   // Description textuelle de l'action
   metadata     String?  // Métadonnées JSON de l'action (optionnel)
   createdAt    DateTime @default(now())
+}
+
+model WorkVersion {
+  id          String   @id @default(cuid())
+  workId      String
+  work        Work     @relation(fields: [workId], references: [id], onDelete: Cascade)
+  version     String   // Version (ex: "1.0", "2.0", "Édition 2024")
+  title       String   // Titre de cette version
+  description String?  // Description des changements
+  isActive    Boolean  @default(true) // Version active ou archivée
+  publishedAt DateTime? // Date de publication de cette version
+  archivedAt  DateTime? // Date d'archivage
+  createdBy   String   // ID de l'utilisateur qui a créé cette version
+  createdByUser User   @relation(fields: [createdBy], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([workId])
+  @@index([version])
+  @@index([isActive])
+}
+
+model WorkSale {
+  id          String   @id @default(cuid())
+  workId      String
+  work        Work     @relation(fields: [workId], references: [id], onDelete: Cascade)
+  quantity    Int      // Quantité vendue
+  amount      Float    // Montant total de la vente
+  saleType    SaleType @default(DIRECT) // Type de vente
+  customerId  String?  // ID du client (optionnel)
+  customer    User?    @relation(fields: [customerId], references: [id])
+  orderId     String?  // ID de la commande (optionnel)
+  saleDate    DateTime @default(now())
+  createdAt   DateTime @default(now())
+  
+  @@index([workId])
+  @@index([saleDate])
+  @@index([saleType])
+}
+
+model WorkDistribution {
+  id              String           @id @default(cuid())
+  workId          String
+  work            Work             @relation(fields: [workId], references: [id], onDelete: Cascade)
+  quantity        Int              // Quantité distribuée
+  distributionType DistributionType @default(SCHOOL) // Type de distribution
+  recipientId     String?          // ID du destinataire (école, partenaire, etc.)
+  recipientName   String?          // Nom du destinataire
+  distributionDate DateTime        @default(now())
+  notes           String?          // Notes sur la distribution
+  createdAt       DateTime         @default(now())
+  
+  @@index([workId])
+  @@index([distributionDate])
+  @@index([distributionType])
+}
+
+model WorkView {
+  id        String   @id @default(cuid())
+  workId    String
+  work      Work     @relation(fields: [workId], references: [id], onDelete: Cascade)
+  viewerId  String?  // ID de l'utilisateur qui a consulté (optionnel)
+  viewer    User?    @relation(fields: [viewerId], references: [id])
+  ipAddress String?  // Adresse IP (pour les consultations anonymes)
+  userAgent String?  // User agent du navigateur
+  viewedAt  DateTime @default(now())
+  
+  @@index([workId])
+  @@index([viewedAt])
+  @@index([viewerId])
+}
+
+enum SaleType {
+  DIRECT      // Vente directe
+  ONLINE      // Vente en ligne
+  PARTNER     // Vente via partenaire
+  SCHOOL      // Vente à une école
+  BULK        // Vente en gros
+}
+
+enum DistributionType {
+  SCHOOL      // Distribution à une école
+  LIBRARY     // Distribution à une bibliothèque
+  PARTNER     // Distribution à un partenaire
+  PROMOTION   // Distribution promotionnelle
+  SAMPLE      // Échantillon gratuit
+}
+
+model StockAlertRule {
+  id              String        @id @default(cuid())
+  name            String        // Nom de la règle
+  description     String?       // Description de la règle
+  type            AlertRuleType // Type de règle
+  conditions      String        // Conditions JSON
+  actions         String        // Actions JSON
+  isActive        Boolean       @default(true)
+  priority        AlertPriority @default(MEDIUM)
+  createdBy       String        // ID de l'utilisateur qui a créé la règle
+  createdByUser   User          @relation(fields: [createdBy], references: [id])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  // Relations
+  triggeredAlerts StockAlert[]  @relation("AlertRule")
+  
+  @@index([type])
+  @@index([isActive])
+  @@index([priority])
+}
+
+model StockAlert {
+  id          String        @id @default(cuid())
+  ruleId      String?       // ID de la règle qui a déclenché l'alerte
+  rule        StockAlertRule? @relation("AlertRule", fields: [ruleId], references: [id])
+  workId      String?       // ID de l'œuvre concernée (optionnel)
+  work        Work?         @relation(fields: [workId], references: [id])
+  type        AlertType     // Type d'alerte
+  severity    AlertSeverity // Sévérité de l'alerte
+  title       String        // Titre de l'alerte
+  message     String        // Message de l'alerte
+  data        String?       // Données JSON supplémentaires
+  isRead      Boolean       @default(false)
+  isResolved  Boolean       @default(false)
+  resolvedBy  String?       // ID de l'utilisateur qui a résolu l'alerte
+  resolvedByUser User?      @relation(fields: [resolvedBy], references: [id])
+  resolvedAt  DateTime?     // Date de résolution
+  createdAt   DateTime      @default(now())
+  
+  @@index([type])
+  @@index([severity])
+  @@index([isRead])
+  @@index([isResolved])
+  @@index([createdAt])
+}
+
+model StockReport {
+  id          String        @id @default(cuid())
+  name        String        // Nom du rapport
+  type        ReportType    // Type de rapport
+  parameters  String        // Paramètres JSON
+  schedule    String?       // Planification (cron expression)
+  isActive    Boolean       @default(true)
+  lastRun     DateTime?     // Dernière exécution
+  nextRun     DateTime?     // Prochaine exécution
+  createdBy   String        // ID de l'utilisateur qui a créé le rapport
+  createdByUser User        @relation(fields: [createdBy], references: [id])
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  // Relations
+  executions  ReportExecution[] @relation("Report")
+  
+  @@index([type])
+  @@index([isActive])
+  @@index([nextRun])
+}
+
+model ReportExecution {
+  id          String        @id @default(cuid())
+  reportId    String
+  report      StockReport   @relation("Report", fields: [reportId], references: [id])
+  status      ExecutionStatus // Statut d'exécution
+  startedAt   DateTime      @default(now())
+  completedAt DateTime?     // Date de fin
+  result      String?       // Résultat JSON
+  error       String?       // Message d'erreur
+  filePath    String?       // Chemin du fichier généré
+  
+  @@index([reportId])
+  @@index([status])
+  @@index([startedAt])
+}
+
+model StockIntegration {
+  id          String        @id @default(cuid())
+  name        String        // Nom de l'intégration
+  type        IntegrationType // Type d'intégration
+  config      String        // Configuration JSON
+  isActive    Boolean       @default(true)
+  lastSync    DateTime?     // Dernière synchronisation
+  syncStatus  SyncStatus    @default(PENDING)
+  errorCount  Int           @default(0)
+  lastError   String?       // Dernière erreur
+  createdBy   String        // ID de l'utilisateur qui a créé l'intégration
+  createdByUser User        @relation(fields: [createdBy], references: [id])
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  @@index([type])
+  @@index([isActive])
+  @@index([syncStatus])
+}
+
+enum AlertRuleType {
+  STOCK_LOW           // Stock faible
+  STOCK_OUT           // Rupture de stock
+  SALES_THRESHOLD     // Seuil de ventes
+  PRICE_CHANGE        // Changement de prix
+  EXPIRY_WARNING      // Avertissement d'expiration
+  CUSTOM              // Règle personnalisée
+}
+
+enum AlertPriority {
+  LOW       // Faible
+  MEDIUM    // Moyenne
+  HIGH      // Élevée
+  CRITICAL  // Critique
+}
+
+enum AlertType {
+  STOCK_LOW           // Stock faible
+  STOCK_OUT           // Rupture de stock
+  SALES_SPIKE         // Pic de ventes
+  PRICE_CHANGE        // Changement de prix
+  EXPIRY_WARNING      // Avertissement d'expiration
+  INTEGRATION_ERROR   // Erreur d'intégration
+  REPORT_FAILED       // Échec de rapport
+  CUSTOM              // Alerte personnalisée
+}
+
+enum AlertSeverity {
+  INFO      // Information
+  WARNING   // Avertissement
+  ERROR     // Erreur
+  CRITICAL  // Critique
+}
+
+enum ReportType {
+  INVENTORY_SUMMARY   // Résumé d'inventaire
+  SALES_ANALYSIS      // Analyse des ventes
+  STOCK_MOVEMENTS     // Mouvements de stock
+  ALERTS_SUMMARY      // Résumé des alertes
+  CUSTOM              // Rapport personnalisé
+}
+
+enum ExecutionStatus {
+  PENDING    // En attente
+  RUNNING    // En cours
+  COMPLETED  // Terminé
+  FAILED     // Échoué
+  CANCELLED  // Annulé
+}
+
+enum IntegrationType {
+  ORDER_SYSTEM        // Système de commandes
+  ACCOUNTING_SYSTEM   // Système comptable
+  WAREHOUSE_SYSTEM    // Système d'entrepôt
+  ECOMMERCE_PLATFORM  // Plateforme e-commerce
+  CUSTOM              // Intégration personnalisée
+}
+
+enum SyncStatus {
+  PENDING    // En attente
+  SYNCING    // Synchronisation
+  SUCCESS    // Succès
+  FAILED     // Échec
+  DISABLED   // Désactivé
 }

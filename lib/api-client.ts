@@ -521,6 +521,226 @@ export class ApiClient {
     return this.request(`/notifications?userId=${userId}`)
   }
 
+  // Work Versions API
+  async getWorkVersions(workId: string, includeArchived: boolean = false) {
+    const params = new URLSearchParams({ workId })
+    if (includeArchived) params.append('includeArchived', 'true')
+    return this.request(`/works/versions?${params}`)
+  }
+
+  async createWorkVersion(data: {
+    workId: string
+    version: string
+    title: string
+    description?: string
+    publishedAt?: string
+  }) {
+    return this.request('/works/versions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async archiveWorkVersion(versionId: string, isActive: boolean) {
+    return this.request('/works/versions', {
+      method: 'PUT',
+      body: JSON.stringify({ versionId, isActive }),
+    })
+  }
+
+  // Stock API
+  async getWorksWithStock() {
+    return this.request('/stock?type=works')
+  }
+
+  async getStockMovements() {
+    return this.request('/stock?type=movements')
+  }
+
+  async getStockAlerts() {
+    return this.request('/stock?type=alerts')
+  }
+
+  async getStockStats() {
+    return this.request('/stock?type=stats')
+  }
+
+  async getPendingStockOperations() {
+    return this.request('/stock?type=pending')
+  }
+
+  async exportStockReport(type: 'inventory' | 'movements' | 'alerts') {
+    return this.request(`/stock/export?type=${type}`)
+  }
+
+  async validateStockOperation(operationId: string, approved: boolean) {
+    return this.request('/stock/validate', {
+      method: 'POST',
+      body: JSON.stringify({ operationId, approved }),
+    })
+  }
+
+  // Stock Statistics API
+  async getStockStatistics(type: 'discipline' | 'sales' | 'popular' | 'overview', options?: {
+    period?: number
+    disciplineId?: string
+  }) {
+    const params = new URLSearchParams({ type })
+    if (options?.period) params.append('period', options.period.toString())
+    if (options?.disciplineId) params.append('disciplineId', options.disciplineId)
+    return this.request(`/stock/statistics?${params}`)
+  }
+
+  // Stock Alerts API
+  async getStockAlerts(type: 'rules' | 'alerts' | 'unread', options?: {
+    severity?: string
+    isResolved?: boolean
+    limit?: number
+  }) {
+    const params = new URLSearchParams({ type })
+    if (options?.severity) params.append('severity', options.severity)
+    if (options?.isResolved !== undefined) params.append('isResolved', options.isResolved.toString())
+    if (options?.limit) params.append('limit', options.limit.toString())
+    return this.request(`/stock/alerts?${params}`)
+  }
+
+  async createAlertRule(data: {
+    name: string
+    description?: string
+    type: string
+    conditions: any
+    actions: any
+    priority?: string
+  }) {
+    return this.request('/stock/alerts', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'create_rule', ...data }),
+    })
+  }
+
+  async updateAlertRule(ruleId: string, data: {
+    name?: string
+    description?: string
+    type?: string
+    conditions?: any
+    actions?: any
+    priority?: string
+    isActive?: boolean
+  }) {
+    return this.request('/stock/alerts', {
+      method: 'PUT',
+      body: JSON.stringify({ ruleId, ...data }),
+    })
+  }
+
+  async deleteAlertRule(ruleId: string) {
+    return this.request(`/stock/alerts?ruleId=${ruleId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async markAlertAsRead(alertId: string) {
+    return this.request('/stock/alerts', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'mark_read', alertId }),
+    })
+  }
+
+  async resolveAlert(alertId: string, resolution?: string) {
+    return this.request('/stock/alerts', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'resolve', alertId, resolution }),
+    })
+  }
+
+  // Stock Reports API
+  async getStockReports(type: 'reports' | 'executions' | 'generate', options?: {
+    reportId?: string
+    reportType?: string
+  }) {
+    const params = new URLSearchParams({ type })
+    if (options?.reportId) params.append('reportId', options.reportId)
+    if (options?.reportType) params.append('reportType', options.reportType)
+    return this.request(`/stock/reports?${params}`)
+  }
+
+  async createStockReport(data: {
+    name: string
+    type: string
+    parameters: any
+    schedule?: string
+  }) {
+    return this.request('/stock/reports', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateStockReport(reportId: string, data: {
+    name?: string
+    type?: string
+    parameters?: any
+    schedule?: string
+    isActive?: boolean
+  }) {
+    return this.request('/stock/reports', {
+      method: 'PUT',
+      body: JSON.stringify({ reportId, ...data }),
+    })
+  }
+
+  async deleteStockReport(reportId: string) {
+    return this.request(`/stock/reports?reportId=${reportId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async generateReport(reportType: string) {
+    return this.request(`/stock/reports?type=generate&reportType=${reportType}`)
+  }
+
+  // Stock Integrations API
+  async getStockIntegrations(type: 'list' | 'status' | 'sync', options?: {
+    integrationId?: string
+  }) {
+    const params = new URLSearchParams({ type })
+    if (options?.integrationId) params.append('integrationId', options.integrationId)
+    return this.request(`/stock/integrations?${params}`)
+  }
+
+  async createStockIntegration(data: {
+    name: string
+    type: string
+    config: any
+  }) {
+    return this.request('/stock/integrations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateStockIntegration(integrationId: string, data: {
+    name?: string
+    type?: string
+    config?: any
+    isActive?: boolean
+  }) {
+    return this.request('/stock/integrations', {
+      method: 'PUT',
+      body: JSON.stringify({ integrationId, ...data }),
+    })
+  }
+
+  async deleteStockIntegration(integrationId: string) {
+    return this.request(`/stock/integrations?integrationId=${integrationId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async syncIntegration(integrationId: string) {
+    return this.request(`/stock/integrations?type=sync&integrationId=${integrationId}`)
+  }
+
   // Download file helper
   downloadFile(data: Blob, filename: string) {
     const url = window.URL.createObjectURL(data)

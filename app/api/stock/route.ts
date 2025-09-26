@@ -1,10 +1,22 @@
 import { NextRequest, NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { StockMovementType } from "@prisma/client"
 
 // GET /api/stock - Récupérer les données de stock
 export async function GET(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
+    }
+
+    // Seul le PDG peut accéder aux données de stock
+    if (session.user.role !== 'PDG') {
+      return NextResponse.json({ error: "Accès non autorisé" }, { status: 403 })
+    }
+
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type') // 'works', 'movements', 'alerts', 'stats', 'pending'
 
@@ -21,12 +33,30 @@ export async function GET(request: NextRequest) {
             minStock: true,
             maxStock: true,
             status: true,
+            publicationDate: true,
+            version: true,
             discipline: {
               select: {
                 id: true,
                 name: true
               }
+            },
+            author: {
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
+            },
+            project: {
+              select: {
+                id: true,
+                title: true
+              }
             }
+          },
+          where: {
+            status: 'PUBLISHED' // Seules les œuvres publiées apparaissent dans le stock
           },
           orderBy: {
             title: 'asc'

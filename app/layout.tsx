@@ -1,6 +1,4 @@
 import type { Metadata } from 'next'
-import { GeistSans } from 'geist/font/sans'
-import { GeistMono } from 'geist/font/mono'
 import { Analytics } from '@vercel/analytics/next'
 import { Providers } from '@/components/providers'
 import { Toaster } from 'sonner'
@@ -17,8 +15,16 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
+    <html lang="fr">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link 
+          href="https://fonts.googleapis.com/css2?family=Muli:wght@200;300;400;500;600;700;800;900&family=Comfortaa:wght@300;400;500;600;700&display=swap" 
+          rel="stylesheet" 
+        />
+      </head>
+      <body className="font-body">
         <Providers>
           {children}
           <Toaster />
