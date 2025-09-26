@@ -96,10 +96,10 @@ export default function ConcepteurValidationPage() {
           apiClient.getPendingUsers('REJECTED')
         ])
         
-        setPendingUsers(pendingUsersData)
-        setDisciplines(disciplinesData)
-        setApprovedCount(approvedUsersData.length)
-        setRejectedCount(rejectedUsersData.length)
+        setPendingUsers(Array.isArray(pendingUsersData) ? pendingUsersData : [])
+        setDisciplines(Array.isArray(disciplinesData) ? disciplinesData : [])
+        setApprovedCount(Array.isArray(approvedUsersData) ? approvedUsersData.length : 0)
+        setRejectedCount(Array.isArray(rejectedUsersData) ? rejectedUsersData.length : 0)
       } catch (error: any) {
         console.error("Error fetching data:", error)
         toast.error("Erreur lors du chargement des données")
@@ -145,7 +145,7 @@ export default function ConcepteurValidationPage() {
   }
 
   // Filtrage
-  const filteredUsers = pendingUsers.filter(user => {
+  const filteredUsers = Array.isArray(pendingUsers) ? pendingUsers.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (user.phone && user.phone.includes(searchTerm))
@@ -153,7 +153,7 @@ export default function ConcepteurValidationPage() {
     const matchesStatus = statusFilter === "all" || user.status === statusFilter
     
     return matchesSearch && matchesRole && matchesStatus
-  })
+  }) : []
 
   const getStatusBadge = (status: string) => {
     switch (status) {

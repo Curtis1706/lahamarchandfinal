@@ -102,8 +102,10 @@ export default function GestionUtilisateursPage() {
           apiClient.getDisciplines()
         ])
         
-        setUsers(usersData)
-        setDisciplines(disciplinesData)
+        console.log("🔍 Données reçues:", { usersData, disciplinesData })
+        setUsers(Array.isArray(usersData) ? usersData : [])
+        setDisciplines(Array.isArray(disciplinesData) ? disciplinesData : [])
+        console.log("🔍 Utilisateurs définis:", Array.isArray(usersData) ? usersData : [])
       } catch (error: any) {
         console.error("Error fetching data:", error)
         toast.error("Erreur lors du chargement des données")
@@ -119,7 +121,7 @@ export default function GestionUtilisateursPage() {
   const handleCreateUser = async (userData: any) => {
     try {
       const newUser = await apiClient.createUser(userData)
-      setUsers(prev => [newUser, ...prev])
+      setUsers(prev => Array.isArray(prev) ? [newUser, ...prev] : [newUser])
       setIsCreateDialogOpen(false)
       toast.success("Utilisateur créé avec succès")
     } catch (error: any) {
@@ -200,7 +202,7 @@ export default function GestionUtilisateursPage() {
   }
 
   // Filtrage
-  const filteredUsers = users.filter(user => {
+  const filteredUsers = Array.isArray(users) ? users.filter(user => {
     const searchLower = searchTerm.toLowerCase()
     const matchesSearch = user.name.toLowerCase().includes(searchLower) ||
                          user.email.toLowerCase().includes(searchLower) ||
@@ -209,7 +211,7 @@ export default function GestionUtilisateursPage() {
     const matchesStatus = statusFilter === "all" || user.status === statusFilter
     
     return matchesSearch && matchesRole && matchesStatus
-  })
+  }) : []
 
   // Pagination
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage)
@@ -326,31 +328,31 @@ export default function GestionUtilisateursPage() {
               <Maximize2 className="h-4 w-4" />
             </Button>
           </div>
-        </div>
+          </div>
 
         {/* Bouton Ajouter */}
         <div className="flex justify-end mb-6">
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <DialogTrigger asChild>
               <Button className="bg-purple-600 hover:bg-purple-700 text-white">
-                <Plus className="h-4 w-4 mr-2" />
+                  <Plus className="h-4 w-4 mr-2" />
                 Ajouter
-              </Button>
-            </DialogTrigger>
+                </Button>
+              </DialogTrigger>
             <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Créer un nouvel utilisateur</DialogTitle>
-                <DialogDescription>
-                  Ajoutez un nouvel utilisateur à la plateforme
-                </DialogDescription>
-              </DialogHeader>
-              <CreateUserForm 
-                disciplines={disciplines}
-                onSubmit={handleCreateUser}
-                onCancel={() => setIsCreateDialogOpen(false)}
-              />
-            </DialogContent>
-          </Dialog>
+                <DialogHeader>
+                  <DialogTitle>Créer un nouvel utilisateur</DialogTitle>
+                  <DialogDescription>
+                    Ajoutez un nouvel utilisateur à la plateforme
+                  </DialogDescription>
+                </DialogHeader>
+                <CreateUserForm 
+                  disciplines={disciplines}
+                  onSubmit={handleCreateUser}
+                  onCancel={() => setIsCreateDialogOpen(false)}
+                />
+              </DialogContent>
+            </Dialog>
         </div>
 
         {/* Modal d'édition d'utilisateur */}
@@ -392,40 +394,40 @@ export default function GestionUtilisateursPage() {
               </SelectContent>
             </Select>
             <span className="text-sm text-gray-700">éléments</span>
-          </div>
+        </div>
 
           <div className="flex items-center space-x-4">
             <span className="text-sm text-gray-700">Rechercher:</span>
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-              <Input
+            <Input
                 placeholder=""
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 w-64"
-              />
-            </div>
+            />
+          </div>
             
-            <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
               <SelectTrigger className="w-32">
-                <SelectValue placeholder="Rôle" />
-              </SelectTrigger>
-              <SelectContent>
+              <SelectValue placeholder="Rôle" />
+            </SelectTrigger>
+            <SelectContent>
                 <SelectItem value="all">Rôle</SelectItem>
-                <SelectItem value="PDG">PDG</SelectItem>
+              <SelectItem value="PDG">PDG</SelectItem>
                 <SelectItem value="AUTEUR">Auteur</SelectItem>
                 <SelectItem value="CONCEPTEUR">Concepteur</SelectItem>
                 <SelectItem value="CLIENT">Client</SelectItem>
                 <SelectItem value="PARTENAIRE">Partenaire</SelectItem>
                 <SelectItem value="REPRESENTANT">Représentant</SelectItem>
-              </SelectContent>
-            </Select>
+            </SelectContent>
+          </Select>
             
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-32">
-                <SelectValue placeholder="Statut" />
-              </SelectTrigger>
-              <SelectContent>
+              <SelectValue placeholder="Statut" />
+            </SelectTrigger>
+            <SelectContent>
                 <SelectItem value="all">Statut</SelectItem>
                 <SelectItem value="active">Actif</SelectItem>
                 <SelectItem value="inactive">Inactif</SelectItem>
@@ -444,11 +446,11 @@ export default function GestionUtilisateursPage() {
                     {discipline.name}
                   </SelectItem>
                 ))}
-              </SelectContent>
-            </Select>
-          </div>
+            </SelectContent>
+          </Select>
         </div>
-
+                      </div>
+                      
         {/* Tableau des utilisateurs */}
         <div className="border rounded-lg overflow-hidden">
           <Table>
@@ -464,43 +466,43 @@ export default function GestionUtilisateursPage() {
                   <div className="flex items-center">
                     <span className="mr-1">♦</span>
                     Téléphone
-                  </div>
+                        </div>
                 </TableHead>
                 <TableHead className="font-semibold">
                   <div className="flex items-center">
                     <span className="mr-1">♦</span>
                     email
-                  </div>
+                          </div>
                 </TableHead>
                 <TableHead className="font-semibold">
                   <div className="flex items-center">
                     <span className="mr-1">♦</span>
                     Rôle
-                  </div>
+                          </div>
                 </TableHead>
                 <TableHead className="font-semibold">
                   <div className="flex items-center">
                     <span className="mr-1">♦</span>
                     Statut
-                  </div>
+                            </div>
                 </TableHead>
                 <TableHead className="font-semibold">
                   <div className="flex items-center">
                     <span className="mr-1">♦</span>
                     Ajoutée le
-                  </div>
+                          </div>
                 </TableHead>
                 <TableHead className="font-semibold">
                   <div className="flex items-center">
                     <span className="mr-1">♦</span>
                     Modifié le
-                  </div>
+                        </div>
                 </TableHead>
                 <TableHead className="font-semibold">
                   <div className="flex items-center">
                     <span className="mr-1">♦</span>
                     Actions
-                  </div>
+                      </div>
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -523,7 +525,7 @@ export default function GestionUtilisateursPage() {
                           )}
                         </Button>
                         {user.name}
-                      </div>
+                    </div>
                     </TableCell>
                     <TableCell>
                       <span className="text-sm text-gray-900">{formatPhone(user.phone)}</span>
@@ -535,15 +537,15 @@ export default function GestionUtilisateursPage() {
                     <TableCell>{user.updatedAt ? formatDate(user.updatedAt) : formatDate(user.createdAt)}</TableCell>
                     <TableCell>
                       <div className="flex space-x-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
+                      <Button
+                        variant="outline"
+                        size="sm"
                           className="h-8 w-8 p-0 bg-green-50 hover:bg-green-100"
                           onClick={() => handleEditUser(user)}
                           title="Modifier l'utilisateur"
-                        >
+                      >
                           <Edit className="h-4 w-4 text-green-600" />
-                        </Button>
+                      </Button>
                         
                         {/* Bouton de suspension/activation */}
                         {user.status === 'ACTIVE' ? (
@@ -609,9 +611,9 @@ export default function GestionUtilisateursPage() {
                             </AlertDialogContent>
                           </AlertDialog>
                         )}
-
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
+                      
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
                             <Button 
                               variant="outline" 
                               size="sm"
@@ -619,27 +621,27 @@ export default function GestionUtilisateursPage() {
                               title="Supprimer l'utilisateur"
                             >
                               <Trash2 className="h-4 w-4 text-red-600" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Supprimer l'utilisateur</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Êtes-vous sûr de vouloir supprimer {user.name} ? 
-                                Cette action est irréversible.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Annuler</AlertDialogCancel>
-                              <AlertDialogAction 
-                                onClick={() => handleDeleteUser(user.id)}
-                                className="bg-red-600 hover:bg-red-700"
-                              >
-                                Supprimer
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Supprimer l'utilisateur</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Êtes-vous sûr de vouloir supprimer {user.name} ? 
+                              Cette action est irréversible.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Annuler</AlertDialogCancel>
+                            <AlertDialogAction 
+                              onClick={() => handleDeleteUser(user.id)}
+                              className="bg-red-600 hover:bg-red-700"
+                            >
+                              Supprimer
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -731,8 +733,8 @@ export default function GestionUtilisateursPage() {
                                 </Button>
                               </div>
                             </div>
-                          </div>
-                        </div>
+                    </div>
+                  </div>
                       </TableCell>
                     </TableRow>
                   )}

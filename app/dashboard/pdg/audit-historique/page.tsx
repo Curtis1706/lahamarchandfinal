@@ -1,5 +1,4 @@
-"use client"
-
+"use client";
 import { useState, useEffect } from "react"
 import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout"
 import { useCurrentUser } from "@/hooks/use-current-user"

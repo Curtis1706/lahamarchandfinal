@@ -177,7 +177,7 @@ export default function ClientCataloguePage() {
         image: item.image || "/placeholder.jpg"
       }))
 
-      const newOrder = addOrder({
+      const newOrder = await addOrder({
         total: getTotalPrice(),
         itemCount: cart.length,
         paymentMethod: "À confirmer",

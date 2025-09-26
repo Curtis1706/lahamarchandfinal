@@ -1,193 +1,391 @@
-import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { Role, UserStatus } from "@prisma/client"
+import { NextRequest, NextResponse } from "next/server";
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
-// GET /api/users - Liste des utilisateurs
-export async function GET(request: NextRequest) {
+const prisma = new PrismaClient();
+
+// POST /api/users - Créer un utilisateur (auteur, concepteur ou partenaire)
+export async function POST(request: NextRequest) {
+  console.log("🔍 API POST /users - Création d'utilisateur");
+  
   try {
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        status: true,
-        disciplineId: true,
+    const body = await request.json();
+    console.log("🔍 Body reçu:", body);
+    
+    const { 
+      name, 
+      email, 
+      phone, 
+      role, 
+      disciplineId, 
+      password 
+    } = body;
+
+    console.log("🔍 Données extraites:", { name, email, phone, role, disciplineId });
+
+    // Validation des champs obligatoires
+    if (!name || !email || !phone || !role || !password) {
+      return NextResponse.json(
+        { error: "Tous les champs sont obligatoires" },
+        { status: 400 }
+      );
+    }
+
+    // Validation du rôle (AUTEUR, CONCEPTEUR et PARTENAIRE peuvent être créés)
+    const allowedRoles = ["AUTEUR", "CONCEPTEUR", "PARTENAIRE"];
+    if (!allowedRoles.includes(role)) {
+      return NextResponse.json(
+        { error: "Seuls les rôles AUTEUR, CONCEPTEUR et PARTENAIRE peuvent être créés" },
+        { status: 400 }
+      );
+    }
+
+    // Vérifier que l'email n'existe pas déjà
+    const existingUser = await prisma.user.findUnique({
+      where: { email }
+    });
+
+    if (existingUser) {
+      return NextResponse.json(
+        { error: "Un utilisateur avec cet email existe déjà" },
+        { status: 400 }
+      );
+    }
+
+    // Vérifier que le téléphone n'existe pas déjà
+    const existingPhone = await prisma.user.findFirst({
+      where: { phone }
+    });
+
+    if (existingPhone) {
+      return NextResponse.json(
+        { error: "Un utilisateur avec ce numéro de téléphone existe déjà" },
+        { status: 400 }
+      );
+    }
+
+    // Vérifier que la discipline existe si fournie
+    if (disciplineId) {
+      const discipline = await prisma.discipline.findUnique({
+        where: { id: disciplineId }
+      });
+
+      if (!discipline) {
+        return NextResponse.json(
+          { error: "Discipline non trouvée" },
+          { status: 400 }
+        );
+      }
+    }
+
+    console.log("🔍 Tentative de création avec Prisma...");
+
+    // Hasher le mot de passe
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Créer l'utilisateur
+    const user = await prisma.user.create({
+      data: {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        phone: phone.trim(),
+        password: hashedPassword,
+        role: role,
+        status: "PENDING", // En attente de validation par le PDG
+        discipline: disciplineId ? {
+          connect: { id: disciplineId }
+        } : undefined,
+      },
+      include: {
         discipline: {
           select: {
             id: true,
-            name: true,
+            name: true
           }
-        },
-        createdAt: true,
-        updatedAt: true,
-      },
-      orderBy: {
-        createdAt: "desc"
+        }
       }
-    })
+    });
 
-    return NextResponse.json(users)
-  } catch (error) {
-    console.error("Error fetching users:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    console.log("✅ Utilisateur créé, ajout des logs et notifications...");
+
+    // Créer un log d'audit
+    try {
+      await prisma.auditLog.create({
+        data: {
+          action: "USER_CREATE",
+          userId: user.id,
+          performedBy: user.id, // Auto-création
+          details: JSON.stringify({
+            userId: user.id,
+            userName: user.name,
+            userEmail: user.email,
+            userRole: user.role,
+            discipline: user.discipline?.name,
+            status: "PENDING"
+          })
+        }
+      });
+      console.log("✅ Log d'audit créé");
+    } catch (auditError) {
+      console.error("⚠️ Erreur création log d'audit:", auditError);
+    }
+
+    // Créer une notification pour le PDG pour validation
+    try {
+      const pdgUser = await prisma.user.findFirst({
+        where: { role: "PDG" }
+      });
+
+      if (pdgUser) {
+        await prisma.notification.create({
+          data: {
+            userId: pdgUser.id,
+            title: "Nouvelle demande de compte",
+            message: `Un nouveau compte ${role.toLowerCase()} a été créé par ${user.name} et attend votre validation.`,
+            type: "USER_PENDING_APPROVAL",
+            data: JSON.stringify({
+              userId: user.id,
+              userName: user.name,
+              userEmail: user.email,
+              userRole: user.role,
+              discipline: user.discipline?.name
+            })
+          }
+        });
+        console.log("✅ Notification créée pour le PDG");
+      }
+    } catch (notificationError) {
+      console.error("⚠️ Erreur création notification:", notificationError);
+    }
+
+    // Créer une notification pour l'utilisateur
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: user.id,
+          title: "Compte créé avec succès",
+          message: `Votre compte ${role.toLowerCase()} a été créé et est en attente de validation par l'administrateur.`,
+          type: "USER_ACCOUNT_CREATED",
+          data: JSON.stringify({
+            userId: user.id,
+            userRole: user.role,
+            status: "PENDING"
+          })
+        }
+      });
+      console.log("✅ Notification créée pour l'utilisateur");
+    } catch (notificationError) {
+      console.error("⚠️ Erreur création notification utilisateur:", notificationError);
+    }
+
+    console.log("✅ Utilisateur créé avec succès:", user);
+    
+    // Retourner les données sans le mot de passe
+    const { password: _, ...userWithoutPassword } = user;
+    
+    return NextResponse.json({
+      success: true,
+      message: "Compte créé avec succès. Il est en attente de validation par l'administrateur.",
+      user: userWithoutPassword
+    }, { status: 201 });
+    
+  } catch (error: any) {
+    console.error("❌ Erreur création utilisateur:", error);
+    console.error("❌ Stack:", error.stack);
+    
+    // Gestion spécifique des erreurs Prisma
+    if (error.code === 'P2002') {
+      return NextResponse.json(
+        { error: "Un utilisateur avec cet email ou ce téléphone existe déjà" },
+        { status: 400 }
+      );
+    }
+    
+    return NextResponse.json(
+      { error: "Erreur lors de la création du compte: " + error.message },
+      { status: 500 }
+    );
   }
 }
 
-// POST /api/users - Créer un utilisateur
-export async function POST(request: NextRequest) {
+// GET /api/users - Récupérer les utilisateurs (pour le PDG)
+export async function GET(request: NextRequest) {
+  console.log("🔍 API GET /users - Récupération des utilisateurs");
+  
   try {
-    const body = await request.json()
-    const { name, email, password, role, phone, disciplineId } = body
+    const { searchParams } = new URL(request.url);
+    const role = searchParams.get('role');
+    const status = searchParams.get('status');
+    const search = searchParams.get('search');
 
-    // Validation
-    if (!name || !email || !password || !role) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    // Construire les filtres
+    const where: any = {};
+    
+    if (role) {
+      where.role = role;
+    }
+    
+    if (status) {
+      where.status = status;
+    }
+    
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search, mode: 'insensitive' } }
+      ];
     }
 
-    // Vérifier si l'utilisateur existe déjà
-    const existingUser = await prisma.user.findUnique({
-      where: { email }
-    })
-
-    if (existingUser) {
-      return NextResponse.json({ error: "User already exists" }, { status: 400 })
-    }
-
-    // Créer l'utilisateur
-    const bcrypt = await import("bcryptjs")
-    const hashedPassword = await bcrypt.hash(password, 12)
-
-    const newUser = await prisma.user.create({
-      data: {
-        name,
-        email,
-        phone: phone || null,
-        password: hashedPassword,
-        role: role as Role,
-        status: 'ACTIVE', // Les utilisateurs créés par le PDG sont actifs par défaut
-        disciplineId: disciplineId || null,
-      },
+    const users = await prisma.user.findMany({
+      where,
+      include: {
+        discipline: {
       select: {
         id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        disciplineId: true,
-        discipline: {
-          select: {
-            id: true,
-            name: true,
+            name: true
           }
-        },
-        createdAt: true,
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
       }
-    })
+    });
 
-    return NextResponse.json(newUser, { status: 201 })
-  } catch (error) {
-    console.error("Error creating user:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    // Retourner les utilisateurs sans les mots de passe
+    const usersWithoutPasswords = users.map(user => {
+      const { password, ...userWithoutPassword } = user;
+      return userWithoutPassword;
+    });
+
+    console.log(`✅ ${usersWithoutPasswords.length} utilisateurs récupérés`);
+    
+    return NextResponse.json({
+      users: usersWithoutPasswords,
+      total: usersWithoutPasswords.length
+    });
+    
+  } catch (error: any) {
+    console.error("❌ Erreur récupération utilisateurs:", error);
+    
+    return NextResponse.json(
+      { error: "Erreur lors de la récupération des utilisateurs: " + error.message },
+      { status: 500 }
+    );
   }
 }
 
 // PUT /api/users - Mettre à jour un utilisateur
 export async function PUT(request: NextRequest) {
+  console.log("🔍 API PUT /users - Mise à jour d'utilisateur");
+  
   try {
-    const body = await request.json()
-    const { id, name, email, phone, role, status, disciplineId } = body
+    const body = await request.json();
+    const { id, ...updateData } = body;
 
-    // Validation
     if (!id) {
-      return NextResponse.json({ error: "User ID is required" }, { status: 400 })
+      return NextResponse.json(
+        { error: "ID utilisateur requis" },
+        { status: 400 }
+      );
     }
 
+    // Vérifier que l'utilisateur existe
+    const existingUser = await prisma.user.findUnique({
+      where: { id }
+    });
+
+    if (!existingUser) {
+      return NextResponse.json(
+        { error: "Utilisateur non trouvé" },
+        { status: 404 }
+      );
+    }
+
+    // Hasher le mot de passe si fourni
+    if (updateData.password) {
+      updateData.password = await bcrypt.hash(updateData.password, 12);
+    }
+
+    // Mettre à jour l'utilisateur
     const updatedUser = await prisma.user.update({
       where: { id },
-      data: {
-        ...(name && { name }),
-        ...(email && { email }),
-        ...(phone !== undefined && { phone }),
-        ...(role && { role: role as Role }),
-        ...(status && { status: status as any }),
-        ...(disciplineId !== undefined && { disciplineId }),
-      },
+      data: updateData,
+      include: {
+        discipline: {
       select: {
         id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        disciplineId: true,
-        discipline: {
-          select: {
-            id: true,
-            name: true,
+            name: true
           }
-        },
-        createdAt: true,
-        updatedAt: true,
+        }
       }
-    })
+    });
 
-    return NextResponse.json(updatedUser)
-  } catch (error) {
-    console.error("Error updating user:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    console.log("✅ Utilisateur mis à jour:", updatedUser);
+
+    // Retourner sans le mot de passe
+    const { password, ...userWithoutPassword } = updatedUser;
+    
+    return NextResponse.json({
+      success: true,
+      user: userWithoutPassword
+    });
+    
+  } catch (error: any) {
+    console.error("❌ Erreur mise à jour utilisateur:", error);
+    
+    return NextResponse.json(
+      { error: "Erreur lors de la mise à jour: " + error.message },
+      { status: 500 }
+    );
   }
 }
 
 // DELETE /api/users - Supprimer un utilisateur
 export async function DELETE(request: NextRequest) {
+  console.log("🔍 API DELETE /users - Suppression d'utilisateur");
+  
   try {
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('id')
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
 
-    // Validation
-    if (!userId) {
-      return NextResponse.json({ error: "User ID is required" }, { status: 400 })
+    if (!id) {
+      return NextResponse.json(
+        { error: "ID utilisateur requis" },
+        { status: 400 }
+      );
     }
 
-    // Vérifier si l'utilisateur existe
+    // Vérifier que l'utilisateur existe
     const existingUser = await prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        authoredWorks: true,
-        conceivedWorks: true,
-        orders: true,
-        royalties: true,
-        partner: true,
-      }
-    })
+      where: { id }
+    });
 
     if (!existingUser) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+      return NextResponse.json(
+        { error: "Utilisateur non trouvé" },
+        { status: 404 }
+      );
     }
 
-    // Vérifier si l'utilisateur a des relations importantes
-    const hasImportantRelations = 
-      existingUser.authoredWorks.length > 0 ||
-      existingUser.conceivedWorks.length > 0 ||
-      existingUser.orders.length > 0 ||
-      existingUser.royalties.length > 0 ||
-      existingUser.partner
-
-    if (hasImportantRelations) {
-      return NextResponse.json({ 
-        error: "Impossible de supprimer un utilisateur ayant des œuvres, commandes ou partenariats. Veuillez d'abord archiver ou transférer ces éléments." 
-      }, { status: 400 })
-    }
-
-    // Supprimer l'utilisateur de la base de données
+    // Supprimer l'utilisateur
     await prisma.user.delete({
-      where: { id: userId }
-    })
+      where: { id }
+    });
 
-    return NextResponse.json({ message: "User deleted successfully" })
-  } catch (error) {
-    console.error("Error deleting user:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    console.log("✅ Utilisateur supprimé:", id);
+    
+    return NextResponse.json({
+      success: true,
+      message: "Utilisateur supprimé avec succès"
+    });
+    
+  } catch (error: any) {
+    console.error("❌ Erreur suppression utilisateur:", error);
+    
+    return NextResponse.json(
+      { error: "Erreur lors de la suppression: " + error.message },
+      { status: 500 }
+    );
   }
 }

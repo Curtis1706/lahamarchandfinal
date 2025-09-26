@@ -117,7 +117,7 @@ export default function ClientCommandePage() {
       cancelled: { variant: "destructive" as const, label: "Annulée", color: "bg-red-100 text-red-800" }
     }
     
-    const config = variants[status]
+    const config = variants[status] || variants.pending // Fallback vers "pending" si statut non reconnu
     return (
       <Badge className={config.color}>
         {config.label}

@@ -1,418 +1,735 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout"
-import { useCurrentUser } from "@/hooks/use-current-user"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useState, useEffect } from "react";
+import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
 import { 
   DollarSign, 
   TrendingUp, 
   TrendingDown,
-  Users,
-  BookOpen,
-  ShoppingCart,
+  BarChart3, 
   PieChart,
-  BarChart3,
-  Calendar,
+  FileText,
   Download,
-  Eye
-} from "lucide-react"
-import { PieChart as RechartsPieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
+  Calendar,
+  Users,
+  Package,
+  BookOpen,
+  Building2,
+  RefreshCw,
+  Filter,
+  Search
+} from "lucide-react";
+import { toast } from "sonner";
+import { format, subDays } from "date-fns";
+import { fr } from "date-fns/locale";
 
-// Types pour les données financières
-interface FinancialData {
-  totalRevenue: number
-  totalOrders: number
-  totalBooksSold: number
-  averageOrderValue: number
-  revenueByMonth: Array<{ month: string; revenue: number; orders: number }>
-  revenueByDiscipline: Array<{ discipline: string; revenue: number; percentage: number }>
-  revenueByAuthor: Array<{ author: string; revenue: number; books: number }>
-  paymentStatus: {
-    paid: number
-    pending: number
-    overdue: number
-  }
+interface FinancialOverview {
+  totalRevenue: number;
+  totalOrders: number;
+  avgOrderValue: number;
+}
+
+interface MonthlyTrend {
+  month: string;
+  monthName: string;
+  revenue: number;
+  orders: number;
+  avgOrderValue: number;
+}
+
+interface DisciplineRevenue {
+  [key: string]: {
+    revenue: number;
+    quantity: number;
+    orders: number;
+  };
+}
+
+interface TopWork {
+  workId: string;
+  work: {
+    title: string;
+    isbn: string;
+    price: number;
+    discipline: {
+      name: string;
+    };
+  };
+  _sum: {
+    quantity: number;
+  };
+  _count: {
+    id: number;
+  };
+}
+
+interface SalesReport {
+  orders: Array<{
+    id: string;
+    createdAt: string;
+    status: string;
+    totalAmount: number;
+    itemsCount: number;
+    partner: any;
+    user: any;
+    items: any[];
+  }>;
+  summary: {
+    totalRevenue: number;
+    totalOrders: number;
+    totalItems: number;
+    avgOrderValue: number;
+  };
+}
+
+interface Royalty {
+  id: string;
+  amount: number;
+  paid: boolean;
+  createdAt: string;
+  work: {
+    title: string;
+    discipline: {
+      name: string;
+    };
+    author: {
+      name: string;
+    };
+    concepteur: {
+      name: string;
+    };
+  };
+  user: {
+    name: string;
+    email: string;
+  };
+}
+
+interface PartnerPerformance {
+  partnerId: string;
+  partnerName: string;
+  partnerType: string;
+  ordersCount: number;
+  totalRevenue: number;
+  totalItems: number;
+  avgOrderValue: number;
+  userStatus: string;
 }
 
 export default function GestionFinancierePage() {
-  const { user, isLoading: userLoading } = useCurrentUser()
-  const [financialData, setFinancialData] = useState<FinancialData | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [periodFilter, setPeriodFilter] = useState("6months")
+  const [activeTab, setActiveTab] = useState("overview");
+  const [loading, setLoading] = useState(true);
+  const [dateRange, setDateRange] = useState({
+    startDate: format(subDays(new Date(), 30), "yyyy-MM-dd"),
+    endDate: format(new Date(), "yyyy-MM-dd")
+  });
+  const [disciplineFilter, setDisciplineFilter] = useState("");
+  const [partnerFilter, setPartnerFilter] = useState("");
 
-  // Charger les données financières
+  // États pour les données
+  const [overview, setOverview] = useState<FinancialOverview | null>(null);
+  const [monthlyTrends, setMonthlyTrends] = useState<MonthlyTrend[]>([]);
+  const [disciplineRevenue, setDisciplineRevenue] = useState<DisciplineRevenue>({});
+  const [topWorks, setTopWorks] = useState<TopWork[]>([]);
+  const [salesReport, setSalesReport] = useState<SalesReport | null>(null);
+  const [royalties, setRoyalties] = useState<Royalty[]>([]);
+  const [partnerPerformance, setPartnerPerformance] = useState<PartnerPerformance[]>([]);
+
   useEffect(() => {
-    const fetchFinancialData = async () => {
-      try {
-        setIsLoading(true)
-        
-        // Simuler des données financières
-        const mockData: FinancialData = {
-          totalRevenue: 2500000,
-          totalOrders: 156,
-          totalBooksSold: 2840,
-          averageOrderValue: 16025,
-          revenueByMonth: [
-            { month: "Jan", revenue: 180000, orders: 12 },
-            { month: "Fév", revenue: 220000, orders: 15 },
-            { month: "Mar", revenue: 195000, orders: 13 },
-            { month: "Avr", revenue: 280000, orders: 18 },
-            { month: "Mai", revenue: 320000, orders: 22 },
-            { month: "Jun", revenue: 350000, orders: 24 },
-            { month: "Jul", revenue: 290000, orders: 19 },
-            { month: "Aoû", revenue: 410000, orders: 28 },
-            { month: "Sep", revenue: 380000, orders: 25 },
-            { month: "Oct", revenue: 320000, orders: 21 },
-            { month: "Nov", revenue: 280000, orders: 18 },
-            { month: "Déc", revenue: 350000, orders: 23 }
-          ],
-          revenueByDiscipline: [
-            { discipline: "Mathématiques", revenue: 850000, percentage: 34 },
-            { discipline: "Français", revenue: 720000, percentage: 29 },
-            { discipline: "Sciences", revenue: 480000, percentage: 19 },
-            { discipline: "Histoire", revenue: 250000, percentage: 10 },
-            { discipline: "Géographie", revenue: 200000, percentage: 8 }
-          ],
-          revenueByAuthor: [
-            { author: "Dr. Marie Koffi", revenue: 450000, books: 850 },
-            { author: "Prof. Jean Adou", revenue: 380000, books: 720 },
-            { author: "Dr. Fatou Traoré", revenue: 320000, books: 680 },
-            { author: "Prof. Koffi Mensah", revenue: 280000, books: 590 }
-          ],
-          paymentStatus: {
-            paid: 1200000,
-            pending: 800000,
-            overdue: 500000
-          }
-        }
-        
-        setFinancialData(mockData)
-      } catch (error) {
-        console.error("Error fetching financial data:", error)
-      } finally {
-        setIsLoading(false)
+    loadFinancialData();
+  }, [activeTab, dateRange, disciplineFilter, partnerFilter]);
+
+  const loadFinancialData = async () => {
+    try {
+      setLoading(true);
+      
+      switch (activeTab) {
+        case "overview":
+          await loadOverviewData();
+          break;
+        case "sales":
+          await loadSalesData();
+          break;
+        case "royalties":
+          await loadRoyaltiesData();
+          break;
+        case "partners":
+          await loadPartnerPerformanceData();
+          break;
       }
+    } catch (error) {
+      console.error("Error loading financial data:", error);
+      toast.error("Erreur lors du chargement des données financières");
+    } finally {
+      setLoading(false);
     }
+  };
 
-    fetchFinancialData()
-  }, [periodFilter])
+  const loadOverviewData = async () => {
+    try {
+      const params = new URLSearchParams({
+        type: "overview",
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate
+      });
 
-  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"]
+      const response = await fetch(`/api/finance?${params}`);
+      const data = await response.json();
 
-  if (userLoading || isLoading) {
+      if (response.ok) {
+        setOverview(data.overview);
+        setMonthlyTrends(data.monthlyTrends || []);
+        setDisciplineRevenue(data.disciplineRevenue || {});
+        setTopWorks(data.topWorks || []);
+      } else {
+        toast.error(data.error || "Erreur lors du chargement des données");
+      }
+    } catch (error) {
+      console.error("Error loading overview data:", error);
+      toast.error("Erreur lors du chargement des données");
+    }
+  };
+
+  const loadSalesData = async () => {
+    try {
+      const params = new URLSearchParams({
+        type: "sales",
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate
+      });
+
+      if (disciplineFilter) params.append("disciplineId", disciplineFilter);
+      if (partnerFilter) params.append("partnerId", partnerFilter);
+
+      const response = await fetch(`/api/finance?${params}`);
+      const data = await response.json();
+
+      if (response.ok) {
+        setSalesReport(data);
+      } else {
+        toast.error(data.error || "Erreur lors du chargement des données de vente");
+      }
+    } catch (error) {
+      console.error("Error loading sales data:", error);
+      toast.error("Erreur lors du chargement des données de vente");
+    }
+  };
+
+  const loadRoyaltiesData = async () => {
+    try {
+      const params = new URLSearchParams({
+        type: "royalties",
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate
+      });
+
+      const response = await fetch(`/api/finance?${params}`);
+      const data = await response.json();
+
+      if (response.ok) {
+        setRoyalties(data.recentRoyalties || []);
+      } else {
+        toast.error(data.error || "Erreur lors du chargement des données de royalties");
+      }
+    } catch (error) {
+      console.error("Error loading royalties data:", error);
+      toast.error("Erreur lors du chargement des données de royalties");
+    }
+  };
+
+  const loadPartnerPerformanceData = async () => {
+    try {
+      const params = new URLSearchParams({
+        type: "partner_performance",
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate
+      });
+
+      const response = await fetch(`/api/finance?${params}`);
+      const data = await response.json();
+
+      if (response.ok) {
+        setPartnerPerformance(data.partners || []);
+      } else {
+        toast.error(data.error || "Erreur lors du chargement des données de performance");
+      }
+    } catch (error) {
+      console.error("Error loading partner performance data:", error);
+      toast.error("Erreur lors du chargement des données de performance");
+    }
+  };
+
+  const exportReport = async () => {
+    try {
+      const params = new URLSearchParams({
+        type: activeTab,
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+        format: "csv"
+      });
+
+      const response = await fetch(`/api/finance/export?${params}`);
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `rapport-financier-${activeTab}-${dateRange.startDate}-${dateRange.endDate}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        toast.success("Rapport exporté avec succès");
+      } else {
+        toast.error("Erreur lors de l'export du rapport");
+      }
+    } catch (error) {
+      console.error("Error exporting report:", error);
+      toast.error("Erreur lors de l'export du rapport");
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    const statusConfig = {
+      PENDING: { label: "En attente", variant: "secondary" as const },
+      VALIDATED: { label: "Validée", variant: "default" as const },
+      PROCESSING: { label: "En cours", variant: "default" as const },
+      SHIPPED: { label: "Expédiée", variant: "default" as const },
+      DELIVERED: { label: "Livrée", variant: "default" as const },
+      CANCELLED: { label: "Annulée", variant: "destructive" as const }
+    };
+
+    const config = statusConfig[status as keyof typeof statusConfig] || {
+      label: status,
+      variant: "secondary" as const
+    };
+
     return (
-      <DynamicDashboardLayout>
-        <div className="flex items-center justify-center h-96">
-          <div className="text-center">
-            <DollarSign className="h-8 w-8 animate-spin mx-auto mb-4" />
-            <p className="text-muted-foreground">Chargement des données financières...</p>
-          </div>
+      <Badge variant={config.variant} className="text-xs">
+        {config.label}
+      </Badge>
+    );
+  };
+
+  if (loading) {
+    return (
+      <DynamicDashboardLayout title="Gestion Financière">
+        <div className="flex justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
       </DynamicDashboardLayout>
-    )
-  }
-
-  if (!user || user.role !== 'PDG') {
-    return (
-      <DynamicDashboardLayout>
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Accès non autorisé</p>
-        </div>
-      </DynamicDashboardLayout>
-    )
-  }
-
-  if (!financialData) {
-    return (
-      <DynamicDashboardLayout>
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Aucune donnée financière disponible</p>
-        </div>
-      </DynamicDashboardLayout>
-    )
+    );
   }
 
   return (
-    <DynamicDashboardLayout title="Gestion Financière">
+    <DynamicDashboardLayout title="Gestion Financière" showActions>
       <div className="space-y-6">
-        {/* En-tête */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Gestion Financière</h1>
-            <p className="text-muted-foreground">
-              Suivez les revenus, paiements et performances financières
-            </p>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Select value={periodFilter} onValueChange={setPeriodFilter}>
-              <SelectTrigger className="w-[180px]">
-                <Calendar className="h-4 w-4 mr-2" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="3months">3 derniers mois</SelectItem>
-                <SelectItem value="6months">6 derniers mois</SelectItem>
-                <SelectItem value="1year">1 an</SelectItem>
-                <SelectItem value="all">Tout</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button variant="outline">
-              <Download className="h-4 w-4 mr-2" />
-              Exporter
-            </Button>
-          </div>
-        </div>
-
-        {/* Statistiques principales */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Revenus Totaux</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {financialData.totalRevenue.toLocaleString()} F CFA
-              </div>
-              <p className="text-xs text-muted-foreground">
-                <TrendingUp className="h-3 w-3 inline mr-1" />
-                +12.5% vs mois dernier
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Commandes</CardTitle>
-              <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">
-                {financialData.totalOrders}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                <TrendingUp className="h-3 w-3 inline mr-1" />
-                +8.2% vs mois dernier
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Livres Vendus</CardTitle>
-              <BookOpen className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-600">
-                {financialData.totalBooksSold.toLocaleString()}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                <TrendingUp className="h-3 w-3 inline mr-1" />
-                +15.3% vs mois dernier
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Panier Moyen</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-600">
-                {financialData.averageOrderValue.toLocaleString()} F CFA
-              </div>
-              <p className="text-xs text-muted-foreground">
-                <TrendingUp className="h-3 w-3 inline mr-1" />
-                +5.1% vs mois dernier
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Graphiques */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Évolution des revenus */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <BarChart3 className="h-5 w-5 mr-2" />
-                Évolution des Revenus
-              </CardTitle>
-              <CardDescription>
-                Revenus mensuels sur les 12 derniers mois
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={financialData.revenueByMonth}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip 
-                    formatter={(value: number) => [`${value.toLocaleString()} F CFA`, 'Revenus']}
-                  />
-                  <Bar dataKey="revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          {/* Répartition par discipline */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <PieChart className="h-5 w-5 mr-2" />
-                Revenus par Discipline
-              </CardTitle>
-              <CardDescription>
-                Répartition des revenus par discipline
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <RechartsPieChart>
-                  <Pie
-                    data={financialData.revenueByDiscipline}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={5}
-                    dataKey="revenue"
-                  >
-                    {financialData.revenueByDiscipline.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    formatter={(value: number) => [`${value.toLocaleString()} F CFA`, 'Revenus']}
-                  />
-                  <Legend />
-                </RechartsPieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Tableaux détaillés */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Top auteurs */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Users className="h-5 w-5 mr-2" />
-                Top Auteurs
-              </CardTitle>
-              <CardDescription>
-                Auteurs avec les meilleures performances
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {financialData.revenueByAuthor.map((author, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-semibold text-blue-600">
-                          {index + 1}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="font-medium">{author.author}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {author.books} livres vendus
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-green-600">
-                        {author.revenue.toLocaleString()} F CFA
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Statut des paiements */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <DollarSign className="h-5 w-5 mr-2" />
-                Statut des Paiements
-              </CardTitle>
-              <CardDescription>
-                Répartition des paiements par statut
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 border rounded-lg bg-green-50">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <span className="font-medium">Payés</span>
-                  </div>
-                  <span className="font-semibold text-green-600">
-                    {financialData.paymentStatus.paid.toLocaleString()} F CFA
-                  </span>
-                </div>
-                
-                <div className="flex items-center justify-between p-3 border rounded-lg bg-yellow-50">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                    <span className="font-medium">En attente</span>
-                  </div>
-                  <span className="font-semibold text-yellow-600">
-                    {financialData.paymentStatus.pending.toLocaleString()} F CFA
-                  </span>
-                </div>
-                
-                <div className="flex items-center justify-between p-3 border rounded-lg bg-red-50">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                    <span className="font-medium">En retard</span>
-                  </div>
-                  <span className="font-semibold text-red-600">
-                    {financialData.paymentStatus.overdue.toLocaleString()} F CFA
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Actions rapides */}
+        {/* Filtres */}
         <Card>
           <CardHeader>
-            <CardTitle>Actions Rapides</CardTitle>
-            <CardDescription>
-              Outils de gestion financière
-            </CardDescription>
+            <CardTitle className="flex items-center justify-between">
+              <span>Filtres et Options</span>
+              <div className="flex items-center space-x-2">
+                <Button onClick={loadFinancialData} variant="outline" size="sm">
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Actualiser
+                </Button>
+                <Button onClick={exportReport} variant="outline" size="sm">
+                  <Download className="h-4 w-4 mr-2" />
+                  Exporter
+                </Button>
+              </div>
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Button variant="outline" className="h-20 flex flex-col items-center justify-center">
-                <Eye className="h-6 w-6 mb-2" />
-                <span>Rapport Détaillé</span>
-              </Button>
-              <Button variant="outline" className="h-20 flex flex-col items-center justify-center">
-                <Download className="h-6 w-6 mb-2" />
-                <span>Exporter Excel</span>
-              </Button>
-              <Button variant="outline" className="h-20 flex flex-col items-center justify-center">
-                <Calendar className="h-6 w-6 mb-2" />
-                <span>Planifier Rapport</span>
-              </Button>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="startDate">Date de début</Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  value={dateRange.startDate}
+                  onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="endDate">Date de fin</Label>
+                <Input
+                  id="endDate"
+                  type="date"
+                  value={dateRange.endDate}
+                  onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="discipline">Discipline</Label>
+                <Input
+                  id="discipline"
+                  placeholder="Filtrer par discipline"
+                  value={disciplineFilter}
+                  onChange={(e) => setDisciplineFilter(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="partner">Partenaire</Label>
+                <Input
+                  id="partner"
+                  placeholder="Filtrer par partenaire"
+                  value={partnerFilter}
+                  onChange={(e) => setPartnerFilter(e.target.value)}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="overview" className="flex items-center space-x-2">
+              <BarChart3 className="h-4 w-4" />
+              <span className="hidden sm:inline">Vue d'ensemble</span>
+            </TabsTrigger>
+            <TabsTrigger value="sales" className="flex items-center space-x-2">
+              <DollarSign className="h-4 w-4" />
+              <span className="hidden sm:inline">Ventes</span>
+            </TabsTrigger>
+            <TabsTrigger value="royalties" className="flex items-center space-x-2">
+              <Users className="h-4 w-4" />
+              <span className="hidden sm:inline">Royalties</span>
+            </TabsTrigger>
+            <TabsTrigger value="partners" className="flex items-center space-x-2">
+              <Building2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Partenaires</span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-4">
+            {overview && (
+              <>
+                {/* Métriques principales */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center space-x-2">
+                        <DollarSign className="h-5 w-5 text-green-600" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-600">Chiffre d'affaires</p>
+                          <p className="text-2xl font-bold">{overview.totalRevenue.toLocaleString()} €</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center space-x-2">
+                        <Package className="h-5 w-5 text-blue-600" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-600">Commandes</p>
+                          <p className="text-2xl font-bold">{overview.totalOrders}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center space-x-2">
+                        <TrendingUp className="h-5 w-5 text-purple-600" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-600">Panier moyen</p>
+                          <p className="text-2xl font-bold">{overview.avgOrderValue.toFixed(2)} €</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Top œuvres vendues */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <BookOpen className="h-5 w-5" />
+                      <span>Top œuvres vendues</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Œuvre</TableHead>
+                          <TableHead>Discipline</TableHead>
+                          <TableHead>Quantité vendue</TableHead>
+                          <TableHead>Prix unitaire</TableHead>
+                          <TableHead>Chiffre d'affaires</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {topWorks.map((work) => (
+                          <TableRow key={work.workId}>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{work.work.title}</div>
+                                <div className="text-sm text-gray-500">ISBN: {work.work.isbn}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{work.work.discipline.name}</Badge>
+                            </TableCell>
+                            <TableCell>{work._sum.quantity}</TableCell>
+                            <TableCell>{work.work.price.toFixed(2)} €</TableCell>
+                            <TableCell className="font-medium">
+                              {(work._sum.quantity * work.work.price).toFixed(2)} €
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+
+                {/* Ventes par discipline */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <PieChart className="h-5 w-5" />
+                      <span>Ventes par discipline</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {Object.entries(disciplineRevenue).map(([discipline, data]) => (
+                        <div key={discipline} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div>
+                            <div className="font-medium">{discipline}</div>
+                            <div className="text-sm text-gray-500">
+                              {data.orders} commandes • {data.quantity} exemplaires
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-bold">{data.revenue.toFixed(2)} €</div>
+                            <div className="text-sm text-gray-500">
+                              {((data.revenue / overview.totalRevenue) * 100).toFixed(1)}%
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </TabsContent>
+
+          <TabsContent value="sales" className="space-y-4">
+            {salesReport && (
+              <>
+                {/* Résumé des ventes */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center space-x-2">
+                        <DollarSign className="h-5 w-5 text-green-600" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-600">Chiffre d'affaires</p>
+                          <p className="text-2xl font-bold">{salesReport.summary.totalRevenue.toLocaleString()} €</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center space-x-2">
+                        <Package className="h-5 w-5 text-blue-600" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-600">Commandes</p>
+                          <p className="text-2xl font-bold">{salesReport.summary.totalOrders}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center space-x-2">
+                        <BookOpen className="h-5 w-5 text-purple-600" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-600">Articles</p>
+                          <p className="text-2xl font-bold">{salesReport.summary.totalItems}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center space-x-2">
+                        <TrendingUp className="h-5 w-5 text-orange-600" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-600">Panier moyen</p>
+                          <p className="text-2xl font-bold">{salesReport.summary.avgOrderValue.toFixed(2)} €</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Détail des commandes */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Détail des commandes</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Commande</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Client</TableHead>
+                          <TableHead>Statut</TableHead>
+                          <TableHead>Articles</TableHead>
+                          <TableHead>Total</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {salesReport.orders.map((order) => (
+                          <TableRow key={order.id}>
+                            <TableCell className="font-medium">
+                              #{order.id.substring(0, 8).toUpperCase()}
+                            </TableCell>
+                            <TableCell>
+                              {format(new Date(order.createdAt), "dd/MM/yyyy", { locale: fr })}
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{order.user.name}</div>
+                                <div className="text-sm text-gray-500">{order.user.email}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>{getStatusBadge(order.status)}</TableCell>
+                            <TableCell>{order.itemsCount}</TableCell>
+                            <TableCell className="font-medium">
+                              {order.totalAmount.toFixed(2)} €
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </TabsContent>
+
+          <TabsContent value="royalties" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Users className="h-5 w-5" />
+                  <span>Royalties récentes</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Œuvre</TableHead>
+                      <TableHead>Discipline</TableHead>
+                      <TableHead>Bénéficiaire</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Montant</TableHead>
+                      <TableHead>Statut</TableHead>
+                      <TableHead>Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {royalties.map((royalty) => (
+                      <TableRow key={royalty.id}>
+                        <TableCell className="font-medium">{royalty.work.title}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{royalty.work.discipline.name}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{royalty.user.name}</div>
+                            <div className="text-sm text-gray-500">{royalty.user.email}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {royalty.work.author ? "Auteur" : "Concepteur"}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {royalty.amount.toFixed(2)} €
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={royalty.paid ? "default" : "secondary"}>
+                            {royalty.paid ? "Payé" : "En attente"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(royalty.createdAt), "dd/MM/yyyy", { locale: fr })}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="partners" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Building2 className="h-5 w-5" />
+                  <span>Performance des partenaires</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Partenaire</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Statut</TableHead>
+                      <TableHead>Commandes</TableHead>
+                      <TableHead>Chiffre d'affaires</TableHead>
+                      <TableHead>Panier moyen</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {partnerPerformance.map((partner) => (
+                      <TableRow key={partner.partnerId}>
+                        <TableCell className="font-medium">{partner.partnerName}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{partner.partnerType}</Badge>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(partner.userStatus)}</TableCell>
+                        <TableCell>{partner.ordersCount}</TableCell>
+                        <TableCell className="font-medium">
+                          {partner.totalRevenue.toFixed(2)} €
+                        </TableCell>
+                        <TableCell>{partner.avgOrderValue.toFixed(2)} €</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </DynamicDashboardLayout>
-  )
+  );
 }

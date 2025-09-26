@@ -21,10 +21,10 @@ export class ApiClient {
     }
 
     const response = await fetch(url, config)
-
+    
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Unknown error' }))
-      throw new Error(error.error || `HTTP error! status: ${response.status}`)
+      const error = await response.json().catch(() => ({ error: 'Erreur inconnue' }))
+      throw new Error(error.error || `HTTP ${response.status}`)
     }
 
     return response.json()
@@ -32,20 +32,28 @@ export class ApiClient {
 
   // Users API
   async getUsers() {
-    return this.request('/users')
+    const response = await this.request('/users')
+    return response.users || response || []
   }
 
-  async createUser(userData: any) {
+  async createUser(data: { 
+    name: string, 
+    email: string, 
+    phone: string, 
+    role: string, 
+    disciplineId?: string, 
+    password: string 
+  }) {
     return this.request('/users', {
       method: 'POST',
-      body: JSON.stringify(userData),
+      body: JSON.stringify(data),
     })
   }
 
-  async updateUser(userId: string, userData: any) {
+  async updateUser(userId: string, data: any) {
     return this.request('/users', {
       method: 'PUT',
-      body: JSON.stringify({ id: userId, ...userData }),
+      body: JSON.stringify({ id: userId, ...data }),
     })
   }
 
@@ -55,21 +63,24 @@ export class ApiClient {
     })
   }
 
-  // Validation API
-  async getPendingUsers(status: string = 'PENDING') {
-    return this.request(`/users/validate?status=${status}`)
+  async getPendingUsers(status?: string) {
+    const response = await this.request(`/users/validate${status ? `?status=${status}` : ''}`)
+    return response.users || response || []
   }
 
-  async validateUser(userId: string, status: 'APPROVED' | 'REJECTED' | 'ACTIVE' | 'INACTIVE' | 'SUSPENDED') {
+  async getUsersList(role?: string, search?: string) {
+    const params = new URLSearchParams()
+    if (role) params.append('role', role)
+    if (search) params.append('search', search)
+    
+    return this.request(`/users/list?${params.toString()}`)
+  }
+
+  async validateUser(userId: string, status: 'APPROVED' | 'REJECTED') {
     return this.request('/users/validate', {
       method: 'PUT',
       body: JSON.stringify({ userId, status }),
     })
-  }
-
-  // Works API
-  async getWorks() {
-    return this.request('/works')
   }
 
   // Orders API
@@ -83,17 +94,17 @@ export class ApiClient {
     return this.request(`/orders${queryString ? `?${queryString}` : ''}`)
   }
 
-  async createOrder(orderData: any) {
+  async createOrder(data: { userId: string, items: Array<{ workId: string, quantity: number, price: number }> }) {
     return this.request('/orders', {
       method: 'POST',
-      body: JSON.stringify(orderData),
+      body: JSON.stringify(data),
     })
   }
 
-  async updateOrder(orderId: string, orderData: any) {
+  async updateOrder(orderId: string, status: string) {
     return this.request('/orders', {
       method: 'PUT',
-      body: JSON.stringify({ id: orderId, ...orderData }),
+      body: JSON.stringify({ id: orderId, status }),
     })
   }
 
@@ -103,25 +114,18 @@ export class ApiClient {
     })
   }
 
-  async createWork(workData: any) {
-    return this.request('/works', {
-      method: 'POST',
-      body: JSON.stringify(workData),
-    })
-  }
-
-  // Disciplines API
-  async getDisciplines() {
-    return this.request('/disciplines')
-  }
-
-  // Stock Management API
+  // Stock API
   async getWorksWithStock() {
     return this.request('/stock?type=works')
   }
 
-  async getStockMovements() {
-    return this.request('/stock?type=movements')
+  async getStockMovements(params?: { startDate?: string, endDate?: string, type?: string }) {
+    const queryParams = new URLSearchParams({ type: 'movements' })
+    if (params?.startDate) queryParams.append('startDate', params.startDate)
+    if (params?.endDate) queryParams.append('endDate', params.endDate)
+    if (params?.type) queryParams.append('movementType', params.type)
+    
+    return this.request(`/stock?${queryParams}`)
   }
 
   async getStockAlerts() {
@@ -136,34 +140,386 @@ export class ApiClient {
     return this.request('/stock?type=pending')
   }
 
-  async createStockMovement(data: any) {
+  async createStockMovement(data: { workId: string, type: string, quantity: number, reason?: string, reference?: string, performedBy?: string }) {
     return this.request('/stock', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   }
 
-  async validateStockOperation(operationId: string, approved: boolean) {
+  async validateStockOperation(operationId: string, validated: boolean) {
     return this.request('/stock', {
       method: 'PUT',
-      body: JSON.stringify({ operationId, approved }),
+      body: JSON.stringify({ id: operationId, validated }),
     })
   }
 
-  async exportStockReport(type: string) {
-    const response = await fetch(`${this.baseUrl}/reports/stock?type=${type}`)
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.message || 'Export failed')
-    }
+  async exportStockReport(params?: { startDate?: string, endDate?: string, format?: string }) {
+    const queryParams = new URLSearchParams()
+    if (params?.startDate) queryParams.append('startDate', params.startDate)
+    if (params?.endDate) queryParams.append('endDate', params.endDate)
+    if (params?.format) queryParams.append('format', params.format)
     
-    // Déclencher le téléchargement
-    const blob = await response.blob()
-    const url = window.URL.createObjectURL(blob)
+    const queryString = queryParams.toString()
+    return this.request(`/stock/export${queryString ? `?${queryString}` : ''}`)
+  }
+
+  // Works API
+  async getWorks(params?: { status?: string, disciplineId?: string, search?: string, page?: number, limit?: number }) {
+    const queryParams = new URLSearchParams()
+    if (params?.status) queryParams.append('status', params.status)
+    if (params?.disciplineId) queryParams.append('disciplineId', params.disciplineId)
+    if (params?.search) queryParams.append('search', params.search)
+    if (params?.page) queryParams.append('page', params.page.toString())
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    
+    const queryString = queryParams.toString()
+    const response = await this.request(`/works${queryString ? `?${queryString}` : ''}`)
+    
+    // L'API retourne { works, pagination, stats }, on extrait juste works
+    return response.works || response || []
+  }
+
+  async updateWorkStatus(workId: string, status: string, reason?: string) {
+    return this.request('/works', {
+      method: 'PUT',
+      body: JSON.stringify({ id: workId, status, reason }),
+    })
+  }
+
+  async deleteWork(workId: string) {
+    return this.request(`/works?id=${workId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // Projects API
+  async getProjects(concepteurId?: string) {
+    const url = concepteurId ? `/projects?concepteurId=${concepteurId}` : '/projects';
+    return this.request(url)
+  }
+
+  async getValidatedProjects() {
+    return this.request('/projects?status=ACCEPTED')
+  }
+
+  async createProject(data: { 
+    title: string, 
+    disciplineId: string, 
+    concepteurId: string, 
+    description?: string,
+    status?: string 
+  }) {
+    return this.request('/projects', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  // API spécifique pour les Concepteurs
+  async getConcepteurProjects(concepteurId: string, status?: string) {
+    const url = status ? `/concepteurs/projects?concepteurId=${concepteurId}&status=${status}` : `/concepteurs/projects?concepteurId=${concepteurId}`
+    return this.request(url)
+  }
+
+  async createConcepteurProject(data: any) {
+    return this.request('/concepteurs/projects', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async submitConcepteurProject(projectId: string) {
+    return this.request('/projects', {
+      method: 'PUT',
+      body: JSON.stringify({ id: projectId, status: 'SUBMITTED' }),
+    })
+  }
+
+  async updateConcepteurProject(projectId: string, data: any) {
+    return this.request('/projects', {
+      method: 'PUT',
+      body: JSON.stringify({ id: projectId, ...data }),
+    })
+  }
+
+  async updateProject(projectId: string, data: any) {
+    return this.request('/projects', {
+      method: 'PUT',
+      body: JSON.stringify({ id: projectId, ...data }),
+    })
+  }
+
+  async deleteProject(projectId: string) {
+    return this.request(`/projects/${projectId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async createWork(data: any) {
+    return this.request('/works', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateWork(workId: string, data: any) {
+    return this.request('/works', {
+      method: 'PUT',
+      body: JSON.stringify({ workId, ...data }),
+    })
+  }
+
+  // API spécifique pour les Auteurs
+  async getAuthorWorks(authorId: string, status?: string) {
+    const url = status ? `/authors/works?authorId=${authorId}&status=${status}` : `/authors/works?authorId=${authorId}`
+    return this.request(url)
+  }
+
+  async createAuthorWork(data: any) {
+    return this.request('/authors/works', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  // Notifications API
+  async createNotification(data: any) {
+    return this.request('/notifications', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async getNotifications(userId: string, unreadOnly?: boolean) {
+    const url = unreadOnly
+      ? `/notifications?userId=${userId}&unreadOnly=true`
+      : `/notifications?userId=${userId}`
+    return this.request(url)
+  }
+
+  async updateNotification(notificationId: string, data: any) {
+    return this.request('/notifications', {
+      method: 'PUT',
+      body: JSON.stringify({ notificationId, ...data }),
+    })
+  }
+
+  async deleteNotification(notificationId: string) {
+    return this.request(`/notifications?id=${notificationId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // Project API - Individual project
+  async getProject(projectId: string) {
+    return this.request(`/projects/${projectId}`)
+  }
+
+  // Messages API
+  async getMessages(userId: string) {
+    return this.request(`/messages?userId=${userId}`)
+  }
+
+  async sendMessage(data: any) {
+    return this.request('/messages', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async markMessageAsRead(messageId: string) {
+    return this.request('/messages', {
+      method: 'PUT',
+      body: JSON.stringify({ messageId, read: true }),
+    })
+  }
+
+  async deleteMessage(messageId: string) {
+    return this.request(`/messages?id=${messageId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // Upload API
+  async uploadFiles(files: File[], type: string, entityId?: string) {
+    const formData = new FormData()
+    files.forEach(file => formData.append('files', file))
+    formData.append('type', type)
+    if (entityId) formData.append('entityId', entityId)
+
+    return fetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+      headers: {
+        // Ne pas définir Content-Type, le navigateur le fera automatiquement avec boundary
+      }
+    }).then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      return response.json()
+    })
+  }
+
+  async deleteUploadedFile(filename: string, type: string) {
+    return this.request(`/upload?filename=${filename}&type=${type}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async getUploadedFiles(type?: string, entityId?: string) {
+    const params = new URLSearchParams()
+    if (type) params.append('type', type)
+    if (entityId) params.append('entityId', entityId)
+    
+    return this.request(`/upload?${params.toString()}`)
+  }
+
+  // Disciplines API
+  async getDisciplines(params?: { search?: string }) {
+    const queryParams = new URLSearchParams()
+    if (params?.search) queryParams.append('search', params.search)
+    
+    const queryString = queryParams.toString()
+    return this.request(`/disciplines${queryString ? `?${queryString}` : ''}`)
+  }
+
+  async createDiscipline(data: { name: string }) {
+    return this.request('/disciplines', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateDiscipline(disciplineId: string, data: { name: string }) {
+    return this.request('/disciplines', {
+      method: 'PUT',
+      body: JSON.stringify({ id: disciplineId, ...data }),
+    })
+  }
+
+  async deleteDiscipline(disciplineId: string) {
+    return this.request(`/disciplines?id=${disciplineId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // Partners API
+  async getPartners(params?: { search?: string, type?: string, status?: string, page?: number, limit?: number }) {
+    const queryParams = new URLSearchParams()
+    if (params?.search) queryParams.append('search', params.search)
+    if (params?.type) queryParams.append('type', params.type)
+    if (params?.status) queryParams.append('status', params.status)
+    if (params?.page) queryParams.append('page', params.page.toString())
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    
+    const queryString = queryParams.toString()
+    return this.request(`/partners${queryString ? `?${queryString}` : ''}`)
+  }
+
+  async updatePartner(partnerId: string, data: { status?: string, reason?: string, representantId?: string }) {
+    return this.request('/partners', {
+      method: 'PUT',
+      body: JSON.stringify({ id: partnerId, ...data }),
+    })
+  }
+
+  async deletePartner(partnerId: string) {
+    return this.request(`/partners?id=${partnerId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // Financial API
+  async getFinancialOverview(startDate?: string, endDate?: string) {
+    const params = new URLSearchParams({ type: 'overview' })
+    if (startDate) params.append('startDate', startDate)
+    if (endDate) params.append('endDate', endDate)
+    
+    return this.request(`/finance?${params}`)
+  }
+
+  async getSalesReport(startDate?: string, endDate?: string, disciplineId?: string, partnerId?: string) {
+    const params = new URLSearchParams({ type: 'sales' })
+    if (startDate) params.append('startDate', startDate)
+    if (endDate) params.append('endDate', endDate)
+    if (disciplineId) params.append('disciplineId', disciplineId)
+    if (partnerId) params.append('partnerId', partnerId)
+    
+    return this.request(`/finance?${params}`)
+  }
+
+  async getRoyaltiesReport(startDate?: string, endDate?: string) {
+    const params = new URLSearchParams({ type: 'royalties' })
+    if (startDate) params.append('startDate', startDate)
+    if (endDate) params.append('endDate', endDate)
+    
+    return this.request(`/finance?${params}`)
+  }
+
+  async getPartnerPerformance(startDate?: string, endDate?: string) {
+    const params = new URLSearchParams({ type: 'partner_performance' })
+    if (startDate) params.append('startDate', startDate)
+    if (endDate) params.append('endDate', endDate)
+    
+    return this.request(`/finance?${params}`)
+  }
+
+  async exportFinancialReport(params?: { type?: string, startDate?: string, endDate?: string, format?: string }) {
+    const queryParams = new URLSearchParams()
+    if (params?.type) queryParams.append('type', params.type)
+    if (params?.startDate) queryParams.append('startDate', params.startDate)
+    if (params?.endDate) queryParams.append('endDate', params.endDate)
+    if (params?.format) queryParams.append('format', params.format)
+    
+    const queryString = queryParams.toString()
+    return this.request(`/finance/export${queryString ? `?${queryString}` : ''}`)
+  }
+
+  // Settings API
+  async getSettings(category?: string) {
+    const params = category ? `?category=${category}` : ''
+    return this.request(`/settings${params}`)
+  }
+
+  async updateSettings(category: string, settings: any) {
+    return this.request('/settings', {
+      method: 'PUT',
+      body: JSON.stringify({ category, settings }),
+    })
+  }
+
+  async resetSettingsToDefaults(category: string) {
+    return this.request('/settings', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'reset_to_defaults', category }),
+    })
+  }
+
+  async exportSettings(category?: string) {
+    const params = category ? `?category=${category}` : ''
+    return this.request(`/settings/export${params}`)
+  }
+
+  async validateSettings(category: string, settings: any) {
+    return this.request('/settings', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'validate_settings', category, settings }),
+    })
+  }
+
+  // Notifications API
+  async getNotifications(userId: string) {
+    return this.request(`/notifications?userId=${userId}`)
+  }
+
+  // Download file helper
+  downloadFile(data: Blob, filename: string) {
+    const url = window.URL.createObjectURL(data)
     const a = document.createElement('a')
-    a.style.display = 'none'
     a.href = url
-    a.download = `stock-report-${type}-${new Date().toISOString().split('T')[0]}.xlsx`
+    a.download = filename
     document.body.appendChild(a)
     a.click()
     window.URL.revokeObjectURL(url)
