@@ -211,7 +211,7 @@ export default function AuteurDashboardPage() {
   if (userLoading || isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="text-center">
+          <div className="text-center">
           <BookOpen className="h-8 w-8 animate-spin mx-auto mb-4" />
           <p className="text-muted-foreground">Chargement de vos œuvres...</p>
         </div>
@@ -223,7 +223,7 @@ export default function AuteurDashboardPage() {
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground">Accès non autorisé</p>
-      </div>
+        </div>
     );
   }
 

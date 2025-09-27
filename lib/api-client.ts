@@ -848,6 +848,82 @@ export class ApiClient {
     return this.request(`/representant/reports/export?startDate=${startDate}&endDate=${endDate}`)
   }
 
+  // Concepteur - Clients
+  async getConcepteurClients(filters?: { status?: string; type?: string; search?: string }) {
+    const params = new URLSearchParams()
+    if (filters?.status) params.append('status', filters.status)
+    if (filters?.type) params.append('type', filters.type)
+    if (filters?.search) params.append('search', filters.search)
+    return this.request(`/api/concepteur/clients?${params}`)
+  }
+
+  async createConcepteurClient(data: { name: string; email: string; phone?: string; type?: string; address?: string; city?: string; notes?: string }) {
+    return this.request('/api/concepteur/clients', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  // Concepteur - Commandes
+  async getConcepteurOrders(filters?: { status?: string; startDate?: string; endDate?: string }) {
+    const params = new URLSearchParams()
+    if (filters?.status) params.append('status', filters.status)
+    if (filters?.startDate) params.append('startDate', filters.startDate)
+    if (filters?.endDate) params.append('endDate', filters.endDate)
+    return this.request(`/api/concepteur/orders?${params}`)
+  }
+
+  async createConcepteurOrder(data: { clientId: string; items: Array<{ workId: string; quantity: number; price: number }>; notes?: string }) {
+    return this.request('/api/concepteur/orders', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  // Concepteur - Œuvres
+  async getConcepteurWorks(filters?: { status?: string; disciplineId?: string }) {
+    const params = new URLSearchParams()
+    if (filters?.status) params.append('status', filters.status)
+    if (filters?.disciplineId) params.append('disciplineId', filters.disciplineId)
+    return this.request(`/api/concepteur/works?${params}`)
+  }
+
+  // Représentant - Partenaires
+  async getRepresentantPartners(filters?: { status?: string; type?: string; search?: string }) {
+    const params = new URLSearchParams()
+    if (filters?.status) params.append('status', filters.status)
+    if (filters?.type) params.append('type', filters.type)
+    if (filters?.search) params.append('search', filters.search)
+    return this.request(`/api/representant/partners?${params}`)
+  }
+
+  async createRepresentantPartner(data: { 
+    name: string; 
+    type: string; 
+    contact: string; 
+    email?: string; 
+    phone?: string; 
+    address?: string; 
+    website?: string; 
+    description?: string;
+    userData: { name: string; email: string; phone?: string }
+  }) {
+    return this.request('/api/representant/partners', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  // Représentant - Commandes des partenaires
+  async getRepresentantPartnerOrders(filters?: { status?: string; partnerId?: string; startDate?: string; endDate?: string }) {
+    const params = new URLSearchParams()
+    if (filters?.status) params.append('status', filters.status)
+    if (filters?.partnerId) params.append('partnerId', filters.partnerId)
+    if (filters?.startDate) params.append('startDate', filters.startDate)
+    if (filters?.endDate) params.append('endDate', filters.endDate)
+    return this.request(`/api/representant/partner-orders?${params}`)
+  }
+
   // Download file helper
   downloadFile(data: Blob, filename: string) {
     const url = window.URL.createObjectURL(data)

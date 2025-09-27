@@ -4,39 +4,37 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useToast } from "@/hooks/use-toast"
 import { apiClient } from "@/lib/api-client"
 import {
+  Plus,
   Filter,
   Search,
   Eye,
   Edit,
+  Trash2,
   MoreHorizontal,
+  ShoppingCart,
   Package,
   User,
   Calendar,
   DollarSign,
-  Building2,
   FileText,
   Download,
   Printer
 } from "lucide-react"
 
-interface PartnerOrder {
+interface Order {
   id: string
   reference: string
   status: string
   total: number
   itemCount: number
-  partner: {
-    id: string
-    name: string
-    type: string
-    contact: string
-  }
   client: {
     id: string
     name: string
@@ -59,27 +57,31 @@ interface PartnerOrder {
   updatedAt: string
 }
 
-export default function RepresentantCommandesPage() {
+export default function ConcepteurCommandesPage() {
   const { toast } = useToast()
-  const [orders, setOrders] = useState<PartnerOrder[]>([])
+  const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [partnerFilter, setPartnerFilter] = useState("all")
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
+  const [showCreateOrderModal, setShowCreateOrderModal] = useState(false)
+  const [newOrderData, setNewOrderData] = useState({
+    clientId: "",
+    items: [] as Array<{ workId: string; quantity: number; price: number }>,
+    notes: ""
+  })
 
   // Charger les commandes
   useEffect(() => {
     loadOrders()
-  }, [statusFilter, partnerFilter, startDate, endDate])
+  }, [statusFilter, startDate, endDate])
 
   const loadOrders = async () => {
     try {
       setIsLoading(true)
-      const data = await apiClient.getRepresentantPartnerOrders({
+      const data = await apiClient.getConcepteurOrders({
         status: statusFilter !== 'all' ? statusFilter : undefined,
-        partnerId: partnerFilter !== 'all' ? partnerFilter : undefined,
         startDate: startDate || undefined,
         endDate: endDate || undefined
       })
@@ -92,6 +94,39 @@ export default function RepresentantCommandesPage() {
       })
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleCreateOrder = async () => {
+    try {
+      if (!newOrderData.clientId || newOrderData.items.length === 0) {
+        toast({
+          title: "Erreur",
+          description: "Veuillez sélectionner un client et ajouter des items",
+          variant: "destructive"
+        })
+        return
+      }
+
+      const newOrder = await apiClient.createConcepteurOrder(newOrderData)
+      toast({
+        title: "Succès",
+        description: "Commande créée avec succès"
+      })
+      
+      setShowCreateOrderModal(false)
+      setNewOrderData({
+        clientId: "",
+        items: [],
+        notes: ""
+      })
+      loadOrders()
+    } catch (error: any) {
+      toast({
+        title: "Erreur",
+        description: error.message || "Erreur lors de la création de la commande",
+        variant: "destructive"
+      })
     }
   }
 
@@ -120,7 +155,6 @@ export default function RepresentantCommandesPage() {
 
   const filteredOrders = orders.filter(order =>
     order.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.partner.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     order.client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     order.client.email.toLowerCase().includes(searchTerm.toLowerCase())
   )
@@ -130,12 +164,57 @@ export default function RepresentantCommandesPage() {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Commandes des Partenaires</h1>
-          <p className="text-gray-600">Suivez les commandes passées par vos partenaires</p>
+          <h1 className="text-2xl font-bold text-gray-900">Mes Commandes</h1>
+          <p className="text-gray-600">Gérez les commandes de vos œuvres</p>
         </div>
-        <div className="text-sm text-gray-500">
-          Les commandes sont créées par les partenaires
-        </div>
+        <Dialog open={showCreateOrderModal} onOpenChange={setShowCreateOrderModal}>
+          <DialogTrigger asChild>
+            <Button className="bg-blue-600 hover:bg-blue-700">
+              <Plus className="h-4 w-4 mr-2" />
+              Nouvelle Commande
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Créer une nouvelle commande</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="clientId">Client *</Label>
+                <Select
+                  value={newOrderData.clientId}
+                  onValueChange={(value) => setNewOrderData({ ...newOrderData, clientId: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner un client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {/* TODO: Charger la liste des clients */}
+                    <SelectItem value="client1">Client 1</SelectItem>
+                    <SelectItem value="client2">Client 2</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="notes">Notes</Label>
+                <Input
+                  id="notes"
+                  value={newOrderData.notes}
+                  onChange={(e) => setNewOrderData({ ...newOrderData, notes: e.target.value })}
+                  placeholder="Notes sur la commande"
+                />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setShowCreateOrderModal(false)}>
+                  Annuler
+                </Button>
+                <Button onClick={handleCreateOrder}>
+                  Créer
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Filtres */}
@@ -204,7 +283,6 @@ export default function RepresentantCommandesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Référence</TableHead>
-                  <TableHead>Partenaire</TableHead>
                   <TableHead>Client</TableHead>
                   <TableHead>Nb. livres</TableHead>
                   <TableHead>Date</TableHead>
@@ -225,18 +303,7 @@ export default function RepresentantCommandesPage() {
                     <TableCell>
                       <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                          <Building2 className="h-4 w-4 text-blue-600" />
-                        </div>
-                        <div>
-                          <div className="font-medium">{order.partner.name}</div>
-                          <div className="text-sm text-gray-500">{order.partner.type}</div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                          <User className="h-4 w-4 text-green-600" />
+                          <User className="h-4 w-4 text-blue-600" />
                         </div>
                         <div>
                           <div className="font-medium">{order.client.name}</div>
@@ -267,6 +334,9 @@ export default function RepresentantCommandesPage() {
                       <div className="flex items-center space-x-2">
                         <Button variant="ghost" size="sm">
                           <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm">
+                          <Edit className="h-4 w-4" />
                         </Button>
                         <Button variant="ghost" size="sm">
                           <FileText className="h-4 w-4" />

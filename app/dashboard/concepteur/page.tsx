@@ -133,7 +133,7 @@ export default function ConcepteurDashboard() {
       <div className="flex items-center justify-center h-96">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
         <p className="ml-3 text-muted-foreground">Chargement...</p>
-      </div>
+          </div>
     );
   }
 
@@ -141,7 +141,7 @@ export default function ConcepteurDashboard() {
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground">Vous n'avez pas les permissions pour accéder à cette page.</p>
-      </div>
+        </div>
     );
   }
 
@@ -198,7 +198,7 @@ export default function ConcepteurDashboard() {
             <div className="text-2xl font-bold text-red-600">{stats.rejected}</div>
           </CardContent>
         </Card>
-      </div>
+          </div>
 
       {/* Actions principales */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
@@ -212,7 +212,7 @@ export default function ConcepteurDashboard() {
             Nouveau Projet
           </Button>
         </Link>
-      </div>
+          </div>
 
       {/* Filtres et recherche */}
       <div className="flex flex-col sm:flex-row gap-4">
@@ -236,7 +236,7 @@ export default function ConcepteurDashboard() {
           <option value="ACCEPTED">Validés</option>
           <option value="REJECTED">Refusés</option>
         </select>
-      </div>
+              </div>
 
       {/* Liste des projets */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -249,7 +249,7 @@ export default function ConcepteurDashboard() {
                   <CardDescription className="text-sm">
                     {project.discipline.name}
                   </CardDescription>
-                </div>
+              </div>
                 {getStatusBadge(project.status)}
               </div>
             </CardHeader>
@@ -264,7 +264,7 @@ export default function ConcepteurDashboard() {
                 <div className="flex items-center text-xs text-muted-foreground">
                   <Calendar className="h-3 w-3 mr-1" />
                   Créé le {new Date(project.createdAt).toLocaleDateString()}
-                </div>
+          </div>
 
                 {project.status === "REJECTED" && project.rejectionReason && (
                   <div className="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
@@ -279,17 +279,17 @@ export default function ConcepteurDashboard() {
                       <Eye className="h-3 w-3" />
                       Voir
                     </Button>
-                  </Link>
-                  
+              </Link>
+
                   {project.status === "DRAFT" && (
                     <Link href={`/dashboard/concepteur/projet/${project.id}/edit`}>
                       <Button variant="outline" size="sm" className="flex items-center gap-1">
                         <Edit className="h-3 w-3" />
                         Modifier
                       </Button>
-                    </Link>
+              </Link>
                   )}
-                </div>
+            </div>
               </div>
             </CardContent>
           </Card>
@@ -339,6 +339,6 @@ export default function ConcepteurDashboard() {
           </div>
         </CardContent>
       </Card>
-    </div>
+            </div>
   );
 }

@@ -183,6 +183,16 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           label: "Mes œuvres"
         },
         {
+          href: `${basePath}/partenaires`,
+          icon: Users,
+          label: "Mes partenaires"
+        },
+        {
+          href: `${basePath}/commandes`,
+          icon: ShoppingCart,
+          label: "Commandes partenaires"
+        },
+        {
           href: `${basePath}/notifications`,
           icon: Bell,
           label: "Notifications"
@@ -198,34 +208,24 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
       return [
         ...commonItems,
         {
-          href: `${basePath}/auteurs`,
-          icon: Users,
-          label: "Gestion des Auteurs"
-        },
-        {
-          href: `${basePath}/oeuvres`,
-          icon: BookOpen,
-          label: "Validation des Œuvres"
-        },
-        {
-          href: `${basePath}/clients`,
+          href: `${basePath}/partenaires`,
           icon: Building2,
-          label: "Mes Clients"
+          label: "Mes Partenaires"
         },
         {
           href: `${basePath}/commandes`,
           icon: ShoppingCart,
-          label: "Mes Commandes"
-        },
-        {
-          href: `${basePath}/messagerie`,
-          icon: MessageSquare,
-          label: "Messagerie"
+          label: "Commandes Partenaires"
         },
         {
           href: `${basePath}/rapports`,
           icon: FileText,
           label: "Rapports"
+        },
+        {
+          href: `${basePath}/messagerie`,
+          icon: MessageSquare,
+          label: "Messagerie"
         },
         {
           href: `${basePath}/notifications`,
