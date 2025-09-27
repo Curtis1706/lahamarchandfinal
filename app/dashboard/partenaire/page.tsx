@@ -1,15 +1,28 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ShoppingCart, BookOpen, Package, TrendingDown } from "lucide-react";
+import { ShoppingCart, BookOpen, Package, TrendingDown, DollarSign, Clock, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
+// Mock data pour les statistiques du partenaire
+const mockStats = {
+  totalCommandes: 12,
+  commandesLivrees: 8,
+  totalDepense: 1250000,
+  livresCommandes: 45,
+  commandesEnAttente: 3,
+  commandesValidees: 9,
+  chiffreAffaires: 1250000,
+  evolution: "+15.2%"
+}
+
 export default function PartenaireDashboard() {
   const { user } = useCurrentUser();
+  const [stats, setStats] = useState(mockStats);
 
   return (
     <DynamicDashboardLayout title="Tableau de bord">
@@ -24,7 +37,7 @@ export default function PartenaireDashboard() {
               <h2 className="text-2xl font-bold">Bienvenue, {user?.name}</h2>
               <p className="text-orange-100">Partenaire</p>
               <p className="text-sm text-orange-200 mt-1">
-                Passez vos commandes et consultez le catalogue
+                Consultez votre stock alloué et passez vos commandes
               </p>
             </div>
           </div>
@@ -38,8 +51,9 @@ export default function PartenaireDashboard() {
                 <ShoppingCart className="w-6 h-6 text-blue-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Mes commandes</p>
-                <p className="text-2xl font-bold text-gray-900">0</p>
+                <p className="text-sm font-medium text-gray-600">Total commandes</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalCommandes}</p>
+                <p className="text-xs text-gray-500">{stats.commandesEnAttente} en attente</p>
               </div>
             </div>
           </div>
@@ -47,11 +61,12 @@ export default function PartenaireDashboard() {
           <div className="bg-white rounded-lg p-6 shadow-sm border">
             <div className="flex items-center">
               <div className="p-3 bg-green-100 rounded-lg">
-                <Package className="w-6 h-6 text-green-600" />
+                <CheckCircle className="w-6 h-6 text-green-600" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Commandes livrées</p>
-                <p className="text-2xl font-bold text-gray-900">0</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.commandesLivrees}</p>
+                <p className="text-xs text-green-600">{stats.commandesValidees} validées</p>
               </div>
             </div>
           </div>
@@ -59,12 +74,12 @@ export default function PartenaireDashboard() {
           <div className="bg-white rounded-lg p-6 shadow-sm border">
             <div className="flex items-center">
               <div className="p-3 bg-yellow-100 rounded-lg">
-                <TrendingDown className="w-6 h-6 text-yellow-600" />
+                <DollarSign className="w-6 h-6 text-yellow-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total dépensé</p>
-                <p className="text-2xl font-bold text-gray-900">0</p>
-                <p className="text-xs text-gray-500">F CFA</p>
+                <p className="text-sm font-medium text-gray-600">Chiffre d'affaires</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.chiffreAffaires.toLocaleString()}</p>
+                <p className="text-xs text-green-600">{stats.evolution} vs mois précédent</p>
               </div>
             </div>
           </div>
@@ -76,7 +91,8 @@ export default function PartenaireDashboard() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Livres commandés</p>
-                <p className="text-2xl font-bold text-gray-900">0</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.livresCommandes}</p>
+                <p className="text-xs text-gray-500">Cette année</p>
               </div>
             </div>
           </div>
