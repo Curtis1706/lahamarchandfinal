@@ -50,6 +50,21 @@ export class ApiClient {
     })
   }
 
+  // Inscription publique (pour les utilisateurs)
+  async signup(data: { 
+    name: string, 
+    email: string, 
+    phone: string, 
+    role: string, 
+    disciplineId?: string, 
+    password: string 
+  }) {
+    return this.request('/auth/signup', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
   async updateUser(userId: string, data: any) {
     return this.request('/users', {
       method: 'PUT',
@@ -739,6 +754,98 @@ export class ApiClient {
 
   async syncIntegration(integrationId: string) {
     return this.request(`/stock/integrations?type=sync&integrationId=${integrationId}`)
+  }
+
+  // Representant Authors API
+  async getRepresentantAuthors(filters?: {
+    status?: string
+    disciplineId?: string
+  }) {
+    const params = new URLSearchParams()
+    if (filters?.status) params.append('status', filters.status)
+    if (filters?.disciplineId) params.append('disciplineId', filters.disciplineId)
+    
+    const queryString = params.toString()
+    return this.request(`/representant/authors${queryString ? `?${queryString}` : ''}`)
+  }
+
+  async createRepresentantAuthor(data: {
+    name: string
+    email: string
+    phone?: string
+    disciplineId?: string
+    password: string
+  }) {
+    return this.request('/representant/authors', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async validateRepresentantAuthor(authorId: string, status: 'ACTIVE' | 'INACTIVE', reason?: string) {
+    return this.request(`/representant/authors/${authorId}/validate`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, reason }),
+    })
+  }
+
+  // Representant Works API
+  async getRepresentantWorks(filters?: {
+    status?: string
+    disciplineId?: string
+  }) {
+    const params = new URLSearchParams()
+    if (filters?.status) params.append('status', filters.status)
+    if (filters?.disciplineId) params.append('disciplineId', filters.disciplineId)
+    
+    const queryString = params.toString()
+    return this.request(`/representant/works${queryString ? `?${queryString}` : ''}`)
+  }
+
+  async transmitWorkToPDG(workId: string, notes?: string) {
+    return this.request(`/representant/works/${workId}/transmit`, {
+      method: 'PUT',
+      body: JSON.stringify({ notes }),
+    })
+  }
+
+  async requestWorkCorrection(workId: string, notes: string) {
+    return this.request(`/representant/works/${workId}/correction`, {
+      method: 'PUT',
+      body: JSON.stringify({ notes }),
+    })
+  }
+
+  // Representant Messages API
+  async getRepresentantConversations() {
+    return this.request('/representant/messages')
+  }
+
+  async getRepresentantMessages(conversationId: string) {
+    return this.request(`/representant/messages?conversationId=${conversationId}`)
+  }
+
+  async sendRepresentantMessage(data: {
+    recipientId: string
+    subject: string
+    content: string
+    priority?: 'LOW' | 'NORMAL' | 'HIGH'
+    type?: 'INTERNAL' | 'WORK_REVIEW' | 'ORDER_UPDATE' | 'GENERAL'
+    conversationId?: string
+  }) {
+    return this.request('/representant/messages', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  // Representant Reports API
+  async getRepresentantReport(startDate: string, endDate: string) {
+    return this.request(`/representant/reports?startDate=${startDate}&endDate=${endDate}`)
+  }
+
+  async exportRepresentantReport(startDate: string, endDate: string) {
+    return this.request(`/representant/reports/export?startDate=${startDate}&endDate=${endDate}`)
   }
 
   // Download file helper

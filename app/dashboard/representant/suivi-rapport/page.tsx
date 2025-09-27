@@ -11,7 +11,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Package, FileText, Users } from "lucide-react";
-import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout";
 
 export default function SuiviRapportPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -21,7 +20,7 @@ export default function SuiviRapportPage() {
   };
 
   return (
-    <DynamicDashboardLayout title="Rapports" breadcrumb="Représentant - Rapports" onRefresh={handleRefresh}>
+    <div>
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -175,6 +174,6 @@ export default function SuiviRapportPage() {
           </div>
         </div>
       </div>
-    </DynamicDashboardLayout>
+    </div>
   );
 }

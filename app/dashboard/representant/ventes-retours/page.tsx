@@ -19,7 +19,8 @@ export default function VentesRetoursPage() {
 
   return (
     <DashboardLayout title='' >
-            <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
+      <div>
+        <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold">Ventes & retours</h2>
@@ -565,6 +566,7 @@ export default function VentesRetoursPage() {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </DashboardLayout>
   )

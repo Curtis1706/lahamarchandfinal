@@ -198,19 +198,34 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
       return [
         ...commonItems,
         {
-          href: `${basePath}/mes-clients`,
+          href: `${basePath}/auteurs`,
           icon: Users,
-          label: "Mes clients"
+          label: "Gestion des Auteurs"
         },
         {
-          href: `${basePath}/mes-commandes`,
-          icon: ShoppingCart,
-          label: "Mes commandes"
+          href: `${basePath}/oeuvres`,
+          icon: BookOpen,
+          label: "Validation des Œuvres"
         },
         {
-          href: `${basePath}/mes-partenaires`,
+          href: `${basePath}/clients`,
           icon: Building2,
-          label: "Mes partenaires"
+          label: "Mes Clients"
+        },
+        {
+          href: `${basePath}/commandes`,
+          icon: ShoppingCart,
+          label: "Mes Commandes"
+        },
+        {
+          href: `${basePath}/messagerie`,
+          icon: MessageSquare,
+          label: "Messagerie"
+        },
+        {
+          href: `${basePath}/rapports`,
+          icon: FileText,
+          label: "Rapports"
         },
         {
           href: `${basePath}/notifications`,

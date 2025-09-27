@@ -55,7 +55,7 @@ export default function SignupPage() {
 
     setIsLoading(true)
     try {
-      await apiClient.createUser({
+      await apiClient.signup({
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
@@ -64,7 +64,8 @@ export default function SignupPage() {
         disciplineId: formData.disciplineId || null
       })
 
-      toast.success("Compte créé avec succès ! En attente de validation.")
+      // Le message de succès sera géré par l'API selon le rôle
+      toast.success("Compte créé avec succès !")
       router.push("/auth/login")
     } catch (error: any) {
       toast.error(error.message || "Erreur lors de la création du compte")
@@ -187,7 +188,10 @@ export default function SignupPage() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-gray-500 mt-1">
-                Votre compte sera validé par l'administrateur selon votre rôle
+                {formData.role === 'CONCEPTEUR' || formData.role === 'REPRESENTANT' 
+                  ? "Votre compte nécessitera une validation par l'administrateur"
+                  : "Votre compte sera activé immédiatement"
+                }
               </p>
             </div>
 
@@ -261,8 +265,10 @@ export default function SignupPage() {
             {/* Information de validation */}
             <div className="bg-blue-50 p-4 rounded-xl">
               <p className="text-sm text-blue-800">
-                <strong>Note :</strong> Votre compte sera créé en attente de validation. 
-                L'équipe Laha Marchand examinera votre demande selon votre rôle professionnel.
+                <strong>Note :</strong> {formData.role === 'CONCEPTEUR' || formData.role === 'REPRESENTANT' 
+                  ? "Votre compte sera créé en attente de validation. L'équipe Laha Marchand examinera votre demande."
+                  : "Votre compte sera créé et activé immédiatement. Vous pourrez vous connecter dès l'inscription."
+                }
               </p>
             </div>
 

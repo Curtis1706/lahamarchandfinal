@@ -85,7 +85,8 @@ export default function NotificationsPage() {
       title="Gestions des notifications"
       breadcrumb="Tableau de bord - Notifications"
     >
-      <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
+      <div>
+        <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold">Gestions des notifications</h2>
@@ -265,6 +266,7 @@ export default function NotificationsPage() {
             </div>
           </div>
         </div>
+      </div>
       </div>
 
       {/* Add Modal */}

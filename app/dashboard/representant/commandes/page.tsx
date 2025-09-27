@@ -24,7 +24,6 @@ import {
   Printer,
 } from "lucide-react"
 import Link from "next/link"
-import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout"
 
 export default function CommandesPage() {
   const [showDatePicker, setShowDatePicker] = useState(false)
@@ -53,15 +52,14 @@ export default function CommandesPage() {
   }
 
   return (
-    <DynamicDashboardLayout title='Commandes' breadcrumb='Représentant - Commandes'>
-       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
+    <div>
+      <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold">Les commandes</h2>
           </div>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-slate-300">Tableau de bord - Les commandes</span>
-
           </div>
         </div>
       </div>
@@ -557,6 +555,6 @@ export default function CommandesPage() {
           </div>
         </div>
       </div>
-    </DynamicDashboardLayout>
+    </div>
   )
 }

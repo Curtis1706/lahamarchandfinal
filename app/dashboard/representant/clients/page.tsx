@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -90,7 +89,7 @@ export default function ClientsPage() {
   ];
 
   return (
-    <DynamicDashboardLayout title="Partenaires" breadcrumb="Représentant - Partenaires">
+    <div>
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -422,6 +421,6 @@ export default function ClientsPage() {
           </div>
         </div>
       </div>
-    </DynamicDashboardLayout>
+    </div>
   );
 }

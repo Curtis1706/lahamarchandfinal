@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RefreshCw, Maximize2, Trash2 } from "lucide-react"
-import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout"
 
 export default function ProfilPage() {
   const [profileData, setProfileData] = useState({
@@ -39,7 +38,7 @@ export default function ProfilPage() {
   }
 
   return (
-    <DynamicDashboardLayout title="Mon profil" breadcrumb="Représentant - Mon profil" >
+    <div>
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -172,6 +171,6 @@ export default function ProfilPage() {
           </div>
         </div>
       </div>
-    </DynamicDashboardLayout>
+    </div>
   )
 }

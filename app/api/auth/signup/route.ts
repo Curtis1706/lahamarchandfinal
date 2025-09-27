@@ -59,7 +59,12 @@ export async function POST(request: NextRequest) {
     const bcrypt = await import("bcryptjs")
     const hashedPassword = await bcrypt.hash(password, 12)
 
-    // Créer l'utilisateur avec le statut PENDING
+    // Déterminer le statut selon le rôle
+    // Seuls CONCEPTEUR et REPRESENTANT nécessitent une validation PDG
+    const requiresValidation = ['CONCEPTEUR', 'REPRESENTANT'].includes(role)
+    const initialStatus = requiresValidation ? 'PENDING' : 'ACTIVE'
+
+    // Créer l'utilisateur
     const newUser = await prisma.user.create({
       data: {
         name: name.trim(),
@@ -67,7 +72,7 @@ export async function POST(request: NextRequest) {
         phone: phone?.trim() || null,
         password: hashedPassword,
         role: role as Role,
-        status: 'PENDING', // En attente de validation par l'administrateur
+        status: initialStatus,
         disciplineId: disciplineId || null,
       },
       select: {
@@ -90,38 +95,45 @@ export async function POST(request: NextRequest) {
 
     console.log("✅ Utilisateur créé avec succès:", newUser)
 
-    // Créer une notification pour l'administrateur
-    try {
-      // Trouver un utilisateur PDG pour lui envoyer la notification
-      const pdgUser = await prisma.user.findFirst({
-        where: { role: 'PDG' }
-      })
-
-      if (pdgUser) {
-        await prisma.notification.create({
-          data: {
-            userId: pdgUser.id,
-            title: "Nouvelle demande d'inscription",
-            message: `${newUser.name} (${newUser.email}) demande à rejoindre la plateforme en tant que ${newUser.role}.`,
-            type: "USER_REGISTRATION_REQUEST",
-            data: JSON.stringify({
-              newUserId: newUser.id,
-              newUserName: newUser.name,
-              newUserEmail: newUser.email,
-              newUserRole: newUser.role,
-              disciplineName: newUser.discipline?.name || null
-            })
-          }
+    // Créer une notification pour l'administrateur seulement si validation requise
+    if (requiresValidation) {
+      try {
+        // Trouver un utilisateur PDG pour lui envoyer la notification
+        const pdgUser = await prisma.user.findFirst({
+          where: { role: 'PDG' }
         })
-        console.log("✅ Notification créée pour le PDG")
+
+        if (pdgUser) {
+          await prisma.notification.create({
+            data: {
+              userId: pdgUser.id,
+              title: "Nouvelle demande d'inscription",
+              message: `${newUser.name} (${newUser.email}) demande à rejoindre la plateforme en tant que ${newUser.role}.`,
+              type: "USER_REGISTRATION_REQUEST",
+              data: JSON.stringify({
+                newUserId: newUser.id,
+                newUserName: newUser.name,
+                newUserEmail: newUser.email,
+                newUserRole: newUser.role,
+                disciplineName: newUser.discipline?.name || null
+              })
+            }
+          })
+          console.log("✅ Notification créée pour le PDG")
+        }
+      } catch (notificationError) {
+        console.error("⚠️ Erreur création notification:", notificationError)
+        // Ne pas faire échouer l'inscription pour une erreur de notification
       }
-    } catch (notificationError) {
-      console.error("⚠️ Erreur création notification:", notificationError)
-      // Ne pas faire échouer l'inscription pour une erreur de notification
     }
 
+    // Message différent selon le statut
+    const successMessage = requiresValidation 
+      ? "Inscription réussie ! Votre compte est en attente de validation par l'administrateur."
+      : "Inscription réussie ! Votre compte est maintenant actif."
+
     return NextResponse.json({
-      message: "Inscription réussie ! Votre compte est en attente de validation par l'administrateur.",
+      message: successMessage,
       user: {
         id: newUser.id,
         name: newUser.name,

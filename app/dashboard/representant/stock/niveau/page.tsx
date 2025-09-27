@@ -25,7 +25,6 @@ import {
   Printer,
   X,
 } from "lucide-react"
-import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout"
 
 export default function NiveauStockPage() {
   const [open, setOpen] = useState(false)
@@ -43,7 +42,7 @@ export default function NiveauStockPage() {
   }
 
   return (
-    <DynamicDashboardLayout title="Stock (lecture)" breadcrumb="Représentant - Stock">
+    <div>
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -284,6 +283,6 @@ export default function NiveauStockPage() {
       </div>
 
       {/* Lecture seule: modale d'approvisionnement retirée */}
-    </DynamicDashboardLayout>
+    </div>
   )
 }
