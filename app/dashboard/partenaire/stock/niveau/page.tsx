@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -11,47 +11,123 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import {
-  Plus,
   Package,
   FileText,
   Users,
   BookOpen,
   Printer,
-  X,
+  Eye,
+  AlertTriangle,
 } from "lucide-react"
 import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout"
+import { useCurrentUser } from "@/hooks/use-current-user"
+
+// Mock data pour le stock alloué au partenaire
+const mockStockData = [
+  {
+    id: "1",
+    title: "Réussir en Dictée Orthographe CE1-CE2",
+    isbn: "978-2-123456-78-9",
+    discipline: "Français",
+    category: "Primaire",
+    class: "CE1-CE2",
+    rentree: 150,
+    vacances: 50,
+    depot: 200,
+    total: 400,
+    prixPublic: 2500,
+    prixRemise: 2250,
+    stockFaible: false,
+  },
+  {
+    id: "2", 
+    title: "Coffret Réussir en Français CE2",
+    isbn: "978-2-123456-79-6",
+    discipline: "Français",
+    category: "Primaire", 
+    class: "CE2",
+    rentree: 100,
+    vacances: 30,
+    depot: 130,
+    total: 260,
+    prixPublic: 3500,
+    prixRemise: 3150,
+    stockFaible: true,
+  },
+  {
+    id: "3",
+    title: "Réussir en Mathématiques CE1",
+    isbn: "978-2-123456-80-2",
+    discipline: "Mathématiques",
+    category: "Primaire",
+    class: "CE1", 
+    rentree: 80,
+    vacances: 20,
+    depot: 100,
+    total: 200,
+    prixPublic: 2800,
+    prixRemise: 2520,
+    stockFaible: false,
+  }
+]
 
 export default function NiveauStockPage() {
-  const [open, setOpen] = useState(false)
+  const { user } = useCurrentUser()
+  const [stockData, setStockData] = useState(mockStockData)
+  const [filteredData, setFilteredData] = useState(mockStockData)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedCategory, setSelectedCategory] = useState("toutes")
+  const [selectedDiscipline, setSelectedDiscipline] = useState("toutes")
+  const [selectedClass, setSelectedClass] = useState("toutes")
+  const [selectedStatus, setSelectedStatus] = useState("tous")
 
-  const handleRefresh = () => {
-    console.log("[v0] Refreshing table data...")
-  }
+  // Calculer les statistiques
+  const totalStock = stockData.reduce((sum, item) => sum + item.total, 0)
+  const totalDepot = stockData.reduce((sum, item) => sum + item.depot, 0)
+  const totalRentree = stockData.reduce((sum, item) => sum + item.rentree, 0)
+  const stockFaibleCount = stockData.filter(item => item.stockFaible).length
 
-  const handleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen()
-    } else {
-      document.exitFullscreen()
+  // Filtrer les données
+  useEffect(() => {
+    let filtered = stockData
+
+    if (searchTerm) {
+      filtered = filtered.filter(item => 
+        item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.isbn.includes(searchTerm)
+      )
     }
-  }
+
+    if (selectedCategory !== "toutes") {
+      filtered = filtered.filter(item => item.category === selectedCategory)
+    }
+
+    if (selectedDiscipline !== "toutes") {
+      filtered = filtered.filter(item => item.discipline === selectedDiscipline)
+    }
+
+    if (selectedClass !== "toutes") {
+      filtered = filtered.filter(item => item.class === selectedClass)
+    }
+
+    if (selectedStatus === "stock-faible") {
+      filtered = filtered.filter(item => item.stockFaible)
+    }
+
+    setFilteredData(filtered)
+  }, [searchTerm, selectedCategory, selectedDiscipline, selectedClass, selectedStatus, stockData])
 
   return (
     <DynamicDashboardLayout title="Stock alloué" breadcrumb="Partenaire - Stock">
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold">Niveau de stock</h2>
+            <h2 className="text-xl font-semibold">Stock alloué - {user?.name}</h2>
+            <p className="text-sm text-slate-300 mt-1">Consultation en lecture seule</p>
           </div>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-slate-300">
-              Tableau de bord - Niveau de stock
+              Articles attribués uniquement
             </span>
           </div>
         </div>
@@ -59,134 +135,122 @@ export default function NiveauStockPage() {
       <div className="p-6">
         <div className="space-y-6">
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="bg-white rounded-2xl p-6 text-center shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-600 mb-2">En stock</h3>
-              <div className="text-4xl font-bold text-gray-800 mb-2">0</div>
-              <div className="w-12 h-12 bg-gray-100 rounded-lg mx-auto flex items-center justify-center">
-                <Package className="w-6 h-6 text-gray-600" />
+              <h3 className="text-lg font-semibold text-gray-600 mb-2">Rentrée scolaire</h3>
+              <div className="text-4xl font-bold text-gray-800 mb-2">{totalRentree}</div>
+              <div className="w-12 h-12 bg-blue-100 rounded-lg mx-auto flex items-center justify-center">
+                <Package className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-6 text-center shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-600 mb-2">Vacances</h3>
+              <div className="text-4xl font-bold text-gray-800 mb-2">{stockData.reduce((sum, item) => sum + item.vacances, 0)}</div>
+              <div className="w-12 h-12 bg-green-100 rounded-lg mx-auto flex items-center justify-center">
+                <FileText className="w-6 h-6 text-green-600" />
               </div>
             </div>
 
             <div className="bg-white rounded-2xl p-6 text-center shadow-sm">
               <h3 className="text-lg font-semibold text-gray-600 mb-2">En dépôt</h3>
-              <div className="text-4xl font-bold text-gray-800 mb-2">0</div>
-              <div className="w-12 h-12 bg-gray-100 rounded-lg mx-auto flex items-center justify-center">
-                <FileText className="w-6 h-6 text-gray-600" />
+              <div className="text-4xl font-bold text-gray-800 mb-2">{totalDepot}</div>
+              <div className="w-12 h-12 bg-purple-100 rounded-lg mx-auto flex items-center justify-center">
+                <Users className="w-6 h-6 text-purple-600" />
               </div>
             </div>
 
             <div className="bg-white rounded-2xl p-6 text-center shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-600 mb-2">Total</h3>
-              <div className="text-4xl font-bold text-gray-800 mb-2">0</div>
-              <div className="w-12 h-12 bg-gray-100 rounded-lg mx-auto flex items-center justify-center">
-                <Users className="w-6 h-6 text-gray-600" />
+              <h3 className="text-lg font-semibold text-gray-600 mb-2">Total alloué</h3>
+              <div className="text-4xl font-bold text-gray-800 mb-2">{totalStock}</div>
+              <div className="w-12 h-12 bg-orange-100 rounded-lg mx-auto flex items-center justify-center">
+                <BookOpen className="w-6 h-6 text-orange-600" />
               </div>
             </div>
           </div>
 
+          {/* Alerte stock faible */}
+          {stockFaibleCount > 0 && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <AlertTriangle className="w-5 h-5 text-yellow-600 mr-2" />
+                <span className="text-yellow-800 font-medium">
+                  {stockFaibleCount} article{stockFaibleCount > 1 ? 's' : ''} en stock faible
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Filters and Controls */}
           <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Filtres de consultation</h3>
+              <p className="text-sm text-gray-600">Filtrez votre stock alloué selon vos besoins</p>
+            </div>
+            
             {/* Filters */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Par quantité" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="croissant">Croissant</SelectItem>
-                  <SelectItem value="decroissant">Décroissant</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Tous les stocks" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tous">Tous les stocks</SelectItem>
-                  <SelectItem value="en-stock">En stock</SelectItem>
-                  <SelectItem value="en-depot">En dépôt</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select>
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                 <SelectTrigger>
                   <SelectValue placeholder="Toutes catégories" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="toutes">Toutes catégories</SelectItem>
-                  <SelectItem value="primaire">Primaire</SelectItem>
-                  <SelectItem value="secondaire">Secondaire</SelectItem>
+                  <SelectItem value="Primaire">Primaire</SelectItem>
+                  <SelectItem value="Secondaire">Secondaire</SelectItem>
                 </SelectContent>
               </Select>
 
-              <Select>
+              <Select value={selectedDiscipline} onValueChange={setSelectedDiscipline}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Toutes disciplines" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="toutes">Toutes disciplines</SelectItem>
+                  <SelectItem value="Français">Français</SelectItem>
+                  <SelectItem value="Mathématiques">Mathématiques</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={selectedClass} onValueChange={setSelectedClass}>
                 <SelectTrigger>
                   <SelectValue placeholder="Toutes classes" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="toutes">Toutes classes</SelectItem>
-                  <SelectItem value="ce1">CE1</SelectItem>
-                  <SelectItem value="ce2">CE2</SelectItem>
-                  <SelectItem value="cm1">CM1</SelectItem>
-                  <SelectItem value="cm2">CM2</SelectItem>
+                  <SelectItem value="CE1">CE1</SelectItem>
+                  <SelectItem value="CE2">CE2</SelectItem>
+                  <SelectItem value="CE1-CE2">CE1-CE2</SelectItem>
                 </SelectContent>
               </Select>
 
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Toutes matières" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="toutes">Toutes matières</SelectItem>
-                  <SelectItem value="francais">Français</SelectItem>
-                  <SelectItem value="mathematiques">Mathématiques</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <Select>
+              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
                 <SelectTrigger>
                   <SelectValue placeholder="Tous statuts" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="tous">Tous statuts</SelectItem>
+                  <SelectItem value="stock-faible">Stock faible</SelectItem>
                   <SelectItem value="disponible">Disponible</SelectItem>
-                  <SelectItem value="epuise">Épuisé</SelectItem>
                 </SelectContent>
               </Select>
 
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Tous les livre" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tous">Tous les livres</SelectItem>
-                  <SelectItem value="livre1">Réussir en Dictée Orthographe CE1-CE2</SelectItem>
-                  <SelectItem value="livre2">Coffret Réussir en Français CE2</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex justify-between items-center">
-              <Button
-                className="bg-indigo-600 hover:bg-indigo-700"
-                onClick={() => setOpen(true)}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Approvisionner
-              </Button>
-
-              <Button className="bg-indigo-600 hover:bg-indigo-700">Appliquer</Button>
+              <div className="flex items-center">
+                <Input 
+                  placeholder="Rechercher..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full"
+                />
+              </div>
             </div>
           </div>
 
           {/* Stock Table */}
           <div className="bg-white rounded-lg shadow-sm">
             <div className="p-6 border-b">
-              <h3 className="text-lg font-semibold">Stock par produit</h3>
+              <h3 className="text-lg font-semibold">Stock alloué par produit</h3>
+              <p className="text-sm text-gray-600 mt-1">Articles attribués à votre organisation</p>
             </div>
 
             {/* Table Controls */}
@@ -208,50 +272,83 @@ export default function NiveauStockPage() {
                 </div>
 
                 <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-600">Rechercher:</span>
-                  <Input placeholder="Rechercher..." className="w-64" />
+                  <span className="text-sm text-gray-600">Résultats: {filteredData.length}</span>
                 </div>
               </div>
             </div>
 
             {/* Table */}
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[800px]">
+              <table className="w-full min-w-[1000px]">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="text-left p-4">LIVRE</th>
+                    <th className="text-left p-4">DISCIPLINE</th>
+                    <th className="text-left p-4">CLASSE</th>
                     <th className="text-left p-4">RENTRÉE</th>
                     <th className="text-left p-4">VACANCES</th>
                     <th className="text-left p-4">DÉPÔT</th>
                     <th className="text-left p-4">TOTAL</th>
+                    <th className="text-left p-4">PRIX PUBLIC</th>
+                    <th className="text-left p-4">PRIX REMISE</th>
+                    <th className="text-left p-4">STATUT</th>
                     <th className="text-left p-4">ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="border-b">
-                    <td className="p-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-red-500 rounded flex items-center justify-center flex-shrink-0">
-                          <BookOpen className="w-4 h-4 text-white" />
-                        </div>
-                        <span className="text-sm">Philosophie Tle Bac Facile TOME 2</span>
-                      </div>
-                    </td>
-                    <td className="p-4">0</td>
-                    <td className="p-4">0</td>
-                    <td className="p-4">0</td>
-                    <td className="p-4">0</td>
-                    <td className="p-4">
-                      <div className="flex items-center space-x-2">
-                        <button className="p-1 hover:bg-gray-100 rounded">
-                          <FileText className="w-4 h-4" />
-                        </button>
-                        <button className="p-1 hover:bg-gray-100 rounded text-red-500">
-                          <Package className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                  {filteredData.length === 0 ? (
+                    <tr>
+                      <td colSpan={11} className="p-8 text-center text-gray-500">
+                        Aucun article trouvé
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredData.map((item) => (
+                      <tr key={item.id} className="border-b hover:bg-gray-50">
+                        <td className="p-4">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center flex-shrink-0">
+                              <BookOpen className="w-4 h-4 text-white" />
+                            </div>
+                            <div>
+                              <div className="font-medium text-sm">{item.title}</div>
+                              <div className="text-xs text-gray-500">ISBN: {item.isbn}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4 text-sm">{item.discipline}</td>
+                        <td className="p-4 text-sm">{item.class}</td>
+                        <td className="p-4 text-sm">{item.rentree}</td>
+                        <td className="p-4 text-sm">{item.vacances}</td>
+                        <td className="p-4 text-sm">{item.depot}</td>
+                        <td className="p-4 text-sm font-medium">{item.total}</td>
+                        <td className="p-4 text-sm">{item.prixPublic.toLocaleString()} F CFA</td>
+                        <td className="p-4 text-sm text-green-600 font-medium">{item.prixRemise.toLocaleString()} F CFA</td>
+                        <td className="p-4">
+                          {item.stockFaible ? (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                              <AlertTriangle className="w-3 h-3 mr-1" />
+                              Stock faible
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              Disponible
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-4">
+                          <div className="flex items-center space-x-2">
+                            <button 
+                              className="p-1 hover:bg-gray-100 rounded"
+                              title="Voir les détails"
+                            >
+                              <Eye className="w-4 h-4 text-blue-600" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -259,22 +356,24 @@ export default function NiveauStockPage() {
             {/* Pagination */}
             <div className="p-6 border-t">
               <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-600">Affichage de 1 à 1 sur 1 éléments</p>
+                <p className="text-sm text-gray-600">
+                  Affichage de 1 à {filteredData.length} sur {filteredData.length} éléments
+                </p>
 
                 <div className="flex items-center space-x-2">
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" disabled>
                     Premier
                   </Button>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" disabled>
                     Précédent
                   </Button>
                   <Button variant="outline" size="sm" className="bg-indigo-600 text-white">
                     1
                   </Button>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" disabled>
                     Suivant
                   </Button>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" disabled>
                     Dernier
                   </Button>
                 </div>
@@ -285,9 +384,10 @@ export default function NiveauStockPage() {
             <div className="p-6 border-t bg-gray-50">
               <div className="flex justify-end space-x-2">
                 <Button variant="outline" className="bg-blue-600 text-white hover:bg-blue-700">
+                  <Printer className="w-4 h-4 mr-2" />
                   PDF
                 </Button>
-                <Button variant="outline" className="bg-blue-600 text-white hover:bg-blue-700">
+                <Button variant="outline" className="bg-green-600 text-white hover:bg-green-700">
                   EXCEL
                 </Button>
                 <Button variant="outline">
@@ -298,153 +398,7 @@ export default function NiveauStockPage() {
           </div>
         </div>
       </div>
-
-      {/* Modale Approvisionner (strictement la modale, page inchangée) */}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader className="flex items-start justify-between p-0">
-            <DialogTitle className="text-2xl font-medium py-4">Approvisionnement</DialogTitle>
-            
-          </DialogHeader>
-
-          {/* Top selects with labels */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-2 mb-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Choix de la catégorie</label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Toutes catégories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="toutes">Toutes catégories</SelectItem>
-                  <SelectItem value="primaire">Primaire</SelectItem>
-                  <SelectItem value="secondaire">Secondaire</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Choix de la Matière</label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Toutes matières" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="francais">Français</SelectItem>
-                  <SelectItem value="mathematiques">Mathématiques</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Choix de la classe</label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Toutes classes" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="toutes">Toutes classes</SelectItem>
-                  <SelectItem value="ce1">CE1</SelectItem>
-                  <SelectItem value="ce2">CE2</SelectItem>
-                  <SelectItem value="cm1">CM1</SelectItem>
-                  <SelectItem value="cm2">CM2</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Choix du livre / Quantité / Ajouter */}
-          <div className="grid grid-cols-12 gap-4 items-end mb-4">
-            <div className="col-span-7">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Choix du livre</label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionnez un livre" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="livre1">Réussir en Dictée Orthographe CE1-CE2</SelectItem>
-                  <SelectItem value="livre2">Coffret Réussir en Français CE2</SelectItem>
-                  <SelectItem value="livre3">Coffret Réussir en Mathématiques CE1</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="col-span-3">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Quantité</label>
-              <Input type="number" defaultValue={0} />
-            </div>
-
-            <div className="col-span-2">
-              <div className="w-full">
-                <Button className="w-full bg-indigo-600 hover:bg-indigo-700">Ajouter ▾</Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Auto button under left area */}
-          <div className="mb-4">
-            <Button className="bg-indigo-500 hover:bg-indigo-600 px-4 py-2">Auto</Button>
-          </div>
-
-          <hr className="my-4 border-t border-gray-200" />
-
-          {/* Table + Total */}
-          <div className="relative mb-6">
-            <table className="w-full">
-              <thead>
-                <tr className="text-left text-sm text-gray-600">
-                  <th className="p-3">Livre</th>
-                  <th className="p-3">Prix</th>
-                  <th className="p-3">Quantité</th>
-                  <th className="p-3">Montant</th>
-                  <th className="p-3">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td className="p-3 text-sm text-gray-400">Aucun livre ajouté</td>
-                  <td className="p-3">-</td>
-                  <td className="p-3">-</td>
-                  <td className="p-3">-</td>
-                  <td className="p-3">-</td>
-                </tr>
-              </tbody>
-            </table>
-
-            {/* Total on the right, matching the screenshot size/placement */}
-            <div className="absolute right-0 top-0 text-2xl md:text-3xl font-semibold text-gray-700 mt-6 mr-2">
-              Total: 0 XOF
-            </div>
-          </div>
-
-          {/* Stock select and footer buttons */}
-          <div className="flex items-center justify-between gap-4">
-            <div className="w-1/2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Stock :</label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Rentrée scolaire" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="rentree">Rentrée scolaire</SelectItem>
-                  <SelectItem value="vacances">Vacances</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex space-x-3">
-              <Button className="bg-indigo-600 text-white hover:bg-indigo-700">Enregistrer</Button>
-              <Button
-                variant="outline"
-                className="border border-red-200 text-red-600 hover:bg-red-50"
-                onClick={() => setOpen(false)}
-              >
-                Fermer
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </DynamicDashboardLayout>
   )
 }
+
