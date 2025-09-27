@@ -894,7 +894,7 @@ export class ApiClient {
     if (filters?.status) params.append('status', filters.status)
     if (filters?.type) params.append('type', filters.type)
     if (filters?.search) params.append('search', filters.search)
-    return this.request(`/api/representant/partners?${params}`)
+    return this.request(`/representant/partners?${params}`)
   }
 
   async createRepresentantPartner(data: { 
@@ -908,7 +908,7 @@ export class ApiClient {
     description?: string;
     userData: { name: string; email: string; phone?: string }
   }) {
-    return this.request('/api/representant/partners', {
+    return this.request('/representant/partners', {
       method: 'POST',
       body: JSON.stringify(data)
     })
@@ -921,7 +921,7 @@ export class ApiClient {
     if (filters?.partnerId) params.append('partnerId', filters.partnerId)
     if (filters?.startDate) params.append('startDate', filters.startDate)
     if (filters?.endDate) params.append('endDate', filters.endDate)
-    return this.request(`/api/representant/partner-orders?${params}`)
+    return this.request(`/representant/partner-orders?${params}`)
   }
 
   // Download file helper

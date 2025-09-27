@@ -91,11 +91,27 @@ export async function GET(request: NextRequest) {
       },
       _count: {
         id: true
-      },
-      _sum: {
-        totalAmount: true
       }
     })
+
+    // Calculer le montant total des commandes
+    const ordersWithItems = await prisma.order.findMany({
+      where: {
+        createdAt: {
+          gte: start,
+          lte: end
+        }
+      },
+      include: {
+        items: true
+      }
+    })
+
+    const totalAmount = ordersWithItems.reduce((sum, order) => {
+      return sum + order.items.reduce((itemSum, item) => {
+        return itemSum + (item.price * item.quantity)
+      }, 0)
+    }, 0)
 
     const ordersByStatus = await prisma.order.groupBy({
       by: ['status'],
@@ -186,7 +202,7 @@ export async function GET(request: NextRequest) {
         total: ordersStats._count.id,
         pending: ordersStatusMap.PENDING,
         completed: ordersStatusMap.DELIVERED,
-        totalValue: ordersStats._sum.totalAmount || 0
+        totalValue: totalAmount
       },
       activities: formattedActivities
     }
