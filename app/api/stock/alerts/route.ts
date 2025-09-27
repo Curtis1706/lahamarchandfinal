@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/stock/alerts - Récupérer les alertes
 export async function GET(request: NextRequest) {
   try {

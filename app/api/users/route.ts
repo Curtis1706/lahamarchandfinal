@@ -4,6 +4,8 @@ import bcrypt from 'bcryptjs';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic'
+
 const prisma = new PrismaClient();
 
 // POST /api/users - Créer un utilisateur (pour le PDG)

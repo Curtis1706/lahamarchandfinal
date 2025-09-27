@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { StockMovementType } from "@prisma/client"
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/stock - Récupérer les données de stock
 export async function GET(request: NextRequest) {
   try {
