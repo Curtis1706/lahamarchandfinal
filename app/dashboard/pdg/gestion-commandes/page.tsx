@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout"
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { apiClient } from "@/lib/api-client"
 import { Button } from "@/components/ui/button"
@@ -199,7 +198,14 @@ export default function GestionCommandesPage() {
           : order
       ))
       
-      toast.success(`Commande ${newStatus.toLowerCase()}e avec succès`)
+      const statusMessages = {
+        'VALIDATED': 'Commande validée avec succès',
+        'PROCESSING': 'Commande mise en traitement avec succès',
+        'SHIPPED': 'Commande expédiée avec succès',
+        'DELIVERED': 'Commande livrée avec succès',
+        'CANCELLED': 'Commande annulée avec succès'
+      }
+      toast.success(statusMessages[newStatus as keyof typeof statusMessages] || `Commande ${newStatus.toLowerCase()}e avec succès`)
     } catch (error: any) {
       toast.error(error.message || "Erreur lors de la mise à jour")
     }
@@ -339,30 +345,25 @@ export default function GestionCommandesPage() {
 
   if (userLoading || isLoading) {
     return (
-      <DynamicDashboardLayout>
-        <div className="flex items-center justify-center h-96">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Chargement des commandes...</p>
-          </div>
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Chargement des commandes...</p>
         </div>
-      </DynamicDashboardLayout>
+      </div>
     )
   }
 
   if (!user || user.role !== 'PDG') {
     return (
-      <DynamicDashboardLayout>
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Accès non autorisé</p>
-        </div>
-      </DynamicDashboardLayout>
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">Accès non autorisé</p>
+      </div>
     )
   }
 
   return (
-    <DynamicDashboardLayout title="Gestion des Commandes">
-      <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6">
         {/* Barre d'outils supérieure */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -778,9 +779,9 @@ export default function GestionCommandesPage() {
                           <TableRow key={item.id}>
                             <TableCell>{item.work.title}</TableCell>
                             <TableCell>{item.work.discipline?.name || 'Non spécifiée'}</TableCell>
-                            <TableCell>{item.price.toFixed(2)} €</TableCell>
+                            <TableCell>{item.price.toFixed(2)} FCFA</TableCell>
                             <TableCell>{item.quantity}</TableCell>
-                            <TableCell>{(item.price * item.quantity).toFixed(2)} €</TableCell>
+                            <TableCell>{(item.price * item.quantity).toFixed(2)} FCFA</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -790,7 +791,7 @@ export default function GestionCommandesPage() {
                   {/* Total */}
                   <div className="mt-4 text-right">
                     <div className="text-lg font-semibold">
-                      Total: {selectedOrder.total.toFixed(2)} €
+                      Total: {selectedOrder.total.toFixed(2)} FCFA
                     </div>
                     <div className="text-sm text-gray-600">
                       {selectedOrder.bookCount} livre{selectedOrder.bookCount > 1 ? 's' : ''}
@@ -910,7 +911,7 @@ export default function GestionCommandesPage() {
                         <SelectContent>
                           {getWorks().map((work) => (
                             <SelectItem key={work.id} value={work.id}>
-                              {work.title} - {work.price?.toFixed(2) || '0.00'} €
+                              {work.title} - {work.price?.toFixed(2) || '0.00'} FCFA
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -951,7 +952,7 @@ export default function GestionCommandesPage() {
                         const work = getWorks().find(w => w.id === item.workId)
                         return total + ((work?.price || 0) * item.quantity)
                       }, 0).toFixed(2)
-                    } €
+                    } FCFA
                   </div>
                   <div className="text-sm text-gray-600">
                     {newOrderData.items.reduce((total, item) => total + item.quantity, 0)} livre(s)
@@ -978,6 +979,5 @@ export default function GestionCommandesPage() {
           </DialogContent>
         </Dialog>
       </div>
-    </DynamicDashboardLayout>
   )
 }

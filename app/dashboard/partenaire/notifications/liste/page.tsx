@@ -20,7 +20,6 @@ import {
   ShoppingCart,
   TrendingUp,
 } from "lucide-react"
-import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout"
 import { useCurrentUser } from "@/hooks/use-current-user"
 
 interface Notification {
@@ -189,10 +188,7 @@ export default function NotificationsPage() {
   }
 
   return (
-    <DynamicDashboardLayout
-      title="Notifications automatiques"
-      breadcrumb="Partenaire - Notifications"
-    >
+    <div>
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -540,6 +536,6 @@ export default function NotificationsPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </DynamicDashboardLayout>
+    </div>
   )
 }

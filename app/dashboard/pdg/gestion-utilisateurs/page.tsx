@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout"
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { apiClient } from "@/lib/api-client"
 import { Button } from "@/components/ui/button"
@@ -345,33 +344,28 @@ export default function GestionUtilisateursPage() {
 
   if (userLoading || isLoading) {
     return (
-      <DynamicDashboardLayout>
-        <div className="flex items-center justify-center h-96">
-          <div className="text-center">
-            <Users className="h-8 w-8 animate-spin mx-auto mb-4" />
-            <p className="text-muted-foreground">Chargement des utilisateurs...</p>
-            <p className="text-sm text-gray-500 mt-2">
-              {userLoading ? "Authentification..." : "Chargement des données..."}
-            </p>
-          </div>
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <Users className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Chargement des utilisateurs...</p>
+          <p className="text-sm text-gray-500 mt-2">
+            {userLoading ? "Authentification..." : "Chargement des données..."}
+          </p>
         </div>
-      </DynamicDashboardLayout>
+      </div>
     )
   }
 
   if (!user || user.role !== 'PDG') {
     return (
-      <DynamicDashboardLayout>
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Accès non autorisé</p>
-        </div>
-      </DynamicDashboardLayout>
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">Accès non autorisé</p>
+      </div>
     )
   }
 
   return (
-    <DynamicDashboardLayout title="Gestions des utilisateurs">
-      <div className="bg-white min-h-screen p-6">
+    <div className="bg-white min-h-screen p-6">
         {/* Titre de section et contrôles de fenêtre */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-gray-900">Liste des utilisateurs</h2>
@@ -899,7 +893,6 @@ export default function GestionUtilisateursPage() {
           </div>
         </div>
       </div>
-    </DynamicDashboardLayout>
   )
 }
 

@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -78,8 +77,14 @@ const mockSales = [
 
 export default function VentesRetoursPage() {
   const { user } = useCurrentUser()
-  const [sales, setSales] = useState(mockSales)
-  const [filteredSales, setFilteredSales] = useState(mockSales)
+  const [sales, setSales] = useState([])
+  const [filteredSales, setFilteredSales] = useState([])
+  const [stats, setStats] = useState({
+    totalVentes: 0,
+    totalRetours: 0,
+    montantNet: 0,
+    performance: 0
+  })
   const [showFilterModal, setShowFilterModal] = useState(false)
   const [showSaleModal, setShowSaleModal] = useState(false)
   const [showReturnModal, setShowReturnModal] = useState(false)
@@ -89,12 +94,31 @@ export default function VentesRetoursPage() {
   const [selectedMethod, setSelectedMethod] = useState("tous")
   const [itemsPerPage, setItemsPerPage] = useState("20")
 
-  // Calculer les statistiques
-  const totalVentes = sales.filter(s => s.type === "vente").length
-  const totalRetours = sales.filter(s => s.type === "retour").length
-  const montantVentes = sales.filter(s => s.type === "vente").reduce((sum, s) => sum + s.montant, 0)
-  const montantRetours = Math.abs(sales.filter(s => s.type === "retour").reduce((sum, s) => sum + s.montant, 0))
-  const montantNet = montantVentes - montantRetours
+  // Charger les ventes
+  useEffect(() => {
+    loadSales()
+  }, [selectedStatus, selectedType, selectedMethod])
+
+  const loadSales = async () => {
+    try {
+      setIsLoading(true)
+      
+      const data = await apiClient.getPartenaireSales({ 
+        status: selectedStatus === 'tous' ? undefined : selectedStatus,
+        type: selectedType === 'tous' ? undefined : selectedType,
+        method: selectedMethod === 'tous' ? undefined : selectedMethod
+      })
+      
+      setSales(data.sales)
+      setStats(data.stats)
+      
+    } catch (error: any) {
+      console.error('Erreur lors du chargement des ventes:', error)
+      setSales([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   // Filtrer les ventes
   useEffect(() => {
@@ -124,7 +148,7 @@ export default function VentesRetoursPage() {
   }, [searchTerm, selectedStatus, selectedType, selectedMethod, sales])
 
   return (
-    <DynamicDashboardLayout title='Ventes & retours' breadcrumb='Partenaire - Ventes & retours' >
+    <div>
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -143,31 +167,31 @@ export default function VentesRetoursPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
             <h3 className="text-sm font-medium text-gray-600 mb-2">Total ventes</h3>
-            <div className="text-2xl font-bold text-gray-900 mb-1">{totalVentes}</div>
+            <div className="text-2xl font-bold text-gray-900 mb-1">{stats.totalVentes}</div>
             <div className="text-sm text-gray-400">--------</div>
             <div className="text-lg font-semibold text-gray-900">
-              {montantVentes.toLocaleString()} <span className="text-sm font-normal">F CFA</span>
+              {stats.montantNet.toLocaleString()} <span className="text-sm font-normal">F CFA</span>
             </div>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
             <h3 className="text-sm font-medium text-gray-600 mb-2">Total retours</h3>
-            <div className="text-2xl font-bold text-gray-900 mb-1">{totalRetours}</div>
+            <div className="text-2xl font-bold text-gray-900 mb-1">{stats.totalRetours}</div>
             <div className="text-sm text-gray-400">--------</div>
             <div className="text-lg font-semibold text-gray-900">
-              {montantRetours.toLocaleString()} <span className="text-sm font-normal">F CFA</span>
+              0 <span className="text-sm font-normal">F CFA</span>
             </div>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
             <h3 className="text-sm font-medium text-gray-600 mb-2">Montant net</h3>
-            <div className="text-2xl font-bold text-gray-900 mb-1">{totalVentes + totalRetours}</div>
+            <div className="text-2xl font-bold text-gray-900 mb-1">{filteredSales.length}</div>
             <div className="text-sm text-gray-400">--------</div>
             <div className="text-lg font-semibold text-gray-900">
-              {montantNet.toLocaleString()} <span className="text-sm font-normal">F CFA</span>
+              {stats.montantNet.toLocaleString()} <span className="text-sm font-normal">F CFA</span>
             </div>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
             <h3 className="text-sm font-medium text-gray-600 mb-2">Performance</h3>
-            <div className="text-2xl font-bold text-gray-900 mb-1">85%</div>
+            <div className="text-2xl font-bold text-gray-900 mb-1">{stats.performance}%</div>
             <div className="text-sm text-gray-400">--------</div>
             <div className="text-lg font-semibold text-gray-900">
               <TrendingUp className="w-5 h-5 inline text-green-600" />
@@ -486,6 +510,6 @@ export default function VentesRetoursPage() {
           </div>
         </div>
       </div>
-    </DynamicDashboardLayout>
+    </div>
   )
 }

@@ -24,6 +24,39 @@ export async function GET(request: NextRequest) {
     const isResolved = searchParams.get('isResolved')
     const limit = parseInt(searchParams.get('limit') || '50')
 
+    // Si aucun type n'est spécifié, retourner les alertes par défaut
+    if (!type) {
+      const defaultAlerts = await prisma.stockAlert.findMany({
+        where: {
+          isResolved: false
+        },
+        include: {
+          work: {
+            select: {
+              id: true,
+              title: true,
+              isbn: true
+            }
+          },
+          resolvedByUser: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        take: limit
+      })
+
+      return NextResponse.json({
+        alerts: defaultAlerts,
+        total: defaultAlerts.length
+      })
+    }
+
     switch (type) {
       case 'rules':
         // Récupérer les règles d'alerte

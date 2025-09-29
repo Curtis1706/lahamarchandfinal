@@ -15,7 +15,6 @@ import {
   PieChart,
   Activity
 } from "lucide-react"
-import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -83,8 +82,11 @@ const mockStatsGenerales = {
 }
 
 export default function RapportsPage() {
-  const [rapports, setRapports] = useState(mockRapports)
-  const [filteredRapports, setFilteredRapports] = useState(mockRapports)
+  const [rapports, setRapports] = useState([])
+  const [filteredRapports, setFilteredRapports] = useState([])
+  const [summaryData, setSummaryData] = useState(null)
+  const [detailedData, setDetailedData] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [typeFilter, setTypeFilter] = useState("tous")
   const [statutFilter, setStatutFilter] = useState("tous")
@@ -92,20 +94,27 @@ export default function RapportsPage() {
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [selectedRapport, setSelectedRapport] = useState<any>(null)
 
-  // Filtrage des rapports
+  // Charger les rapports
   useEffect(() => {
-    let filtered = rapports.filter(rapport => {
-      const matchesSearch = rapport.titre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           rapport.id.toLowerCase().includes(searchTerm.toLowerCase())
-      const matchesType = typeFilter === "tous" || rapport.type === typeFilter
-      const matchesStatut = statutFilter === "tous" || rapport.statut === statutFilter
-      const matchesPeriode = periodeFilter === "tous" || rapport.periode.includes(periodeFilter)
+    loadReports()
+  }, [])
+
+  const loadReports = async () => {
+    try {
+      setIsLoading(true)
       
-      return matchesSearch && matchesType && matchesStatut && matchesPeriode
-    })
-    
-    setFilteredRapports(filtered)
-  }, [rapports, searchTerm, typeFilter, statutFilter, periodeFilter])
+      const data = await apiClient.getPartenaireReports({ 
+        type: 'summary'
+      })
+      
+      setSummaryData(data)
+      
+    } catch (error: any) {
+      console.error('Erreur lors du chargement des rapports:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const viewDetails = (rapport: any) => {
     setSelectedRapport(rapport)
@@ -164,8 +173,7 @@ export default function RapportsPage() {
   }
 
   return (
-    <DynamicDashboardLayout title="Rapports simplifiés" breadcrumb="Rapports">
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
@@ -516,6 +524,5 @@ export default function RapportsPage() {
           </div>
         )}
       </div>
-    </DynamicDashboardLayout>
   )
 }

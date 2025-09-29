@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import DynamicDashboardLayout from '@/components/dynamic-dashboard-layout'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -407,7 +406,7 @@ export default function GestionStockPage() {
       const [worksData, movementsData, alertsData, statsData, pendingData] = await Promise.all([
         apiClient.getWorksWithStock(),
         apiClient.getStockMovements(),
-        apiClient.getStockAlerts(),
+        apiClient.getStockAlerts('alerts'),
         apiClient.getStockStats(),
         apiClient.getPendingStockOperations()
       ])
@@ -469,20 +468,17 @@ export default function GestionStockPage() {
 
   if (isLoading) {
     return (
-      <DynamicDashboardLayout title="Gestion de Stock">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-            <p className="mt-2 text-gray-600">Chargement des données de stock...</p>
-          </div>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Chargement des données de stock...</p>
         </div>
-      </DynamicDashboardLayout>
+      </div>
     )
   }
 
   return (
-    <DynamicDashboardLayout title="Gestion de Stock">
-      <div className="bg-white min-h-screen p-6">
+    <div className="bg-white min-h-screen p-6">
         {/* En-tête */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -564,7 +560,7 @@ export default function GestionStockPage() {
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{stockStats.totalValue.toFixed(2)} €</div>
+                  <div className="text-2xl font-bold">{stockStats.totalValue.toFixed(2)} FCFA</div>
                   <p className="text-xs text-muted-foreground">
                     Valeur totale estimée
                   </p>
@@ -791,7 +787,7 @@ export default function GestionStockPage() {
                             {getStockStatusBadge(getStockStatus(work))}
                           </TableCell>
                           <TableCell>
-                            {(work.stock * work.price).toFixed(2)} €
+                            {(work.stock * work.price).toFixed(2)} FCFA
                           </TableCell>
                           <TableCell>
                             <div className="flex space-x-1">
@@ -1121,7 +1117,7 @@ export default function GestionStockPage() {
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-700">Prix unitaire</label>
-                    <p className="mt-1 text-sm text-gray-900">{selectedWork.price.toFixed(2)} €</p>
+                    <p className="mt-1 text-sm text-gray-900">{selectedWork.price.toFixed(2)} FCFA</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-700">Stock actuel</label>
@@ -1130,7 +1126,7 @@ export default function GestionStockPage() {
                   <div>
                     <label className="text-sm font-medium text-gray-700">Valeur du stock</label>
                     <p className="mt-1 text-lg font-semibold text-gray-900">
-                      {(selectedWork.stock * selectedWork.price).toFixed(2)} €
+                      {(selectedWork.stock * selectedWork.price).toFixed(2)} FCFA
                     </p>
                   </div>
                   <div>
@@ -1568,7 +1564,7 @@ export default function GestionStockPage() {
                           </CardHeader>
                           <CardContent>
                             <div className="text-2xl font-bold">
-                              {(statisticsData.totalRevenue || 0).toFixed(2)} €
+                              {(statisticsData.totalRevenue || 0).toFixed(2)} FCFA
                             </div>
                             <p className="text-xs text-muted-foreground">
                               Sur {statisticsPeriod} jours
@@ -1610,7 +1606,7 @@ export default function GestionStockPage() {
                                     </div>
                                   </div>
                                   <div className="text-right">
-                                    <p className="font-medium">{discipline.revenue.toFixed(2)} €</p>
+                                    <p className="font-medium">{discipline.revenue.toFixed(2)} FCFA</p>
                                     <p className="text-sm text-gray-500">CA</p>
                                   </div>
                                 </div>
@@ -1636,7 +1632,7 @@ export default function GestionStockPage() {
                                   </div>
                                   <div className="text-right">
                                     <p className="font-medium">{sale.quantity} unités</p>
-                                    <p className="text-sm text-gray-500">{sale.amount.toFixed(2)} €</p>
+                                    <p className="text-sm text-gray-500">{sale.amount.toFixed(2)} FCFA</p>
                                   </div>
                                 </div>
                               ))}
@@ -1971,6 +1967,5 @@ export default function GestionStockPage() {
           </div>
         )}
       </div>
-    </DynamicDashboardLayout>
   )
 }

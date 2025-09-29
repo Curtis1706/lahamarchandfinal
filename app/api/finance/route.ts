@@ -31,32 +31,52 @@ export async function GET(request: NextRequest) {
           totalOrders: 0,
           totalWorks: 0,
           totalPartners: 0,
+          avgOrderValue: 0,
           recentOrders: [],
-          topWorks: []
+          topWorks: [],
+          monthlyTrends: []
         }
 
         return NextResponse.json(overview)
 
-      case 'revenue':
-        // Statistiques de revenus
-        const revenue = {
-          daily: [],
-          monthly: [],
-          yearly: []
+      case 'sales':
+        // Statistiques de ventes
+        const salesReport = {
+          summary: {
+            totalRevenue: 0,
+            totalOrders: 0,
+            totalItems: 0,
+            avgOrderValue: 0
+          },
+          orders: [],
+          salesByDiscipline: [],
+          salesByPartner: [],
+          topSellingWorks: []
         }
 
-        return NextResponse.json(revenue)
+        return NextResponse.json(salesReport)
 
-      case 'orders':
-        // Statistiques des commandes
-        const orders = {
-          total: 0,
-          pending: 0,
-          completed: 0,
-          cancelled: 0
+      case 'royalties':
+        // Statistiques de royalties
+        const royalties = {
+          totalRoyalties: 0,
+          recentRoyalties: [],
+          royaltiesByAuthor: [],
+          pendingPayments: []
         }
 
-        return NextResponse.json(orders)
+        return NextResponse.json(royalties)
+
+      case 'partner_performance':
+        // Performance des partenaires
+        const partnerPerformance = {
+          partners: [],
+          totalPartners: 0,
+          activePartners: 0,
+          totalRevenue: 0
+        }
+
+        return NextResponse.json(partnerPerformance)
 
       default:
         return NextResponse.json({ error: "Type de données non valide" }, { status: 400 })

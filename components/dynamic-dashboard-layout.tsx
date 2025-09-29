@@ -30,7 +30,9 @@ import {
   History,
   MessageSquare,
   Building2,
-  Camera
+  Camera,
+  TrendingUp,
+  ArrowRightLeft
 } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import Link from "next/link";
@@ -101,6 +103,11 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           href: `${basePath}/gestion-stock`,
           icon: Package,
           label: "Gestion Stock"
+        },
+        {
+          href: `${basePath}/gestion-stock/operations`,
+          icon: ArrowRightLeft,
+          label: "Opérations de stock"
         },
         {
           href: `${basePath}/gestion-partenaires`,
@@ -238,17 +245,17 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
       return [
         ...commonItems,
         {
-          href: `${basePath}/commandes`,
-          icon: ShoppingCart,
-          label: "Mes commandes"
-        },
-        {
           href: `${basePath}/stock/niveau`,
           icon: Package,
           label: "Stock alloué"
         },
         {
-          href: `${basePath}/livres/liste`,
+          href: `${basePath}/commandes`,
+          icon: ShoppingCart,
+          label: "Mes commandes"
+        },
+        {
+          href: `${basePath}/catalogue`,
           icon: BookOpen,
           label: "Catalogue"
         },

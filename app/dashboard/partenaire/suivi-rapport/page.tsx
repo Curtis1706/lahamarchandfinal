@@ -11,7 +11,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Package, FileText, Users } from "lucide-react";
-import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout";
 
 export default function SuiviRapportPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -21,7 +20,7 @@ export default function SuiviRapportPage() {
   };
 
   return (
-    <DynamicDashboardLayout title="Suivi et rapport" breadcrumb="Suivi">
+    <div>
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -66,43 +65,61 @@ export default function SuiviRapportPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm">
-          <div className="p-4 lg:p-6">
-            {/* Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div>
-                <Input
-                  type="date"
-                  defaultValue="2025-08-22"
-                  className="w-full"
-                />
-              </div>
-              <div>
-                <Select defaultValue="tous-livres">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Tous les livre" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="tous-livres">Tous les livre</SelectItem>
-                    <SelectItem value="francais">Français</SelectItem>
-                    <SelectItem value="mathematiques">Mathématiques</SelectItem>
-                    <SelectItem value="sciences">Sciences</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+        {/* Filters */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Date de début
+              </label>
+              <Input
+                type="date"
+                defaultValue="2025-08-22"
+                className="w-full"
+              />
             </div>
-
-            <div className="flex justify-end mb-6">
-              <Button className="bg-indigo-600 hover:bg-indigo-700">
-                Appliquer
-              </Button>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Date de fin
+              </label>
+              <Input
+                type="date"
+                defaultValue="2025-08-22"
+                className="w-full"
+              />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Discipline
+              </label>
+              <Select defaultValue="toutes">
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="toutes">Toutes les disciplines</SelectItem>
+                  <SelectItem value="francais">Français</SelectItem>
+                  <SelectItem value="mathematiques">Mathématiques</SelectItem>
+                  <SelectItem value="sciences">Sciences</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-            {/* Table Controls */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div className="flex justify-end mb-6">
+            <Button className="bg-indigo-600 hover:bg-indigo-700">
+              Appliquer
+            </Button>
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="bg-white rounded-lg shadow-sm">
+          <div className="p-6 border-b">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-600">Afficher</span>
-                <Select defaultValue="20">
+                <Select defaultValue="10">
                   <SelectTrigger className="w-20">
                     <SelectValue />
                   </SelectTrigger>
@@ -125,49 +142,52 @@ export default function SuiviRapportPage() {
                 />
               </div>
             </div>
+          </div>
 
-            {/* Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1000px]">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-2">LIVRE</th>
-                    <th className="text-left py-3 px-2">RÉFÉRENCE</th>
-                    <th className="text-left py-3 px-2">RENTRÉE</th>
-                    <th className="text-left py-3 px-2">VACANCES</th>
-                    <th className="text-left py-3 px-2">DÉPÔT</th>
-                    <th className="text-left py-3 px-2">CRÉÉ LE</th>
-                    <th className="text-left py-3 px-2">CRÉÉ PAR</th>
-                    <th className="text-left py-3 px-2">DESCRIPTION</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td colSpan={8} className="py-12 text-center text-gray-500">
-                      Aucune donnée disponible dans le tableau
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Quantité
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Statut
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                    Aucune donnée disponible dans le tableau
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-            {/* Pagination */}
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6">
-              <p className="text-sm text-gray-600">
-                Affichage de 0 à 0 sur 0 éléments
-              </p>
-
+          <div className="px-6 py-3 border-t">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-700">
+                Affichage de 0 à 0 sur 0 entrées
+              </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm">
-                  Premier
-                </Button>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" disabled>
                   Précédent
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" disabled>
                   Suivant
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" disabled>
                   Dernier
                 </Button>
               </div>
@@ -175,6 +195,6 @@ export default function SuiviRapportPage() {
           </div>
         </div>
       </div>
-    </DynamicDashboardLayout>
+    </div>
   );
 }

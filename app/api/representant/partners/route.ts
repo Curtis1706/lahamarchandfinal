@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import bcrypt from "bcryptjs"
 
 export const dynamic = 'force-dynamic'
 
@@ -137,16 +138,19 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
+    // Utiliser le mot de passe fourni par le représentant
+    const hashedPassword = await bcrypt.hash(userData.password, 12)
+
     // Créer l'utilisateur partenaire
     const user = await prisma.user.create({
       data: {
         name: userData.name,
         email: userData.email,
         phone: userData.phone || '',
-        password: 'temp_password', // Mot de passe temporaire
+        password: hashedPassword,
         role: 'PARTENAIRE',
         status: 'PENDING', // En attente de validation par le PDG
-        emailVerified: new Date()
+        emailVerified: null // Pas encore vérifié
       }
     })
 
@@ -219,6 +223,11 @@ export async function POST(request: NextRequest) {
         totalOrders: 0,
         user: partner.user,
         createdAt: partner.createdAt.toISOString()
+      },
+      credentials: {
+        email: userData.email,
+        password: userData.password,
+        message: "Ces identifiants seront envoyés au partenaire après validation par le PDG"
       }
     }
 

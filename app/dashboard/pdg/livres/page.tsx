@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { BookOpen, Plus, Eye, Edit, Trash2, Search } from "lucide-react";
-import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout";
+;
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -98,20 +98,17 @@ export default function WorksPage() {
 
   if (loading) {
     return (
-      <DynamicDashboardLayout title="Nos livres">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Chargement...</p>
-          </div>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Chargement...</p>
         </div>
-      </DynamicDashboardLayout>
+      </div>
     );
   }
 
   return (
-    <DynamicDashboardLayout title="Gestion des livres" showActions={true} onRefresh={loadWorks}>
-      <div className="p-6">
+    <div className="p-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div>
@@ -301,6 +298,5 @@ export default function WorksPage() {
           </div>
         )}
       </div>
-    </DynamicDashboardLayout>
   );
 }

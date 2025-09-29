@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout";
+;
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -185,7 +185,7 @@ export default function GestionFinancierePage() {
       const data = await response.json();
 
       if (response.ok) {
-        setOverview(data.overview);
+        setOverview(data);
         setMonthlyTrends(data.monthlyTrends || []);
         setDisciplineRevenue(data.disciplineRevenue || {});
         setTopWorks(data.topWorks || []);
@@ -323,17 +323,14 @@ export default function GestionFinancierePage() {
 
   if (loading) {
     return (
-      <DynamicDashboardLayout title="Gestion Financière">
-        <div className="flex justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        </div>
-      </DynamicDashboardLayout>
+      <div className="flex justify-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
     );
   }
 
   return (
-    <DynamicDashboardLayout title="Gestion Financière" showActions>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Filtres */}
         <Card>
           <CardHeader>
@@ -424,7 +421,7 @@ export default function GestionFinancierePage() {
                         <DollarSign className="h-5 w-5 text-green-600" />
                         <div>
                           <p className="text-sm font-medium text-gray-600">Chiffre d'affaires</p>
-                          <p className="text-2xl font-bold">{overview.totalRevenue.toLocaleString()} €</p>
+                          <p className="text-2xl font-bold">{(overview?.totalRevenue || 0).toLocaleString()} FCFA</p>
                         </div>
                       </div>
                     </CardContent>
@@ -436,7 +433,7 @@ export default function GestionFinancierePage() {
                         <Package className="h-5 w-5 text-blue-600" />
                         <div>
                           <p className="text-sm font-medium text-gray-600">Commandes</p>
-                          <p className="text-2xl font-bold">{overview.totalOrders}</p>
+                          <p className="text-2xl font-bold">{overview?.totalOrders || 0}</p>
                         </div>
                       </div>
                     </CardContent>
@@ -448,7 +445,7 @@ export default function GestionFinancierePage() {
                         <TrendingUp className="h-5 w-5 text-purple-600" />
                         <div>
                           <p className="text-sm font-medium text-gray-600">Panier moyen</p>
-                          <p className="text-2xl font-bold">{overview.avgOrderValue.toFixed(2)} €</p>
+                          <p className="text-2xl font-bold">{(overview?.avgOrderValue || 0).toFixed(2)} FCFA</p>
                         </div>
                       </div>
                     </CardContent>
@@ -487,9 +484,9 @@ export default function GestionFinancierePage() {
                               <Badge variant="outline">{work.work.discipline.name}</Badge>
                             </TableCell>
                             <TableCell>{work._sum.quantity}</TableCell>
-                            <TableCell>{work.work.price.toFixed(2)} €</TableCell>
+                            <TableCell>{work.work.price.toFixed(2)} FCFA</TableCell>
                             <TableCell className="font-medium">
-                              {(work._sum.quantity * work.work.price).toFixed(2)} €
+                              {(work._sum.quantity * work.work.price).toFixed(2)} FCFA
                             </TableCell>
                           </TableRow>
                         ))}
@@ -513,13 +510,13 @@ export default function GestionFinancierePage() {
                           <div>
                             <div className="font-medium">{discipline}</div>
                             <div className="text-sm text-gray-500">
-                              {data.orders} commandes • {data.quantity} exemplaires
+                              {data?.orders || 0} commandes • {data?.quantity || 0} exemplaires
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="font-bold">{data.revenue.toFixed(2)} €</div>
+                            <div className="font-bold">{(data?.revenue || 0).toFixed(2)} FCFA</div>
                             <div className="text-sm text-gray-500">
-                              {((data.revenue / overview.totalRevenue) * 100).toFixed(1)}%
+                              {overview?.totalRevenue ? (((data?.revenue || 0) / overview.totalRevenue) * 100).toFixed(1) : 0}%
                             </div>
                           </div>
                         </div>
@@ -542,7 +539,7 @@ export default function GestionFinancierePage() {
                         <DollarSign className="h-5 w-5 text-green-600" />
                         <div>
                           <p className="text-sm font-medium text-gray-600">Chiffre d'affaires</p>
-                          <p className="text-2xl font-bold">{salesReport.summary.totalRevenue.toLocaleString()} €</p>
+                          <p className="text-2xl font-bold">{(salesReport?.summary?.totalRevenue || 0).toLocaleString()} FCFA</p>
                         </div>
                       </div>
                     </CardContent>
@@ -554,7 +551,7 @@ export default function GestionFinancierePage() {
                         <Package className="h-5 w-5 text-blue-600" />
                         <div>
                           <p className="text-sm font-medium text-gray-600">Commandes</p>
-                          <p className="text-2xl font-bold">{salesReport.summary.totalOrders}</p>
+                          <p className="text-2xl font-bold">{salesReport?.summary?.totalOrders || 0}</p>
                         </div>
                       </div>
                     </CardContent>
@@ -566,7 +563,7 @@ export default function GestionFinancierePage() {
                         <BookOpen className="h-5 w-5 text-purple-600" />
                         <div>
                           <p className="text-sm font-medium text-gray-600">Articles</p>
-                          <p className="text-2xl font-bold">{salesReport.summary.totalItems}</p>
+                          <p className="text-2xl font-bold">{salesReport?.summary?.totalItems || 0}</p>
                         </div>
                       </div>
                     </CardContent>
@@ -578,7 +575,7 @@ export default function GestionFinancierePage() {
                         <TrendingUp className="h-5 w-5 text-orange-600" />
                         <div>
                           <p className="text-sm font-medium text-gray-600">Panier moyen</p>
-                          <p className="text-2xl font-bold">{salesReport.summary.avgOrderValue.toFixed(2)} €</p>
+                          <p className="text-2xl font-bold">{(salesReport?.summary?.avgOrderValue || 0).toFixed(2)} FCFA</p>
                         </div>
                       </div>
                     </CardContent>
@@ -603,7 +600,7 @@ export default function GestionFinancierePage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {salesReport.orders.map((order) => (
+                        {(salesReport?.orders || []).map((order) => (
                           <TableRow key={order.id}>
                             <TableCell className="font-medium">
                               #{order.id.substring(0, 8).toUpperCase()}
@@ -613,14 +610,14 @@ export default function GestionFinancierePage() {
                             </TableCell>
                             <TableCell>
                               <div>
-                                <div className="font-medium">{order.user.name}</div>
-                                <div className="text-sm text-gray-500">{order.user.email}</div>
+                                <div className="font-medium">{order.user?.name || 'N/A'}</div>
+                                <div className="text-sm text-gray-500">{order.user?.email || 'N/A'}</div>
                               </div>
                             </TableCell>
                             <TableCell>{getStatusBadge(order.status)}</TableCell>
-                            <TableCell>{order.itemsCount}</TableCell>
+                            <TableCell>{order.itemsCount || 0}</TableCell>
                             <TableCell className="font-medium">
-                              {order.totalAmount.toFixed(2)} €
+                              {(order.totalAmount || 0).toFixed(2)} FCFA
                             </TableCell>
                           </TableRow>
                         ))}
@@ -654,23 +651,23 @@ export default function GestionFinancierePage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {royalties.map((royalty) => (
+                    {(royalties || []).map((royalty) => (
                       <TableRow key={royalty.id}>
-                        <TableCell className="font-medium">{royalty.work.title}</TableCell>
+                        <TableCell className="font-medium">{royalty.work?.title || 'N/A'}</TableCell>
                         <TableCell>
-                          <Badge variant="outline">{royalty.work.discipline.name}</Badge>
+                          <Badge variant="outline">{royalty.work?.discipline?.name || 'N/A'}</Badge>
                         </TableCell>
                         <TableCell>
                           <div>
-                            <div className="font-medium">{royalty.user.name}</div>
-                            <div className="text-sm text-gray-500">{royalty.user.email}</div>
+                            <div className="font-medium">{royalty.user?.name || 'N/A'}</div>
+                            <div className="text-sm text-gray-500">{royalty.user?.email || 'N/A'}</div>
                           </div>
                         </TableCell>
                         <TableCell>
-                          {royalty.work.author ? "Auteur" : "Concepteur"}
+                          {royalty.work?.author ? "Auteur" : "Concepteur"}
                         </TableCell>
                         <TableCell className="font-medium">
-                          {royalty.amount.toFixed(2)} €
+                          {(royalty.amount || 0).toFixed(2)} FCFA
                         </TableCell>
                         <TableCell>
                           <Badge variant={royalty.paid ? "default" : "secondary"}>
@@ -709,18 +706,18 @@ export default function GestionFinancierePage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {partnerPerformance.map((partner) => (
+                    {(partnerPerformance || []).map((partner) => (
                       <TableRow key={partner.partnerId}>
-                        <TableCell className="font-medium">{partner.partnerName}</TableCell>
+                        <TableCell className="font-medium">{partner.partnerName || 'N/A'}</TableCell>
                         <TableCell>
-                          <Badge variant="outline">{partner.partnerType}</Badge>
+                          <Badge variant="outline">{partner.partnerType || 'N/A'}</Badge>
                         </TableCell>
                         <TableCell>{getStatusBadge(partner.userStatus)}</TableCell>
-                        <TableCell>{partner.ordersCount}</TableCell>
+                        <TableCell>{partner.ordersCount || 0}</TableCell>
                         <TableCell className="font-medium">
-                          {partner.totalRevenue.toFixed(2)} €
+                          {(partner.totalRevenue || 0).toFixed(2)} FCFA
                         </TableCell>
-                        <TableCell>{partner.avgOrderValue.toFixed(2)} €</TableCell>
+                        <TableCell>{(partner.avgOrderValue || 0).toFixed(2)} FCFA</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -730,6 +727,5 @@ export default function GestionFinancierePage() {
           </TabsContent>
         </Tabs>
       </div>
-    </DynamicDashboardLayout>
   );
 }

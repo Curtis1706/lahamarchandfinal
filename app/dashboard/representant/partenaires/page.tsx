@@ -74,7 +74,8 @@ export default function RepresentantPartenairesPage() {
     userData: {
       name: "",
       email: "",
-      phone: ""
+      phone: "",
+      password: ""
     }
   })
 
@@ -105,10 +106,19 @@ export default function RepresentantPartenairesPage() {
 
   const handleAddPartner = async () => {
     try {
-      if (!newPartnerData.name || !newPartnerData.contact || !newPartnerData.userData.name || !newPartnerData.userData.email) {
+      if (!newPartnerData.name || !newPartnerData.contact || !newPartnerData.userData.name || !newPartnerData.userData.email || !newPartnerData.userData.password) {
         toast({
           title: "Erreur",
           description: "Veuillez remplir tous les champs obligatoires",
+          variant: "destructive"
+        })
+        return
+      }
+
+      if (newPartnerData.userData.password.length < 6) {
+        toast({
+          title: "Erreur",
+          description: "Le mot de passe doit contenir au moins 6 caractères",
           variant: "destructive"
         })
         return
@@ -133,7 +143,8 @@ export default function RepresentantPartenairesPage() {
         userData: {
           name: "",
           email: "",
-          phone: ""
+          phone: "",
+          password: ""
         }
       })
       loadPartners()
@@ -329,6 +340,19 @@ export default function RepresentantPartenairesPage() {
                         userData: { ...newPartnerData.userData, phone: e.target.value }
                       })}
                       placeholder="+229 XX XX XX XX"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="userPassword">Mot de passe *</Label>
+                    <Input
+                      id="userPassword"
+                      type="password"
+                      value={newPartnerData.userData.password}
+                      onChange={(e) => setNewPartnerData({ 
+                        ...newPartnerData, 
+                        userData: { ...newPartnerData.userData, password: e.target.value }
+                      })}
+                      placeholder="Mot de passe de connexion"
                     />
                   </div>
                 </div>

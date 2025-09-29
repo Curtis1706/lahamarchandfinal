@@ -116,10 +116,10 @@ export class ApiClient {
     })
   }
 
-  async updateOrder(orderId: string, status: string) {
+  async updateOrder(orderId: string, data: { status: string }) {
     return this.request('/orders', {
       method: 'PUT',
-      body: JSON.stringify({ id: orderId, status }),
+      body: JSON.stringify({ id: orderId, status: data.status }),
     })
   }
 
@@ -906,7 +906,7 @@ export class ApiClient {
     address?: string; 
     website?: string; 
     description?: string;
-    userData: { name: string; email: string; phone?: string }
+    userData: { name: string; email: string; phone?: string; password: string }
   }) {
     return this.request('/representant/partners', {
       method: 'POST',
@@ -922,6 +922,168 @@ export class ApiClient {
     if (filters?.startDate) params.append('startDate', filters.startDate)
     if (filters?.endDate) params.append('endDate', filters.endDate)
     return this.request(`/representant/partner-orders?${params}`)
+  }
+
+  // Partenaire - Dashboard
+  async getPartenaireStats() {
+    return this.request('/partenaire/dashboard')
+  }
+
+  // Partenaire - Stock
+  async getPartenaireStock(filters?: { search?: string; discipline?: string; status?: string }) {
+    const params = new URLSearchParams()
+    if (filters?.search) params.append('search', filters.search)
+    if (filters?.discipline) params.append('discipline', filters.discipline)
+    if (filters?.status) params.append('status', filters.status)
+    return this.request(`/partenaire/stock?${params}`)
+  }
+
+  // Partenaire - Stock alloué
+  async getPartenaireStockAllocation(filters?: { search?: string; discipline?: string }) {
+    const params = new URLSearchParams()
+    if (filters?.search) params.append('search', filters.search)
+    if (filters?.discipline) params.append('discipline', filters.discipline)
+    return this.request(`/partenaire/stock-allocation?${params}`)
+  }
+
+  // Partenaire - Commandes
+  async getPartenaireOrders(filters?: { status?: string; search?: string }) {
+    const params = new URLSearchParams()
+    if (filters?.status) params.append('status', filters.status)
+    if (filters?.search) params.append('search', filters.search)
+    return this.request(`/partenaire/orders?${params}`)
+  }
+
+  async createPartenaireOrder(data: { items: Array<{ workId: string; quantity: number; price?: number }>; notes?: string }) {
+    return this.request('/partenaire/orders', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  // Partenaire - Ventes
+  async getPartenaireSales(filters?: { status?: string; type?: string; method?: string; search?: string }) {
+    const params = new URLSearchParams()
+    if (filters?.status) params.append('status', filters.status)
+    if (filters?.type) params.append('type', filters.type)
+    if (filters?.method) params.append('method', filters.method)
+    if (filters?.search) params.append('search', filters.search)
+    return this.request(`/partenaire/sales?${params}`)
+  }
+
+  // Partenaire - Enregistrer une vente
+  async registerPartenaireSale(data: { workId: string; quantity: number; clientName?: string; clientPhone?: string; notes?: string }) {
+    return this.request('/partenaire/sales/register', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  // Partenaire - Enregistrer un retour
+  async registerPartenaireReturn(data: { workId: string; quantity: number; reason?: string; notes?: string }) {
+    return this.request('/partenaire/returns/register', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  // Partenaire - Catalogue
+  async getPartenaireCatalogue(filters?: { search?: string; discipline?: string; price?: string }) {
+    const params = new URLSearchParams()
+    if (filters?.search) params.append('search', filters.search)
+    if (filters?.discipline) params.append('discipline', filters.discipline)
+    if (filters?.price) params.append('price', filters.price)
+    return this.request(`/partenaire/catalogue?${params}`)
+  }
+
+  // Partenaire - Rapports
+  async getPartenaireReports(filters?: { startDate?: string; endDate?: string; type?: string }) {
+    const params = new URLSearchParams()
+    if (filters?.startDate) params.append('startDate', filters.startDate)
+    if (filters?.endDate) params.append('endDate', filters.endDate)
+    if (filters?.type) params.append('type', filters.type)
+    return this.request(`/partenaire/reports?${params}`)
+  }
+
+  // PDG - Gestion des œuvres
+  async getPDGWorks(filters?: { search?: string; discipline?: string; status?: string; lowStock?: boolean }) {
+    const params = new URLSearchParams()
+    if (filters?.search) params.append('search', filters.search)
+    if (filters?.discipline) params.append('discipline', filters.discipline)
+    if (filters?.status) params.append('status', filters.status)
+    if (filters?.lowStock) params.append('lowStock', 'true')
+    return this.request(`/pdg/stock/works?${params}`)
+  }
+
+  async createOrUpdatePDGWork(data: any) {
+    return this.request('/pdg/stock/works', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  // PDG - Mouvements de stock
+  async getPDGStockMovements(filters?: { workId?: string; type?: string; startDate?: string; endDate?: string; partnerId?: string }) {
+    const params = new URLSearchParams()
+    if (filters?.workId) params.append('workId', filters.workId)
+    if (filters?.type) params.append('type', filters.type)
+    if (filters?.startDate) params.append('startDate', filters.startDate)
+    if (filters?.endDate) params.append('endDate', filters.endDate)
+    if (filters?.partnerId) params.append('partnerId', filters.partnerId)
+    return this.request(`/pdg/stock/movements?${params}`)
+  }
+
+  async createPDGStockMovement(data: any) {
+    return this.request('/pdg/stock/movements', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  // PDG - Corrections de stock
+  async createPDGStockCorrection(data: any) {
+    return this.request('/pdg/stock/corrections', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  // PDG - Inventaire
+  async getPDGInventory(filters?: { discipline?: string; lowStock?: boolean }) {
+    const params = new URLSearchParams()
+    if (filters?.discipline) params.append('discipline', filters.discipline)
+    if (filters?.lowStock) params.append('lowStock', 'true')
+    return this.request(`/pdg/stock/inventory?${params}`)
+  }
+
+  async applyPDGInventoryAdjustments(data: any) {
+    return this.request('/pdg/stock/inventory', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  // PDG - Allocation de stock partenaire
+  async allocatePartnerStock(data: any) {
+    return this.request('/pdg/partner-stock/allocate', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  // PDG - Workflow de stock
+  async executeStockOperation(data: any) {
+    return this.request('/pdg/stock/workflow', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async getStockWorkflowStats(filters?: { startDate?: string; endDate?: string }) {
+    const params = new URLSearchParams()
+    if (filters?.startDate) params.append('startDate', filters.startDate)
+    if (filters?.endDate) params.append('endDate', filters.endDate)
+    return this.request(`/pdg/stock/workflow?${params}`)
   }
 
   // Download file helper

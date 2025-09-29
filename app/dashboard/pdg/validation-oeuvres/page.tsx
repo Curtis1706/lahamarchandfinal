@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout";
+;
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -253,8 +253,7 @@ export default function ValidationOeuvresPage() {
   };
 
   return (
-    <DynamicDashboardLayout title="Validation des Œuvres" showActions>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Statistiques */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
@@ -453,7 +452,7 @@ export default function ValidationOeuvresPage() {
                               <Badge variant="outline">{work.discipline.name}</Badge>
                             </TableCell>
                             <TableCell className="font-medium">
-                              {work.price.toFixed(2)} €
+                              {work.price.toFixed(2)} FCFA
                             </TableCell>
                             <TableCell>
                           <div className="flex items-center space-x-1">
@@ -594,7 +593,7 @@ export default function ValidationOeuvresPage() {
                   </div>
                   <div>
                     <Label className="font-medium">Prix</Label>
-                    <p className="font-bold">{selectedWork.price.toFixed(2)} €</p>
+                    <p className="font-bold">{selectedWork.price.toFixed(2)} FCFA</p>
                   </div>
                   <div>
                     <Label className="font-medium">TVA</Label>
@@ -718,6 +717,5 @@ export default function ValidationOeuvresPage() {
           </AlertDialogContent>
         </AlertDialog>
       </div>
-    </DynamicDashboardLayout>
   );
 }

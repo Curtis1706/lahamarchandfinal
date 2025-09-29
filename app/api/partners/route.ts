@@ -194,12 +194,19 @@ export async function PUT(request: NextRequest) {
 
     // Mettre à jour le statut de l'utilisateur associé
     if (status) {
+      const updateData: any = {
+        status: status,
+        updatedAt: new Date()
+      }
+
+      // Si le partenaire est validé, activer son compte
+      if (status === 'ACTIVE') {
+        updateData.emailVerified = new Date()
+      }
+
       await prisma.user.update({
         where: { id: existingPartner.userId },
-        data: {
-          status: status,
-          updatedAt: new Date()
-        }
+        data: updateData
       });
     }
 

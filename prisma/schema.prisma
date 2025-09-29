@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -112,11 +112,14 @@ model Work {
   title        String
   description  String?    // Description détaillée de l'œuvre
   isbn         String     @unique
+  internalCode String?    // Code interne pour la gestion PDG
   price        Float      @default(0)
   tva          Float      @default(0.18) // 18% TVA par défaut
+  discountRate Float?     // Taux de remise applicable (en %)
   stock        Int        @default(0)
   minStock     Int        @default(10) // Seuil d'alerte de stock faible
   maxStock     Int?       // Stock maximum recommandé
+  physicalStock Int       @default(0) // Stock physique réel
   
   // Nouveaux champs pour le workflow amélioré
   category               String?    // Catégorie de l'œuvre
@@ -164,6 +167,7 @@ model Work {
   workDistributions WorkDistribution[]
   workViews    WorkView[]
   stockAlerts  StockAlert[]
+  partnerStocks PartnerStock[] // Stock alloué aux partenaires
 }
 
 model StockMovement {
@@ -176,11 +180,21 @@ model StockMovement {
   reference   String?          // Référence (ID de commande, numéro de facture, etc.)
   performedBy String?          // ID de l'utilisateur qui a effectué le mouvement
   performedByUser User?        @relation("StockMovements", fields: [performedBy], references: [id])
+  partnerId   String?          // ID du partenaire si mouvement lié à un partenaire
+  partner     Partner?         @relation(fields: [partnerId], references: [id])
+  source      String?          // Source du mouvement (imprimerie, fournisseur, etc.)
+  destination String?          // Destination du mouvement (partenaire, client, etc.)
+  unitPrice   Float?           // Prix unitaire au moment du mouvement
+  totalAmount Float?           // Montant total du mouvement
+  isCorrection Boolean        @default(false) // Indique si c'est une correction PDG
+  correctionReason String?     // Raison de la correction
   createdAt   DateTime         @default(now())
   
   @@index([workId])
   @@index([type])
   @@index([createdAt])
+  @@index([partnerId])
+  @@index([isCorrection])
 }
 
 model Discipline {
@@ -225,6 +239,26 @@ model Partner {
   
   // Relations
   orders      Order[]  @relation("PartnerOrders")
+  stockItems  PartnerStock[] // Stock alloué au partenaire
+  stockMovements StockMovement[] // Mouvements de stock du partenaire
+}
+
+model PartnerStock {
+  id          String   @id @default(cuid())
+  partnerId   String
+  partner     Partner  @relation(fields: [partnerId], references: [id])
+  workId      String
+  work        Work     @relation(fields: [workId], references: [id])
+  allocatedQuantity Int // Quantité allouée au partenaire
+  soldQuantity      Int @default(0) // Quantité vendue
+  returnedQuantity  Int @default(0) // Quantité retournée
+  availableQuantity Int // Quantité disponible (allouée - vendue - retournée)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([partnerId, workId]) // Un seul enregistrement par partenaire/œuvre
+  @@index([partnerId])
+  @@index([workId])
 }
 
 model Order {
@@ -329,6 +363,12 @@ enum StockMovementType {
   TRANSFER       // Transfert entre entrepôts
   DAMAGED        // Stock endommagé
   EXPIRED        // Stock expiré
+  PARTNER_ALLOCATION // Allocation de stock à un partenaire
+  PARTNER_SALE   // Vente par un partenaire
+  PARTNER_RETURN // Retour de stock par un partenaire
+  DIRECT_SALE    // Vente directe au siège
+  CORRECTION     // Correction PDG (droit exclusif)
+  INVENTORY      // Ajustement suite à inventaire
 }
 
 model Notification {

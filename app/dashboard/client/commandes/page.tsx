@@ -91,7 +91,14 @@ function ClientCommandePageContent() {
 
 
 
-  // Pas de rafraîchissement automatique pour éviter les boucles
+  // Rafraîchissement automatique des commandes toutes les 30 secondes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refreshOrders()
+    }, 30000) // 30 secondes
+
+    return () => clearInterval(interval)
+  }, [refreshOrders])
 
   // Détecter les nouvelles commandes et ouvrir automatiquement les détails
   useEffect(() => {
@@ -111,7 +118,8 @@ function ClientCommandePageContent() {
   const getStatusBadge = (status: Order['status']) => {
     const variants = {
       pending: { variant: "secondary" as const, label: "En attente", color: "bg-yellow-100 text-yellow-800" },
-      confirmed: { variant: "default" as const, label: "Confirmée", color: "bg-blue-100 text-blue-800" },
+      confirmed: { variant: "default" as const, label: "Validée", color: "bg-blue-100 text-blue-800" },
+      processing: { variant: "default" as const, label: "En traitement", color: "bg-orange-100 text-orange-800" },
       shipped: { variant: "default" as const, label: "Expédiée", color: "bg-purple-100 text-purple-800" },
       delivered: { variant: "default" as const, label: "Livrée", color: "bg-green-100 text-green-800" },
       cancelled: { variant: "destructive" as const, label: "Annulée", color: "bg-red-100 text-red-800" }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout";
+;
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -139,7 +139,7 @@ export default function GestionPartenairesPage() {
         const totalOrders = data.partners.reduce((sum: number, partner: Partner) => sum + partner._count.orders, 0);
 
         // Calculer le chiffre d'affaires (simulation)
-        const totalRevenue = totalOrders * 200; // Estimation moyenne de 200€ par commande
+        const totalRevenue = totalOrders * 150000; // Estimation moyenne de 150000 FCFA par commande
 
         setPartnerStats({ total, active, pending, suspended, totalOrders, totalRevenue });
       } else {
@@ -269,8 +269,7 @@ export default function GestionPartenairesPage() {
   };
 
   return (
-    <DynamicDashboardLayout title="Gestion des Partenaires" showActions>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Statistiques */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           <Card>
@@ -339,7 +338,7 @@ export default function GestionPartenairesPage() {
                 <TrendingUp className="h-5 w-5 text-green-600" />
                 <div>
                   <p className="text-sm font-medium text-gray-600">CA Estimé</p>
-                  <p className="text-2xl font-bold">{partnerStats.totalRevenue.toFixed(0)} €</p>
+                  <p className="text-2xl font-bold">{partnerStats.totalRevenue.toFixed(0)} FCFA</p>
                 </div>
               </div>
             </CardContent>
@@ -820,6 +819,5 @@ export default function GestionPartenairesPage() {
           </AlertDialogContent>
         </AlertDialog>
       </div>
-    </DynamicDashboardLayout>
   );
 }

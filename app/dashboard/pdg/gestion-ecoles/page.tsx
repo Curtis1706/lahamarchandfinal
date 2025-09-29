@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout";
+;
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -130,7 +130,7 @@ export default function GestionEcolesPage() {
         const totalOrders = data.partners.reduce((sum: number, school: School) => sum + school._count.orders, 0);
 
         // Calculer le chiffre d'affaires (simulation)
-        const totalRevenue = totalOrders * 150; // Estimation moyenne de 150€ par commande
+        const totalRevenue = totalOrders * 100000; // Estimation moyenne de 100000 FCFA par commande
 
         setSchoolStats({ total, active, pending, totalOrders, totalRevenue });
       } else {
@@ -238,8 +238,7 @@ export default function GestionEcolesPage() {
   };
 
   return (
-    <DynamicDashboardLayout title="Gestion des Écoles" showActions>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Statistiques */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <Card>
@@ -296,7 +295,7 @@ export default function GestionEcolesPage() {
                 <TrendingUp className="h-5 w-5 text-green-600" />
                 <div>
                   <p className="text-sm font-medium text-gray-600">CA Estimé</p>
-                  <p className="text-2xl font-bold">{schoolStats.totalRevenue.toFixed(0)} €</p>
+                  <p className="text-2xl font-bold">{schoolStats.totalRevenue.toFixed(0)} FCFA</p>
                 </div>
               </div>
             </CardContent>
@@ -536,12 +535,12 @@ export default function GestionEcolesPage() {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-600">Chiffre d'affaires estimé</span>
-                      <span className="font-bold text-green-600">{schoolStats.totalRevenue.toFixed(2)} €</span>
+                      <span className="font-bold text-green-600">{schoolStats.totalRevenue.toFixed(2)} FCFA</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-600">Panier moyen estimé</span>
                       <span className="font-bold">
-                        {schoolStats.totalOrders > 0 ? (schoolStats.totalRevenue / schoolStats.totalOrders).toFixed(2) : "0"} €
+                        {schoolStats.totalOrders > 0 ? (schoolStats.totalRevenue / schoolStats.totalOrders).toFixed(2) : "0"} FCFA
                       </span>
                     </div>
                   </div>
@@ -747,7 +746,6 @@ export default function GestionEcolesPage() {
           </AlertDialogContent>
         </AlertDialog>
       </div>
-    </DynamicDashboardLayout>
   );
 }
 

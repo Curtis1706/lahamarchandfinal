@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout";
+;
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -308,28 +308,23 @@ export default function AdministrationParametresPage() {
 
   if (loading) {
     return (
-      <DynamicDashboardLayout title="Administration & Paramètres">
-        <div className="flex justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        </div>
-      </DynamicDashboardLayout>
+      <div className="flex justify-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
     );
   }
 
   if (!settings) {
     return (
-      <DynamicDashboardLayout title="Administration & Paramètres">
-        <div className="text-center py-8">
-          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <p className="text-red-600">Erreur lors du chargement des paramètres</p>
-        </div>
-      </DynamicDashboardLayout>
+      <div className="text-center py-8">
+        <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+        <p className="text-red-600">Erreur lors du chargement des paramètres</p>
+      </div>
     );
   }
 
   return (
-    <DynamicDashboardLayout title="Administration & Paramètres" showActions>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Actions globales */}
         <Card>
           <CardHeader>
@@ -510,14 +505,14 @@ export default function AdministrationParametresPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="EUR">EUR (€)</SelectItem>
+                        <SelectItem value="XAF">XAF (FCFA)</SelectItem>
                         <SelectItem value="USD">USD ($)</SelectItem>
                         <SelectItem value="XOF">XOF (F CFA)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="business-min-order">Montant minimum commande (€)</Label>
+                    <Label htmlFor="business-min-order">Montant minimum commande (FCFA)</Label>
                     <Input
                       id="business-min-order"
                       type="number"
@@ -528,7 +523,7 @@ export default function AdministrationParametresPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="business-max-order">Montant maximum commande (€)</Label>
+                    <Label htmlFor="business-max-order">Montant maximum commande (FCFA)</Label>
                     <Input
                       id="business-max-order"
                       type="number"
@@ -926,9 +921,9 @@ export default function AdministrationParametresPage() {
           </AlertDialogContent>
         </AlertDialog>
       </div>
-    </DynamicDashboardLayout>
   );
 }
+
 
 
 

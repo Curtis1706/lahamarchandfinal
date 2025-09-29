@@ -19,7 +19,6 @@ import {
   Eye,
   AlertTriangle,
 } from "lucide-react"
-import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout"
 import { useCurrentUser } from "@/hooks/use-current-user"
 
 // Mock data pour le stock alloué au partenaire
@@ -73,19 +72,43 @@ const mockStockData = [
 
 export default function NiveauStockPage() {
   const { user } = useCurrentUser()
-  const [stockData, setStockData] = useState(mockStockData)
-  const [filteredData, setFilteredData] = useState(mockStockData)
+  const [stockData, setStockData] = useState([])
+  const [filteredData, setFilteredData] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("toutes")
   const [selectedDiscipline, setSelectedDiscipline] = useState("toutes")
   const [selectedClass, setSelectedClass] = useState("toutes")
   const [selectedStatus, setSelectedStatus] = useState("tous")
 
+  // Charger le stock
+  useEffect(() => {
+    loadStock()
+  }, [selectedDiscipline, selectedStatus])
+
+  const loadStock = async () => {
+    try {
+      setIsLoading(true)
+      
+      const data = await apiClient.getPartenaireStockAllocation({ 
+        discipline: selectedDiscipline === 'toutes' ? undefined : selectedDiscipline
+      })
+      
+      setStockData(data.stockItems)
+      
+    } catch (error: any) {
+      console.error('Erreur lors du chargement du stock:', error)
+      setStockData([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   // Calculer les statistiques
-  const totalStock = stockData.reduce((sum, item) => sum + item.total, 0)
-  const totalDepot = stockData.reduce((sum, item) => sum + item.depot, 0)
-  const totalRentree = stockData.reduce((sum, item) => sum + item.rentree, 0)
-  const stockFaibleCount = stockData.filter(item => item.stockFaible).length
+  const totalStock = stockData.reduce((sum, item) => sum + (item.allocatedQuantity || 0), 0)
+  const totalDepot = stockData.reduce((sum, item) => sum + (item.availableQuantity || 0), 0)
+  const totalRentree = stockData.reduce((sum, item) => sum + (item.soldQuantity || 0), 0)
+  const stockFaibleCount = stockData.filter(item => (item.availableQuantity || 0) < 20).length
 
   // Filtrer les données
   useEffect(() => {
@@ -118,7 +141,7 @@ export default function NiveauStockPage() {
   }, [searchTerm, selectedCategory, selectedDiscipline, selectedClass, selectedStatus, stockData])
 
   return (
-    <DynamicDashboardLayout title="Stock alloué" breadcrumb="Partenaire - Stock">
+    <div>
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -398,7 +421,7 @@ export default function NiveauStockPage() {
           </div>
         </div>
       </div>
-    </DynamicDashboardLayout>
+    </div>
   )
 }
 

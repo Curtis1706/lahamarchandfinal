@@ -1,137 +1,241 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import { ShoppingCart, BookOpen, Package, TrendingDown, DollarSign, Clock, CheckCircle } from "lucide-react";
-import Link from "next/link";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout";
-import { useCurrentUser } from "@/hooks/use-current-user";
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { useCurrentUser } from "@/hooks/use-current-user"
+import { apiClient } from "@/lib/api-client"
+import {
+  Package,
+  ShoppingCart,
+  DollarSign,
+  TrendingUp,
+  Users,
+  BookOpen,
+  Calendar,
+  Eye,
+  Plus
+} from "lucide-react"
 
-// Mock data pour les statistiques du partenaire
-const mockStats = {
-  totalCommandes: 12,
-  commandesLivrees: 8,
-  totalDepense: 1250000,
-  livresCommandes: 45,
-  commandesEnAttente: 3,
-  commandesValidees: 9,
-  chiffreAffaires: 1250000,
-  evolution: "+15.2%"
+interface PartnerStats {
+  totalOrders: number
+  pendingOrders: number
+  completedOrders: number
+  totalRevenue: number
+  availableWorks: number
 }
 
 export default function PartenaireDashboard() {
-  const { user } = useCurrentUser();
-  const [stats, setStats] = useState(mockStats);
+  const { user } = useCurrentUser()
+  const [stats, setStats] = useState<PartnerStats>({
+    totalOrders: 0,
+    pendingOrders: 0,
+    completedOrders: 0,
+    totalRevenue: 0,
+    availableWorks: 0
+  })
+  const [isLoading, setIsLoading] = useState(true)
 
-  return (
-    <DynamicDashboardLayout title="Tableau de bord">
-      <div className="p-6">
-        {/* Welcome Section */}
-        <div className="bg-gradient-to-r from-orange-600 to-red-600 rounded-2xl p-6 text-white mb-6">
-          <div className="flex items-center space-x-4">
-            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
-              <Package className="w-8 h-8" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold">Bienvenue, {user?.name}</h2>
-              <p className="text-orange-100">Partenaire</p>
-              <p className="text-sm text-orange-200 mt-1">
-                Consultez votre stock alloué et passez vos commandes
-              </p>
-            </div>
-          </div>
-        </div>
+  useEffect(() => {
+    loadDashboardStats()
+  }, [])
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-          <div className="bg-white rounded-lg p-6 shadow-sm border">
-            <div className="flex items-center">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <ShoppingCart className="w-6 h-6 text-blue-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total commandes</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.totalCommandes}</p>
-                <p className="text-xs text-gray-500">{stats.commandesEnAttente} en attente</p>
-              </div>
-            </div>
-          </div>
+  const loadDashboardStats = async () => {
+    try {
+      setIsLoading(true)
+      
+      const data = await apiClient.getPartenaireStats()
+      
+      setStats({
+        totalOrders: data.totalOrders,
+        pendingOrders: data.pendingOrders,
+        completedOrders: data.completedOrders,
+        totalRevenue: data.totalRevenue,
+        availableWorks: data.availableWorks
+      })
+      
+    } catch (error) {
+      console.error('Erreur lors du chargement des statistiques:', error)
+      // Valeurs par défaut en cas d'erreur
+      setStats({
+        totalOrders: 0,
+        pendingOrders: 0,
+        completedOrders: 0,
+        totalRevenue: 0,
+        availableWorks: 0
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
-          <div className="bg-white rounded-lg p-6 shadow-sm border">
-            <div className="flex items-center">
-              <div className="p-3 bg-green-100 rounded-lg">
-                <CheckCircle className="w-6 h-6 text-green-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Commandes livrées</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.commandesLivrees}</p>
-                <p className="text-xs text-green-600">{stats.commandesValidees} validées</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg p-6 shadow-sm border">
-            <div className="flex items-center">
-              <div className="p-3 bg-yellow-100 rounded-lg">
-                <DollarSign className="w-6 h-6 text-yellow-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Chiffre d'affaires</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.chiffreAffaires.toLocaleString()}</p>
-                <p className="text-xs text-green-600">{stats.evolution} vs mois précédent</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg p-6 shadow-sm border">
-            <div className="flex items-center">
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <BookOpen className="w-6 h-6 text-purple-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Livres commandés</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.livresCommandes}</p>
-                <p className="text-xs text-gray-500">Cette année</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="bg-white rounded-lg shadow-sm border">
-          <div className="p-6 border-b">
-            <h3 className="text-lg font-semibold text-gray-900">Actions rapides</h3>
-          </div>
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Link href="/dashboard/partenaire/livres/liste" className="text-left p-4 rounded-lg border border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50 transition-colors">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <BookOpen className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-gray-900">Consulter le catalogue</h4>
-                    <p className="text-sm text-gray-500">Voir tous les livres disponibles</p>
-                  </div>
-                </div>
-              </Link>
-
-              <Link href="/dashboard/partenaire/commandes" className="text-left p-4 rounded-lg border border-dashed border-gray-300 hover:border-green-400 hover:bg-green-50 transition-colors">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <ShoppingCart className="w-5 h-5 text-green-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-gray-900">Nouvelle commande</h4>
-                    <p className="text-sm text-gray-500">Passer une nouvelle commande</p>
-                  </div>
-                </div>
-              </Link>
-            </div>
-          </div>
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Chargement du tableau de bord...</p>
         </div>
       </div>
-    </DynamicDashboardLayout>
-  );
+    )
+  }
+
+  return (
+    <div className="p-6">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Tableau de bord Partenaire</h1>
+        <p className="text-gray-600">Bienvenue, {user?.name}</p>
+      </div>
+
+      {/* Statistiques principales */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Commandes totales</CardTitle>
+            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalOrders}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.pendingOrders} en attente
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Commandes complétées</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.completedOrders}</div>
+            <p className="text-xs text-muted-foreground">
+              {Math.round((stats.completedOrders / stats.totalOrders) * 100)}% de réussite
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Chiffre d'affaires</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalRevenue.toLocaleString()} FCFA</div>
+            <p className="text-xs text-muted-foreground">
+              <TrendingUp className="inline h-3 w-3 mr-1" />
+              +12% ce mois
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Œuvres disponibles</CardTitle>
+            <BookOpen className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.availableWorks}</div>
+            <p className="text-xs text-muted-foreground">
+              Catalogue complet
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Actions rapides */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Actions rapides</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button className="w-full justify-start" variant="outline">
+              <Plus className="h-4 w-4 mr-2" />
+              Nouvelle commande
+            </Button>
+            <Button className="w-full justify-start" variant="outline">
+              <Eye className="h-4 w-4 mr-2" />
+              Consulter le catalogue
+            </Button>
+            <Button className="w-full justify-start" variant="outline">
+              <Calendar className="h-4 w-4 mr-2" />
+              Voir mes commandes
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Statut du compte</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Statut</span>
+                <Badge className="bg-green-100 text-green-800">Actif</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Type</span>
+                <span className="text-sm text-muted-foreground">Librairie</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Représentant</span>
+                <span className="text-sm text-muted-foreground">Thomas Représentant</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Dernière activité</span>
+                <span className="text-sm text-muted-foreground">Aujourd'hui</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Commandes récentes */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Commandes récentes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <p className="font-medium">Commande #2025COM001</p>
+                <p className="text-sm text-muted-foreground">15 livres - Mathématiques CE1</p>
+              </div>
+              <div className="text-right">
+                <Badge className="bg-green-100 text-green-800">Livrée</Badge>
+                <p className="text-sm text-muted-foreground">45,000 FCFA</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <p className="font-medium">Commande #2025COM002</p>
+                <p className="text-sm text-muted-foreground">8 livres - Français CM2</p>
+              </div>
+              <div className="text-right">
+                <Badge className="bg-yellow-100 text-yellow-800">En cours</Badge>
+                <p className="text-sm text-muted-foreground">32,000 FCFA</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <p className="font-medium">Commande #2025COM003</p>
+                <p className="text-sm text-muted-foreground">12 livres - Sciences CE2</p>
+              </div>
+              <div className="text-right">
+                <Badge className="bg-blue-100 text-blue-800">En attente</Badge>
+                <p className="text-sm text-muted-foreground">48,000 FCFA</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
 }

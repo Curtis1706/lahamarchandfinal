@@ -16,7 +16,7 @@ export interface Order {
   id: string
   reference: string
   date: string
-  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled'
+  status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
   total: number
   itemCount: number
   paymentMethod: string
@@ -55,7 +55,7 @@ export const useOrders = (): UseOrdersResult => {
       case 'VALIDATED':
         return 'confirmed'
       case 'PROCESSING':
-        return 'confirmed'
+        return 'processing'
       case 'SHIPPED':
         return 'shipped'
       case 'DELIVERED':

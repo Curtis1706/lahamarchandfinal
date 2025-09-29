@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { User, BookOpen, ShoppingCart } from "lucide-react";
-import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout";
 import { apiClient } from "@/lib/api-client";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { toast } from "sonner";
@@ -82,19 +81,17 @@ export default function PDGDashboard() {
 
   if (loading) {
     return (
-      <DynamicDashboardLayout title="Tableau de bord">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Chargement...</p>
-          </div>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Chargement...</p>
         </div>
-      </DynamicDashboardLayout>
+      </div>
     );
   }
 
   return (
-    <DynamicDashboardLayout title="Tableau de bord" showActions={true} onRefresh={loadDashboardData}>
+    <>
       {/* Zone graphique */}
       <div className="relative mb-6 w-full">
         <div className="h-80 bg-slate-700 relative overflow-hidden rounded-lg">
@@ -280,6 +277,6 @@ export default function PDGDashboard() {
           </table>
         </div>
       </div>
-    </DynamicDashboardLayout>
+    </>
   );
 }

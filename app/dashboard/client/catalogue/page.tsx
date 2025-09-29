@@ -295,7 +295,7 @@ export default function ClientCataloguePage() {
                           <h4 className="font-medium text-sm line-clamp-2">{item.title}</h4>
                           <p className="text-xs text-muted-foreground">ISBN: {item.isbn}</p>
                           <p className="text-sm font-semibold text-blue-600">
-                            {item.price?.toFixed(2)} €
+                            {item.price?.toFixed(2)} FCFA
                           </p>
                         </div>
                         <Button
@@ -313,7 +313,7 @@ export default function ClientCataloguePage() {
                     
                     <div className="flex items-center justify-between">
                       <div className="text-lg font-semibold">
-                        Total: {getTotalPrice().toFixed(2)} €
+                        Total: {getTotalPrice().toFixed(2)} FCFA
                       </div>
                       <div className="flex space-x-2">
                         <Button variant="outline" onClick={() => clearCart()}>
@@ -436,7 +436,7 @@ export default function ClientCataloguePage() {
                   <CardFooter className="pt-4">
                     <div className="flex items-center justify-between w-full">
                       <div className="text-2xl font-bold text-primary">
-                        {work.price ? `${work.price.toFixed(2)} €` : "Prix non défini"}
+                        {work.price ? `${work.price.toFixed(2)} FCFA` : "Prix non défini"}
                       </div>
                       {workInCart ? (
                         <Button

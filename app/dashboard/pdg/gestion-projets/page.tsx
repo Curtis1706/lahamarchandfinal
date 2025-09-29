@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout";
+;
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -259,30 +259,25 @@ export default function GestionProjetsPage() {
 
   if (userLoading || isLoading) {
     return (
-      <DynamicDashboardLayout>
-        <div className="flex items-center justify-center h-96">
-          <div className="text-center">
-            <FolderOpen className="h-8 w-8 animate-spin mx-auto mb-4" />
-            <p className="text-muted-foreground">Chargement des projets...</p>
-          </div>
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <FolderOpen className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Chargement des projets...</p>
         </div>
-      </DynamicDashboardLayout>
+      </div>
     );
   }
 
   if (!user || user.role !== "PDG") {
     return (
-      <DynamicDashboardLayout>
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Accès non autorisé</p>
-        </div>
-      </DynamicDashboardLayout>
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">Accès non autorisé</p>
+      </div>
     );
   }
 
   return (
-    <DynamicDashboardLayout title="Gestion des Projets">
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* En-tête */}
         <div className="flex items-center justify-between">
           <div>
@@ -680,7 +675,6 @@ export default function GestionProjetsPage() {
           </AlertDialogContent>
         </AlertDialog>
       </div>
-    </DynamicDashboardLayout>
   );
 }
 
