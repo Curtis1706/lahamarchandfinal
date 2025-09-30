@@ -34,41 +34,48 @@ import { fr } from "date-fns/locale";
 interface FinancialOverview {
   totalRevenue: number;
   totalOrders: number;
+  totalWorks: number;
+  totalPartners: number;
   avgOrderValue: number;
+  recentOrders: Array<{
+    id: string;
+    status: string;
+    total: number;
+    itemCount: number;
+    createdAt: string;
+    customerName: string;
+  }>;
+  topWorks: TopWork[];
+  monthlyTrends: MonthlyTrend[];
+  disciplineRevenue: { [key: string]: number };
 }
 
 interface MonthlyTrend {
   month: string;
-  monthName: string;
   revenue: number;
   orders: number;
-  avgOrderValue: number;
 }
 
 interface DisciplineRevenue {
-  [key: string]: {
-    revenue: number;
-    quantity: number;
-    orders: number;
-  };
+  [key: string]: number;
 }
 
 interface TopWork {
-  workId: string;
   work: {
+    id: string;
     title: string;
     isbn: string;
     price: number;
     discipline: {
       name: string;
     };
-  };
-  _sum: {
-    quantity: number;
-  };
-  _count: {
-    id: number;
-  };
+    author?: {
+      name: string;
+    };
+  } | null;
+  totalSold: number;
+  totalRevenue: number;
+  orderCount: number;
 }
 
 interface SalesReport {
@@ -472,21 +479,21 @@ export default function GestionFinancierePage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {topWorks.map((work) => (
-                          <TableRow key={work.workId}>
+                        {topWorks.map((work, index) => (
+                          <TableRow key={work.work?.id || index}>
                             <TableCell>
                               <div>
-                                <div className="font-medium">{work.work.title}</div>
-                                <div className="text-sm text-gray-500">ISBN: {work.work.isbn}</div>
+                                <div className="font-medium">{work.work?.title || 'Œuvre inconnue'}</div>
+                                <div className="text-sm text-gray-500">ISBN: {work.work?.isbn || 'N/A'}</div>
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Badge variant="outline">{work.work.discipline.name}</Badge>
+                              <Badge variant="outline">{work.work?.discipline?.name || 'Non définie'}</Badge>
                             </TableCell>
-                            <TableCell>{work._sum.quantity}</TableCell>
-                            <TableCell>{work.work.price.toFixed(2)} FCFA</TableCell>
+                            <TableCell>{work.totalSold}</TableCell>
+                            <TableCell>{work.work?.price ? work.work.price.toFixed(2) : '0.00'} FCFA</TableCell>
                             <TableCell className="font-medium">
-                              {(work._sum.quantity * work.work.price).toFixed(2)} FCFA
+                              {work.totalRevenue.toFixed(2)} FCFA
                             </TableCell>
                           </TableRow>
                         ))}
