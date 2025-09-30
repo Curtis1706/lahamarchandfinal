@@ -26,57 +26,19 @@ export async function GET(request: NextRequest) {
     switch (type) {
       case 'overview':
         // Vue d'ensemble financière
-        const overview = {
-          totalRevenue: 0,
-          totalOrders: 0,
-          totalWorks: 0,
-          totalPartners: 0,
-          avgOrderValue: 0,
-          recentOrders: [],
-          topWorks: [],
-          monthlyTrends: []
-        }
-
-        return NextResponse.json(overview)
+        return await loadOverviewData()
 
       case 'sales':
         // Statistiques de ventes
-        const salesReport = {
-          summary: {
-            totalRevenue: 0,
-            totalOrders: 0,
-            totalItems: 0,
-            avgOrderValue: 0
-          },
-          orders: [],
-          salesByDiscipline: [],
-          salesByPartner: [],
-          topSellingWorks: []
-        }
-
-        return NextResponse.json(salesReport)
+        return await loadSalesData(startDate, endDate)
 
       case 'royalties':
         // Statistiques de royalties
-        const royalties = {
-          totalRoyalties: 0,
-          recentRoyalties: [],
-          royaltiesByAuthor: [],
-          pendingPayments: []
-        }
-
-        return NextResponse.json(royalties)
+        return await loadRoyaltiesData(startDate, endDate)
 
       case 'partner_performance':
         // Performance des partenaires
-        const partnerPerformance = {
-          partners: [],
-          totalPartners: 0,
-          activePartners: 0,
-          totalRevenue: 0
-        }
-
-        return NextResponse.json(partnerPerformance)
+        return await loadPartnerPerformanceData(startDate, endDate)
 
       default:
         return NextResponse.json({ error: "Type de données non valide" }, { status: 400 })
@@ -86,6 +48,493 @@ export async function GET(request: NextRequest) {
     console.error("Erreur lors de la récupération des données financières:", error)
     return NextResponse.json(
       { error: "Erreur interne du serveur" },
+      { status: 500 }
+    )
+  }
+}
+
+// Fonction pour charger les données de vue d'ensemble
+async function loadOverviewData() {
+  try {
+    // Calculer les dates si non fournies
+    const endDate = new Date()
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() - 30)
+
+    // Récupérer le chiffre d'affaires total (somme des ventes)
+    const totalSales = await prisma.sale.aggregate({
+      _sum: {
+        amount: true
+      }
+    })
+
+    // Récupérer le nombre total de commandes
+    const totalOrders = await prisma.order.count()
+
+    // Récupérer le nombre total d'œuvres
+    const totalWorks = await prisma.work.count()
+
+    // Récupérer le nombre total de partenaires
+    const totalPartners = await prisma.user.count({
+      where: { role: 'PARTENAIRE' }
+    })
+
+    // Calculer la valeur moyenne des commandes
+    const ordersWithTotal = await prisma.order.findMany({
+      include: {
+        items: true
+      }
+    })
+
+    const totalOrderValue = ordersWithTotal.reduce((sum, order) => {
+      const orderTotal = order.items.reduce((itemSum, item) => {
+        return itemSum + (item.price * item.quantity)
+      }, 0)
+      return sum + orderTotal
+    }, 0)
+
+    const avgOrderValue = totalOrders > 0 ? totalOrderValue / totalOrders : 0
+
+    // Récupérer les commandes récentes
+    const recentOrders = await prisma.order.findMany({
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: true,
+        items: {
+          include: {
+            work: {
+              include: {
+                discipline: true
+              }
+            }
+          }
+        }
+      }
+    })
+
+    // Récupérer les œuvres les plus vendues
+    const topWorksData = await prisma.sale.groupBy({
+      by: ['workId'],
+      _sum: {
+        quantity: true,
+        amount: true
+      },
+      _count: {
+        workId: true
+      },
+      orderBy: {
+        _sum: {
+          amount: 'desc'
+        }
+      },
+      take: 5
+    })
+
+    const topWorks = await Promise.all(
+      topWorksData.map(async (item) => {
+        const work = await prisma.work.findUnique({
+          where: { id: item.workId },
+          include: {
+            discipline: true,
+            author: true
+          }
+        })
+        return {
+          work,
+          totalSold: item._sum.quantity || 0,
+          totalRevenue: item._sum.amount || 0,
+          orderCount: item._count.workId || 0
+        }
+      })
+    )
+
+    // Générer les tendances mensuelles (derniers 6 mois)
+    const monthlyTrends = []
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date()
+      date.setMonth(date.getMonth() - i)
+      const monthStart = new Date(date.getFullYear(), date.getMonth(), 1)
+      const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0)
+
+      const monthSales = await prisma.sale.aggregate({
+        where: {
+          createdAt: {
+            gte: monthStart,
+            lte: monthEnd
+          }
+        },
+        _sum: {
+          amount: true
+        }
+      })
+
+      monthlyTrends.push({
+        month: date.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }),
+        revenue: monthSales._sum.amount || 0,
+        orders: await prisma.order.count({
+          where: {
+            createdAt: {
+              gte: monthStart,
+              lte: monthEnd
+            }
+          }
+        })
+      })
+    }
+
+    // Revenus par discipline
+    const disciplineRevenue = {}
+    const salesByDiscipline = await prisma.sale.findMany({
+      include: {
+        work: {
+          include: {
+            discipline: true
+          }
+        }
+      }
+    })
+
+    salesByDiscipline.forEach(sale => {
+      const disciplineName = sale.work?.discipline?.name || 'Non définie'
+      if (!disciplineRevenue[disciplineName]) {
+        disciplineRevenue[disciplineName] = 0
+      }
+      disciplineRevenue[disciplineName] += sale.amount
+    })
+
+    const overview = {
+      totalRevenue: totalSales._sum.amount || 0,
+      totalOrders,
+      totalWorks,
+      totalPartners,
+      avgOrderValue: Math.round(avgOrderValue),
+      recentOrders: recentOrders.map(order => ({
+        id: order.id,
+        status: order.status,
+        total: order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+        itemCount: order.items.length,
+        createdAt: order.createdAt,
+        customerName: order.user?.name || 'Client inconnu'
+      })),
+      topWorks: topWorks.filter(item => item.work !== null),
+      monthlyTrends,
+      disciplineRevenue
+    }
+
+    return NextResponse.json(overview)
+
+  } catch (error) {
+    console.error("Erreur lors du chargement des données de vue d'ensemble:", error)
+    return NextResponse.json(
+      { error: "Erreur lors du chargement des données" },
+      { status: 500 }
+    )
+  }
+}
+
+// Fonction pour charger les données de ventes
+async function loadSalesData(startDate?: string, endDate?: string) {
+  try {
+    // Construire les filtres de date
+    const dateFilter: any = {}
+    if (startDate && endDate) {
+      dateFilter.createdAt = {
+        gte: new Date(startDate),
+        lte: new Date(endDate)
+      }
+    }
+
+    // Récupérer les commandes
+    const orders = await prisma.order.findMany({
+      where: dateFilter,
+      include: {
+        user: true,
+        items: {
+          include: {
+            work: {
+              include: {
+                discipline: true,
+                author: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    // Calculer les statistiques
+    const totalRevenue = orders.reduce((sum, order) => {
+      return sum + order.items.reduce((itemSum, item) => {
+        return itemSum + (item.price * item.quantity)
+      }, 0)
+    }, 0)
+
+    const totalItems = orders.reduce((sum, order) => {
+      return sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0)
+    }, 0)
+
+    const avgOrderValue = orders.length > 0 ? totalRevenue / orders.length : 0
+
+    // Ventes par discipline
+    const salesByDiscipline: { [key: string]: number } = {}
+    orders.forEach(order => {
+      order.items.forEach(item => {
+        const disciplineName = item.work?.discipline?.name || 'Non définie'
+        if (!salesByDiscipline[disciplineName]) {
+          salesByDiscipline[disciplineName] = 0
+        }
+        salesByDiscipline[disciplineName] += item.price * item.quantity
+      })
+    })
+
+    // Œuvres les plus vendues
+    const workSales: { [key: string]: { work: any, quantity: number, revenue: number } } = {}
+    orders.forEach(order => {
+      order.items.forEach(item => {
+        const workId = item.workId
+        if (!workSales[workId]) {
+          workSales[workId] = {
+            work: item.work,
+            quantity: 0,
+            revenue: 0
+          }
+        }
+        workSales[workId].quantity += item.quantity
+        workSales[workId].revenue += item.price * item.quantity
+      })
+    })
+
+    const topSellingWorks = Object.values(workSales)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 10)
+
+    const salesReport = {
+      summary: {
+        totalRevenue,
+        totalOrders: orders.length,
+        totalItems,
+        avgOrderValue: Math.round(avgOrderValue)
+      },
+      orders: orders.map(order => ({
+        id: order.id,
+        status: order.status,
+        total: order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+        itemCount: order.items.length,
+        createdAt: order.createdAt,
+        customerName: order.user?.name || 'Client inconnu',
+        items: order.items.map(item => ({
+          id: item.id,
+          work: {
+            id: item.work?.id,
+            title: item.work?.title,
+            discipline: item.work?.discipline?.name,
+            author: item.work?.author?.name || "Auteur inconnu"
+          },
+          quantity: item.quantity,
+          price: item.price
+        }))
+      })),
+      salesByDiscipline: Object.entries(salesByDiscipline).map(([discipline, revenue]) => ({
+        discipline,
+        revenue
+      })),
+      topSellingWorks
+    }
+
+    return NextResponse.json(salesReport)
+
+  } catch (error) {
+    console.error("Erreur lors du chargement des données de ventes:", error)
+    return NextResponse.json(
+      { error: "Erreur lors du chargement des données de ventes" },
+      { status: 500 }
+    )
+  }
+}
+
+// Fonction pour charger les données de royalties
+async function loadRoyaltiesData(startDate?: string, endDate?: string) {
+  try {
+    // Construire les filtres de date
+    const dateFilter: any = {}
+    if (startDate && endDate) {
+      dateFilter.createdAt = {
+        gte: new Date(startDate),
+        lte: new Date(endDate)
+      }
+    }
+
+    // Récupérer toutes les royalties
+    const royalties = await prisma.royalty.findMany({
+      where: dateFilter,
+      include: {
+        work: {
+          include: {
+            discipline: true
+          }
+        },
+        user: true
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    const totalRoyalties = royalties.reduce((sum, royalty) => sum + royalty.amount, 0)
+    const pendingPayments = royalties.filter(r => !r.paid)
+    const totalPendingAmount = pendingPayments.reduce((sum, royalty) => sum + royalty.amount, 0)
+
+    // Royalties par auteur
+    const royaltiesByAuthor: { [key: string]: { author: any, total: number, paid: number, pending: number } } = {}
+    royalties.forEach(royalty => {
+      const authorId = royalty.userId
+      if (!royaltiesByAuthor[authorId]) {
+        royaltiesByAuthor[authorId] = {
+          author: royalty.user,
+          total: 0,
+          paid: 0,
+          pending: 0
+        }
+      }
+      royaltiesByAuthor[authorId].total += royalty.amount
+      if (royalty.paid) {
+        royaltiesByAuthor[authorId].paid += royalty.amount
+      } else {
+        royaltiesByAuthor[authorId].pending += royalty.amount
+      }
+    })
+
+    const royaltiesData = {
+      totalRoyalties,
+      totalPendingAmount,
+      recentRoyalties: royalties.slice(0, 10).map(royalty => ({
+        id: royalty.id,
+        amount: royalty.amount,
+        paid: royalty.paid,
+        createdAt: royalty.createdAt,
+        work: {
+          id: royalty.work?.id,
+          title: royalty.work?.title,
+          discipline: royalty.work?.discipline?.name
+        },
+        author: {
+          id: royalty.user?.id,
+          name: royalty.user?.name
+        }
+      })),
+      royaltiesByAuthor: Object.values(royaltiesByAuthor),
+      pendingPayments: pendingPayments.map(royalty => ({
+        id: royalty.id,
+        amount: royalty.amount,
+        createdAt: royalty.createdAt,
+        work: {
+          id: royalty.work?.id,
+          title: royalty.work?.title
+        },
+        author: {
+          id: royalty.user?.id,
+          name: royalty.user?.name
+        }
+      }))
+    }
+
+    return NextResponse.json(royaltiesData)
+
+  } catch (error) {
+    console.error("Erreur lors du chargement des données de royalties:", error)
+    return NextResponse.json(
+      { error: "Erreur lors du chargement des données de royalties" },
+      { status: 500 }
+    )
+  }
+}
+
+// Fonction pour charger les données de performance des partenaires
+async function loadPartnerPerformanceData(startDate?: string, endDate?: string) {
+  try {
+    // Récupérer tous les partenaires
+    const partners = await prisma.user.findMany({
+      where: { role: 'PARTENAIRE' },
+      include: {
+        partner: {
+          include: {
+            orders: {
+              include: {
+                items: {
+                  include: {
+                    work: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    })
+
+    // Construire les filtres de date
+    const dateFilter: any = {}
+    if (startDate && endDate) {
+      dateFilter.createdAt = {
+        gte: new Date(startDate),
+        lte: new Date(endDate)
+      }
+    }
+
+    const partnerPerformance = await Promise.all(
+      partners.map(async (partner) => {
+        // Calculer les statistiques pour ce partenaire
+        const partnerOrders = partner.partner?.orders || []
+        const filteredOrders = dateFilter.createdAt 
+          ? partnerOrders.filter(order => 
+              order.createdAt >= dateFilter.createdAt.gte && 
+              order.createdAt <= dateFilter.createdAt.lte
+            )
+          : partnerOrders
+
+        const totalOrders = filteredOrders.length
+        const totalRevenue = filteredOrders.reduce((sum, order) => {
+          return sum + order.items.reduce((itemSum, item) => {
+            return itemSum + (item.price * item.quantity)
+          }, 0)
+        }, 0)
+
+        const totalItems = filteredOrders.reduce((sum, order) => {
+          return sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0)
+        }, 0)
+
+        const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
+
+        return {
+          id: partner.id,
+          name: partner.name,
+          email: partner.email,
+          status: partner.status,
+          totalOrders,
+          totalRevenue,
+          totalItems,
+          avgOrderValue,
+          userStatus: partner.status
+        }
+      })
+    )
+
+    const activePartners = partnerPerformance.filter(p => p.status === 'ACTIVE').length
+    const totalRevenue = partnerPerformance.reduce((sum, p) => sum + p.totalRevenue, 0)
+
+    const response = {
+      partners: partnerPerformance,
+      totalPartners: partners.length,
+      activePartners,
+      totalRevenue
+    }
+
+    return NextResponse.json(response)
+
+  } catch (error) {
+    console.error("Erreur lors du chargement des données de performance des partenaires:", error)
+    return NextResponse.json(
+      { error: "Erreur lors du chargement des données des partenaires" },
       { status: 500 }
     )
   }
