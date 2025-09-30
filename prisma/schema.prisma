@@ -1,6 +1,3 @@
-  // This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,45 +8,41 @@ datasource db {
 }
 
 model User {
-  id              String    @id @default(cuid())
-  name            String
-  email           String    @unique
-  phone           String?   // Numéro de téléphone
-  emailVerified   DateTime? // Changé en DateTime? pour stocker quand l'email a été validé
-  image           String?
-  password        String
-  role            Role
-  status          UserStatus @default(PENDING) // Statut de validation
-  disciplineId    String?   // Ajout du champ disciplineId
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  // Relations
-  authoredWorks     Work[]        @relation("AuthorWorks")
-  conceivedWorks    Work[]        @relation("ConceptorWorks")
-  reviewedWorks     Work[]        @relation("ReviewedWorks")
-  conceivedProjects Project[]     @relation("ConceptorProjects")
-  reviewedProjects  Project[]     @relation("ReviewedProjects")
-  partner           Partner?      
-  partnerClients    Partner[]     @relation("PartnerRepresentant")
-  orders            Order[]
-  royalties         Royalty[]
-  notifications     Notification[]
-  sentMessages      Message[]     @relation("SentMessages")
-  receivedMessages  Message[]     @relation("ReceivedMessages")
-  discipline        Discipline?   @relation(fields: [disciplineId], references: [id]) // Relation avec Discipline
-  performedStockMovements StockMovement[] @relation("StockMovements")
-  createdWorkVersions WorkVersion[] // Versions d'œuvres créées par cet utilisateur
-  workSales        WorkSale[] // Ventes effectuées par cet utilisateur
-  workViews        WorkView[] // Consultations d'œuvres par cet utilisateur
-  createdAlertRules StockAlertRule[] // Règles d'alerte créées par cet utilisateur
-  resolvedAlerts  StockAlert[] // Alertes résolues par cet utilisateur
-  createdReports  StockReport[] // Rapports créés par cet utilisateur
-  createdIntegrations StockIntegration[] // Intégrations créées par cet utilisateur
-
-  // NextAuth relations
-  accounts        Account[]
-  sessions        Session[]
+  id                      String             @id @default(cuid())
+  name                    String
+  email                   String             @unique
+  phone                   String?
+  emailVerified           DateTime?
+  image                   String?
+  password                String
+  role                    Role
+  status                  UserStatus         @default(PENDING)
+  disciplineId            String?
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+  accounts                Account[]
+  receivedMessages        Message[]          @relation("ReceivedMessages")
+  sentMessages            Message[]          @relation("SentMessages")
+  notifications           Notification[]
+  orders                  Order[]
+  partnerClients          Partner[]          @relation("PartnerRepresentant")
+  partner                 Partner?
+  conceivedProjects       Project[]          @relation("ConceptorProjects")
+  reviewedProjects        Project[]          @relation("ReviewedProjects")
+  royalties               Royalty[]
+  sessions                Session[]
+  resolvedAlerts          StockAlert[]
+  createdAlertRules       StockAlertRule[]
+  createdIntegrations     StockIntegration[]
+  performedStockMovements StockMovement[]    @relation("StockMovements")
+  createdReports          StockReport[]
+  discipline              Discipline?        @relation(fields: [disciplineId], references: [id])
+  authoredWorks           Work[]             @relation("AuthorWorks")
+  conceivedWorks          Work[]             @relation("ConceptorWorks")
+  reviewedWorks           Work[]             @relation("ReviewedWorks")
+  workSales               WorkSale[]
+  createdWorkVersions     WorkVersion[]
+  workViews               WorkView[]
 }
 
 model Account {
@@ -65,8 +58,7 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -79,117 +71,100 @@ model Session {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-
 model Project {
-  id                    String        @id @default(cuid())
-  title                 String
-  description           String?
-  objectives            String?       // Objectifs du projet
-  expectedDeliverables  String?       // Livrables attendus
-  requiredResources     String?       // Ressources nécessaires
-  timeline              String?       // Planning prévisionnel
-  rejectionReason       String?       // Motif de refus (si rejeté)
-  discipline            Discipline    @relation(fields: [disciplineId], references: [id])
-  disciplineId          String
-  status                ProjectStatus @default(DRAFT)
-  submittedAt           DateTime?
-  reviewedAt            DateTime?
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
-
-  // Relations
-  concepteurId String
-  concepteur   User         @relation("ConceptorProjects", fields: [concepteurId], references: [id])
-  reviewerId   String?
-  reviewer     User?        @relation("ReviewedProjects", fields: [reviewerId], references: [id])
-  
-  // Relation vers les œuvres créées (un projet peut générer plusieurs œuvres)
-  works        Work[]       @relation("ProjectWorks")
+  id                   String        @id @default(cuid())
+  title                String
+  description          String?
+  objectives           String?
+  expectedDeliverables String?
+  requiredResources    String?
+  timeline             String?
+  rejectionReason      String?
+  disciplineId         String
+  status               ProjectStatus @default(DRAFT)
+  submittedAt          DateTime?
+  reviewedAt           DateTime?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  concepteurId         String
+  reviewerId           String?
+  concepteur           User          @relation("ConceptorProjects", fields: [concepteurId], references: [id])
+  discipline           Discipline    @relation(fields: [disciplineId], references: [id])
+  reviewer             User?         @relation("ReviewedProjects", fields: [reviewerId], references: [id])
+  works                Work[]        @relation("ProjectWorks")
 }
 
 model Work {
-  id           String     @id @default(cuid())
-  title        String
-  description  String?    // Description détaillée de l'œuvre
-  isbn         String     @unique
-  internalCode String?    // Code interne pour la gestion PDG
-  price        Float      @default(0)
-  tva          Float      @default(0.18) // 18% TVA par défaut
-  discountRate Float?     // Taux de remise applicable (en %)
-  stock        Int        @default(0)
-  minStock     Int        @default(10) // Seuil d'alerte de stock faible
-  maxStock     Int?       // Stock maximum recommandé
-  physicalStock Int       @default(0) // Stock physique réel
-  
-  // Nouveaux champs pour le workflow amélioré
-  category               String?    // Catégorie de l'œuvre
-  targetAudience        String?    // Public cible
-  educationalObjectives String?    // Objectifs pédagogiques
-  contentType           String?    // Type de contenu (manuel, cahier, etc.)
-  keywords              String?    // Mots-clés séparés par des virgules
-  files                 String?    // JSON des fichiers associés
-  
-  // Validation et commentaires
-  validationComment     String?    // Commentaire du PDG lors de la validation
-  rejectionReason       String?    // Raison du refus si rejeté
-  
-  discipline   Discipline @relation(fields: [disciplineId], references: [id])
-  disciplineId String
-  status       WorkStatus @default(PENDING) // Changé par défaut à PENDING
-  publishedAt  DateTime?  // Nullable, défini seulement lors de la publication
-  publicationDate DateTime? // Date de publication pour le stock (peut différer de publishedAt)
-  version      String?    // Version de l'œuvre (ex: "1.0", "2.0", "Édition 2024")
-  submittedAt  DateTime?  // Date de soumission
-  reviewedAt   DateTime?  // Date de validation/refus
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @default(now()) @updatedAt
-
-  // Relations
-  authorId     String      // Obligatoire - seuls les auteurs peuvent créer des œuvres
-  author       User        @relation("AuthorWorks", fields: [authorId], references: [id])
-  reviewerId   String?     // PDG qui a validé/refusé
-  reviewer     User?       @relation("ReviewedWorks", fields: [reviewerId], references: [id])
-  
-  // Relation vers le concepteur (optionnelle - pour les œuvres rattachées à un projet)
-  concepteurId String?
-  concepteur   User?       @relation("ConceptorWorks", fields: [concepteurId], references: [id])
-  
-  // Relation vers le projet d'origine (optionnelle - pour les œuvres créées à partir de projets)
-  projectId    String?
-  project      Project?    @relation("ProjectWorks", fields: [projectId], references: [id])
-  
-  sales        Sale[]
-  orderItems   OrderItem[]
-  royalties    Royalty[]
-  stockMovements StockMovement[]
-  versions     WorkVersion[]
-  workSales    WorkSale[]
-  workDistributions WorkDistribution[]
-  workViews    WorkView[]
-  stockAlerts  StockAlert[]
-  partnerStocks PartnerStock[] // Stock alloué aux partenaires
+  id                    String             @id @default(cuid())
+  title                 String
+  description           String?
+  isbn                  String             @unique
+  internalCode          String?
+  price                 Float              @default(0)
+  tva                   Float              @default(0.18)
+  discountRate          Float?
+  stock                 Int                @default(0)
+  minStock              Int                @default(10)
+  maxStock              Int?
+  physicalStock         Int                @default(0)
+  category              String?
+  targetAudience        String?
+  educationalObjectives String?
+  contentType           String?
+  keywords              String?
+  files                 String?
+  validationComment     String?
+  rejectionReason       String?
+  disciplineId          String
+  status                WorkStatus         @default(PENDING)
+  publishedAt           DateTime?
+  publicationDate       DateTime?
+  version               String?
+  submittedAt           DateTime?
+  reviewedAt            DateTime?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @default(now()) @updatedAt
+  authorId              String
+  reviewerId            String?
+  concepteurId          String?
+  projectId             String?
+  orderItems            OrderItem[]
+  partnerStocks         PartnerStock[]
+  royalties             Royalty[]
+  sales                 Sale[]
+  stockAlerts           StockAlert[]
+  stockMovements        StockMovement[]
+  author                User               @relation("AuthorWorks", fields: [authorId], references: [id])
+  concepteur            User?              @relation("ConceptorWorks", fields: [concepteurId], references: [id])
+  discipline            Discipline         @relation(fields: [disciplineId], references: [id])
+  project               Project?           @relation("ProjectWorks", fields: [projectId], references: [id])
+  reviewer              User?              @relation("ReviewedWorks", fields: [reviewerId], references: [id])
+  workDistributions     WorkDistribution[]
+  workSales             WorkSale[]
+  versions              WorkVersion[]
+  workViews             WorkView[]
 }
 
 model StockMovement {
-  id          String           @id @default(cuid())
-  workId      String
-  work        Work             @relation(fields: [workId], references: [id])
-  type        StockMovementType
-  quantity    Int              // Quantité positive pour ajout, négative pour retrait
-  reason      String?          // Raison du mouvement (vente, réimpression, ajustement, etc.)
-  reference   String?          // Référence (ID de commande, numéro de facture, etc.)
-  performedBy String?          // ID de l'utilisateur qui a effectué le mouvement
-  performedByUser User?        @relation("StockMovements", fields: [performedBy], references: [id])
-  partnerId   String?          // ID du partenaire si mouvement lié à un partenaire
-  partner     Partner?         @relation(fields: [partnerId], references: [id])
-  source      String?          // Source du mouvement (imprimerie, fournisseur, etc.)
-  destination String?          // Destination du mouvement (partenaire, client, etc.)
-  unitPrice   Float?           // Prix unitaire au moment du mouvement
-  totalAmount Float?           // Montant total du mouvement
-  isCorrection Boolean        @default(false) // Indique si c'est une correction PDG
-  correctionReason String?     // Raison de la correction
-  createdAt   DateTime         @default(now())
-  
+  id               String            @id @default(cuid())
+  workId           String
+  type             StockMovementType
+  quantity         Int
+  reason           String?
+  reference        String?
+  performedBy      String?
+  partnerId        String?
+  source           String?
+  destination      String?
+  unitPrice        Float?
+  totalAmount      Float?
+  isCorrection     Boolean           @default(false)
+  correctionReason String?
+  createdAt        DateTime          @default(now())
+  partner          Partner?          @relation(fields: [partnerId], references: [id])
+  performedByUser  User?             @relation("StockMovements", fields: [performedBy], references: [id])
+  work             Work              @relation(fields: [workId], references: [id])
+
   @@index([workId])
   @@index([type])
   @@index([createdAt])
@@ -200,115 +175,305 @@ model StockMovement {
 model Discipline {
   id          String    @id @default(cuid())
   name        String    @unique
-  description String?   // Description de la discipline
-  isActive    Boolean   @default(true) // Statut actif/inactif
+  description String?
+  isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-  
-  // Relations
   projects    Project[]
+  users       User[]
   works       Work[]
-  users       User[]    // Relation avec les utilisateurs (concepteurs)
 }
 
 model Sale {
   id        String   @id @default(cuid())
   workId    String
-  work      Work     @relation(fields: [workId], references: [id])
   quantity  Int
   amount    Float
   createdAt DateTime @default(now())
+  work      Work     @relation(fields: [workId], references: [id])
 }
 
 model Partner {
-  id          String   @id @default(cuid())
-  name        String   // Nom de l'organisation
-  type        String   // Type: école, librairie, institution, maison d'édition, association
-  address     String?  // Adresse complète
-  phone       String?  // Téléphone
-  email       String?  // Email de contact
-  contact     String?  // Personne de contact
-  website     String?  // Site web
-  description String?  // Description de l'organisation
-  representantId String? // ID du représentant assigné
-  representant User? @relation("PartnerRepresentant", fields: [representantId], references: [id])
-  userId      String   @unique
-  user        User     @relation(fields: [userId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Relations
-  orders      Order[]  @relation("PartnerOrders")
-  stockItems  PartnerStock[] // Stock alloué au partenaire
-  stockMovements StockMovement[] // Mouvements de stock du partenaire
+  id             String          @id @default(cuid())
+  name           String
+  type           String
+  address        String?
+  phone          String?
+  email          String?
+  contact        String?
+  website        String?
+  description    String?
+  representantId String?
+  userId         String          @unique
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  orders         Order[]         @relation("PartnerOrders")
+  representant   User?           @relation("PartnerRepresentant", fields: [representantId], references: [id])
+  user           User            @relation(fields: [userId], references: [id])
+  stockItems     PartnerStock[]
+  stockMovements StockMovement[]
 }
 
 model PartnerStock {
-  id          String   @id @default(cuid())
-  partnerId   String
-  partner     Partner  @relation(fields: [partnerId], references: [id])
-  workId      String
-  work        Work     @relation(fields: [workId], references: [id])
-  allocatedQuantity Int // Quantité allouée au partenaire
-  soldQuantity      Int @default(0) // Quantité vendue
-  returnedQuantity  Int @default(0) // Quantité retournée
-  availableQuantity Int // Quantité disponible (allouée - vendue - retournée)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@unique([partnerId, workId]) // Un seul enregistrement par partenaire/œuvre
+  id                String   @id @default(cuid())
+  partnerId         String
+  workId            String
+  allocatedQuantity Int
+  soldQuantity      Int      @default(0)
+  returnedQuantity  Int      @default(0)
+  availableQuantity Int
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  partner           Partner  @relation(fields: [partnerId], references: [id])
+  work              Work     @relation(fields: [workId], references: [id])
+
+  @@unique([partnerId, workId])
   @@index([partnerId])
   @@index([workId])
 }
 
 model Order {
-  id        String   @id @default(cuid())
+  id        String      @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  partnerId String?  // ID du partenaire si c'est une commande partenaire
-  partner   Partner? @relation("PartnerOrders", fields: [partnerId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  partnerId String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @default(now()) @updatedAt
   status    OrderStatus @default(PENDING)
-
-  // Relations
+  partner   Partner?    @relation("PartnerOrders", fields: [partnerId], references: [id])
+  user      User        @relation(fields: [userId], references: [id])
   items     OrderItem[]
 }
 
 model OrderItem {
   id       String @id @default(cuid())
   orderId  String
-  order    Order  @relation(fields: [orderId], references: [id])
   workId   String
-  work     Work   @relation(fields: [workId], references: [id])
   quantity Int
   price    Float
+  order    Order  @relation(fields: [orderId], references: [id])
+  work     Work   @relation(fields: [workId], references: [id])
 }
 
 model Royalty {
   id        String   @id @default(cuid())
   workId    String
-  work      Work     @relation(fields: [workId], references: [id])
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
   amount    Float
   paid      Boolean  @default(false)
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  work      Work     @relation(fields: [workId], references: [id])
 }
 
 model Message {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   subject     String
   content     String
-  type        String   @default("MESSAGE") // MESSAGE, SYSTEM, NOTIFICATION
-  read        Boolean  @default(false)
+  type        String    @default("MESSAGE")
+  read        Boolean   @default(false)
   readAt      DateTime?
   senderId    String
-  sender      User     @relation("SentMessages", fields: [senderId], references: [id])
   recipientId String
-  recipient   User     @relation("ReceivedMessages", fields: [recipientId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  recipient   User      @relation("ReceivedMessages", fields: [recipientId], references: [id])
+  sender      User      @relation("SentMessages", fields: [senderId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String
+  data      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  action      String
+  userId      String?
+  performedBy String
+  details     String
+  metadata    String?
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+}
+
+model WorkVersion {
+  id            String    @id @default(cuid())
+  workId        String
+  version       String
+  title         String
+  description   String?
+  isActive      Boolean   @default(true)
+  publishedAt   DateTime?
+  archivedAt    DateTime?
+  createdBy     String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdByUser User      @relation(fields: [createdBy], references: [id])
+  work          Work      @relation(fields: [workId], references: [id], onDelete: Cascade)
+
+  @@index([workId])
+  @@index([version])
+  @@index([isActive])
+}
+
+model WorkSale {
+  id         String   @id @default(cuid())
+  workId     String
+  quantity   Int
+  amount     Float
+  saleType   SaleType @default(DIRECT)
+  customerId String?
+  orderId    String?
+  saleDate   DateTime @default(now())
+  createdAt  DateTime @default(now())
+  customer   User?    @relation(fields: [customerId], references: [id])
+  work       Work     @relation(fields: [workId], references: [id], onDelete: Cascade)
+
+  @@index([workId])
+  @@index([saleDate])
+  @@index([saleType])
+}
+
+model WorkDistribution {
+  id               String           @id @default(cuid())
+  workId           String
+  quantity         Int
+  distributionType DistributionType @default(SCHOOL)
+  recipientId      String?
+  recipientName    String?
+  distributionDate DateTime         @default(now())
+  notes            String?
+  createdAt        DateTime         @default(now())
+  work             Work             @relation(fields: [workId], references: [id], onDelete: Cascade)
+
+  @@index([workId])
+  @@index([distributionDate])
+  @@index([distributionType])
+}
+
+model WorkView {
+  id        String   @id @default(cuid())
+  workId    String
+  viewerId  String?
+  ipAddress String?
+  userAgent String?
+  viewedAt  DateTime @default(now())
+  viewer    User?    @relation(fields: [viewerId], references: [id])
+  work      Work     @relation(fields: [workId], references: [id], onDelete: Cascade)
+
+  @@index([workId])
+  @@index([viewedAt])
+  @@index([viewerId])
+}
+
+model StockAlertRule {
+  id              String        @id @default(cuid())
+  name            String
+  description     String?
+  type            AlertRuleType
+  conditions      String
+  actions         String
+  isActive        Boolean       @default(true)
+  priority        AlertPriority @default(MEDIUM)
+  createdBy       String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  triggeredAlerts StockAlert[]  @relation("AlertRule")
+  createdByUser   User          @relation(fields: [createdBy], references: [id])
+
+  @@index([type])
+  @@index([isActive])
+  @@index([priority])
+}
+
+model StockAlert {
+  id             String          @id @default(cuid())
+  ruleId         String?
+  workId         String?
+  type           AlertType
+  severity       AlertSeverity
+  title          String
+  message        String
+  data           String?
+  isRead         Boolean         @default(false)
+  isResolved     Boolean         @default(false)
+  resolvedBy     String?
+  resolvedAt     DateTime?
+  createdAt      DateTime        @default(now())
+  resolvedByUser User?           @relation(fields: [resolvedBy], references: [id])
+  rule           StockAlertRule? @relation("AlertRule", fields: [ruleId], references: [id])
+  work           Work?           @relation(fields: [workId], references: [id])
+
+  @@index([type])
+  @@index([severity])
+  @@index([isRead])
+  @@index([isResolved])
+  @@index([createdAt])
+}
+
+model StockReport {
+  id            String            @id @default(cuid())
+  name          String
+  type          ReportType
+  parameters    String
+  schedule      String?
+  isActive      Boolean           @default(true)
+  lastRun       DateTime?
+  nextRun       DateTime?
+  createdBy     String
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  executions    ReportExecution[] @relation("Report")
+  createdByUser User              @relation(fields: [createdBy], references: [id])
+
+  @@index([type])
+  @@index([isActive])
+  @@index([nextRun])
+}
+
+model ReportExecution {
+  id          String          @id @default(cuid())
+  reportId    String
+  status      ExecutionStatus
+  startedAt   DateTime        @default(now())
+  completedAt DateTime?
+  result      String?
+  error       String?
+  filePath    String?
+  report      StockReport     @relation("Report", fields: [reportId], references: [id])
+
+  @@index([reportId])
+  @@index([status])
+  @@index([startedAt])
+}
+
+model StockIntegration {
+  id            String          @id @default(cuid())
+  name          String
+  type          IntegrationType
+  config        String
+  isActive      Boolean         @default(true)
+  lastSync      DateTime?
+  syncStatus    SyncStatus      @default(PENDING)
+  errorCount    Int             @default(0)
+  lastError     String?
+  createdBy     String
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  createdByUser User            @relation(fields: [createdBy], references: [id])
+
+  @@index([type])
+  @@index([isActive])
+  @@index([syncStatus])
 }
 
 enum Role {
@@ -357,298 +522,98 @@ enum OrderStatus {
 }
 
 enum StockMovementType {
-  INBOUND        // Entrée de stock (réimpression, réception)
-  OUTBOUND       // Sortie de stock (vente, retrait)
-  ADJUSTMENT     // Ajustement de stock (inventaire, correction)
-  TRANSFER       // Transfert entre entrepôts
-  DAMAGED        // Stock endommagé
-  EXPIRED        // Stock expiré
-  PARTNER_ALLOCATION // Allocation de stock à un partenaire
-  PARTNER_SALE   // Vente par un partenaire
-  PARTNER_RETURN // Retour de stock par un partenaire
-  DIRECT_SALE    // Vente directe au siège
-  CORRECTION     // Correction PDG (droit exclusif)
-  INVENTORY      // Ajustement suite à inventaire
-}
-
-model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  title     String
-  message   String
-  type      String   // Type de notification (STOCK_UPDATE, ORDER_UPDATE, etc.)
-  data      String?  // Données JSON additionnelles
-  read      Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-  @@index([createdAt])
-}
-
-model AuditLog {
-  id          String   @id @default(cuid())
-  action       String   // Type d'action (VALIDATE_CONCEPTEUR, SUSPEND_USER, etc.)
-  userId       String?  // ID de l'utilisateur concerné
-  performedBy  String   // Qui a effectué l'action (PDG, etc.)
-  details      String   // Description textuelle de l'action
-  metadata     String?  // Métadonnées JSON de l'action (optionnel)
-  createdAt    DateTime @default(now())
-}
-
-model WorkVersion {
-  id          String   @id @default(cuid())
-  workId      String
-  work        Work     @relation(fields: [workId], references: [id], onDelete: Cascade)
-  version     String   // Version (ex: "1.0", "2.0", "Édition 2024")
-  title       String   // Titre de cette version
-  description String?  // Description des changements
-  isActive    Boolean  @default(true) // Version active ou archivée
-  publishedAt DateTime? // Date de publication de cette version
-  archivedAt  DateTime? // Date d'archivage
-  createdBy   String   // ID de l'utilisateur qui a créé cette version
-  createdByUser User   @relation(fields: [createdBy], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@index([workId])
-  @@index([version])
-  @@index([isActive])
-}
-
-model WorkSale {
-  id          String   @id @default(cuid())
-  workId      String
-  work        Work     @relation(fields: [workId], references: [id], onDelete: Cascade)
-  quantity    Int      // Quantité vendue
-  amount      Float    // Montant total de la vente
-  saleType    SaleType @default(DIRECT) // Type de vente
-  customerId  String?  // ID du client (optionnel)
-  customer    User?    @relation(fields: [customerId], references: [id])
-  orderId     String?  // ID de la commande (optionnel)
-  saleDate    DateTime @default(now())
-  createdAt   DateTime @default(now())
-  
-  @@index([workId])
-  @@index([saleDate])
-  @@index([saleType])
-}
-
-model WorkDistribution {
-  id              String           @id @default(cuid())
-  workId          String
-  work            Work             @relation(fields: [workId], references: [id], onDelete: Cascade)
-  quantity        Int              // Quantité distribuée
-  distributionType DistributionType @default(SCHOOL) // Type de distribution
-  recipientId     String?          // ID du destinataire (école, partenaire, etc.)
-  recipientName   String?          // Nom du destinataire
-  distributionDate DateTime        @default(now())
-  notes           String?          // Notes sur la distribution
-  createdAt       DateTime         @default(now())
-  
-  @@index([workId])
-  @@index([distributionDate])
-  @@index([distributionType])
-}
-
-model WorkView {
-  id        String   @id @default(cuid())
-  workId    String
-  work      Work     @relation(fields: [workId], references: [id], onDelete: Cascade)
-  viewerId  String?  // ID de l'utilisateur qui a consulté (optionnel)
-  viewer    User?    @relation(fields: [viewerId], references: [id])
-  ipAddress String?  // Adresse IP (pour les consultations anonymes)
-  userAgent String?  // User agent du navigateur
-  viewedAt  DateTime @default(now())
-  
-  @@index([workId])
-  @@index([viewedAt])
-  @@index([viewerId])
+  INBOUND
+  OUTBOUND
+  ADJUSTMENT
+  TRANSFER
+  DAMAGED
+  EXPIRED
+  PARTNER_ALLOCATION
+  PARTNER_SALE
+  PARTNER_RETURN
+  DIRECT_SALE
+  CORRECTION
+  INVENTORY
 }
 
 enum SaleType {
-  DIRECT      // Vente directe
-  ONLINE      // Vente en ligne
-  PARTNER     // Vente via partenaire
-  SCHOOL      // Vente à une école
-  BULK        // Vente en gros
+  DIRECT
+  ONLINE
+  PARTNER
+  SCHOOL
+  BULK
 }
 
 enum DistributionType {
-  SCHOOL      // Distribution à une école
-  LIBRARY     // Distribution à une bibliothèque
-  PARTNER     // Distribution à un partenaire
-  PROMOTION   // Distribution promotionnelle
-  SAMPLE      // Échantillon gratuit
-}
-
-model StockAlertRule {
-  id              String        @id @default(cuid())
-  name            String        // Nom de la règle
-  description     String?       // Description de la règle
-  type            AlertRuleType // Type de règle
-  conditions      String        // Conditions JSON
-  actions         String        // Actions JSON
-  isActive        Boolean       @default(true)
-  priority        AlertPriority @default(MEDIUM)
-  createdBy       String        // ID de l'utilisateur qui a créé la règle
-  createdByUser   User          @relation(fields: [createdBy], references: [id])
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  
-  // Relations
-  triggeredAlerts StockAlert[]  @relation("AlertRule")
-  
-  @@index([type])
-  @@index([isActive])
-  @@index([priority])
-}
-
-model StockAlert {
-  id          String        @id @default(cuid())
-  ruleId      String?       // ID de la règle qui a déclenché l'alerte
-  rule        StockAlertRule? @relation("AlertRule", fields: [ruleId], references: [id])
-  workId      String?       // ID de l'œuvre concernée (optionnel)
-  work        Work?         @relation(fields: [workId], references: [id])
-  type        AlertType     // Type d'alerte
-  severity    AlertSeverity // Sévérité de l'alerte
-  title       String        // Titre de l'alerte
-  message     String        // Message de l'alerte
-  data        String?       // Données JSON supplémentaires
-  isRead      Boolean       @default(false)
-  isResolved  Boolean       @default(false)
-  resolvedBy  String?       // ID de l'utilisateur qui a résolu l'alerte
-  resolvedByUser User?      @relation(fields: [resolvedBy], references: [id])
-  resolvedAt  DateTime?     // Date de résolution
-  createdAt   DateTime      @default(now())
-  
-  @@index([type])
-  @@index([severity])
-  @@index([isRead])
-  @@index([isResolved])
-  @@index([createdAt])
-}
-
-model StockReport {
-  id          String        @id @default(cuid())
-  name        String        // Nom du rapport
-  type        ReportType    // Type de rapport
-  parameters  String        // Paramètres JSON
-  schedule    String?       // Planification (cron expression)
-  isActive    Boolean       @default(true)
-  lastRun     DateTime?     // Dernière exécution
-  nextRun     DateTime?     // Prochaine exécution
-  createdBy   String        // ID de l'utilisateur qui a créé le rapport
-  createdByUser User        @relation(fields: [createdBy], references: [id])
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  
-  // Relations
-  executions  ReportExecution[] @relation("Report")
-  
-  @@index([type])
-  @@index([isActive])
-  @@index([nextRun])
-}
-
-model ReportExecution {
-  id          String        @id @default(cuid())
-  reportId    String
-  report      StockReport   @relation("Report", fields: [reportId], references: [id])
-  status      ExecutionStatus // Statut d'exécution
-  startedAt   DateTime      @default(now())
-  completedAt DateTime?     // Date de fin
-  result      String?       // Résultat JSON
-  error       String?       // Message d'erreur
-  filePath    String?       // Chemin du fichier généré
-  
-  @@index([reportId])
-  @@index([status])
-  @@index([startedAt])
-}
-
-model StockIntegration {
-  id          String        @id @default(cuid())
-  name        String        // Nom de l'intégration
-  type        IntegrationType // Type d'intégration
-  config      String        // Configuration JSON
-  isActive    Boolean       @default(true)
-  lastSync    DateTime?     // Dernière synchronisation
-  syncStatus  SyncStatus    @default(PENDING)
-  errorCount  Int           @default(0)
-  lastError   String?       // Dernière erreur
-  createdBy   String        // ID de l'utilisateur qui a créé l'intégration
-  createdByUser User        @relation(fields: [createdBy], references: [id])
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  
-  @@index([type])
-  @@index([isActive])
-  @@index([syncStatus])
+  SCHOOL
+  LIBRARY
+  PARTNER
+  PROMOTION
+  SAMPLE
 }
 
 enum AlertRuleType {
-  STOCK_LOW           // Stock faible
-  STOCK_OUT           // Rupture de stock
-  SALES_THRESHOLD     // Seuil de ventes
-  PRICE_CHANGE        // Changement de prix
-  EXPIRY_WARNING      // Avertissement d'expiration
-  CUSTOM              // Règle personnalisée
+  STOCK_LOW
+  STOCK_OUT
+  SALES_THRESHOLD
+  PRICE_CHANGE
+  EXPIRY_WARNING
+  CUSTOM
 }
 
 enum AlertPriority {
-  LOW       // Faible
-  MEDIUM    // Moyenne
-  HIGH      // Élevée
-  CRITICAL  // Critique
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
 }
 
 enum AlertType {
-  STOCK_LOW           // Stock faible
-  STOCK_OUT           // Rupture de stock
-  SALES_SPIKE         // Pic de ventes
-  PRICE_CHANGE        // Changement de prix
-  EXPIRY_WARNING      // Avertissement d'expiration
-  INTEGRATION_ERROR   // Erreur d'intégration
-  REPORT_FAILED       // Échec de rapport
-  CUSTOM              // Alerte personnalisée
+  STOCK_LOW
+  STOCK_OUT
+  SALES_SPIKE
+  PRICE_CHANGE
+  EXPIRY_WARNING
+  INTEGRATION_ERROR
+  REPORT_FAILED
+  CUSTOM
 }
 
 enum AlertSeverity {
-  INFO      // Information
-  WARNING   // Avertissement
-  ERROR     // Erreur
-  CRITICAL  // Critique
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
 }
 
 enum ReportType {
-  INVENTORY_SUMMARY   // Résumé d'inventaire
-  SALES_ANALYSIS      // Analyse des ventes
-  STOCK_MOVEMENTS     // Mouvements de stock
-  ALERTS_SUMMARY      // Résumé des alertes
-  CUSTOM              // Rapport personnalisé
+  INVENTORY_SUMMARY
+  SALES_ANALYSIS
+  STOCK_MOVEMENTS
+  ALERTS_SUMMARY
+  CUSTOM
 }
 
 enum ExecutionStatus {
-  PENDING    // En attente
-  RUNNING    // En cours
-  COMPLETED  // Terminé
-  FAILED     // Échoué
-  CANCELLED  // Annulé
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
 }
 
 enum IntegrationType {
-  ORDER_SYSTEM        // Système de commandes
-  ACCOUNTING_SYSTEM   // Système comptable
-  WAREHOUSE_SYSTEM    // Système d'entrepôt
-  ECOMMERCE_PLATFORM  // Plateforme e-commerce
-  CUSTOM              // Intégration personnalisée
+  ORDER_SYSTEM
+  ACCOUNTING_SYSTEM
+  WAREHOUSE_SYSTEM
+  ECOMMERCE_PLATFORM
+  CUSTOM
 }
 
 enum SyncStatus {
-  PENDING    // En attente
-  SYNCING    // Synchronisation
-  SUCCESS    // Succès
-  FAILED     // Échec
-  DISABLED   // Désactivé
+  PENDING
+  SYNCING
+  SUCCESS
+  FAILED
+  DISABLED
 }
