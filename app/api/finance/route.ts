@@ -61,12 +61,28 @@ async function loadOverviewData() {
     const startDate = new Date()
     startDate.setDate(startDate.getDate() - 30)
 
-    // Récupérer le chiffre d'affaires total (somme des ventes)
-    const totalSales = await prisma.sale.aggregate({
+    // Récupérer le chiffre d'affaires total (somme des ventes + commandes livrées)
+    const totalSalesFromSales = await prisma.sale.aggregate({
       _sum: {
         amount: true
       }
     })
+
+    // Calculer le chiffre d'affaires des commandes livrées
+    const deliveredOrders = await prisma.order.findMany({
+      where: { status: 'DELIVERED' },
+      include: {
+        items: true
+      }
+    })
+
+    const totalSalesFromOrders = deliveredOrders.reduce((sum, order) => {
+      return sum + order.items.reduce((itemSum, item) => {
+        return itemSum + (item.price * item.quantity)
+      }, 0)
+    }, 0)
+
+    const totalSales = (totalSalesFromSales._sum.amount || 0) + totalSalesFromOrders
 
     // Récupérer le nombre total de commandes
     const totalOrders = await prisma.order.count()
@@ -113,8 +129,8 @@ async function loadOverviewData() {
       }
     })
 
-    // Récupérer les œuvres les plus vendues
-    const topWorksData = await prisma.sale.groupBy({
+    // Récupérer les œuvres les plus vendues (ventes + commandes livrées)
+    const salesData = await prisma.sale.groupBy({
       by: ['workId'],
       _sum: {
         quantity: true,
@@ -122,19 +138,55 @@ async function loadOverviewData() {
       },
       _count: {
         workId: true
-      },
-      orderBy: {
-        _sum: {
-          amount: 'desc'
-        }
-      },
-      take: 5
+      }
     })
 
+    // Calculer les ventes des commandes livrées
+    const orderSalesData: { [workId: string]: { quantity: number, revenue: number, orderCount: number } } = {}
+    deliveredOrders.forEach(order => {
+      order.items.forEach(item => {
+        const workId = item.workId
+        if (!orderSalesData[workId]) {
+          orderSalesData[workId] = { quantity: 0, revenue: 0, orderCount: 0 }
+        }
+        orderSalesData[workId].quantity += item.quantity
+        orderSalesData[workId].revenue += item.price * item.quantity
+        orderSalesData[workId].orderCount += 1
+      })
+    })
+
+    // Combiner les données de ventes et commandes
+    const combinedSalesData: { [workId: string]: { quantity: number, revenue: number, orderCount: number } } = {}
+    
+    // Ajouter les ventes
+    salesData.forEach(sale => {
+      combinedSalesData[sale.workId] = {
+        quantity: sale._sum.quantity || 0,
+        revenue: sale._sum.amount || 0,
+        orderCount: sale._count.workId || 0
+      }
+    })
+
+    // Ajouter les commandes livrées
+    Object.entries(orderSalesData).forEach(([workId, data]) => {
+      if (combinedSalesData[workId]) {
+        combinedSalesData[workId].quantity += data.quantity
+        combinedSalesData[workId].revenue += data.revenue
+        combinedSalesData[workId].orderCount += data.orderCount
+      } else {
+        combinedSalesData[workId] = data
+      }
+    })
+
+    // Trier par revenus et prendre le top 5
+    const sortedWorks = Object.entries(combinedSalesData)
+      .sort(([,a], [,b]) => b.revenue - a.revenue)
+      .slice(0, 5)
+
     const topWorks = await Promise.all(
-      topWorksData.map(async (item) => {
+      sortedWorks.map(async ([workId, data]) => {
         const work = await prisma.work.findUnique({
-          where: { id: item.workId },
+          where: { id: workId },
           include: {
             discipline: true,
             author: true
@@ -142,9 +194,9 @@ async function loadOverviewData() {
         })
         return {
           work,
-          totalSold: item._sum.quantity || 0,
-          totalRevenue: item._sum.amount || 0,
-          orderCount: item._count.workId || 0
+          totalSold: data.quantity,
+          totalRevenue: data.revenue,
+          orderCount: data.orderCount
         }
       })
     )
@@ -245,7 +297,7 @@ async function loadSalesData(startDate?: string, endDate?: string) {
       }
     }
 
-    // Récupérer les commandes
+    // Récupérer les commandes (toutes les commandes, pas seulement celles dans la période)
     const orders = await prisma.order.findMany({
       where: dateFilter,
       include: {
@@ -264,21 +316,48 @@ async function loadSalesData(startDate?: string, endDate?: string) {
       orderBy: { createdAt: 'desc' }
     })
 
-    // Calculer les statistiques
-    const totalRevenue = orders.reduce((sum, order) => {
+    // Récupérer aussi les ventes directes pour la période
+    const sales = await prisma.sale.findMany({
+      where: dateFilter,
+      include: {
+        work: {
+          include: {
+            discipline: true,
+            author: true
+          }
+        }
+      }
+    })
+
+    // Calculer les statistiques (commandes + ventes directes)
+    const ordersRevenue = orders.reduce((sum, order) => {
       return sum + order.items.reduce((itemSum, item) => {
         return itemSum + (item.price * item.quantity)
       }, 0)
     }, 0)
 
-    const totalItems = orders.reduce((sum, order) => {
+    const salesRevenue = sales.reduce((sum, sale) => {
+      return sum + sale.amount
+    }, 0)
+
+    const totalRevenue = ordersRevenue + salesRevenue
+
+    const ordersItems = orders.reduce((sum, order) => {
       return sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0)
     }, 0)
 
-    const avgOrderValue = orders.length > 0 ? totalRevenue / orders.length : 0
+    const salesItems = sales.reduce((sum, sale) => {
+      return sum + sale.quantity
+    }, 0)
+
+    const totalItems = ordersItems + salesItems
+
+    const avgOrderValue = orders.length > 0 ? ordersRevenue / orders.length : 0
 
     // Ventes par discipline
     const salesByDiscipline: { [key: string]: number } = {}
+    
+    // Ajouter les commandes
     orders.forEach(order => {
       order.items.forEach(item => {
         const disciplineName = item.work?.discipline?.name || 'Non définie'
@@ -289,8 +368,19 @@ async function loadSalesData(startDate?: string, endDate?: string) {
       })
     })
 
+    // Ajouter les ventes directes
+    sales.forEach(sale => {
+      const disciplineName = sale.work?.discipline?.name || 'Non définie'
+      if (!salesByDiscipline[disciplineName]) {
+        salesByDiscipline[disciplineName] = 0
+      }
+      salesByDiscipline[disciplineName] += sale.amount
+    })
+
     // Œuvres les plus vendues
     const workSales: { [key: string]: { work: any, quantity: number, revenue: number } } = {}
+    
+    // Ajouter les commandes
     orders.forEach(order => {
       order.items.forEach(item => {
         const workId = item.workId
@@ -304,6 +394,20 @@ async function loadSalesData(startDate?: string, endDate?: string) {
         workSales[workId].quantity += item.quantity
         workSales[workId].revenue += item.price * item.quantity
       })
+    })
+
+    // Ajouter les ventes directes
+    sales.forEach(sale => {
+      const workId = sale.workId
+      if (!workSales[workId]) {
+        workSales[workId] = {
+          work: sale.work,
+          quantity: 0,
+          revenue: 0
+        }
+      }
+      workSales[workId].quantity += sale.quantity
+      workSales[workId].revenue += sale.amount
     })
 
     const topSellingWorks = Object.values(workSales)
