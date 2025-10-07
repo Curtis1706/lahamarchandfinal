@@ -19,11 +19,10 @@ export async function GET(request: NextRequest) {
     const disciplineId = searchParams.get('disciplineId')
 
     // Construire les filtres
+    // Pour l'instant, les représentants ne gèrent pas directement les œuvres
+    // Cette fonctionnalité sera implémentée quand la relation sera ajoutée
     const where: any = {
-      // TODO: Filtrer par les auteurs gérés par ce représentant
-      // author: {
-      //   representantId: session.user.id
-      // }
+      id: 'never-match' // Retourner aucune œuvre pour l'instant
     }
 
     if (status && status !== 'all') {

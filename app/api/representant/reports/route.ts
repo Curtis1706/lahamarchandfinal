@@ -29,77 +29,44 @@ export async function GET(request: NextRequest) {
     const end = new Date(endDate)
     end.setHours(23, 59, 59, 999) // Fin de journée
 
-    // Récupérer les statistiques des auteurs
-    const authorsStats = await prisma.user.aggregate({
-      where: {
-        role: 'AUTEUR',
-        createdAt: {
-          gte: start,
-          lte: end
-        }
-        // TODO: Filtrer par représentant quand la relation sera implémentée
-      },
-      _count: {
-        id: true
-      }
-    })
-
-    const activeAuthors = await prisma.user.count({
-      where: {
-        role: 'AUTEUR',
-        status: 'ACTIVE'
-        // TODO: Filtrer par représentant
-      }
-    })
+    // Récupérer les statistiques des auteurs gérés par ce représentant
+    // Pour l'instant, les représentants ne gèrent pas directement les auteurs
+    // Cette fonctionnalité sera implémentée quand la relation sera ajoutée
+    const authorsStats = { _count: { id: 0 } }
+    const activeAuthors = 0
 
     // Récupérer les statistiques des œuvres
-    const worksStats = await prisma.work.aggregate({
-      where: {
-        submittedAt: {
-          gte: start,
-          lte: end
-        }
-        // TODO: Filtrer par auteurs gérés par ce représentant
-      },
-      _count: {
-        id: true
-      }
-    })
+    // Pour l'instant, les représentants ne gèrent pas directement les œuvres
+    // Cette fonctionnalité sera implémentée quand la relation sera ajoutée
+    const worksStats = { _count: { id: 0 } }
 
-    const worksByStatus = await prisma.work.groupBy({
-      by: ['status'],
-      where: {
-        submittedAt: {
-          gte: start,
-          lte: end
-        }
-        // TODO: Filtrer par auteurs gérés par ce représentant
-      },
-      _count: {
-        id: true
-      }
-    })
+    const worksByStatus = []
 
-    // Récupérer les statistiques des commandes
+    // Récupérer les statistiques des commandes des partenaires de ce représentant
     const ordersStats = await prisma.order.aggregate({
       where: {
         createdAt: {
           gte: start,
           lte: end
+        },
+        partner: {
+          representantId: session.user.id
         }
-        // TODO: Filtrer par représentant
       },
       _count: {
         id: true
       }
     })
 
-    // Calculer le montant total des commandes
+    // Calculer le montant total des commandes des partenaires
     const ordersWithItems = await prisma.order.findMany({
       where: {
         createdAt: {
           gte: start,
           lte: end
+        },
+        partner: {
+          representantId: session.user.id
         }
       },
       include: {
@@ -119,8 +86,10 @@ export async function GET(request: NextRequest) {
         createdAt: {
           gte: start,
           lte: end
+        },
+        partner: {
+          representantId: session.user.id
         }
-        // TODO: Filtrer par représentant
       },
       _count: {
         id: true

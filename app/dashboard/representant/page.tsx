@@ -48,10 +48,12 @@ export default function RepresentantDashboard() {
       setIsLoading(true);
       
       // Charger les statistiques en parallèle
-      const [authorsData, worksData, conversationsData] = await Promise.all([
+      const [authorsData, worksData, conversationsData, partnersData, ordersData] = await Promise.all([
         apiClient.getRepresentantAuthors(),
         apiClient.getRepresentantWorks(),
-        apiClient.getRepresentantConversations()
+        apiClient.getRepresentantConversations(),
+        apiClient.getRepresentantPartners(),
+        apiClient.getRepresentantPartnerOrders()
       ]);
 
       // Calculer les statistiques des auteurs
@@ -69,6 +71,13 @@ export default function RepresentantDashboard() {
         underReview: worksData.filter((w: any) => w.status === 'UNDER_REVIEW').length
       };
 
+      // Calculer les statistiques des commandes des partenaires
+      const ordersStats = {
+        total: ordersData.length,
+        active: ordersData.filter((o: any) => ['PENDING', 'VALIDATED', 'PROCESSING'].includes(o.status)).length,
+        completed: ordersData.filter((o: any) => o.status === 'DELIVERED').length
+      };
+
       // Calculer les statistiques des messages
       const messagesStats = {
         unread: conversationsData.reduce((sum: number, conv: any) => sum + conv.unreadCount, 0),
@@ -78,7 +87,7 @@ export default function RepresentantDashboard() {
       setStats({
         authors: authorsStats,
         works: worksStats,
-        orders: { total: 0, active: 0, completed: 0 }, // TODO: Implémenter les commandes
+        orders: ordersStats,
         messages: messagesStats
       });
 
