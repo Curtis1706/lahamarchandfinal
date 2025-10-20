@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import DashboardLayout from "@/components/dashboard-layout"
+
 import { RefreshCw, Maximize2 } from "lucide-react"
 
 export default function LogsPage() {
@@ -14,7 +14,21 @@ export default function LogsPage() {
   }
 
   return (
-    <DashboardLayout title="Logs" breadcrumb="Tableau de bord"  onRefresh={handleRefresh}>
+    <>
+      {/* En-tête */}
+      <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold">Logs</h2>
+          </div>
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-slate-300">
+              Tableau de bord - Logs
+            </span>
+          </div>
+        </div>
+      </div>
+      
       <div className="p-6">
         {/* Card with refresh and expand buttons */}
         <div className="bg-white rounded-lg shadow-sm border">
@@ -78,6 +92,6 @@ export default function LogsPage() {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   )
 }

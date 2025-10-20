@@ -25,7 +25,7 @@ import {
   Printer,
   X,
 } from "lucide-react"
-import DashboardLayout from "@/components/dashboard-layout"
+
 
 export default function NiveauStockPage() {
   const [open, setOpen] = useState(false)
@@ -43,7 +43,8 @@ export default function NiveauStockPage() {
   }
 
   return (
-    <DashboardLayout title="">
+    <>
+      {/* En-tête */}
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -56,6 +57,7 @@ export default function NiveauStockPage() {
           </div>
         </div>
       </div>
+      
       <div className="p-6">
         <div className="space-y-6">
           {/* Stats Cards */}
@@ -445,6 +447,6 @@ export default function NiveauStockPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </DashboardLayout>
+    </>
   )
 }

@@ -4,8 +4,8 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { RefreshCw, Maximize2, Trash2 } from "lucide-react"
-import DashboardLayout from "@/components/dashboard-layout"
+import { Trash2 } from "lucide-react"
+
 
 export default function ProfilPage() {
   const [profileData, setProfileData] = useState({
@@ -21,14 +21,6 @@ export default function ProfilPage() {
     console.log("[v0] Refreshing profile data...")
   }
 
-  const handleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen()
-    } else {
-      document.exitFullscreen()
-    }
-  }
-
   const handleSaveProfile = () => {
     console.log("[v0] Profile saved:", profileData)
   }
@@ -39,45 +31,27 @@ export default function ProfilPage() {
   }
 
   return (
-    <DashboardLayout title="Profil" breadcrumb="Tableau de bord - Mon profil" >
+    <>
+      {/* En-tête */}
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold">Profil</h2>
           </div>
           <div className="flex items-center space-x-4">
-            <span className="text-sm text-slate-300">Tableau de bord - Mon profil</span>
-            <div className="flex items-center space-x-2">
-              <button onClick={handleRefresh} className="p-2 hover:bg-slate-600 rounded-lg" title="Actualiser">
-                <RefreshCw className="w-5 h-5" />
-              </button>
-              <button onClick={handleFullscreen} className="p-2 hover:bg-slate-600 rounded-lg" title="Plein écran">
-                <Maximize2 className="w-5 h-5" />
-              </button>
-            </div>
+            <span className="text-sm text-slate-300">
+              Tableau de bord - Mon profil
+            </span>
           </div>
         </div>
       </div>
-
+      
       <div className="p-4 lg:p-6">
         <div className="bg-white rounded-lg shadow-sm">
           {/* Header Section */}
           <div className="p-6 border-b">
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4">
               <h3 className="text-lg font-semibold">Mes informations</h3>
-              <div className="flex items-center space-x-2">
-                <button className="p-2 hover:bg-gray-100 rounded-lg" title="Réduire">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1z" clipRule="evenodd" />
-                  </svg>
-                </button>
-                <button onClick={handleRefresh} className="p-2 hover:bg-gray-100 rounded-lg" title="Actualiser">
-                  <RefreshCw className="w-5 h-5" />
-                </button>
-                <button onClick={handleFullscreen} className="p-2 hover:bg-gray-100 rounded-lg" title="Plein écran">
-                  <Maximize2 className="w-5 h-5" />
-                </button>
-              </div>
             </div>
 
             <Button
@@ -178,6 +152,6 @@ export default function ProfilPage() {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   )
 }

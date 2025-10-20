@@ -11,7 +11,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Edit, Power } from "lucide-react";
-import DashboardLayout from "@/components/dashboard-layout";
 import {
   Dialog,
   DialogContent,
@@ -178,11 +177,8 @@ export default function MatieresPage() {
   });
 
   return (
-    <DashboardLayout
-      title="Les matières"
-      breadcrumb="Commandes - Collections - Catégories - Matières - Livres"
-      onRefresh={handleRefresh}
-    >
+    <>
+      {/* En-tête */}
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -190,7 +186,7 @@ export default function MatieresPage() {
           </div>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-slate-300">
-              Commandes - Collections - Catégories - Matières - Matières
+              Tableau de bord - Matières
             </span>
           </div>
         </div>
@@ -408,6 +404,6 @@ export default function MatieresPage() {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   );
 }

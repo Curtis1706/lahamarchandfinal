@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import DashboardLayout from "@/components/dashboard-layout"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -12,8 +12,9 @@ export default function DroitAuteurPage() {
   const [itemsPerPage, setItemsPerPage] = useState("20")
 
   return (
-    <DashboardLayout title='' >
-        <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
+    <>
+      {/* En-tête */}
+      <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold">Droits d'auteur</h2>
@@ -25,6 +26,7 @@ export default function DroitAuteurPage() {
           </div>
         </div>
       </div>
+      
       <div className="p-6">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -151,6 +153,6 @@ export default function DroitAuteurPage() {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   )
 }

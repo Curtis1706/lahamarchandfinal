@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { BookOpen, Plus, Eye, Edit, Trash2, Search } from "lucide-react";
-;
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +51,10 @@ export default function WorksPage() {
     }
   };
 
+  const handleRefresh = () => {
+    loadWorks();
+  };
+
   const filteredWorks = works.filter(work =>
     work.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     work.isbn.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -98,24 +101,40 @@ export default function WorksPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Chargement...</p>
+      <>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Chargement...</p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="p-6">
-        {/* Header */}
+    <>
+      {/* En-tête */}
+      <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold">Nos livres</h2>
+          </div>
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-slate-300">
+              Tableau de bord - Nos livres
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-4 lg:p-6">
+        {/* Header avec description */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Nos livres</h1>
             <p className="text-gray-600">Gérez le catalogue des œuvres</p>
           </div>
-          <Button className="bg-blue-600 hover:bg-blue-700">
+          <Button className="bg-indigo-600 hover:bg-indigo-700">
             <Plus className="w-4 h-4 mr-2" />
             Nouveau livre
           </Button>
@@ -298,5 +317,6 @@ export default function WorksPage() {
           </div>
         )}
       </div>
+    </>
   );
 }

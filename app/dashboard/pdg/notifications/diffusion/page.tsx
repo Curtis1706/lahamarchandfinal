@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { RefreshCw, Maximize2, Trash2 } from "lucide-react"
-import DashboardLayout from "@/components/dashboard-layout"
+
 
 interface Diffusion {
   code: string
@@ -93,19 +93,21 @@ export default function DiffusionPage() {
   }
 
   return (
-    <DashboardLayout title="" >
+    <>
+      {/* En-tête */}
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold">Gestions des notifications</h2>
+            <h2 className="text-xl font-semibold">Diffusion</h2>
           </div>
           <div className="flex items-center space-x-4">
-            <span className="text-sm text-slate-300">Tableau de bord - Diffusions</span>
-
+            <span className="text-sm text-slate-300">
+              Tableau de bord - Diffusion
+            </span>
           </div>
         </div>
       </div>
-
+      
       <div className="p-4 lg:p-6">
         <div className="bg-white rounded-lg shadow-sm">
           {/* Header Section */}
@@ -268,6 +270,6 @@ export default function DiffusionPage() {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   )
 }

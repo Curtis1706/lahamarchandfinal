@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import DashboardLayout from "@/components/dashboard-layout"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -12,19 +12,21 @@ export default function RistournePartenairePage() {
   const [itemsPerPage, setItemsPerPage] = useState("20")
 
   return (
-    <DashboardLayout title='' >
-        <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
+    <>
+      {/* En-tête */}
+      <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold">Ristourne</h2>
+            <h2 className="text-xl font-semibold">Ristournes Partenaire</h2>
           </div>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-slate-300">
-              Tableau de bord - Ristourne
+              Tableau de bord - Ristournes Partenaire
             </span>
           </div>
         </div>
       </div>
+      
       <div className="p-6">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -151,6 +153,6 @@ export default function RistournePartenairePage() {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   )
 }

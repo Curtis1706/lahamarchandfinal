@@ -110,6 +110,43 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           label: "Opérations de stock"
         },
         {
+          href: `${basePath}/commandes`,
+          icon: ShoppingCart,
+          label: "Les commandes"
+        },
+        {
+          href: `${basePath}/bon-sortie`,
+          icon: FileText,
+          label: "Bon de sortie"
+        },
+        {
+          href: `${basePath}/proforma`,
+          icon: FileText,
+          label: "Proforma"
+        },
+        {
+          href: `${basePath}/livres`,
+          icon: BookOpen,
+          label: "Nos livres",
+          children: [
+            { href: `${basePath}/livres/liste`, label: "Collections" },
+            { href: `${basePath}/livres/collections`, label: "Collections" },
+            { href: `${basePath}/livres/categories`, label: "Catégories" },
+            { href: `${basePath}/livres/classes`, label: "Classes" },
+            { href: `${basePath}/livres/matieres`, label: "Matières" },
+            { href: `${basePath}/livres/code-promo`, label: "Code Promo" }
+          ]
+        },
+        {
+          href: `${basePath}/ristournes`,
+          icon: Package,
+          label: "Ristournes",
+          children: [
+            { href: `${basePath}/ristournes/partenaire`, label: "Partenaire" },
+            { href: `${basePath}/ristournes/droit-auteur`, label: "Droits d'auteur" }
+          ]
+        },
+        {
           href: `${basePath}/gestion-partenaires`,
           icon: Building2,
           label: "Gestion Partenaires"
@@ -120,14 +157,52 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           label: "Gestion Écoles"
         },
         {
+          href: `${basePath}/utilisateurs`,
+          icon: Users,
+          label: "Utilisateurs"
+        },
+        {
+          href: `${basePath}/clients`,
+          icon: Users,
+          label: "Clients"
+        },
+        {
+          href: `${basePath}/ventes-retours`,
+          icon: Camera,
+          label: "Ventes & retours"
+        },
+        {
           href: `${basePath}/gestion-financiere`,
           icon: DollarSign,
           label: "Gestion Financière"
         },
         {
+          href: `${basePath}/notifications`,
+          icon: Bell,
+          label: "Notifications",
+          children: [
+            { href: `${basePath}/notifications/liste`, label: "Liste" },
+            { href: `${basePath}/notifications/diffusion`, label: "Diffusion" },
+            { href: `${basePath}/notifications/chaine`, label: "Chaîne" }
+          ]
+        },
+        {
           href: `${basePath}/audit-historique`,
           icon: History,
           label: "Audit & Historique"
+        },
+        {
+          href: `${basePath}/parametres`,
+          icon: Settings,
+          label: "Paramètres",
+          children: [
+            { href: `${basePath}/parametres/departements`, label: "Départements" },
+            { href: `${basePath}/parametres/zones`, label: "Zones" },
+            { href: `${basePath}/parametres/effectifs`, label: "Effectifs" },
+            { href: `${basePath}/parametres/reductions`, label: "Réductions" },
+            { href: `${basePath}/parametres/logs`, label: "Logs" },
+            { href: `${basePath}/parametres/avance`, label: "Avancé" }
+          ]
         },
         {
           href: `${basePath}/administration-parametres`,

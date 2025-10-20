@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { RefreshCw, Maximize2, Edit, Trash2 } from "lucide-react"
-import DashboardLayout from "@/components/dashboard-layout"
+
 
 interface Zone {
   id: string
@@ -133,7 +133,21 @@ export default function ZonesPage() {
   }
 
   return (
-    <DashboardLayout title="Les zones" breadcrumb="Tableau de bord - Départements" >
+    <>
+      {/* En-tête */}
+      <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold">Zones</h2>
+          </div>
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-slate-300">
+              Tableau de bord - Zones
+            </span>
+          </div>
+        </div>
+      </div>
+      
       <div className="p-4 lg:p-6">
         <div className="bg-white rounded-lg shadow-sm border">
           <div className="p-4 border-b flex items-center justify-between">
@@ -381,6 +395,6 @@ export default function ZonesPage() {
           </div>
         </div>
       )}
-    </DashboardLayout>
+    </>
   )
 }

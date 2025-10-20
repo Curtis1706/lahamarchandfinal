@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import DashboardLayout from "@/components/dashboard-layout";
+
 import {
   User,
   Filter,
@@ -33,20 +33,21 @@ export default function DemandeStockPage() {
   };
 
   return (
-    <DashboardLayout title="" onRefresh={handleRefresh}>
+    <>
+      {/* En-tête */}
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold">Demande de stock</h2>
+            <h2 className="text-xl font-semibold">Demande stock</h2>
           </div>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-slate-300">
-              Tableau de bord - Demande de stock
+              Tableau de bord - Demande stock
             </span>
           </div>
         </div>
       </div>
-
+      
       {/* Contenu */}
       <div className="p-6">
         <div className="bg-white rounded-lg shadow-sm border">
@@ -314,6 +315,6 @@ export default function DemandeStockPage() {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   );
 }

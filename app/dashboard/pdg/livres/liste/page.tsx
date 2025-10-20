@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import DashboardLayout from "@/components/dashboard-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -67,7 +66,8 @@ export default function LivresListePage() {
   ];
 
   return (
-    <DashboardLayout title="">
+    <>
+      {/* En-tête */}
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -75,11 +75,12 @@ export default function LivresListePage() {
           </div>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-slate-300">
-              Commandes - Collections - Catégories - Matières - Classes
+              Tableau de bord - Nos livres
             </span>
           </div>
         </div>
       </div>
+
       <div className="p-6">
         {/* Header with filters */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
@@ -501,6 +502,6 @@ export default function LivresListePage() {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   );
 }

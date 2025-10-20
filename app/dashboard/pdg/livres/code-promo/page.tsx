@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Edit, Power, X, Save } from "lucide-react"
-import DashboardLayout from "@/components/dashboard-layout"
 import {
   Dialog,
   DialogContent,
@@ -63,17 +62,21 @@ export default function CodePromoPage() {
   )
 
   return (
-    <DashboardLayout title='' onRefresh={handleRefresh}>
+    <>
+      {/* En-tête bleu */}
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold">Codes de promotions</h2>
+            <h2 className="text-xl font-semibold">Code Promo</h2>
           </div>
           <div className="flex items-center space-x-4">
-            <span className="text-sm text-slate-300">Codes de promotions</span>
+            <span className="text-sm text-slate-300">
+              Tableau de bord - Code Promo
+            </span>
           </div>
         </div>
       </div>
+
       <div className="p-4 lg:p-6">
         <div className="bg-white rounded-2xl shadow-sm">
           <div className="p-4 lg:p-6">
@@ -191,7 +194,7 @@ export default function CodePromoPage() {
         </div>
       </div>
 
-      {/* --- MODALE AJOUTER --- */}
+      {/* Modale Ajouter */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
@@ -295,6 +298,6 @@ export default function CodePromoPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </DashboardLayout>
+    </>
   )
 }

@@ -7,8 +7,8 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { RefreshCw, Maximize2, Edit, Trash2 } from "lucide-react"
-import DashboardLayout from "@/components/dashboard-layout"
+import { Edit, Trash2 } from "lucide-react"
+
 
 interface Reduction {
   id: string
@@ -115,14 +115,6 @@ export default function ReductionsPage() {
     console.log("[v0] Refreshing reductions...")
   }
 
-  const handleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen()
-    } else {
-      document.exitFullscreen()
-    }
-  }
-
   const filteredReductions = reductions.filter((reduction) => {
     const matchesSearch = reduction.livre.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === "Tous les statuts" || reduction.statut === statusFilter
@@ -159,26 +151,21 @@ export default function ReductionsPage() {
   }
 
   return (
-    <DashboardLayout title="Les réductions" breadcrumb="Tableau de bord - Clients" >
+    <>
+      {/* En-tête */}
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold">Les réductions</h2>
           </div>
           <div className="flex items-center space-x-4">
-            <span className="text-sm text-slate-300">Tableau de bord - Clients</span>
-            <div className="flex items-center space-x-2">
-              <button onClick={handleRefresh} className="p-2 hover:bg-slate-600 rounded-lg" title="Actualiser">
-                <RefreshCw className="w-5 h-5" />
-              </button>
-              <button onClick={handleFullscreen} className="p-2 hover:bg-slate-600 rounded-lg" title="Plein écran">
-                <Maximize2 className="w-5 h-5" />
-              </button>
-            </div>
+            <span className="text-sm text-slate-300">
+              Tableau de bord - Réductions
+            </span>
           </div>
         </div>
       </div>
-
+      
       <div className="p-4 lg:p-6">
         <div className="bg-white rounded-lg shadow-sm">
           <div className="p-6 space-y-4">
@@ -470,6 +457,6 @@ export default function ReductionsPage() {
           </div>
         </div>
       )}
-    </DashboardLayout>
+    </>
   )
 }

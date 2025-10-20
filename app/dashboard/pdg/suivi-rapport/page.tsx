@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Package, FileText, Users } from "lucide-react";
-import DashboardLayout from "@/components/dashboard-layout";
+
 
 export default function SuiviRapportPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -21,7 +21,8 @@ export default function SuiviRapportPage() {
   };
 
   return (
-    <DashboardLayout title="" onRefresh={handleRefresh}>
+    <>
+      {/* En-tête */}
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -29,11 +30,12 @@ export default function SuiviRapportPage() {
           </div>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-slate-300">
-              Suivi et rapport - Demande de stock
+              Tableau de bord - Suivi et rapport
             </span>
           </div>
         </div>
       </div>
+      
       <div className="p-4 lg:p-6">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 mb-6">
@@ -175,6 +177,6 @@ export default function SuiviRapportPage() {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   );
 }

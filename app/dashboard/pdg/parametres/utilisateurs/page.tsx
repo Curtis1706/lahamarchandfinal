@@ -9,7 +9,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Plus, Edit, Trash2, UserCheck, UserX, RefreshCw, Maximize2 } from "lucide-react"
-import DashboardLayout from "@/components/dashboard-layout"
 
 const mockUsers = [
   {
@@ -86,7 +85,21 @@ export default function UtilisateursPage() {
   })
 
   return (
-    <DashboardLayout title="Gestion des utilisateurs" breadcrumb="Tableau de bord - Utilisateurs" >
+    <>
+      {/* En-tête */}
+      <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold">Utilisateurs</h2>
+          </div>
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-slate-300">
+              Tableau de bord - Utilisateurs
+            </span>
+          </div>
+        </div>
+      </div>
+      
       <div className="p-4 lg:p-6">
         <div className="bg-white rounded-lg shadow-sm border">
           <div className="p-4 border-b flex items-center justify-between">
@@ -239,6 +252,6 @@ export default function UtilisateursPage() {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   )
 }

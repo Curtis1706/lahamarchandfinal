@@ -11,7 +11,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Edit, Power } from "lucide-react";
-import DashboardLayout from "@/components/dashboard-layout";
 import {
   Dialog,
   DialogContent,
@@ -147,7 +146,8 @@ export default function ClassesPage() {
   });
 
   return (
-    <DashboardLayout title="" onRefresh={handleRefresh}>
+    <>
+      {/* En-tête */}
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -155,11 +155,12 @@ export default function ClassesPage() {
           </div>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-slate-300">
-              Commandes - Collections - Catégories - Matières - Classes
+              Tableau de bord - Classes
             </span>
           </div>
         </div>
       </div>
+      
       <div className="p-4 lg:p-6">
         <div className="bg-white rounded-2xl shadow-sm">
           <div className="p-4 lg:p-6">
@@ -366,6 +367,6 @@ export default function ClassesPage() {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   );
 }

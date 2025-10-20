@@ -9,7 +9,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Filter, Calendar, Printer, RefreshCw, Maximize2 } from "lucide-react";
-import DashboardLayout from "@/components/dashboard-layout";
 
 export default function BonSortiePage() {
   const handleRefresh = () => {
@@ -25,7 +24,8 @@ export default function BonSortiePage() {
   };
 
   return (
-    <DashboardLayout title="">
+    <>
+      {/* En-tête */}
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -210,6 +210,6 @@ export default function BonSortiePage() {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   );
 }

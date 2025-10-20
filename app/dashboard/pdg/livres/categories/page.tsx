@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Edit, Power } from "lucide-react"
-import DashboardLayout from "@/components/dashboard-layout"
 import {
   Dialog,
   DialogContent,
@@ -124,22 +123,21 @@ export default function CategoriesPage() {
   })
 
   return (
-    <DashboardLayout
-      title=''
-      onRefresh={handleRefresh}
-    >
-       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
+    <>
+      {/* En-tête */}
+      <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold">Catégories</h2>
           </div>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-slate-300">
-              Commandes - Collections - Catégories - Matières - Classes
+              Tableau de bord - Catégories
             </span>
           </div>
         </div>
       </div>
+      
       <div className="p-4 lg:p-6">
         <div className="bg-white rounded-2xl shadow-sm">
           <div className="p-4 lg:p-6">
@@ -310,6 +308,6 @@ export default function CategoriesPage() {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   )
 }

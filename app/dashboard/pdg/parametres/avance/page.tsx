@@ -1,5 +1,5 @@
 "use client"
-import DashboardLayout from "@/components/dashboard-layout"
+
 import { RefreshCw, Maximize2, Edit, Trash2 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
@@ -61,12 +61,21 @@ export default function AvanceePage() {
   ]
 
   return (
-    <DashboardLayout
-      title="Avancé"
-      breadcrumb="Tableau de bord - Commandes"
+    <>
+      {/* En-tête */}
+      <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold">Avancé</h2>
+          </div>
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-slate-300">
+              Tableau de bord - Avancé
+            </span>
+          </div>
+        </div>
+      </div>
       
-      onRefresh={handleRefresh}
-    >
       <div className="p-3 sm:p-4 lg:p-6">
         <div className="bg-white rounded-lg shadow-sm border">
           <div className="p-3 sm:p-4 border-b flex items-center justify-between">
@@ -201,6 +210,6 @@ export default function AvanceePage() {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   )
 }

@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { RefreshCw, Maximize2, Edit, Power } from "lucide-react"
-import DashboardLayout from "@/components/dashboard-layout"
+
 
 interface NotificationChain {
   client: string
@@ -95,20 +95,21 @@ export default function NotificationChainePage() {
   }
 
   return (
-    <DashboardLayout title="" >
-            <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
+    <>
+      {/* En-tête */}
+      <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold">Les chaînes de notification</h2>
+            <h2 className="text-xl font-semibold">Chaîne</h2>
           </div>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-slate-300">
-              Tableau de bord - Clients
+              Tableau de bord - Chaîne
             </span>
           </div>
         </div>
       </div>
-
+      
       <div className="p-4 lg:p-6">
         <div className="bg-white rounded-lg shadow-sm">
           {/* Header Section */}
@@ -400,6 +401,6 @@ export default function NotificationChainePage() {
           </div>
         </DialogContent>
       </Dialog>
-    </DashboardLayout>
+    </>
   )
 }

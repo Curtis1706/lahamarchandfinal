@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import DashboardLayout from "@/components/dashboard-layout";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -90,7 +90,8 @@ export default function ClientsPage() {
   ];
 
   return (
-    <DashboardLayout title="">
+    <>
+      {/* En-tête */}
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -103,7 +104,7 @@ export default function ClientsPage() {
           </div>
         </div>
       </div>
-
+      
       <div className="p-6">
         {/* Header with actions */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
@@ -422,6 +423,6 @@ export default function ClientsPage() {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   );
 }

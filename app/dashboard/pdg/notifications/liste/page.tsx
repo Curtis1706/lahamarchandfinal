@@ -9,14 +9,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import {
-  RefreshCw,
-  Maximize2,
   Edit,
   Trash2,
   Play,
   ChevronsUpDown,
 } from "lucide-react"
-import DashboardLayout from "@/components/dashboard-layout"
+
 
 interface Notification {
   code: string
@@ -66,14 +64,6 @@ export default function NotificationsPage() {
     console.log("[v0] Refreshing notifications...")
   }
 
-  const handleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen()
-    } else {
-      document.exitFullscreen()
-    }
-  }
-
   const handleAddNotification = () => {
     console.log("[v0] Adding notification:", formData)
     setShowAddModal(false)
@@ -81,10 +71,8 @@ export default function NotificationsPage() {
   }
 
   return (
-    <DashboardLayout
-      title="Gestions des notifications"
-      breadcrumb="Tableau de bord - Notifications"
-    >
+    <>
+      {/* En-tête */}
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -94,26 +82,10 @@ export default function NotificationsPage() {
             <span className="text-sm text-slate-300">
               Tableau de bord - Notifications
             </span>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={handleRefresh}
-                className="p-2 hover:bg-slate-600 rounded-lg"
-                title="Actualiser"
-              >
-                <RefreshCw className="w-5 h-5" />
-              </button>
-              <button
-                onClick={handleFullscreen}
-                className="p-2 hover:bg-slate-600 rounded-lg"
-                title="Plein écran"
-              >
-                <Maximize2 className="w-5 h-5" />
-              </button>
-            </div>
           </div>
         </div>
       </div>
-
+      
       <div className="p-4 lg:p-6">
         <div className="bg-white rounded-lg shadow-sm">
           {/* Header Section */}
@@ -328,6 +300,6 @@ export default function NotificationsPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </DashboardLayout>
+    </>
   )
 }
