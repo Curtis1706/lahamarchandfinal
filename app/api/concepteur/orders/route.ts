@@ -239,12 +239,12 @@ export async function POST(request: NextRequest) {
             title: 'Nouvelle commande à valider',
             message: `Le concepteur ${session.user.name} a créé une commande pour ${client.name}`,
             type: 'ORDER_UPDATE',
-            data: { 
+            data: JSON.stringify({ 
               orderId: order.id, 
               concepteurId: session.user.id, 
               clientId: client.id,
               notes 
-            }
+            })
           }
         })
       }

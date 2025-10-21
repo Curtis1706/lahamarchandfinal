@@ -30,15 +30,15 @@ export async function GET(request: NextRequest) {
 
       case 'sales':
         // Statistiques de ventes
-        return await loadSalesData(startDate, endDate)
+        return await loadSalesData(startDate || undefined, endDate || undefined)
 
       case 'royalties':
         // Statistiques de royalties
-        return await loadRoyaltiesData(startDate, endDate)
+        return await loadRoyaltiesData(startDate || undefined, endDate || undefined)
 
       case 'partner_performance':
         // Performance des partenaires
-        return await loadPartnerPerformanceData(startDate, endDate)
+        return await loadPartnerPerformanceData(startDate || undefined, endDate || undefined)
 
       default:
         return NextResponse.json({ error: "Type de données non valide" }, { status: 400 })
@@ -236,7 +236,7 @@ async function loadOverviewData() {
     }
 
     // Revenus par discipline
-    const disciplineRevenue = {}
+    const disciplineRevenue: Record<string, number> = {}
     const salesByDiscipline = await prisma.sale.findMany({
       include: {
         work: {

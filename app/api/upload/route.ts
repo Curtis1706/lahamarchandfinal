@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Vérifier que l'utilisateur a le droit d'upload
-    const allowedRoles = ["CONCEPTEUR", "AUTEUR", "PDG", "ADMIN"];
+    const allowedRoles = ["CONCEPTEUR", "AUTEUR", "PDG"];
     if (!allowedRoles.includes(session.user.role || "")) {
       return NextResponse.json(
         { error: "Rôle non autorisé pour l'upload" },

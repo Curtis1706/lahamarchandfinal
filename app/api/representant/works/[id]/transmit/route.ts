@@ -81,21 +81,40 @@ export async function PUT(
       }
     })
 
-    // Créer une notification pour le PDG
-    await prisma.notification.create({
-      data: {
-        userId: 'pdg-user-id', // TODO: Récupérer l'ID du PDG
-        title: 'Nouvelle œuvre à valider',
-        message: `L'œuvre "${work.title}" de ${work.author.name} a été transmise par le représentant pour validation.`,
-        type: 'WORK_REVIEW',
-        isRead: false,
-        metadata: {
-          workId: work.id,
-          authorId: work.author.id,
-          representativeId: session.user.id
-        }
+    // Créer des notifications pour tous les PDG actifs
+    const pdgUsers = await prisma.user.findMany({
+      where: {
+        role: 'PDG',
+        status: 'ACTIVE'
+      },
+      select: {
+        id: true,
+        name: true
       }
     })
+
+    // Créer une notification pour chaque PDG
+    for (const pdg of pdgUsers) {
+      await prisma.notification.create({
+        data: {
+          userId: pdg.id,
+          title: 'Nouvelle œuvre à valider',
+          message: `L'œuvre "${work.title}" de ${work.author.name} a été transmise par le représentant pour validation.`,
+          type: 'WORK_REVIEW',
+          data: JSON.stringify({
+            workId: work.id,
+            workTitle: work.title,
+            authorId: work.author.id,
+            authorName: work.author.name,
+            representativeId: session.user.id,
+            representativeName: session.user.name,
+            transmittedAt: new Date().toISOString()
+          })
+        }
+      })
+    }
+
+    console.log(`✅ ${pdgUsers.length} notification(s) créée(s) pour les PDG`)
 
     // Créer une notification pour l'auteur
     await prisma.notification.create({

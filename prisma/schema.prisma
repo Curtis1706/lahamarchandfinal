@@ -18,6 +18,8 @@ model User {
   role                    Role
   status                  UserStatus         @default(PENDING)
   disciplineId            String?
+  representantId          String?            // Représentant assigné (pour auteurs)
+  lastLoginAt             DateTime?          // Dernière connexion
   createdAt               DateTime           @default(now())
   updatedAt               DateTime           @updatedAt
   accounts                Account[]
@@ -37,6 +39,8 @@ model User {
   performedStockMovements StockMovement[]    @relation("StockMovements")
   createdReports          StockReport[]
   discipline              Discipline?        @relation(fields: [disciplineId], references: [id])
+  representant            User?              @relation("RepresentantAuthors", fields: [representantId], references: [id], onDelete: SetNull)
+  managedAuthors          User[]             @relation("RepresentantAuthors")
   authoredWorks           Work[]             @relation("AuthorWorks")
   conceivedWorks          Work[]             @relation("ConceptorWorks")
   reviewedWorks           Work[]             @relation("ReviewedWorks")
@@ -233,15 +237,20 @@ model PartnerStock {
 }
 
 model Order {
-  id        String      @id @default(cuid())
-  userId    String
-  partnerId String?
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @default(now()) @updatedAt
-  status    OrderStatus @default(PENDING)
-  partner   Partner?    @relation("PartnerOrders", fields: [partnerId], references: [id])
-  user      User        @relation(fields: [userId], references: [id])
-  items     OrderItem[]
+  id               String      @id @default(cuid())
+  userId           String
+  partnerId        String?
+  paymentMethod    String?     // Mobile Money, Virement, Espèces, Carte Bancaire
+  paymentReference String?     // Référence de transaction
+  subtotal         Float       @default(0)
+  tax              Float       @default(0)
+  total            Float       @default(0)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @default(now()) @updatedAt
+  status           OrderStatus @default(PENDING)
+  partner          Partner?    @relation("PartnerOrders", fields: [partnerId], references: [id])
+  user             User        @relation(fields: [userId], references: [id])
+  items            OrderItem[]
 }
 
 model OrderItem {

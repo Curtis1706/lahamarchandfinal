@@ -28,45 +28,33 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Partenaire non trouvé' }, { status: 404 })
     }
 
-    // Pour l'instant, on retourne toutes les œuvres validées
-    // TODO: Implémenter la logique de stock alloué spécifique au partenaire
-    const whereClause: any = {
-      status: 'PUBLISHED'
-    }
-
-    if (search) {
-      whereClause.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { isbn: { contains: search, mode: 'insensitive' } }
-      ]
-    }
-
-    if (discipline) {
-      whereClause.discipline = {
-        name: { contains: discipline, mode: 'insensitive' }
-      }
-    }
-
-    const works = await prisma.work.findMany({
-      where: whereClause,
+    // Récupérer le stock alloué spécifique au partenaire via PartnerStock
+    const partnerStocks = await prisma.partnerStock.findMany({
+      where: {
+        partnerId: partner.id
+      },
       include: {
-        author: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        },
-        discipline: {
-          select: {
-            id: true,
-            name: true
-          }
-        },
-        project: {
-          select: {
-            id: true,
-            title: true
+        work: {
+          include: {
+            discipline: {
+              select: {
+                id: true,
+                name: true
+              }
+            },
+            author: {
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
+            },
+            project: {
+              select: {
+                id: true,
+                title: true
+              }
+            }
           }
         }
       },
@@ -75,20 +63,83 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // Si le partenaire n'a pas de stock alloué, retourner les œuvres publiées
+    let works: any[] = []
+    
+    if (partnerStocks.length > 0) {
+      // Utiliser le stock alloué
+      works = partnerStocks.map(ps => ps.work)
+    } else {
+      // Fallback : retourner les œuvres publiées
+      const whereClause: any = {
+        status: 'PUBLISHED'
+      }
+
+      if (search) {
+        whereClause.OR = [
+          { title: { contains: search, mode: 'insensitive' } },
+          { isbn: { contains: search, mode: 'insensitive' } }
+        ]
+      }
+
+      if (discipline) {
+        whereClause.discipline = {
+          name: { contains: discipline, mode: 'insensitive' }
+        }
+      }
+
+      works = await prisma.work.findMany({
+        where: whereClause,
+        include: {
+          author: {
+            select: {
+              id: true,
+              name: true,
+              email: true
+            }
+          },
+          discipline: {
+            select: {
+              id: true,
+              name: true
+            }
+          },
+          project: {
+            select: {
+              id: true,
+              title: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      })
+    }
+
     // Transformer les données pour l'affichage
-    const stockData = works.map(work => ({
-      id: work.id,
-      title: work.title,
-      isbn: work.isbn || 'N/A',
-      discipline: work.discipline?.name || 'Non définie',
-      author: work.author?.name || 'Auteur inconnu',
-      project: work.project?.title || null,
-      status: 'Disponible',
-      stock: 100, // TODO: Implémenter la logique de stock réel
-      price: 3000, // TODO: Récupérer le prix depuis la base
-      createdAt: work.createdAt.toISOString(),
-      publishedAt: work.publishedAt?.toISOString() || null
-    }))
+    const stockData = works.map(work => {
+      // Trouver le stock alloué pour ce partenaire si disponible
+      const partnerStock = partnerStocks.find(ps => ps.workId === work.id)
+      
+      return {
+        id: work.id,
+        title: work.title,
+        isbn: work.isbn || 'N/A',
+        discipline: work.discipline?.name || 'Non définie',
+        author: work.author?.name || 'Auteur inconnu',
+        project: work.project?.title || null,
+        status: partnerStock 
+          ? (partnerStock.availableQuantity > 0 ? 'Disponible' : 'Épuisé')
+          : (work.stock > 0 ? 'Disponible' : 'Rupture de stock'),
+        stock: partnerStock ? partnerStock.availableQuantity : work.stock || 0,
+        allocatedStock: partnerStock?.allocatedQuantity || 0,
+        soldQuantity: partnerStock?.soldQuantity || 0,
+        price: work.price || 0,
+        createdAt: work.createdAt.toISOString(),
+        publishedAt: work.publishedAt?.toISOString() || null
+      }
+    })
 
     return NextResponse.json({
       works: stockData,

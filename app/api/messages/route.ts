@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     const unreadOnly = searchParams.get('unreadOnly') === 'true';
 
     // Vérifier les permissions (utilisateur ne peut voir que ses propres messages)
-    if (userId !== session.user.id && session.user.role !== "PDG" && session.user.role !== "ADMIN") {
+    if (userId !== session.user.id && session.user.role !== "PDG") {
       return NextResponse.json(
         { error: "Accès non autorisé" },
         { status: 403 }
@@ -335,8 +335,7 @@ export async function DELETE(request: NextRequest) {
 
     // Vérifier les permissions (expéditeur ou destinataire peut supprimer)
     if (existingMessage.senderId !== session.user.id && 
-        existingMessage.recipientId !== session.user.id && 
-        session.user.role !== "ADMIN") {
+        existingMessage.recipientId !== session.user.id) {
       return NextResponse.json(
         { error: "Vous ne pouvez supprimer que vos propres messages" },
         { status: 403 }

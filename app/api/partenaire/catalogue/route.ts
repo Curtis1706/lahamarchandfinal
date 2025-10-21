@@ -80,11 +80,11 @@ export async function GET(request: NextRequest) {
       isbn: work.isbn || 'N/A',
       discipline: work.discipline?.name || 'Non définie',
       author: work.author?.name || 'Auteur inconnu',
-      price: 3000, // TODO: Récupérer le prix depuis la base
-      available: true,
-      stock: 100, // TODO: Implémenter la logique de stock réel
+      price: work.price || 0,
+      available: work.stock > 0,
+      stock: work.stock || 0,
       description: work.description || 'Description non disponible',
-      coverImage: null // TODO: Implémenter les images de couverture
+      coverImage: null // Images de couverture à implémenter ultérieurement
     }))
 
     // Filtrer par prix si nécessaire

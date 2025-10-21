@@ -180,7 +180,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Si l'utilisateur n'est pas PDG, il ne peut voir que ses propres projets
-    if (session.user.role !== "PDG" && session.user.role !== "ADMIN") {
+    if (session.user.role !== "PDG") {
       whereClause.concepteurId = session.user.id;
     }
 

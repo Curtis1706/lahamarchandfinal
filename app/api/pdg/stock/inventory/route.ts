@@ -5,6 +5,22 @@ import { prisma } from "@/lib/prisma"
 
 export const dynamic = 'force-dynamic'
 
+// Fonction utilitaire pour récupérer l'IP du client
+function getClientIp(request: NextRequest): string {
+  const forwarded = request.headers.get('x-forwarded-for')
+  const realIp = request.headers.get('x-real-ip')
+  
+  if (forwarded) {
+    return forwarded.split(',')[0].trim()
+  }
+  
+  if (realIp) {
+    return realIp
+  }
+  
+  return 'unknown'
+}
+
 // GET /api/pdg/stock/inventory - Obtenir l'état actuel du stock pour inventaire
 export async function GET(request: NextRequest) {
   try {
@@ -186,8 +202,8 @@ export async function POST(request: NextRequest) {
             adjustments: processedAdjustments,
             inventoryNotes
           }),
-          ipAddress: '127.0.0.1', // TODO: Récupérer la vraie IP
-          userAgent: 'PDG Dashboard'
+          ipAddress: getClientIp(request),
+          userAgent: request.headers.get('user-agent') || 'PDG Dashboard'
         }
       })
 

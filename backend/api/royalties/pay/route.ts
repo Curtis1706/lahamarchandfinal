@@ -72,8 +72,26 @@ export async function POST(request: NextRequest) {
       const authorRoyalties = royalties.filter(r => r.userId === authorId)
       const authorTotal = authorRoyalties.reduce((sum, r) => sum + r.amount, 0)
 
-      // TODO: Créer une notification pour l'auteur
-      console.log(`📢 Notification à créer: Paiement de ${authorTotal} FCFA pour l'auteur ${authorId}`)
+      // Créer une notification pour l'auteur
+      try {
+        await prisma.notification.create({
+          data: {
+            userId: authorId,
+            title: "💰 Paiement de droits d'auteur reçu",
+            message: `Vous avez reçu un paiement de ${authorTotal.toLocaleString()} FCFA pour vos droits d'auteur. ${authorRoyalties.length} œuvre(s) concernée(s).`,
+            type: "ROYALTY_PAYMENT",
+            data: JSON.stringify({
+              amount: authorTotal,
+              royaltiesCount: authorRoyalties.length,
+              paidAt: new Date().toISOString(),
+              royaltyIds: authorRoyalties.map(r => r.id)
+            })
+          }
+        })
+        console.log(`✅ Notification créée: Paiement de ${authorTotal} FCFA pour l'auteur ${authorId}`)
+      } catch (notifError) {
+        console.error(`⚠️ Erreur création notification pour auteur ${authorId}:`, notifError)
+      }
     }
 
     console.log(`✅ Marked ${updateResult.count} royalties as paid (${totalAmount} FCFA)`)

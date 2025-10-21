@@ -60,7 +60,9 @@ interface Order {
 export default function ConcepteurCommandesPage() {
   const { toast } = useToast()
   const [orders, setOrders] = useState<Order[]>([])
+  const [clients, setClients] = useState<Array<{id: string, name: string, email: string}>>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingClients, setIsLoadingClients] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [startDate, setStartDate] = useState("")
@@ -76,6 +78,13 @@ export default function ConcepteurCommandesPage() {
   useEffect(() => {
     loadOrders()
   }, [statusFilter, startDate, endDate])
+
+  // Charger les clients quand le modal s'ouvre
+  useEffect(() => {
+    if (showCreateOrderModal && clients.length === 0) {
+      loadClients()
+    }
+  }, [showCreateOrderModal])
 
   const loadOrders = async () => {
     try {
@@ -94,6 +103,37 @@ export default function ConcepteurCommandesPage() {
       })
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const loadClients = async () => {
+    try {
+      setIsLoadingClients(true)
+      const data = await apiClient.getConcepteurClients()
+      setClients(data.map((client: any) => ({
+        id: client.id,
+        name: client.name,
+        email: client.email
+      })))
+    } catch (error: any) {
+      console.error('Erreur chargement clients:', error)
+      // Fallback sur les utilisateurs avec rôle CLIENT
+      try {
+        const users = await apiClient.getUsersList('CLIENT')
+        setClients(users.filter((u: any) => u.status === 'ACTIVE').map((u: any) => ({
+          id: u.id,
+          name: u.name,
+          email: u.email
+        })))
+      } catch (fallbackError) {
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les clients",
+          variant: "destructive"
+        })
+      }
+    } finally {
+      setIsLoadingClients(false)
     }
   }
 
@@ -184,14 +224,23 @@ export default function ConcepteurCommandesPage() {
                 <Select
                   value={newOrderData.clientId}
                   onValueChange={(value) => setNewOrderData({ ...newOrderData, clientId: value })}
+                  disabled={isLoadingClients}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner un client" />
+                    <SelectValue placeholder={isLoadingClients ? "Chargement..." : "Sélectionner un client"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {/* TODO: Charger la liste des clients */}
-                    <SelectItem value="client1">Client 1</SelectItem>
-                    <SelectItem value="client2">Client 2</SelectItem>
+                    {clients.length === 0 ? (
+                      <SelectItem value="none" disabled>
+                        {isLoadingClients ? "Chargement des clients..." : "Aucun client disponible"}
+                      </SelectItem>
+                    ) : (
+                      clients.map((client) => (
+                        <SelectItem key={client.id} value={client.id}>
+                          {client.name} ({client.email})
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>

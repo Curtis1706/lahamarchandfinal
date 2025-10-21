@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     };
 
     // Filtrer par rôle si spécifié
-    if (role && ['PDG', 'CONCEPTEUR', 'AUTEUR', 'REPRESENTANT', 'ADMIN'].includes(role)) {
+    if (role && ['PDG', 'CONCEPTEUR', 'AUTEUR', 'REPRESENTANT', 'PARTENAIRE', 'CLIENT'].includes(role)) {
       whereConditions.role = role;
     }
 

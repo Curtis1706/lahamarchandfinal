@@ -187,12 +187,12 @@ export async function POST(request: NextRequest) {
             title: 'Nouveau client créé',
             message: `Le concepteur ${session.user.name} a créé un nouveau client: ${client.name}`,
             type: 'CLIENT_CREATED',
-            data: { 
+            data: JSON.stringify({ 
               clientId: client.id, 
               concepteurId: session.user.id,
               clientName: client.name,
               clientEmail: client.email
-            }
+            })
           }
         })
       }

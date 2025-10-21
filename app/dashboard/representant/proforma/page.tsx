@@ -28,21 +28,25 @@ export default function ProformaPage() {
   const [selectedClasse, setSelectedClasse] = useState("");
   const [selectedLivre, setSelectedLivre] = useState("");
   const [quantity, setQuantity] = useState("");
+  const [price, setPrice] = useState("");
   const [promoCode, setPromoCode] = useState("");
   const [commandType, setCommandType] = useState("");
   const [items, setItems] = useState<any[]>([]);
 
   const handleAddItem = () => {
-    if (selectedLivre && quantity) {
+    if (selectedLivre && quantity && price) {
+      const unitPrice = Number.parseFloat(price);
+      const qty = Number.parseInt(quantity);
       const newItem = {
         id: Date.now(),
         livre: selectedLivre,
-        prix: 2500, // Example price
-        quantite: Number.parseInt(quantity),
-        montant: 2500 * Number.parseInt(quantity),
+        prix: unitPrice,
+        quantite: qty,
+        montant: unitPrice * qty,
       };
       setItems([...items, newItem]);
       setQuantity("");
+      setPrice("");
     }
   };
 
@@ -193,6 +197,18 @@ export default function ProformaPage() {
                     </div>
 
                     <div>
+                      <Label>Prix unitaire (F CFA)</Label>
+                      <Input
+                        type="number"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                        placeholder="0"
+                        min="0"
+                        step="100"
+                      />
+                    </div>
+
+                    <div>
                       <Label>Quantité</Label>
                       <div className="flex gap-2">
                         <Input
@@ -200,10 +216,12 @@ export default function ProformaPage() {
                           value={quantity}
                           onChange={(e) => setQuantity(e.target.value)}
                           placeholder="0"
+                          min="1"
                         />
                         <Button
                           onClick={handleAddItem}
                           className="bg-indigo-600 hover:bg-indigo-700"
+                          disabled={!selectedLivre || !quantity || !price}
                         >
                           Ajouter
                         </Button>

@@ -80,13 +80,14 @@ export async function GET(request: NextRequest) {
       clientPhone: order.user?.email || 'N/A',
       qty: order.items.reduce((sum, item) => sum + item.quantity, 0),
       montant: order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-      statut: 'Validée',
+      statut: order.status === 'DELIVERED' ? 'Validée' : order.status === 'SHIPPED' ? 'En cours' : 'En attente',
       compte: 'Partenaire',
-      paiements: 'Payé',
-      methode: 'Mobile Money', // TODO: Récupérer la vraie méthode de paiement
+      paiements: order.status === 'DELIVERED' ? 'Payé' : 'En attente',
+      methode: 'À définir', // La méthode de paiement devra être ajoutée au modèle Order
       creeLe: order.createdAt.toISOString().split('T')[0],
       validePar: 'PDG',
       modifieLe: order.updatedAt.toISOString().split('T')[0],
+      type: 'vente', // Type de transaction (toutes les commandes sont des ventes pour l'instant)
       items: order.items.map(item => ({
         id: item.id,
         work: {
@@ -104,16 +105,16 @@ export async function GET(request: NextRequest) {
     // Filtrer les données selon les paramètres
     let filteredSales = salesData
 
-    if (status && status !== 'all') {
-      filteredSales = filteredSales.filter(sale => sale.statut === status)
+    if (status && status !== 'all' && status !== 'tous') {
+      filteredSales = filteredSales.filter(sale => sale.statut.toLowerCase().includes(status.toLowerCase()))
     }
 
-    if (type && type !== 'all') {
-      // TODO: Implémenter le filtrage par type
+    if (type && type !== 'all' && type !== 'tous') {
+      filteredSales = filteredSales.filter(sale => sale.type === type)
     }
 
-    if (method && method !== 'all') {
-      filteredSales = filteredSales.filter(sale => sale.methode === method)
+    if (method && method !== 'all' && method !== 'tous') {
+      filteredSales = filteredSales.filter(sale => sale.methode.toLowerCase().includes(method.toLowerCase()))
     }
 
     if (search) {
@@ -124,10 +125,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculer les statistiques
-    const totalVentes = filteredSales.length
-    const totalRetours = 0 // TODO: Implémenter la logique des retours
-    const montantNet = filteredSales.reduce((sum, sale) => sum + sale.montant, 0) - (totalRetours * 5000)
-    const performance = totalVentes > 0 ? Math.round((totalVentes / (totalVentes + totalRetours)) * 100) : 0
+    const ventes = filteredSales.filter(sale => sale.type === 'vente')
+    const retours = filteredSales.filter(sale => sale.type === 'retour')
+    const totalVentes = ventes.length
+    const totalRetours = retours.length
+    const montantVentes = ventes.reduce((sum, sale) => sum + sale.montant, 0)
+    const montantRetours = retours.reduce((sum, sale) => sum + Math.abs(sale.montant), 0)
+    const montantNet = montantVentes - montantRetours
+    const performance = totalVentes > 0 ? Math.round((totalVentes / (totalVentes + totalRetours)) * 100) : 100
 
     return NextResponse.json({
       sales: filteredSales,

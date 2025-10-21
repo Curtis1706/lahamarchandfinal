@@ -112,8 +112,31 @@ export async function POST(request: NextRequest) {
         return sum + (item.price * item.quantity * royaltyRate)
       }, 0)
 
-      // TODO: Créer une notification pour l'auteur
-      console.log(`📢 Notification à créer: Royalty de ${totalRoyalty} FCFA pour l'auteur ${authorId}`)
+      // Créer une notification pour l'auteur
+      try {
+        await prisma.notification.create({
+          data: {
+            userId: authorId as string,
+            title: "📊 Nouveaux droits d'auteur calculés",
+            message: `De nouveaux droits d'auteur ont été calculés pour un montant de ${totalRoyalty.toLocaleString()} FCFA. ${authorWorks.length} œuvre(s) concernée(s).`,
+            type: "ROYALTY_CALCULATED",
+            data: JSON.stringify({
+              orderId: order.id,
+              amount: totalRoyalty,
+              worksCount: authorWorks.length,
+              calculatedAt: new Date().toISOString(),
+              works: authorWorks.map(item => ({
+                title: item.work.title,
+                quantity: item.quantity,
+                royalty: item.price * item.quantity * royaltyRate
+              }))
+            })
+          }
+        })
+        console.log(`✅ Notification créée: Royalty de ${totalRoyalty} FCFA pour l'auteur ${authorId}`)
+      } catch (notifError) {
+        console.error(`⚠️ Erreur création notification pour auteur ${authorId}:`, notifError)
+      }
     }
 
     return NextResponse.json({

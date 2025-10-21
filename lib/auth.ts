@@ -53,6 +53,18 @@ export const authOptions: NextAuthOptions = {
             return null
           }
 
+          // Mettre à jour la dernière connexion
+          try {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { lastLoginAt: new Date() }
+            })
+            console.log("✅ Last login updated for:", user.email);
+          } catch (updateError) {
+            console.error("⚠️ Error updating lastLoginAt:", updateError);
+            // Ne pas bloquer la connexion si la mise à jour échoue
+          }
+
           console.log("✅ Authentication successful for:", user.email);
           return {
             id: user.id,

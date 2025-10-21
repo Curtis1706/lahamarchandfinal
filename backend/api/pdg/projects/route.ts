@@ -148,8 +148,29 @@ export async function POST(request: NextRequest) {
         }
       })
 
-      // TODO: Créer une notification pour le concepteur quand le modèle Notification sera disponible
-      console.log(`📢 Notification à créer: Projet "${project.title}" approuvé pour ${project.concepteur.name}`)
+      // Créer une notification pour le concepteur
+      try {
+        await prisma.notification.create({
+          data: {
+            userId: project.concepteurId,
+            title: "✅ Projet approuvé !",
+            message: `Votre projet "${project.title}" a été approuvé et une œuvre a été créée automatiquement avec l'ISBN ${work.isbn}.`,
+            type: "PROJECT_APPROVED",
+            data: JSON.stringify({
+              projectId: project.id,
+              projectTitle: project.title,
+              workId: work.id,
+              workTitle: work.title,
+              isbn: work.isbn,
+              approvedBy: user.name,
+              approvedAt: new Date().toISOString()
+            })
+          }
+        })
+        console.log(`✅ Notification créée pour ${project.concepteur.name}`)
+      } catch (notifError) {
+        console.error("⚠️ Erreur création notification:", notifError)
+      }
 
       console.log("✅ Project accepted and work created:", work.title)
 
@@ -180,8 +201,27 @@ export async function POST(request: NextRequest) {
         }
       })
 
-      // TODO: Créer une notification pour le concepteur quand le modèle Notification sera disponible
-      console.log(`📢 Notification à créer: Projet "${project.title}" refusé pour ${project.concepteur.name}`)
+      // Créer une notification pour le concepteur
+      try {
+        await prisma.notification.create({
+          data: {
+            userId: project.concepteurId,
+            title: "❌ Projet refusé",
+            message: `Votre projet "${project.title}" a été refusé. ${project.rejectionReason ? `Raison : ${project.rejectionReason}` : 'Vous pouvez le modifier et le resoumettre.'}`,
+            type: "PROJECT_REJECTED",
+            data: JSON.stringify({
+              projectId: project.id,
+              projectTitle: project.title,
+              rejectionReason: project.rejectionReason,
+              rejectedBy: user.name,
+              rejectedAt: new Date().toISOString()
+            })
+          }
+        })
+        console.log(`✅ Notification de refus créée pour ${project.concepteur.name}`)
+      } catch (notifError) {
+        console.error("⚠️ Erreur création notification:", notifError)
+      }
 
       console.log("❌ Project rejected:", project.title)
 

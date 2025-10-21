@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from '@prisma/client';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 const prisma = new PrismaClient();
 
@@ -53,6 +55,23 @@ export async function PUT(request: NextRequest) {
   console.log("🔍 API PUT /users/validate - Validation d'utilisateur");
   
   try {
+    // Récupérer la session pour identifier qui effectue la validation
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: "Non authentifié" },
+        { status: 401 }
+      );
+    }
+
+    if (session.user.role !== 'PDG') {
+      return NextResponse.json(
+        { error: "Accès refusé - Rôle PDG requis" },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { userId, status } = body;
 
@@ -121,7 +140,7 @@ export async function PUT(request: NextRequest) {
         data: {
           action: status === "APPROVED" ? "USER_APPROVED" : "USER_REJECTED",
           userId: userId,
-          performedBy: userId, // TODO: Récupérer l'ID du PDG depuis la session
+          performedBy: session.user.name || session.user.email || 'PDG',
           details: JSON.stringify({
             userId: userId,
             userName: user.name,
@@ -129,7 +148,10 @@ export async function PUT(request: NextRequest) {
             userRole: user.role,
             discipline: user.discipline?.name,
             newStatus: updatedUser.status,
-            validationStatus: status
+            validationStatus: status,
+            performedById: session.user.id,
+            performedByName: session.user.name,
+            performedAt: new Date().toISOString()
           })
         }
       });

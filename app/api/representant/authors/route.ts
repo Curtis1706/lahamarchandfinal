@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
           worksCount: author._count.authoredWorks,
           pendingWorksCount,
           createdAt: author.createdAt.toISOString(),
-          lastActivity: author.createdAt.toISOString() // TODO: Implémenter le suivi de la dernière activité
+          lastActivity: author.lastLoginAt?.toISOString() || author.createdAt.toISOString()
         }
       })
     )
@@ -143,8 +143,7 @@ export async function POST(request: NextRequest) {
         role: 'AUTEUR' as Role,
         status: 'ACTIVE', // Les auteurs créés par le représentant sont actifs directement
         disciplineId: disciplineId || null,
-        // TODO: Ajouter la relation représentant-auteur
-        // representantId: session.user.id
+        representantId: session.user.id, // Assigner le représentant qui crée l'auteur
       },
       select: {
         id: true,

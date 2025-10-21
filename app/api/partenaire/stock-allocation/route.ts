@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
       returnedQuantity: item.returnedQuantity,
       availableQuantity: item.availableQuantity,
       status: item.availableQuantity > 0 ? 'Disponible' : 'Épuisé',
-      price: 3000, // TODO: Récupérer le prix depuis la base
+      price: item.work.price || 0,
       createdAt: item.createdAt.toISOString(),
       updatedAt: item.updatedAt.toISOString()
     }))

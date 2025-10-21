@@ -334,46 +334,6 @@ export default function NouvelleOeuvrePage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Indicateur de debug en haut */}
-          <div className="mb-6 p-4 bg-yellow-100 border-2 border-yellow-400 rounded-lg">
-            <h3 className="text-lg font-bold text-yellow-800 text-center">
-              🔍 DEBUG - CHAMP PROJET À RATTACHER
-            </h3>
-            <div className="grid grid-cols-2 gap-4 mt-2 text-sm">
-              <div>
-                <strong>Utilisateur:</strong> {user?.email || "Non connecté"}
-              </div>
-              <div>
-                <strong>Rôle:</strong> {user?.role || "Non défini"}
-              </div>
-              <div>
-                <strong>Projets chargés:</strong> {validatedProjects.length}
-              </div>
-              <div>
-                <strong>État chargement:</strong> {isLoadingProjects ? "En cours..." : "Terminé"}
-              </div>
-              <div>
-                <strong>Étape actuelle:</strong> {currentStep} sur 4
-              </div>
-              <div>
-                <strong>Champ visible:</strong> {currentStep === 2 ? "OUI (Étape 2)" : "NON (Étape " + currentStep + ")"}
-              </div>
-            </div>
-            <p className="text-xs text-yellow-700 mt-2 text-center">
-              Le champ "Projet à rattacher" est à l'ÉTAPE 2. Cliquez sur "Suivant" pour y accéder !
-            </p>
-            {currentStep === 1 && (
-              <div className="mt-3 p-3 bg-red-100 border border-red-300 rounded-md">
-                <p className="text-sm text-red-800 font-bold text-center">
-                  🚨 ATTENTION: Vous êtes à l'étape 1. Le champ projet est à l'étape 2 !
-                </p>
-                <p className="text-xs text-red-600 text-center mt-1">
-                  Remplissez le titre et la description, puis cliquez sur "Suivant"
-                </p>
-              </div>
-            )}
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Step 1: Informations de base */}
             {currentStep === 1 && (
@@ -427,25 +387,15 @@ export default function NouvelleOeuvrePage() {
                   </Select>
                 </div>
                 
-                <div className="border-4 border-red-500 p-6 rounded-lg bg-red-50 shadow-lg">
-                  <div className="text-center mb-4">
-                    <h4 className="text-xl font-bold text-red-800">🚨 CHAMP PROJET À RATTACHER 🚨</h4>
-                    <p className="text-sm text-red-600">Ce champ devrait être visible maintenant !</p>
-                  </div>
-                  <Label htmlFor="projectId" className="flex items-center gap-2 text-red-800 font-semibold text-lg">
+                <div>
+                  <Label htmlFor="projectId" className="flex items-center gap-2">
                     📋 Projet à rattacher (optionnel)
-                    <Badge variant="outline" className="text-xs bg-red-100 border-red-300">
-                      {validatedProjects.length} disponible(s)
-                    </Badge>
+                    {validatedProjects.length > 0 && (
+                      <Badge variant="outline" className="text-xs">
+                        {validatedProjects.length} disponible(s)
+                      </Badge>
+                    )}
                   </Label>
-                  <p className="text-sm text-red-600 mt-2 font-medium">
-                    DEBUG: Champ visible - {validatedProjects.length} projets chargés
-                  </p>
-                  <p className="text-xs text-red-500 mt-1">
-                    État: {isLoadingProjects ? "Chargement..." : "Chargé"} | 
-                    Utilisateur: {user?.email} | 
-                    Rôle: {user?.role}
-                  </p>
                   <Select
                     value={formData.projectId}
                     onValueChange={(value) => handleInputChange("projectId", value)}

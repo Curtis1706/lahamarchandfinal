@@ -7,78 +7,35 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Filter, Plus, RotateCcw, Calendar, Eye, TrendingUp, Package, AlertCircle } from "lucide-react"
+import { Filter, Plus, RotateCcw, Calendar, Eye, TrendingUp, Package, AlertCircle, Loader2 } from "lucide-react"
 import { useCurrentUser } from "@/hooks/use-current-user"
+import { apiClient } from "@/lib/api-client"
+import { toast } from "sonner"
 
-// Mock data pour les ventes réalisées par le partenaire
-const mockSales = [
-  {
-    id: "V2025001",
-    reference: "2025COM28",
-    clientName: "ECOLE CONTRACTUELLE",
-    clientPhone: "+22994551975",
-    qty: 5,
-    montant: 125000,
-    statut: "Validée",
-    compte: "Partenaire",
-    paiements: "Payé",
-    methode: "Mobile Money",
-    creeLe: "2025-01-15",
-    validePar: "PDG",
-    modifieLe: "2025-01-16",
-    items: [
-      { livre: "Réussir en Dictée CE1-CE2", quantite: 3, prix: 2500 },
-      { livre: "Coffret Français CE2", quantite: 2, prix: 3500 }
-    ],
-    observation: "Livraison effectuée avec succès",
-    type: "vente"
-  },
-  {
-    id: "V2025002", 
-    reference: "2025COM27",
-    clientName: "EPP AZALO",
-    clientPhone: "+22997648441",
-    qty: 5,
-    montant: 150000,
-    statut: "En cours",
-    compte: "Partenaire",
-    paiements: "En attente",
-    methode: "Virement",
-    creeLe: "2025-01-10",
-    validePar: "PDG",
-    modifieLe: "2025-01-12",
-    items: [
-      { livre: "Réussir en Mathématiques CE1", quantite: 5, prix: 2800 }
-    ],
-    observation: "Livraison partielle",
-    type: "vente"
-  },
-  {
-    id: "R2025001",
-    reference: "2025COM28",
-    clientName: "ECOLE CONTRACTUELLE", 
-    clientPhone: "+22994551975",
-    qty: 2,
-    montant: -5000,
-    statut: "Traité",
-    compte: "Partenaire",
-    paiements: "Remboursé",
-    methode: "Mobile Money",
-    creeLe: "2025-01-20",
-    validePar: "PDG",
-    modifieLe: "2025-01-21",
-    items: [
-      { livre: "Réussir en Dictée CE1-CE2", quantite: 2, prix: 2500 }
-    ],
-    observation: "Retour pour défaut d'impression",
-    type: "retour"
-  }
-]
+interface Sale {
+  id: string
+  reference: string
+  clientName: string
+  clientPhone: string
+  qty: number
+  montant: number
+  statut: string
+  compte: string
+  paiements: string
+  methode: string
+  creeLe: string
+  validePar: string
+  modifieLe?: string
+  items?: Array<{ livre: string; quantite: number; prix: number }>
+  observation?: string
+  type: string
+}
 
 export default function VentesRetoursPage() {
   const { user } = useCurrentUser()
-  const [sales, setSales] = useState([])
-  const [filteredSales, setFilteredSales] = useState([])
+  const [sales, setSales] = useState<Sale[]>([])
+  const [filteredSales, setFilteredSales] = useState<Sale[]>([])
+  const [isLoading, setIsLoading] = useState(false)
   const [stats, setStats] = useState({
     totalVentes: 0,
     totalRetours: 0,
@@ -109,12 +66,24 @@ export default function VentesRetoursPage() {
         method: selectedMethod === 'tous' ? undefined : selectedMethod
       })
       
-      setSales(data.sales)
-      setStats(data.stats)
+      setSales(data.sales || [])
+      setStats(data.stats || {
+        totalVentes: 0,
+        totalRetours: 0,
+        montantNet: 0,
+        performance: 0
+      })
       
     } catch (error: any) {
       console.error('Erreur lors du chargement des ventes:', error)
+      toast.error('Impossible de charger les ventes. Veuillez réessayer.')
       setSales([])
+      setStats({
+        totalVentes: 0,
+        totalRetours: 0,
+        montantNet: 0,
+        performance: 0
+      })
     } finally {
       setIsLoading(false)
     }
@@ -163,6 +132,14 @@ export default function VentesRetoursPage() {
         </div>
       </div>
       <div className="p-6">
+        {/* Indicateur de chargement */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12 mb-6">
+            <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+            <span className="ml-3 text-gray-600">Chargement des ventes...</span>
+          </div>
+        ) : (
+        <>
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
@@ -509,6 +486,8 @@ export default function VentesRetoursPage() {
             </div>
           </div>
         </div>
+        </>
+        )}
       </div>
     </div>
   )

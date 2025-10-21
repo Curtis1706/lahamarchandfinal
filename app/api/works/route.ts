@@ -310,7 +310,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Si l'utilisateur n'est pas PDG, il ne peut voir que ses propres œuvres
-    if (session.user.role !== "PDG" && session.user.role !== "ADMIN") {
+    if (session.user.role !== "PDG") {
       if (session.user.role === "AUTEUR") {
         whereClause.authorId = session.user.id;
       }

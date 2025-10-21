@@ -93,8 +93,8 @@ export async function GET(
     const userRole = session.user.role;
     const userId = session.user.id;
 
-    // Seuls le concepteur du projet, le PDG, et les admins peuvent voir les détails
-    if (userRole !== "PDG" && userRole !== "ADMIN" && project.concepteurId !== userId) {
+    // Seuls le concepteur du projet et le PDG peuvent voir les détails
+    if (userRole !== "PDG" && project.concepteurId !== userId) {
       return NextResponse.json(
         { error: "Accès non autorisé à ce projet" },
         { status: 403 }
@@ -159,8 +159,8 @@ export async function PUT(
 
     // Vérifier les permissions selon le rôle et l'action
     if (data.status) {
-      // Changement de statut - seuls PDG et ADMIN peuvent le faire
-      if (userRole !== "PDG" && userRole !== "ADMIN") {
+      // Changement de statut - seul le PDG peut le faire
+      if (userRole !== "PDG") {
         return NextResponse.json(
           { error: "Seul le PDG peut changer le statut d'un projet" },
           { status: 403 }
@@ -365,7 +365,7 @@ export async function DELETE(
     const userId = session.user.id;
 
     // Seul le concepteur peut supprimer son projet (et seulement si DRAFT)
-    if (existingProject.concepteurId !== userId && userRole !== "ADMIN") {
+    if (existingProject.concepteurId !== userId) {
       return NextResponse.json(
         { error: "Seul le concepteur peut supprimer ce projet" },
         { status: 403 }

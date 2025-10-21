@@ -252,6 +252,9 @@ export default function GestionStockPage() {
   const [disciplineFilter, setDisciplineFilter] = useState<string>('all')
   const [stockStatusFilter, setStockStatusFilter] = useState<string>('all')
   const [movementTypeFilter, setMovementTypeFilter] = useState<string>('all')
+  
+  // État pour les disciplines
+  const [disciplines, setDisciplines] = useState<Array<{id: string, name: string}>>([])
 
   // États UI
   const [selectedWork, setSelectedWork] = useState<Work | null>(null)
@@ -403,12 +406,13 @@ export default function GestionStockPage() {
   const loadData = async () => {
     try {
       setIsLoading(true)
-      const [worksData, movementsData, alertsData, statsData, pendingData] = await Promise.all([
+      const [worksData, movementsData, alertsData, statsData, pendingData, disciplinesData] = await Promise.all([
         apiClient.getWorksWithStock(),
         apiClient.getStockMovements(),
         apiClient.getStockAlerts('alerts'),
         apiClient.getStockStats(),
-        apiClient.getPendingStockOperations()
+        apiClient.getPendingStockOperations(),
+        apiClient.getDisciplines()
       ])
       
       setWorks(worksData)
@@ -416,6 +420,7 @@ export default function GestionStockPage() {
       setStockAlerts(alertsData)
       setStockStats(statsData)
       setPendingOperations(pendingData)
+      setDisciplines(disciplinesData || [])
     } catch (error: any) {
       toast.error(error.message || "Erreur lors du chargement des données")
     } finally {
@@ -655,9 +660,11 @@ export default function GestionStockPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Toutes les disciplines</SelectItem>
-                      <SelectItem value="math">Mathématiques</SelectItem>
-                      <SelectItem value="french">Français</SelectItem>
-                      <SelectItem value="science">Sciences</SelectItem>
+                      {disciplines.map((discipline) => (
+                        <SelectItem key={discipline.id} value={discipline.id}>
+                          {discipline.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
 
@@ -1269,9 +1276,11 @@ export default function GestionStockPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Toutes les disciplines</SelectItem>
-                        <SelectItem value="math">Mathématiques</SelectItem>
-                        <SelectItem value="french">Français</SelectItem>
-                        <SelectItem value="science">Sciences</SelectItem>
+                        {disciplines.map((discipline) => (
+                          <SelectItem key={discipline.id} value={discipline.id}>
+                            {discipline.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
 
@@ -1503,9 +1512,11 @@ export default function GestionStockPage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Toutes les disciplines</SelectItem>
-                          <SelectItem value="math">Mathématiques</SelectItem>
-                          <SelectItem value="french">Français</SelectItem>
-                          <SelectItem value="science">Sciences</SelectItem>
+                          {disciplines.map((discipline) => (
+                            <SelectItem key={discipline.id} value={discipline.id}>
+                              {discipline.name}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
