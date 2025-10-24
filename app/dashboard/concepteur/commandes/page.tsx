@@ -71,7 +71,9 @@ export default function ConcepteurCommandesPage() {
   const [newOrderData, setNewOrderData] = useState({
     clientId: "",
     items: [] as Array<{ workId: string; quantity: number; price: number }>,
-    notes: ""
+    notes: "",
+    paymentMethod: "",
+    paymentReference: ""
   })
 
   // Charger les commandes
@@ -158,7 +160,9 @@ export default function ConcepteurCommandesPage() {
       setNewOrderData({
         clientId: "",
         items: [],
-        notes: ""
+        notes: "",
+        paymentMethod: "",
+        paymentReference: ""
       })
       loadOrders()
     } catch (error: any) {
@@ -243,6 +247,33 @@ export default function ConcepteurCommandesPage() {
                     )}
                   </SelectContent>
                 </Select>
+              </div>
+              <div>
+                <Label htmlFor="paymentMethod">Méthode de paiement</Label>
+                <Select
+                  value={newOrderData.paymentMethod}
+                  onValueChange={(value) => setNewOrderData({ ...newOrderData, paymentMethod: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner une méthode" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Mobile Money">Mobile Money</SelectItem>
+                    <SelectItem value="Virement">Virement bancaire</SelectItem>
+                    <SelectItem value="Espèces">Espèces</SelectItem>
+                    <SelectItem value="Carte Bancaire">Carte bancaire</SelectItem>
+                    <SelectItem value="Chèque">Chèque</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="paymentReference">Référence de paiement (optionnel)</Label>
+                <Input
+                  id="paymentReference"
+                  placeholder="Ex: Numéro de transaction"
+                  value={newOrderData.paymentReference}
+                  onChange={(e) => setNewOrderData({ ...newOrderData, paymentReference: e.target.value })}
+                />
               </div>
               <div>
                 <Label htmlFor="notes">Notes</Label>

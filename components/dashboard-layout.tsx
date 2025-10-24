@@ -253,7 +253,7 @@ export default function DashboardLayout({
                       : "hover:bg-gray-100"
                   }`}
                 >
-                  Liste
+                  Livres
                 </Link>
                 <Link
                   href="/dashboard/pdg/livres/collections"

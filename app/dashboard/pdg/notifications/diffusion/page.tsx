@@ -1,14 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { RefreshCw, Maximize2, Trash2 } from "lucide-react"
-
+import { useToast } from "@/hooks/use-toast"
 
 interface Diffusion {
+  id: string
   code: string
   titre: string
   statut: "Actif" | "Oui" | "Non"
@@ -16,68 +17,48 @@ interface Diffusion {
   destinateur: string
   expediteur: string
   dateCreation: string
+  message?: string
   actions: string[]
 }
 
-const mockDiffusions: Diffusion[] = [
-  {
-    code: "WELCOME_CLIENT",
-    titre: "Bienvenue",
-    statut: "Actif",
-    vue: "Non",
-    destinateur: "Bile FASSINOU (+22990195554315)",
-    expediteur: "PDG (Super)",
-    dateCreation: "jeu. 18 sept. 2025 17:40",
-    actions: ["delete"],
-  },
-  {
-    code: "WELCOME_CLIENT",
-    titre: "Bienvenue",
-    statut: "Actif",
-    vue: "Oui",
-    destinateur: "ECOLE CONTRATUELLE (+22994551975)",
-    expediteur: "Super administrateur (FASSINOU)",
-    dateCreation: "mar. 16 sept. 2025 11:33",
-    actions: ["delete"],
-  },
-  {
-    code: "NEW_ACCOUNT_CREATED",
-    titre:
-      "Bienvenue ! Votre compte a été créé avec succès. Vous pouvez maintenant commencer à explorer toutes les fonctionnalités de l'application.",
-    statut: "Actif",
-    vue: "Oui",
-    destinateur: "Partenaire (partenaire)",
-    expediteur: "Super administrateur (FASSINOU)",
-    dateCreation: "mar. 16 sept. 2025 11:21",
-    actions: ["delete"],
-  },
-  {
-    code: "ORDER_GET",
-    titre: "Réception de livres commandés",
-    statut: "Actif",
-    vue: "Oui",
-    destinateur: "ECOLE CONTRATUELLE (+22994551975)",
-    expediteur: "PDG (Super)",
-    dateCreation: "mer. 27 août 2025 17:03",
-    actions: ["delete"],
-  },
-  {
-    code: "ORDER_GET_RES",
-    titre: "Réception de livres commandés",
-    statut: "Actif",
-    vue: "Non",
-    destinateur: "Responsable de département (ABIOLA Espédit)",
-    expediteur: "PDG (Super)",
-    dateCreation: "mer. 27 août 2025 17:03",
-    actions: ["delete"],
-  },
-]
-
 export default function DiffusionPage() {
-  const [diffusions, setDiffusions] = useState<Diffusion[]>(mockDiffusions)
+  const [diffusions, setDiffusions] = useState<Diffusion[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState("")
+  const { toast } = useToast()
+
+  useEffect(() => {
+    loadDiffusions()
+  }, [])
+
+  const loadDiffusions = async () => {
+    try {
+      setIsLoading(true)
+      const response = await fetch('/api/pdg/notifications-diffusion')
+      if (response.ok) {
+        const data = await response.json()
+        setDiffusions(data)
+      } else {
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les diffusions",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error("Error loading diffusions:", error)
+      toast({
+        title: "Erreur",
+        description: "Erreur lors du chargement des diffusions",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const handleRefresh = () => {
-    console.log("[v0] Refreshing diffusions...")
+    loadDiffusions()
   }
 
   const handleFullscreen = () => {
@@ -88,9 +69,43 @@ export default function DiffusionPage() {
     }
   }
 
-  const handleDelete = (index: number) => {
-    setDiffusions((prev) => prev.filter((_, i) => i !== index))
+  const handleDelete = async (id: string) => {
+    if (!confirm("Êtes-vous sûr de vouloir supprimer cette diffusion ?")) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/pdg/notifications-diffusion?id=${id}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        toast({
+          title: "Succès",
+          description: "Diffusion supprimée avec succès"
+        })
+        loadDiffusions()
+      } else {
+        toast({
+          title: "Erreur",
+          description: "Impossible de supprimer la diffusion",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error("Error deleting diffusion:", error)
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de la suppression",
+        variant: "destructive"
+      })
+    }
   }
+
+  const filteredDiffusions = diffusions.filter((diff) =>
+    diff.titre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    diff.destinateur.toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
   return (
     <>
@@ -98,53 +113,63 @@ export default function DiffusionPage() {
       <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold">Diffusion</h2>
+            <h2 className="text-xl font-semibold">Diffusion des notifications</h2>
           </div>
           <div className="flex items-center space-x-4">
+            <button
+              onClick={handleRefresh}
+              className="p-2 hover:bg-slate-600 rounded"
+              title="Actualiser"
+            >
+              <RefreshCw className="w-5 h-5" />
+            </button>
+            <button
+              onClick={handleFullscreen}
+              className="p-2 hover:bg-slate-600 rounded"
+              title="Plein écran"
+            >
+              <Maximize2 className="w-5 h-5" />
+            </button>
             <span className="text-sm text-slate-300">
-              Tableau de bord - Diffusion
+              Tableau de bord - Diffusion des notifications
             </span>
           </div>
         </div>
       </div>
-      
+
       <div className="p-4 lg:p-6">
         <div className="bg-white rounded-lg shadow-sm">
-          {/* Header Section */}
+          {/* Header */}
           <div className="p-6 border-b">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Liste de diffusion</h3>
-              <div className="flex items-center space-x-2">
-                <button onClick={handleRefresh} className="p-2 hover:bg-gray-100 rounded-lg" title="Actualiser">
-                  <RefreshCw className="w-5 h-5" />
-                </button>
-                <button onClick={handleFullscreen} className="p-2 hover:bg-gray-100 rounded-lg" title="Plein écran">
-                  <Maximize2 className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
+            <h3 className="text-lg font-semibold mb-4">
+              Historique des notifications envoyées
+            </h3>
 
-            {/* Filters */}
-            <div className="flex items-center gap-4 mb-4">
+            {/* Table Controls */}
+            <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
-                <span className="text-sm">Afficher</span>
-                <Select defaultValue="5">
+                <span className="text-sm text-gray-600">Afficher</span>
+                <Select defaultValue="20">
                   <SelectTrigger className="w-20">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="5">5</SelectItem>
                     <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
                   </SelectContent>
                 </Select>
-                <span className="text-sm">éléments</span>
+                <span className="text-sm text-gray-600">éléments</span>
               </div>
-              <div className="ml-auto">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">Rechercher:</span>
-                  <Input className="w-64" placeholder="" />
-                </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">Rechercher:</span>
+                <Input
+                  placeholder="Rechercher..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-64"
+                />
               </div>
             </div>
           </div>
@@ -152,120 +177,112 @@ export default function DiffusionPage() {
           {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <thead>
+                <tr className="border-b bg-gray-50">
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
                     Code
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
                     Titre
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
                     Statut
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
                     Vue
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Destinateur
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
+                    Destinataire
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
                     Expéditeur
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
                     Date création
-                    <button className="ml-1">
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
-                      </svg>
-                    </button>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {diffusions.map((diffusion, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      <div className="flex items-center">
-                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                        {diffusion.code}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
-                      <div className="truncate" title={diffusion.titre}>
-                        {diffusion.titre}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge className="bg-green-100 text-green-800">{diffusion.statut}</Badge>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge
-                        className={
-                          diffusion.vue === "Oui" ? "bg-blue-100 text-blue-800" : "bg-purple-100 text-purple-800"
-                        }
-                      >
-                        {diffusion.vue}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      <Badge className="bg-blue-100 text-blue-800 text-xs">{diffusion.destinateur}</Badge>
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      <Badge className="bg-cyan-100 text-cyan-800 text-xs">{diffusion.expediteur}</Badge>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{diffusion.dateCreation}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <button onClick={() => handleDelete(index)} className="text-red-600 hover:text-red-800">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+              <tbody>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={8} className="py-8 text-center text-gray-500">
+                      Chargement des diffusions...
                     </td>
                   </tr>
-                ))}
+                ) : filteredDiffusions.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-8 text-center text-gray-500">
+                      Aucune diffusion trouvée
+                    </td>
+                  </tr>
+                ) : (
+                  filteredDiffusions.map((diffusion, index) => (
+                    <tr key={index} className="border-b hover:bg-gray-50">
+                      <td className="py-3 px-4 text-sm">{diffusion.code}</td>
+                      <td className="py-3 px-4 text-sm font-medium max-w-xs truncate">
+                        {diffusion.titre}
+                      </td>
+                      <td className="py-3 px-4">
+                        <Badge
+                          variant="default"
+                          className="bg-green-100 text-green-800"
+                        >
+                          {diffusion.statut}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-4">
+                        <Badge
+                          variant={diffusion.vue === "Oui" ? "default" : "secondary"}
+                          className={
+                            diffusion.vue === "Oui"
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-gray-100 text-gray-800"
+                          }
+                        >
+                          {diffusion.vue}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-600">
+                        {diffusion.destinateur}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-600">
+                        {diffusion.expediteur}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-600">
+                        {diffusion.dateCreation}
+                      </td>
+                      <td className="py-3 px-4">
+                        <button
+                          onClick={() => handleDelete(diffusion.id)}
+                          className="p-1 hover:bg-gray-100 rounded"
+                          title="Supprimer"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
 
           {/* Pagination */}
-          <div className="px-6 py-4 border-t bg-gray-50">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-600">Affichage de 1 à 5 sur 117 éléments</p>
-              <div className="flex items-center space-x-2">
-                <Button variant="outline" size="sm">
-                  Premier
-                </Button>
-                <Button variant="outline" size="sm">
-                  Précédent
-                </Button>
-                <Button variant="outline" size="sm" className="bg-blue-600 text-white">
-                  1
-                </Button>
-                <Button variant="outline" size="sm">
-                  2
-                </Button>
-                <Button variant="outline" size="sm">
-                  3
-                </Button>
-                <Button variant="outline" size="sm">
-                  4
-                </Button>
-                <Button variant="outline" size="sm">
-                  5
-                </Button>
-                <span className="text-sm">...</span>
-                <Button variant="outline" size="sm">
-                  24
-                </Button>
-                <Button variant="outline" size="sm">
-                  Suivant
-                </Button>
-                <Button variant="outline" size="sm">
-                  Dernier
-                </Button>
-              </div>
+          <div className="p-6 border-t flex justify-between items-center">
+            <p className="text-sm text-gray-600">
+              Affichage de 1 à {filteredDiffusions.length} sur {diffusions.length} éléments
+            </p>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm">Premier</Button>
+              <Button variant="outline" size="sm">Précédent</Button>
+              <Button variant="outline" size="sm" className="bg-indigo-600 text-white">
+                1
+              </Button>
+              <Button variant="outline" size="sm">Suivant</Button>
+              <Button variant="outline" size="sm">Dernier</Button>
             </div>
           </div>
         </div>

@@ -129,7 +129,7 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           icon: BookOpen,
           label: "Nos livres",
           children: [
-            { href: `${basePath}/livres/liste`, label: "Collections" },
+            { href: `${basePath}/livres/liste`, label: "Livres" },
             { href: `${basePath}/livres/collections`, label: "Collections" },
             { href: `${basePath}/livres/categories`, label: "Catégories" },
             { href: `${basePath}/livres/classes`, label: "Classes" },

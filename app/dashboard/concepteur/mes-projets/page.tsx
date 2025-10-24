@@ -105,8 +105,14 @@ export default function MesProjetsPage() {
   };
 
   const handleEditProject = (project: any) => {
-    // Pour l'instant, on redirige vers une page d'édition (à créer)
-    toast.info(`Édition du projet "${project.title}" - Fonctionnalité à implémenter`);
+    // Vérifier que le projet est modifiable
+    if (project.status !== "DRAFT" && project.status !== "REJECTED") {
+      toast.error("Seuls les projets en brouillon ou refusés peuvent être modifiés");
+      return;
+    }
+    
+    // Rediriger vers la page d'édition
+    router.push(`/dashboard/concepteur/mes-projets/${project.id}/edit`);
   };
 
   const handleDeleteProject = async (project: any) => {

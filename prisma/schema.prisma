@@ -626,3 +626,59 @@ enum SyncStatus {
   FAILED
   DISABLED
 }
+
+// Modèle pour les codes promo et promotions
+model Promotion {
+  id                String           @id @default(cuid())
+  libelle           String           // Nom de la promotion
+  code              String           @unique // Code promo unique
+  periode           String           // Période de validité (texte libre)
+  startDate         DateTime?        // Date de début (optionnel)
+  endDate           DateTime?        // Date de fin (optionnel)
+  livre             String           // Livres concernés
+  statut            PromotionStatus  @default(ACTIF)
+  taux              String           // Montant ou pourcentage de réduction
+  quantiteMinimale  Int              @default(1)
+  description       String?          // Description optionnelle
+  createdBy         String           // Créé par
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([code])
+  @@index([statut])
+}
+
+enum PromotionStatus {
+  ACTIF
+  INACTIF
+  EXPIRE
+}
+
+// Modèle pour les catégories de livres
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([name])
+  @@index([isActive])
+}
+
+// Modèle pour les classes scolaires
+model SchoolClass {
+  id        String   @id @default(cuid())
+  name      String   @unique // ex: "CI", "CP", "CE1", etc.
+  section   String   // "Primaire" ou "Secondaire"
+  isActive  Boolean  @default(true)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([section])
+  @@index([isActive])
+}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -13,107 +13,99 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/hooks/use-toast"
 
-const categories = [
-  {
-    id: 1,
-    nom: "ROMAN",
-    description: "",
-    statut: "Indisponible",
-    creeLe: "jeu. 13 juin 2024 12:54",
-    creePar: "Responsable de département ()",
-    modifieLe: "sam. 20 juil. 2024 18:27",
-  },
-  {
-    id: 2,
-    nom: "HISTOIRE",
-    description: "",
-    statut: "Désactivé",
-    creeLe: "jeu. 13 juin 2024 12:55",
-    creePar: "Super administrateur (FASSINOU)",
-    modifieLe: "mer. 19 juin 2024 16:08",
-  },
-  {
-    id: 3,
-    nom: "Livre Exercices (secondaire)",
-    description: "",
-    statut: "Disponible",
-    creeLe: "jeu. 13 juin 2024 16:45",
-    creePar: "Super administrateur (FASSINOU)",
-    modifieLe: "jeu. 22 août 2024 15:08",
-  },
-  {
-    id: 4,
-    nom: "Cahier d'activités (primaire)",
-    description: "",
-    statut: "Disponible",
-    creeLe: "mar. 2 juil. 2024 18:35",
-    creePar: "Super administrateur (FASSINOU)",
-    modifieLe: "sam. 20 juil. 2024 18:30",
-  },
-  {
-    id: 5,
-    nom: "Manuels ( Primaire et Secondaire)",
-    description: "",
-    statut: "Disponible",
-    creeLe: "mar. 2 juil. 2024 18:35",
-    creePar: "Super administrateur (FASSINOU)",
-    modifieLe: "jeu. 22 août 2024 17:19",
-  },
-  {
-    id: 6,
-    nom: "Guide du professeur (Secondaire)",
-    description: "",
-    statut: "Disponible",
-    creeLe: "mer. 24 juil. 2024 08:35",
-    creePar: "Super administrateur (FASSINOU)",
-    modifieLe: "jeu. 22 août 2024 14:44",
-  },
-  {
-    id: 7,
-    nom: "Coffrets (Primaire)",
-    description: "",
-    statut: "Disponible",
-    creeLe: "jeu. 22 août 2024 14:20",
-    creePar: "PDG (Super)",
-    modifieLe: "Invalid date",
-  },
-  {
-    id: 8,
-    nom: "Guide de l'enseignant (Primaire)",
-    description: "",
-    statut: "Disponible",
-    creeLe: "jeu. 22 août 2024 14:46",
-    creePar: "PDG (Super)",
-    modifieLe: "Invalid date",
-  },
-  {
-    id: 9,
-    nom: "Annales (Primaire)",
-    description: "",
-    statut: "Disponible",
-    creeLe: "jeu. 22 août 2024 14:46",
-    creePar: "PDG (Super)",
-    modifieLe: "jeu. 22 août 2024 15:03",
-  },
-  {
-    id: 10,
-    nom: "Parascolaire",
-    description: "",
-    statut: "Disponible",
-    creeLe: "mer. 16 oct. 2024 16:26",
-    creePar: "Super administrateur (FASSINOU)",
-    modifieLe: "mer. 16 oct. 2024 16:35",
-  },
-]
+interface Category {
+  id: string
+  nom: string
+  description: string
+  statut: string
+  creeLe: string
+  creePar: string
+  modifieLe: string
+}
 
 export default function CategoriesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [newCategory, setNewCategory] = useState({
+    nom: "",
+    description: "",
+    statut: "Disponible"
+  })
+  const { toast } = useToast()
+
+  // Charger les catégories depuis l'API
+  useEffect(() => {
+    loadCategories()
+  }, [])
+
+  const loadCategories = async () => {
+    try {
+      setIsLoading(true)
+      const response = await fetch('/api/pdg/categories')
+      if (response.ok) {
+        const data = await response.json()
+        setCategories(data)
+      } else {
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les catégories",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error("Error loading categories:", error)
+      toast({
+        title: "Erreur",
+        description: "Erreur lors du chargement des catégories",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleCreateCategory = async () => {
+    try {
+      const response = await fetch('/api/pdg/categories', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newCategory),
+      })
+
+      if (response.ok) {
+        toast({
+          title: "Succès",
+          description: "Catégorie créée avec succès"
+        })
+        setNewCategory({ nom: "", description: "", statut: "Disponible" })
+        setIsModalOpen(false)
+        loadCategories()
+      } else {
+        toast({
+          title: "Erreur",
+          description: "Impossible de créer la catégorie",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error("Error creating category:", error)
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de la création de la catégorie",
+        variant: "destructive"
+      })
+    }
+  }
 
   const handleRefresh = () => {
-    console.log("[v0] Refreshing categories data...")
+    loadCategories()
   }
 
   const filteredCategories = categories.filter((category) => {
@@ -175,15 +167,27 @@ export default function CategoriesPage() {
           <div className="space-y-4 mt-2">
             <div>
               <label className="block text-sm font-medium mb-1">Nom :</label>
-              <Input placeholder="" />
+              <Input 
+                placeholder="Nom de la catégorie" 
+                value={newCategory.nom}
+                onChange={(e) => setNewCategory({ ...newCategory, nom: e.target.value })}
+              />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Description :</label>
-              <Textarea placeholder="" rows={3} />
+              <Textarea 
+                placeholder="Description de la catégorie" 
+                rows={3}
+                value={newCategory.description}
+                onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })}
+              />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Statut :</label>
-              <Select defaultValue="Disponible">
+              <Select 
+                value={newCategory.statut}
+                onValueChange={(value) => setNewCategory({ ...newCategory, statut: value })}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -199,7 +203,13 @@ export default function CategoriesPage() {
             <Button variant="outline" onClick={() => setIsModalOpen(false)}>
               Fermer
             </Button>
-            <Button className="bg-indigo-600 hover:bg-indigo-700">Enregistrer</Button>
+            <Button 
+              className="bg-indigo-600 hover:bg-indigo-700"
+              onClick={handleCreateCategory}
+              disabled={!newCategory.nom.trim()}
+            >
+              Enregistrer
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -247,45 +257,61 @@ export default function CategoriesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredCategories.map((category) => (
-                    <tr key={category.id} className="border-b hover:bg-gray-50">
-                      <td className="py-3 px-2 font-medium">{category.nom}</td>
-                      <td className="py-3 px-2 text-gray-600">{category.description || "-"}</td>
-                      <td className="py-3 px-2">
-                        <span
-                          className={`inline-block px-2 py-1 text-xs rounded ${
-                            category.statut === "Disponible"
-                              ? "bg-green-100 text-green-800"
-                              : category.statut === "Indisponible"
-                                ? "bg-red-100 text-red-800"
-                                : "bg-red-100 text-red-800"
-                          }`}
-                        >
-                          {category.statut}
-                        </span>
-                      </td>
-                      <td className="py-3 px-2 text-sm text-gray-600">{category.creeLe}</td>
-                      <td className="py-3 px-2 text-sm text-gray-600">{category.creePar}</td>
-                      <td className="py-3 px-2 text-sm text-gray-600">{category.modifieLe}</td>
-                      <td className="py-3 px-2">
-                        <div className="flex items-center gap-2">
-                          <button className="p-1 hover:bg-gray-100 rounded">
-                            <Edit className="w-4 h-4 text-orange-500" />
-                          </button>
-                          <button className="p-1 hover:bg-gray-100 rounded">
-                            <Power className="w-4 h-4 text-red-500" />
-                          </button>
-                        </div>
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-gray-500">
+                        Chargement des catégories...
                       </td>
                     </tr>
-                  ))}
+                  ) : filteredCategories.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-gray-500">
+                        Aucune catégorie trouvée
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredCategories.map((category) => (
+                      <tr key={category.id} className="border-b hover:bg-gray-50">
+                        <td className="py-3 px-2 font-medium">{category.nom}</td>
+                        <td className="py-3 px-2 text-gray-600">{category.description || "-"}</td>
+                        <td className="py-3 px-2">
+                          <span
+                            className={`inline-block px-2 py-1 text-xs rounded ${
+                              category.statut === "Disponible"
+                                ? "bg-green-100 text-green-800"
+                                : category.statut === "Indisponible"
+                                  ? "bg-red-100 text-red-800"
+                                  : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {category.statut}
+                          </span>
+                        </td>
+                        <td className="py-3 px-2 text-sm text-gray-600">{category.creeLe}</td>
+                        <td className="py-3 px-2 text-sm text-gray-600">{category.creePar}</td>
+                        <td className="py-3 px-2 text-sm text-gray-600">{category.modifieLe}</td>
+                        <td className="py-3 px-2">
+                          <div className="flex items-center gap-2">
+                            <button className="p-1 hover:bg-gray-100 rounded">
+                              <Edit className="w-4 h-4 text-orange-500" />
+                            </button>
+                            <button className="p-1 hover:bg-gray-100 rounded">
+                              <Power className="w-4 h-4 text-red-500" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
 
             {/* Pagination */}
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6">
-              <p className="text-sm text-gray-600">Affichage de 1 à 9 sur 9 éléments</p>
+              <p className="text-sm text-gray-600">
+                Affichage de 1 à {filteredCategories.length} sur {categories.length} éléments
+              </p>
 
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm">

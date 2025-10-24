@@ -62,8 +62,14 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Vérifier le stock disponible (simulation - TODO: implémenter la logique de stock central)
-    // Pour l'instant, on suppose qu'il y a toujours du stock disponible
+    // Vérifier que le stock central est suffisant
+    if (!work.stock || work.stock < quantity) {
+      return NextResponse.json({
+        error: `Stock insuffisant. Disponible: ${work.stock || 0}, Demandé: ${quantity}`,
+        available: work.stock || 0,
+        requested: quantity
+      }, { status: 400 })
+    }
 
     // Utiliser une transaction pour garantir la cohérence
     const result = await prisma.$transaction(async (tx) => {
@@ -105,6 +111,16 @@ export async function POST(request: NextRequest) {
           }
         })
       }
+
+      // Diminuer le stock central
+      await tx.work.update({
+        where: { id: workId },
+        data: {
+          stock: {
+            decrement: quantity
+          }
+        }
+      })
 
       // Créer un mouvement de stock
       await tx.stockMovement.create({

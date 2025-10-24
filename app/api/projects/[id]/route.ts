@@ -114,6 +114,93 @@ export async function GET(
   }
 }
 
+// PATCH /api/projects/[id] - Mise à jour partielle d'un projet
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: "Non authentifié" },
+        { status: 401 }
+      );
+    }
+
+    const projectId = params.id;
+    const data = await request.json();
+
+    if (!projectId) {
+      return NextResponse.json(
+        { error: "ID du projet requis" },
+        { status: 400 }
+      );
+    }
+
+    // Vérifier que le projet existe
+    const existingProject = await prisma.project.findUnique({
+      where: { id: projectId }
+    });
+
+    if (!existingProject) {
+      return NextResponse.json(
+        { error: "Projet non trouvé" },
+        { status: 404 }
+      );
+    }
+
+    // Seul le concepteur peut modifier son projet
+    if (existingProject.concepteurId !== session.user.id) {
+      return NextResponse.json(
+        { error: "Seul le concepteur peut modifier ce projet" },
+        { status: 403 }
+      );
+    }
+
+    // Seuls les projets DRAFT ou REJECTED peuvent être modifiés
+    if (existingProject.status !== "DRAFT" && existingProject.status !== "REJECTED") {
+      return NextResponse.json(
+        { error: "Seuls les projets en brouillon ou refusés peuvent être modifiés" },
+        { status: 400 }
+      );
+    }
+
+    // Mettre à jour uniquement les champs fournis
+    const updateData: any = {};
+    if (data.title !== undefined) updateData.title = data.title;
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.disciplineId !== undefined) updateData.disciplineId = data.disciplineId;
+
+    const updatedProject = await prisma.project.update({
+      where: { id: projectId },
+      data: updateData,
+      include: {
+        discipline: true,
+        concepteur: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    console.log(`✅ Projet ${projectId} mis à jour par ${session.user.name}`);
+
+    return NextResponse.json(updatedProject, { status: 200 });
+
+  } catch (error: any) {
+    console.error("❌ Erreur lors de la mise à jour du projet:", error);
+    return NextResponse.json(
+      { error: "Erreur lors de la mise à jour du projet: " + error.message },
+      { status: 500 }
+    );
+  }
+}
+
 // PUT /api/projects/[id] - Modifier un projet spécifique
 export async function PUT(
   request: NextRequest,

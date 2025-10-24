@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,44 +19,99 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 
-const collections = [
-  {
-    id: 1,
-    nom: "Collection LAHA",
-    description: "",
-    statut: "Disponible",
-    creeLe: "sam. 20 juil. 2024 18:33",
-    creePar: "Super administrateur (FASSINOU)",
-    modifieLe: "Invalid date",
-  },
-  {
-    id: 2,
-    nom: "Collection citoyenne",
-    description: "",
-    statut: "Disponible",
-    creeLe: "sam. 20 juil. 2024 18:33",
-    creePar: "Super administrateur (FASSINOU)",
-    modifieLe: "Invalid date",
-  },
-  {
-    id: 3,
-    nom: "Collection vitale",
-    description: "",
-    statut: "Disponible",
-    creeLe: "sam. 20 juil. 2024 18:33",
-    creePar: "Super administrateur (FASSINOU)",
-    modifieLe: "Invalid date",
-  },
-];
+interface Collection {
+  id: string
+  nom: string
+  description: string
+  statut: string
+  creeLe: string
+  creePar: string
+  modifieLe: string
+}
 
 export default function CollectionsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [newCollection, setNewCollection] = useState({
+    nom: "",
+    description: "",
+    statut: "Disponible"
+  });
+  const { toast } = useToast();
+
+  // Charger les collections depuis l'API
+  useEffect(() => {
+    loadCollections();
+  }, []);
+
+  const loadCollections = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/pdg/collections');
+      if (response.ok) {
+        const data = await response.json();
+        setCollections(data);
+      } else {
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les collections",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error loading collections:", error);
+      toast({
+        title: "Erreur",
+        description: "Erreur lors du chargement des collections",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreateCollection = async () => {
+    try {
+      const response = await fetch('/api/pdg/collections', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newCollection),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Succès",
+          description: "Collection créée avec succès"
+        });
+        setNewCollection({ nom: "", description: "", statut: "Disponible" });
+        setIsModalOpen(false);
+        loadCollections();
+      } else {
+        toast({
+          title: "Erreur",
+          description: "Impossible de créer la collection",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error creating collection:", error);
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de la création de la collection",
+        variant: "destructive"
+      });
+    }
+  };
 
   const handleRefresh = () => {
-    console.log("[v0] Refreshing collections data...");
+    loadCollections();
   };
 
   const filteredCollections = collections.filter((collection) => {
@@ -125,19 +180,31 @@ export default function CollectionsPage() {
                     <label className="block text-sm font-medium mb-1">
                       Nom :
                     </label>
-                    <Input placeholder="" />
+                    <Input 
+                      placeholder="Nom de la collection" 
+                      value={newCollection.nom}
+                      onChange={(e) => setNewCollection({ ...newCollection, nom: e.target.value })}
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">
                       Description :
                     </label>
-                    <Textarea placeholder="" rows={3} />
+                    <Textarea 
+                      placeholder="Description de la collection" 
+                      rows={3}
+                      value={newCollection.description}
+                      onChange={(e) => setNewCollection({ ...newCollection, description: e.target.value })}
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">
                       Statut :
                     </label>
-                    <Select defaultValue="Disponible">
+                    <Select 
+                      value={newCollection.statut}
+                      onValueChange={(value) => setNewCollection({ ...newCollection, statut: value })}
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -158,7 +225,11 @@ export default function CollectionsPage() {
                   >
                     Fermer
                   </Button>
-                  <Button className="bg-indigo-600 hover:bg-indigo-700">
+                  <Button 
+                    className="bg-indigo-600 hover:bg-indigo-700"
+                    onClick={handleCreateCollection}
+                    disabled={!newCollection.nom.trim()}
+                  >
                     Enregistrer
                   </Button>
                 </DialogFooter>
@@ -208,43 +279,57 @@ export default function CollectionsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredCollections.map((collection) => (
-                    <tr
-                      key={collection.id}
-                      className="border-b hover:bg-gray-50"
-                    >
-                      <td className="py-3 px-2 font-medium">
-                        {collection.nom}
-                      </td>
-                      <td className="py-3 px-2 text-gray-600">
-                        {collection.description || "-"}
-                      </td>
-                      <td className="py-3 px-2">
-                        <span className="inline-block px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
-                          {collection.statut}
-                        </span>
-                      </td>
-                      <td className="py-3 px-2 text-sm text-gray-600">
-                        {collection.creeLe}
-                      </td>
-                      <td className="py-3 px-2 text-sm text-gray-600">
-                        {collection.creePar}
-                      </td>
-                      <td className="py-3 px-2 text-sm text-gray-600">
-                        {collection.modifieLe}
-                      </td>
-                      <td className="py-3 px-2">
-                        <div className="flex items-center gap-2">
-                          <button className="p-1 hover:bg-gray-100 rounded">
-                            <Edit className="w-4 h-4 text-orange-500" />
-                          </button>
-                          <button className="p-1 hover:bg-gray-100 rounded">
-                            <Power className="w-4 h-4 text-red-500" />
-                          </button>
-                        </div>
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-gray-500">
+                        Chargement des collections...
                       </td>
                     </tr>
-                  ))}
+                  ) : filteredCollections.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-gray-500">
+                        Aucune collection trouvée
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredCollections.map((collection) => (
+                      <tr
+                        key={collection.id}
+                        className="border-b hover:bg-gray-50"
+                      >
+                        <td className="py-3 px-2 font-medium">
+                          {collection.nom}
+                        </td>
+                        <td className="py-3 px-2 text-gray-600">
+                          {collection.description || "-"}
+                        </td>
+                        <td className="py-3 px-2">
+                          <span className="inline-block px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
+                            {collection.statut}
+                          </span>
+                        </td>
+                        <td className="py-3 px-2 text-sm text-gray-600">
+                          {collection.creeLe}
+                        </td>
+                        <td className="py-3 px-2 text-sm text-gray-600">
+                          {collection.creePar}
+                        </td>
+                        <td className="py-3 px-2 text-sm text-gray-600">
+                          {collection.modifieLe}
+                        </td>
+                        <td className="py-3 px-2">
+                          <div className="flex items-center gap-2">
+                            <button className="p-1 hover:bg-gray-100 rounded">
+                              <Edit className="w-4 h-4 text-orange-500" />
+                            </button>
+                            <button className="p-1 hover:bg-gray-100 rounded">
+                              <Power className="w-4 h-4 text-red-500" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -252,7 +337,7 @@ export default function CollectionsPage() {
             {/* Pagination */}
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6">
               <p className="text-sm text-gray-600">
-                Affichage de 1 à 3 sur 3 éléments
+                Affichage de 1 à {filteredCollections.length} sur {collections.length} éléments
               </p>
 
               <div className="flex items-center gap-2">

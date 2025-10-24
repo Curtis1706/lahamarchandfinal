@@ -52,14 +52,27 @@ export default function ProfilPage() {
     try {
       setLoading(true);
       
-      // Simulation de sauvegarde - plus tard on utilisera l'API
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Appeler l'API pour sauvegarder le profil
+      const response = await fetch('/api/users/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(profileData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erreur lors de la mise à jour');
+      }
+
+      const result = await response.json();
       
       setIsEditing(false);
       toast.success("Profil mis à jour avec succès");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erreur lors de la mise à jour du profil:", error);
-      toast.error("Erreur lors de la mise à jour du profil");
+      toast.error(error.message || "Erreur lors de la mise à jour du profil");
     } finally {
       setLoading(false);
     }

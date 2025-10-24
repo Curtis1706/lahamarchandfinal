@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,121 +19,100 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 
-const classes = [
-  {
-    id: 1,
-    classe: "CI",
-    section: "Primaire",
-    statut: "Disponible",
-    creeLe: "jeu. 20 juin 2024 19:52",
-    modifieLe: "Invalid date",
-  },
-  {
-    id: 2,
-    classe: "CP",
-    section: "Primaire",
-    statut: "Disponible",
-    creeLe: "jeu. 20 juin 2024 19:52",
-    modifieLe: "Invalid date",
-  },
-  {
-    id: 3,
-    classe: "CE1",
-    section: "Primaire",
-    statut: "Disponible",
-    creeLe: "jeu. 20 juin 2024 19:52",
-    modifieLe: "Invalid date",
-  },
-  {
-    id: 4,
-    classe: "CE2",
-    section: "Primaire",
-    statut: "Disponible",
-    creeLe: "jeu. 20 juin 2024 19:52",
-    modifieLe: "Invalid date",
-  },
-  {
-    id: 5,
-    classe: "CM1",
-    section: "Primaire",
-    statut: "Disponible",
-    creeLe: "jeu. 20 juin 2024 19:52",
-    modifieLe: "Invalid date",
-  },
-  {
-    id: 6,
-    classe: "CM2",
-    section: "Primaire",
-    statut: "Disponible",
-    creeLe: "jeu. 20 juin 2024 19:52",
-    modifieLe: "Invalid date",
-  },
-  {
-    id: 7,
-    classe: "6ème",
-    section: "Secondaire",
-    statut: "Disponible",
-    creeLe: "jeu. 20 juin 2024 19:52",
-    modifieLe: "Invalid date",
-  },
-  {
-    id: 8,
-    classe: "5ème",
-    section: "Secondaire",
-    statut: "Disponible",
-    creeLe: "jeu. 20 juin 2024 19:52",
-    modifieLe: "Invalid date",
-  },
-  {
-    id: 9,
-    classe: "4ème",
-    section: "Secondaire",
-    statut: "Disponible",
-    creeLe: "jeu. 20 juin 2024 19:52",
-    modifieLe: "Invalid date",
-  },
-  {
-    id: 10,
-    classe: "3ème",
-    section: "Secondaire",
-    statut: "Disponible",
-    creeLe: "jeu. 20 juin 2024 19:52",
-    modifieLe: "Invalid date",
-  },
-  {
-    id: 11,
-    classe: "2nde",
-    section: "Secondaire",
-    statut: "Disponible",
-    creeLe: "jeu. 20 juin 2024 19:52",
-    modifieLe: "Invalid date",
-  },
-  {
-    id: 12,
-    classe: "1ère",
-    section: "Secondaire",
-    statut: "Disponible",
-    creeLe: "jeu. 20 juin 2024 19:52",
-    modifieLe: "Invalid date",
-  },
-  {
-    id: 13,
-    classe: "Tle",
-    section: "Secondaire",
-    statut: "Disponible",
-    creeLe: "jeu. 20 juin 2024 19:52",
-    modifieLe: "Invalid date",
-  },
-];
+interface Class {
+  id: string
+  classe: string
+  section: string
+  statut: string
+  creeLe: string
+  creePar: string
+  modifieLe: string
+}
 
 export default function ClassesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [classes, setClasses] = useState<Class[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [newClass, setNewClass] = useState({
+    classe: "",
+    section: "Primaire",
+    statut: "Disponible"
+  });
+  const { toast } = useToast();
+
+  // Charger les classes depuis l'API
+  useEffect(() => {
+    loadClasses();
+  }, []);
+
+  const loadClasses = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/pdg/classes');
+      if (response.ok) {
+        const data = await response.json();
+        setClasses(data);
+      } else {
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les classes",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error loading classes:", error);
+      toast({
+        title: "Erreur",
+        description: "Erreur lors du chargement des classes",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreateClass = async () => {
+    try {
+      const response = await fetch('/api/pdg/classes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newClass),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Succès",
+          description: "Classe créée avec succès"
+        });
+        setNewClass({ classe: "", section: "Primaire", statut: "Disponible" });
+        setIsModalOpen(false);
+        loadClasses();
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Erreur",
+          description: errorData.error || "Impossible de créer la classe",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error creating class:", error);
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de la création de la classe",
+        variant: "destructive"
+      });
+    }
+  };
 
   const handleRefresh = () => {
-    console.log("[v0] Refreshing classes data...");
+    loadClasses();
   };
 
   const filteredClasses = classes.filter((classe) => {
@@ -202,12 +181,14 @@ export default function ClassesPage() {
                     <label className="block text-sm font-medium mb-1">
                       Niveau :
                     </label>
-                    <Select defaultValue="Aucun">
+                    <Select 
+                      value={newClass.section}
+                      onValueChange={(value) => setNewClass({ ...newClass, section: value })}
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Aucun">Aucun</SelectItem>
                         <SelectItem value="Primaire">Primaire</SelectItem>
                         <SelectItem value="Secondaire">Secondaire</SelectItem>
                       </SelectContent>
@@ -217,13 +198,20 @@ export default function ClassesPage() {
                     <label className="block text-sm font-medium mb-1">
                       Classe :
                     </label>
-                    <Input placeholder="" />
+                    <Input 
+                      placeholder="Nom de la classe" 
+                      value={newClass.classe}
+                      onChange={(e) => setNewClass({ ...newClass, classe: e.target.value })}
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">
                       Statut :
                     </label>
-                    <Select defaultValue="Disponible">
+                    <Select 
+                      value={newClass.statut}
+                      onValueChange={(value) => setNewClass({ ...newClass, statut: value })}
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -244,7 +232,11 @@ export default function ClassesPage() {
                   >
                     Fermer
                   </Button>
-                  <Button className="bg-indigo-600 hover:bg-indigo-700">
+                  <Button 
+                    className="bg-indigo-600 hover:bg-indigo-700"
+                    onClick={handleCreateClass}
+                    disabled={!newClass.classe.trim()}
+                  >
                     Enregistrer
                   </Button>
                 </DialogFooter>
@@ -294,44 +286,58 @@ export default function ClassesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredClasses.map((classe) => (
-                    <tr key={classe.id} className="border-b hover:bg-gray-50">
-                      <td className="py-3 px-2 font-medium">{classe.classe}</td>
-                      <td className="py-3 px-2">
-                        <span
-                          className={`inline-block px-2 py-1 text-xs rounded ${
-                            classe.section === "Primaire"
-                              ? "bg-indigo-100 text-indigo-800"
-                              : "bg-green-100 text-green-800"
-                          }`}
-                        >
-                          {classe.section}
-                        </span>
-                      </td>
-                      <td className="py-3 px-2">
-                        <span className="inline-block px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
-                          {classe.statut}
-                        </span>
-                      </td>
-                      <td className="py-3 px-2 text-sm text-gray-600">
-                        {classe.creeLe}
-                      </td>
-                      <td className="py-3 px-2 text-sm text-gray-600">-</td>
-                      <td className="py-3 px-2 text-sm text-gray-600">
-                        {classe.modifieLe}
-                      </td>
-                      <td className="py-3 px-2">
-                        <div className="flex items-center gap-2">
-                          <button className="p-1 hover:bg-gray-100 rounded">
-                            <Edit className="w-4 h-4 text-orange-500" />
-                          </button>
-                          <button className="p-1 hover:bg-gray-100 rounded">
-                            <Power className="w-4 h-4 text-red-500" />
-                          </button>
-                        </div>
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-gray-500">
+                        Chargement des classes...
                       </td>
                     </tr>
-                  ))}
+                  ) : filteredClasses.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-gray-500">
+                        Aucune classe trouvée
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredClasses.map((classe) => (
+                      <tr key={classe.id} className="border-b hover:bg-gray-50">
+                        <td className="py-3 px-2 font-medium">{classe.classe}</td>
+                        <td className="py-3 px-2">
+                          <span
+                            className={`inline-block px-2 py-1 text-xs rounded ${
+                              classe.section === "Primaire"
+                                ? "bg-indigo-100 text-indigo-800"
+                                : "bg-green-100 text-green-800"
+                            }`}
+                          >
+                            {classe.section}
+                          </span>
+                        </td>
+                        <td className="py-3 px-2">
+                          <span className="inline-block px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
+                            {classe.statut}
+                          </span>
+                        </td>
+                        <td className="py-3 px-2 text-sm text-gray-600">
+                          {classe.creeLe}
+                        </td>
+                        <td className="py-3 px-2 text-sm text-gray-600">{classe.creePar}</td>
+                        <td className="py-3 px-2 text-sm text-gray-600">
+                          {classe.modifieLe}
+                        </td>
+                        <td className="py-3 px-2">
+                          <div className="flex items-center gap-2">
+                            <button className="p-1 hover:bg-gray-100 rounded">
+                              <Edit className="w-4 h-4 text-orange-500" />
+                            </button>
+                            <button className="p-1 hover:bg-gray-100 rounded">
+                              <Power className="w-4 h-4 text-red-500" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -339,7 +345,7 @@ export default function ClassesPage() {
             {/* Pagination */}
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6">
               <p className="text-sm text-gray-600">
-                Affichage de 1 à 13 sur 13 éléments
+                Affichage de 1 à {filteredClasses.length} sur {classes.length} éléments
               </p>
 
               <div className="flex items-center gap-2">
