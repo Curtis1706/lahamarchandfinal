@@ -50,7 +50,7 @@ type NavigationItem = {
 interface DynamicDashboardLayoutProps {
   children: React.ReactNode;
   title: string;
-  breadcrumb?: string;
+  breadcrumb?: string | React.ReactNode;
   showActions?: boolean;
   onRefresh?: () => void;
 }
@@ -155,11 +155,6 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           href: `${basePath}/gestion-ecoles`,
           icon: GraduationCap,
           label: "Gestion Écoles"
-        },
-        {
-          href: `${basePath}/utilisateurs`,
-          icon: Users,
-          label: "Utilisateurs"
         },
         {
           href: `${basePath}/clients`,
@@ -591,7 +586,9 @@ export default function DynamicDashboardLayout({
                 <div>
                   <h1 className="text-xl font-semibold">{title}</h1>
                   {breadcrumb && (
-                    <p className="text-sm text-slate-300">{breadcrumb}</p>
+                    <div className="text-sm text-slate-300">
+                      {typeof breadcrumb === 'string' ? breadcrumb : breadcrumb}
+                    </div>
                   )}
                 </div>
               </div>

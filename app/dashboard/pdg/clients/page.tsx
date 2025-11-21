@@ -31,63 +31,35 @@ import {
   RefreshCw,
   ArrowUpDown,
 } from "lucide-react";
+import { useEffect } from "react";
+import { toast } from "sonner";
 
 export default function ClientsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const clients = [
-    {
-      id: 1,
-      nom: "SOVIDE Atchadé Nicolas",
-      telephone: "+2290195051184",
-      type: "Concepteur",
-      departement: "ATLANTIQUE",
-      statut: "En attente",
-      creeLe: "ven. 25 juil. 2025 17:42",
-      dette: 0,
-    },
-    {
-      id: 2,
-      nom: "CSP PEPINIERE DE HOUEGBO",
-      telephone: "+2290197283161",
-      type: "Ecole contractuelle",
-      departement: "ATLANTIQUE",
-      statut: "Actif",
-      creeLe: "ven. 13 juin 2025 07:50",
-      dette: 0,
-    },
-    {
-      id: 3,
-      nom: "Bile FASSINOU",
-      telephone: "+2290195554315",
-      type: "Ecole contractuelle",
-      departement: "ATLANTIQUE",
-      statut: "Actif",
-      creeLe: "ven. 30 mai 2025 15:48",
-      dette: 0,
-    },
-    {
-      id: 4,
-      nom: "Lucie Viakinnou BRINSON",
-      telephone: "+14045186455",
-      type: "Auteur",
-      departement: "ATLANTIQUE",
-      statut: "Actif",
-      creeLe: "lun. 14 avr. 2025 22:35",
-      dette: 0,
-    },
-    {
-      id: 5,
-      nom: "Yacoubou Onitchango",
-      telephone: "+2290196063882",
-      type: "Auteur",
-      departement: "ATLANTIQUE",
-      statut: "Actif",
-      creeLe: "lun. 7 avr. 2025 13:35",
-      dette: 0,
-    },
-  ];
+  // Charger les clients depuis l'API
+  useEffect(() => {
+    loadClients()
+  }, [])
+
+  const loadClients = async () => {
+    try {
+      setLoading(true)
+      // Récupérer tous les clients depuis la base de données
+      const response = await fetch('/api/pdg/clients')
+      if (!response.ok) throw new Error('Erreur lors du chargement')
+      const data = await response.json()
+      setClients(data)
+    } catch (error) {
+      console.error('Error loading clients:', error)
+      toast.error('Erreur lors du chargement des clients')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <>

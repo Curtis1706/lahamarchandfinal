@@ -55,6 +55,7 @@ interface Discipline {
   description?: string
   isActive: boolean
   concepteurCount?: number
+  auteurCount?: number
   workCount?: number
   createdAt: string
   updatedAt: string
@@ -72,15 +73,25 @@ interface Concepteur {
   disciplineId: string
 }
 
+interface Auteur {
+  id: string
+  name: string
+  email: string
+  disciplineId: string | null
+}
+
 export default function GestionDisciplinesPage() {
   const { user, isLoading: userLoading } = useCurrentUser()
   const [disciplines, setDisciplines] = useState<Discipline[]>([])
   const [concepteurs, setConcepteurs] = useState<Concepteur[]>([])
+  const [auteurs, setAuteurs] = useState<Auteur[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isAssignAuthorsDialogOpen, setIsAssignAuthorsDialogOpen] = useState(false)
   const [editingDiscipline, setEditingDiscipline] = useState<Discipline | null>(null)
+  const [selectedDisciplineForAuthors, setSelectedDisciplineForAuthors] = useState<Discipline | null>(null)
   const [showInactive, setShowInactive] = useState(false)
 
   // Charger les données
@@ -99,6 +110,7 @@ export default function GestionDisciplinesPage() {
         const enrichedDisciplines = disciplinesData.map(discipline => ({
           ...discipline,
           concepteurCount: usersData.filter((u: any) => u.disciplineId === discipline.id && u.role === 'CONCEPTEUR').length,
+          auteurCount: usersData.filter((u: any) => u.disciplineId === discipline.id && u.role === 'AUTEUR').length,
           workCount: discipline._count?.works || 0,
           isActive: discipline.isActive !== undefined ? discipline.isActive : true,
           createdAt: discipline.createdAt || new Date().toISOString(),
@@ -107,6 +119,7 @@ export default function GestionDisciplinesPage() {
         
         setDisciplines(enrichedDisciplines)
         setConcepteurs(usersData.filter((u: any) => u.role === 'CONCEPTEUR'))
+        setAuteurs(usersData.filter((u: any) => u.role === 'AUTEUR'))
       } catch (error: any) {
         console.error("Error fetching data:", error)
         toast.error("Erreur lors du chargement des données")
@@ -168,6 +181,67 @@ export default function GestionDisciplinesPage() {
     setIsEditDialogOpen(true)
   }
 
+  const handleAssignAuthors = (discipline: Discipline) => {
+    setSelectedDisciplineForAuthors(discipline)
+    setIsAssignAuthorsDialogOpen(true)
+  }
+
+  const handleAssignAuthorToDiscipline = async (authorId: string, disciplineId: string) => {
+    try {
+      await apiClient.updateUser(authorId, { disciplineId })
+      toast.success("Auteur assigné avec succès")
+      
+      // Recharger les données
+      const [disciplinesData, usersData] = await Promise.all([
+        apiClient.getDisciplines({ includeInactive: true }),
+        apiClient.getUsers()
+      ])
+      
+      const enrichedDisciplines = disciplinesData.map(discipline => ({
+        ...discipline,
+        concepteurCount: usersData.filter((u: any) => u.disciplineId === discipline.id && u.role === 'CONCEPTEUR').length,
+        auteurCount: usersData.filter((u: any) => u.disciplineId === discipline.id && u.role === 'AUTEUR').length,
+        workCount: discipline._count?.works || 0,
+        isActive: discipline.isActive !== undefined ? discipline.isActive : true,
+        createdAt: discipline.createdAt || new Date().toISOString(),
+        updatedAt: discipline.updatedAt || new Date().toISOString()
+      }))
+      
+      setDisciplines(enrichedDisciplines)
+      setAuteurs(usersData.filter((u: any) => u.role === 'AUTEUR'))
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de l'assignation")
+    }
+  }
+
+  const handleRemoveAuthorFromDiscipline = async (authorId: string) => {
+    try {
+      await apiClient.updateUser(authorId, { disciplineId: null })
+      toast.success("Auteur retiré de la discipline")
+      
+      // Recharger les données
+      const [disciplinesData, usersData] = await Promise.all([
+        apiClient.getDisciplines({ includeInactive: true }),
+        apiClient.getUsers()
+      ])
+      
+      const enrichedDisciplines = disciplinesData.map(discipline => ({
+        ...discipline,
+        concepteurCount: usersData.filter((u: any) => u.disciplineId === discipline.id && u.role === 'CONCEPTEUR').length,
+        auteurCount: usersData.filter((u: any) => u.disciplineId === discipline.id && u.role === 'AUTEUR').length,
+        workCount: discipline._count?.works || 0,
+        isActive: discipline.isActive !== undefined ? discipline.isActive : true,
+        createdAt: discipline.createdAt || new Date().toISOString(),
+        updatedAt: discipline.updatedAt || new Date().toISOString()
+      }))
+      
+      setDisciplines(enrichedDisciplines)
+      setAuteurs(usersData.filter((u: any) => u.role === 'AUTEUR'))
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de la suppression")
+    }
+  }
+
   // Filtrage
   const filteredDisciplines = disciplines.filter(discipline => {
     const matchesSearch = discipline.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -202,7 +276,7 @@ export default function GestionDisciplinesPage() {
           <div>
             <h1 className="text-3xl font-bold">Gestion des Disciplines</h1>
             <p className="text-muted-foreground">
-              Gérez les disciplines disponibles et leurs concepteurs
+              Gérez les disciplines disponibles, leurs concepteurs et leurs auteurs
             </p>
           </div>
           <div className="flex items-center space-x-2">
@@ -249,6 +323,30 @@ export default function GestionDisciplinesPage() {
               </DialogContent>
             </Dialog>
             
+            {/* Dialog pour assigner des auteurs */}
+            <Dialog open={isAssignAuthorsDialogOpen} onOpenChange={setIsAssignAuthorsDialogOpen}>
+              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Gérer les auteurs - {selectedDisciplineForAuthors?.name}</DialogTitle>
+                  <DialogDescription>
+                    Assignez ou retirez des auteurs de cette discipline
+                  </DialogDescription>
+                </DialogHeader>
+                {selectedDisciplineForAuthors && (
+                  <AssignAuthorsForm
+                    discipline={selectedDisciplineForAuthors}
+                    auteurs={auteurs}
+                    onAssign={(authorId) => handleAssignAuthorToDiscipline(authorId, selectedDisciplineForAuthors.id)}
+                    onRemove={(authorId) => handleRemoveAuthorFromDiscipline(authorId)}
+                    onClose={() => {
+                      setIsAssignAuthorsDialogOpen(false)
+                      setSelectedDisciplineForAuthors(null)
+                    }}
+                  />
+                )}
+              </DialogContent>
+            </Dialog>
+            
             <Badge variant="outline" className="text-sm">
               <GraduationCap className="h-3 w-3 mr-1" />
               {filteredDisciplines.length} discipline{filteredDisciplines.length > 1 ? 's' : ''}
@@ -257,7 +355,7 @@ export default function GestionDisciplinesPage() {
         </div>
 
         {/* Statistiques rapides */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total</CardTitle>
@@ -286,6 +384,17 @@ export default function GestionDisciplinesPage() {
             <CardContent>
               <div className="text-2xl font-bold text-blue-600">
                 {disciplines.reduce((sum, d) => sum + (d.concepteurCount || 0), 0)}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Auteurs</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-indigo-600">
+                {disciplines.reduce((sum, d) => sum + (d.auteurCount || 0), 0)}
               </div>
             </CardContent>
           </Card>
@@ -372,12 +481,18 @@ export default function GestionDisciplinesPage() {
                     <CardContent>
                       <div className="space-y-4">
                         {/* Statistiques */}
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-3 gap-4">
                           <div className="text-center">
                             <div className="text-2xl font-bold text-blue-600">
                               {discipline.concepteurCount || 0}
                             </div>
                             <div className="text-sm text-muted-foreground">Concepteurs</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-green-600">
+                              {discipline.auteurCount || 0}
+                            </div>
+                            <div className="text-sm text-muted-foreground">Auteurs</div>
                           </div>
                           <div className="text-center">
                             <div className="text-2xl font-bold text-purple-600">
@@ -409,9 +524,40 @@ export default function GestionDisciplinesPage() {
                           </div>
                         )}
 
+                        {/* Auteurs assignés */}
+                        {discipline.auteurCount && discipline.auteurCount > 0 && (
+                          <div>
+                            <h4 className="text-sm font-medium mb-2">Auteurs associés</h4>
+                            <div className="space-y-1">
+                              {auteurs
+                                .filter(a => a.disciplineId === discipline.id)
+                                .slice(0, 3)
+                                .map(auteur => (
+                                  <div key={auteur.id} className="text-sm text-muted-foreground">
+                                    • {auteur.name}
+                                  </div>
+                                ))}
+                              {(discipline.auteurCount || 0) > 3 && (
+                                <div className="text-sm text-muted-foreground">
+                                  +{(discipline.auteurCount || 0) - 3} autres...
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
                         {/* Actions */}
                         <div className="flex items-center justify-between pt-4 border-t">
                           <div className="flex space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleAssignAuthors(discipline)}
+                              title="Gérer les auteurs"
+                            >
+                              <Users className="h-4 w-4 mr-2" />
+                              Auteurs
+                            </Button>
                             <Button
                               variant="outline"
                               size="sm"
@@ -480,10 +626,10 @@ export default function GestionDisciplinesPage() {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <BarChart3 className="h-5 w-5" />
-                  <span>Répartition des concepteurs par discipline</span>
+                  <span>Répartition des concepteurs et auteurs par discipline</span>
                 </CardTitle>
                 <CardDescription>
-                  Vue d'ensemble de la distribution des concepteurs dans chaque discipline
+                  Vue d'ensemble de la distribution des concepteurs et auteurs dans chaque discipline
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -493,6 +639,7 @@ export default function GestionDisciplinesPage() {
                       <TableHead>Discipline</TableHead>
                       <TableHead>Statut</TableHead>
                       <TableHead>Concepteurs</TableHead>
+                      <TableHead>Auteurs</TableHead>
                       <TableHead>Projets</TableHead>
                       <TableHead>Œuvres</TableHead>
                       <TableHead>Actions</TableHead>
@@ -531,10 +678,33 @@ export default function GestionDisciplinesPage() {
                             )}
                           </div>
                         </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="font-medium">{discipline.auteurCount || 0}</div>
+                            {discipline.auteurCount && discipline.auteurCount > 0 && (
+                              <div className="text-sm text-muted-foreground">
+                                {auteurs
+                                  .filter(a => a.disciplineId === discipline.id)
+                                  .slice(0, 2)
+                                  .map(a => a.name)
+                                  .join(", ")}
+                                {(discipline.auteurCount || 0) > 2 && "..."}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>{discipline._count?.projects || 0}</TableCell>
                         <TableCell>{discipline._count?.works || 0}</TableCell>
                         <TableCell>
                           <div className="flex space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleAssignAuthors(discipline)}
+                              title="Gérer les auteurs"
+                            >
+                              <Users className="h-4 w-4" />
+                            </Button>
                             <Button
                               variant="outline"
                               size="sm"
@@ -677,5 +847,128 @@ function EditDisciplineForm({ discipline, onSubmit, onCancel }: {
         </Button>
       </div>
     </form>
+  )
+}
+
+// Composant pour assigner des auteurs à une discipline
+function AssignAuthorsForm({ 
+  discipline, 
+  auteurs, 
+  onAssign, 
+  onRemove, 
+  onClose 
+}: { 
+  discipline: Discipline
+  auteurs: Auteur[]
+  onAssign: (authorId: string) => void
+  onRemove: (authorId: string) => void
+  onClose: () => void
+}) {
+  const [searchTerm, setSearchTerm] = useState("")
+  
+  const assignedAuthors = auteurs.filter(a => a.disciplineId === discipline.id)
+  const unassignedAuthors = auteurs.filter(a => a.disciplineId !== discipline.id || !a.disciplineId)
+  
+  const filteredAssigned = assignedAuthors.filter(a => 
+    a.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    a.email.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+  
+  const filteredUnassigned = unassignedAuthors.filter(a => 
+    a.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    a.email.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  return (
+    <div className="space-y-4">
+      <div className="relative">
+        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Rechercher un auteur..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
+      <div className="space-y-4">
+        {/* Auteurs assignés */}
+        <div>
+          <h3 className="text-sm font-semibold mb-2">
+            Auteurs assignés ({assignedAuthors.length})
+          </h3>
+          {filteredAssigned.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              Aucun auteur assigné à cette discipline
+            </p>
+          ) : (
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {filteredAssigned.map(auteur => (
+                <div
+                  key={auteur.id}
+                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
+                >
+                  <div>
+                    <div className="font-medium">{auteur.name}</div>
+                    <div className="text-sm text-muted-foreground">{auteur.email}</div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onRemove(auteur.id)}
+                  >
+                    Retirer
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Auteurs non assignés */}
+        <div>
+          <h3 className="text-sm font-semibold mb-2">
+            Auteurs disponibles ({unassignedAuthors.length})
+          </h3>
+          {filteredUnassigned.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              {searchTerm ? "Aucun auteur trouvé" : "Tous les auteurs sont assignés"}
+            </p>
+          ) : (
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {filteredUnassigned.map(auteur => (
+                <div
+                  key={auteur.id}
+                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
+                >
+                  <div>
+                    <div className="font-medium">{auteur.name}</div>
+                    <div className="text-sm text-muted-foreground">{auteur.email}</div>
+                    {auteur.disciplineId && (
+                      <div className="text-xs text-orange-600 mt-1">
+                        Déjà assigné à une autre discipline
+                      </div>
+                    )}
+                  </div>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => onAssign(auteur.id)}
+                  >
+                    Assigner
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex justify-end pt-4 border-t">
+        <Button variant="outline" onClick={onClose}>
+          Fermer
+        </Button>
+      </div>
+    </div>
   )
 }

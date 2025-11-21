@@ -15,39 +15,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden - PDG role required" }, { status: 403 })
     }
 
-    // Récupérer les communications envoyées (basées sur les notifications)
-    const notifications = await prisma.notification.findMany({
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true
-          }
-        }
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 50
+    const communications = await prisma.communication.findMany({
+      orderBy: { createdAt: 'desc' }
     })
 
-    const communications = notifications.map(notif => ({
-      id: notif.id,
-      title: notif.title,
-      message: notif.message,
-      type: notif.type.toLowerCase().includes('announce') ? 'announcement' : 
-            notif.type.toLowerCase().includes('promotion') ? 'promotion' :
-            notif.type.toLowerCase().includes('policy') ? 'policy' : 'notification',
-      targetAudience: [notif.user.role],
-      status: notif.read ? 'sent' : 'scheduled',
-      createdAt: notif.createdAt.toISOString(),
-      scheduledFor: notif.createdAt.toISOString(),
-      sentAt: notif.read ? notif.createdAt.toISOString() : undefined,
-      recipients: 1,
-      readCount: notif.read ? 1 : 0
+    // Formater targetAudience (JSON string to array)
+    const formattedComms = communications.map(comm => ({
+      id: comm.id,
+      title: comm.title,
+      message: comm.message,
+      type: comm.type.toLowerCase(),
+      targetAudience: JSON.parse(comm.targetAudience),
+      status: comm.status.toLowerCase(),
+      createdAt: comm.createdAt.toISOString(),
+      scheduledFor: comm.scheduledFor?.toISOString(),
+      sentAt: comm.sentAt?.toISOString(),
+      recipients: comm.recipients,
+      readCount: comm.readCount
     }))
 
-    return NextResponse.json(communications)
+    return NextResponse.json(formattedComms)
 
   } catch (error) {
     console.error("Error fetching communications:", error)
@@ -67,36 +54,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden - PDG role required" }, { status: 403 })
     }
 
-    const { title, message, targetAudience, type } = await request.json()
+    const body = await request.json()
+    const { title, message, type, targetAudience, scheduledFor } = body
 
-    // Récupérer les utilisateurs de l'audience cible
-    const users = await prisma.user.findMany({
-      where: {
-        role: {
-          in: targetAudience
-        }
+    if (!title || !message || !type || !targetAudience) {
+      return NextResponse.json({ error: "Données manquantes" }, { status: 400 })
+    }
+
+    const newComm = await prisma.communication.create({
+      data: {
+        title,
+        message,
+        type: type.toUpperCase(),
+        targetAudience: JSON.stringify(targetAudience),
+        status: scheduledFor ? 'SCHEDULED' : 'DRAFT',
+        scheduledFor: scheduledFor ? new Date(scheduledFor) : null,
+        createdBy: session.user.id
       }
     })
 
-    // Créer une notification pour chaque utilisateur
-    const notificationPromises = users.map(user => 
-      prisma.notification.create({
-        data: {
-          userId: user.id,
-          title,
-          message,
-          type: type.toUpperCase(),
-          read: false
-        }
-      })
-    )
-
-    await Promise.all(notificationPromises)
-
-    return NextResponse.json({ 
-      success: true, 
-      message: `Communication envoyée à ${users.length} utilisateurs`,
-      recipients: users.length
+    return NextResponse.json({
+      id: newComm.id,
+      title: newComm.title,
+      message: newComm.message,
+      type: newComm.type.toLowerCase(),
+      targetAudience: JSON.parse(newComm.targetAudience),
+      status: newComm.status.toLowerCase(),
+      createdAt: newComm.createdAt.toISOString(),
+      scheduledFor: newComm.scheduledFor?.toISOString(),
+      recipients: 0,
+      readCount: 0
     }, { status: 201 })
 
   } catch (error) {
@@ -104,5 +91,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
-
-

@@ -20,59 +20,31 @@ import {
   AlertTriangle,
 } from "lucide-react"
 import { useCurrentUser } from "@/hooks/use-current-user"
-
-// Mock data pour le stock alloué au partenaire
-const mockStockData = [
-  {
-    id: "1",
-    title: "Réussir en Dictée Orthographe CE1-CE2",
-    isbn: "978-2-123456-78-9",
-    discipline: "Français",
-    category: "Primaire",
-    class: "CE1-CE2",
-    rentree: 150,
-    vacances: 50,
-    depot: 200,
-    total: 400,
-    prixPublic: 2500,
-    prixRemise: 2250,
-    stockFaible: false,
-  },
-  {
-    id: "2", 
-    title: "Coffret Réussir en Français CE2",
-    isbn: "978-2-123456-79-6",
-    discipline: "Français",
-    category: "Primaire", 
-    class: "CE2",
-    rentree: 100,
-    vacances: 30,
-    depot: 130,
-    total: 260,
-    prixPublic: 3500,
-    prixRemise: 3150,
-    stockFaible: true,
-  },
-  {
-    id: "3",
-    title: "Réussir en Mathématiques CE1",
-    isbn: "978-2-123456-80-2",
-    discipline: "Mathématiques",
-    category: "Primaire",
-    class: "CE1", 
-    rentree: 80,
-    vacances: 20,
-    depot: 100,
-    total: 200,
-    prixPublic: 2800,
-    prixRemise: 2520,
-    stockFaible: false,
-  }
-]
+import { toast } from "sonner"
+import { apiClient } from "@/lib/api-client"
 
 export default function NiveauStockPage() {
   const { user } = useCurrentUser()
   const [stockData, setStockData] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  // Charger le stock depuis l'API
+  useEffect(() => {
+    loadStock()
+  }, [])
+
+  const loadStock = async () => {
+    try {
+      setLoading(true)
+      const data = await apiClient.getPartenaireStockAllocation()
+      setStockData(data)
+    } catch (error) {
+      console.error('Error loading stock:', error)
+      toast.error('Erreur lors du chargement du stock')
+    } finally {
+      setLoading(false)
+    }
+  }
   const [filteredData, setFilteredData] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")

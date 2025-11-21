@@ -9,62 +9,37 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Plus, Edit, Trash2, UserCheck, UserX, RefreshCw, Maximize2 } from "lucide-react"
-
-const mockUsers = [
-  {
-    id: 1,
-    nom: "Dupont",
-    prenom: "Jean",
-    email: "jean.dupont@entreprise.fr",
-    role: "PDG",
-    statut: "Actif",
-    derniere_connexion: "2024-01-15 14:30",
-  },
-  {
-    id: 2,
-    nom: "Martin",
-    prenom: "Marie",
-    email: "marie.martin@entreprise.fr",
-    role: "Manager",
-    statut: "Actif",
-    derniere_connexion: "2024-01-15 09:15",
-  },
-  {
-    id: 3,
-    nom: "Bernard",
-    prenom: "Pierre",
-    email: "pierre.bernard@entreprise.fr",
-    role: "Employé",
-    statut: "Inactif",
-    derniere_connexion: "2024-01-10 16:45",
-  },
-  {
-    id: 4,
-    nom: "Dubois",
-    prenom: "Sophie",
-    email: "sophie.dubois@entreprise.fr",
-    role: "Manager",
-    statut: "Actif",
-    derniere_connexion: "2024-01-15 11:20",
-  },
-  {
-    id: 5,
-    nom: "Moreau",
-    prenom: "Luc",
-    email: "luc.moreau@entreprise.fr",
-    role: "Employé",
-    statut: "Actif",
-    derniere_connexion: "2024-01-14 17:30",
-  },
-]
+import { toast } from "sonner"
+import { apiClient } from "@/lib/api-client"
+import { useEffect } from "react"
 
 export default function UtilisateursPage() {
+  const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedRole, setSelectedRole] = useState("all")
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
 
+  // Charger les utilisateurs depuis l'API
+  useEffect(() => {
+    loadUsers()
+  }, [])
+
+  const loadUsers = async () => {
+    try {
+      setLoading(true)
+      const data = await apiClient.getUsers()
+      setUsers(data)
+    } catch (error) {
+      console.error('Error loading users:', error)
+      toast.error('Erreur lors du chargement des utilisateurs')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleRefresh = () => {
-    console.log("[v0] Refreshing users...")
+    loadUsers()
   }
 
   const handleFullscreen = () => {
@@ -75,11 +50,10 @@ export default function UtilisateursPage() {
     }
   }
 
-  const filteredUsers = mockUsers.filter((user) => {
+  const filteredUsers = users.filter((user) => {
     const matchesSearch =
-      user.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.prenom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase())
+      user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesRole = selectedRole === "all" || user.role === selectedRole
     return matchesSearch && matchesRole
   })

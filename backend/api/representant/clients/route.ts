@@ -23,103 +23,54 @@ export async function GET(request: NextRequest) {
 
     console.log("✅ User found:", user.name, user.role)
 
-    // Pour l'instant, on va simuler des clients
-    // Dans une vraie application, on aurait un modèle Client avec une relation vers le représentant
-    const clients = [
-      {
-        id: "client-1",
-        name: "Librairie Centrale",
-        type: "Librairie",
-        contact: "Marie Dubois",
-        email: "contact@librairie-centrale.ga",
-        phone: "+241 01 23 45 67",
-        address: "Avenue Léon Mba, Libreville",
-        city: "Libreville",
-        status: "Actif",
-        totalOrders: 12,
-        totalSpent: 1250000,
-        lastOrder: "2024-01-15",
-        notes: "Client fidèle, commande régulièrement"
+    // Récupérer les clients depuis la base de données
+    const clients = await prisma.client.findMany({
+      where: {
+        representantId: user.id
       },
-      {
-        id: "client-2",
-        name: "Point Lecture Owendo",
-        type: "Point de vente",
-        contact: "Jean Mba",
-        email: "jean.mba@pointlecture.ga",
-        phone: "+241 01 34 56 78",
-        address: "Quartier Owendo, Libreville",
-        city: "Owendo",
-        status: "Actif",
-        totalOrders: 8,
-        totalSpent: 890000,
-        lastOrder: "2024-01-12",
-        notes: "Spécialisé dans les livres scolaires"
-      },
-      {
-        id: "client-3",
-        name: "Espace Livre Port-Gentil",
-        type: "Librairie",
-        contact: "Sophie Nguema",
-        email: "sophie@espace-livre.ga",
-        phone: "+241 02 45 67 89",
-        address: "Centre-ville, Port-Gentil",
-        city: "Port-Gentil",
-        status: "En attente",
-        totalOrders: 3,
-        totalSpent: 450000,
-        lastOrder: "2024-01-08",
-        notes: "Nouveau client, potentiel élevé"
-      },
-      {
-        id: "client-4",
-        name: "Centre Culturel Franceville",
-        type: "Institution",
-        contact: "Pierre Obiang",
-        email: "pierre@centre-culturel.ga",
-        phone: "+241 01 56 78 90",
-        address: "Avenue de l'Indépendance, Franceville",
-        city: "Franceville",
-        status: "Actif",
-        totalOrders: 15,
-        totalSpent: 2100000,
-        lastOrder: "2024-01-18",
-        notes: "Grande institution, commandes importantes"
-      },
-      {
-        id: "client-5",
-        name: "Librairie Universitaire",
-        type: "Librairie",
-        contact: "Dr. Alice Mvou",
-        email: "alice@librairie-univ.ga",
-        phone: "+241 01 67 89 01",
-        address: "Campus universitaire, Libreville",
-        city: "Libreville",
-        status: "Actif",
-        totalOrders: 22,
-        totalSpent: 3200000,
-        lastOrder: "2024-01-20",
-        notes: "Spécialisé dans les ouvrages académiques"
+      orderBy: {
+        createdAt: 'desc'
       }
-    ]
+    })
+
+    // Formater les données pour le frontend
+    const formattedClients = clients.map(client => ({
+      id: client.id,
+      name: client.nom,
+      type: client.type,
+      contact: client.contact || "",
+      email: client.email || "",
+      phone: client.telephone || "",
+      address: client.address || "",
+      city: client.city || "",
+      status: client.statut === 'ACTIF' ? 'Actif' : client.statut === 'EN_ATTENTE' ? 'En attente' : 'Inactif',
+      totalOrders: client.totalOrders,
+      totalSpent: client.totalSpent,
+      lastOrder: client.lastOrder?.toISOString().split('T')[0] || null,
+      notes: client.notes || ""
+    }))
 
     // Calculer les statistiques
-    const totalClients = clients.length
-    const activeClients = clients.filter(c => c.status === "Actif").length
-    const totalRevenue = clients.reduce((sum, client) => sum + client.totalSpent, 0)
-    const averageOrderValue = clients.reduce((sum, client) => sum + (client.totalSpent / client.totalOrders), 0) / totalClients
+    const totalClients = formattedClients.length
+    const activeClients = formattedClients.filter(c => c.status === "Actif").length
+    const totalRevenue = formattedClients.reduce((sum, client) => sum + client.totalSpent, 0)
+    const averageOrderValue = totalClients > 0 
+      ? formattedClients.reduce((sum, client) => sum + (client.totalOrders > 0 ? client.totalSpent / client.totalOrders : 0), 0) / totalClients
+      : 0
 
     const response = {
-      clients,
+      clients: formattedClients,
       summary: {
         total: totalClients,
         active: activeClients,
-        pending: clients.filter(c => c.status === "En attente").length,
+        pending: formattedClients.filter(c => c.status === "En attente").length,
         totalRevenue: Math.round(totalRevenue),
         averageOrderValue: Math.round(averageOrderValue),
-        topClient: clients.reduce((max, client) => 
-          client.totalSpent > max.totalSpent ? client : max
-        )
+        topClient: formattedClients.length > 0
+          ? formattedClients.reduce((max, client) => 
+              client.totalSpent > max.totalSpent ? client : max
+            )
+          : null
       }
     }
 
@@ -159,34 +110,53 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, type, contact, email, phone, address, city, notes } = body
+    const { name, type, contact, email, phone, address, city, notes, departement } = body
 
-    if (!name || !type || !contact) {
-      return NextResponse.json({ error: "Nom, type et contact requis" }, { status: 400 })
+    if (!name || !type) {
+      return NextResponse.json({ error: "Nom et type requis" }, { status: 400 })
     }
 
-    // Dans une vraie application, on créerait le client en base
-    // Pour l'instant, on simule la création
-    const newClient = {
-      id: `client-${Date.now()}`,
-      name,
-      type,
-      contact,
-      email: email || "",
-      phone: phone || "",
-      address: address || "",
-      city: city || "",
+    // Créer le client dans la base de données
+    const newClient = await prisma.client.create({
+      data: {
+        nom: name,
+        type,
+        contact: contact || "",
+        email: email || "",
+        telephone: phone || "",
+        address: address || "",
+        city: city || "",
+        departement: departement || "",
+        notes: notes || "",
+        statut: "ACTIF",
+        representantId: user.id,
+        createdBy: user.id,
+        totalOrders: 0,
+        totalSpent: 0
+      }
+    })
+
+    console.log("✅ Client created:", newClient.id)
+
+    // Formater la réponse
+    const formattedClient = {
+      id: newClient.id,
+      name: newClient.nom,
+      type: newClient.type,
+      contact: newClient.contact || "",
+      email: newClient.email || "",
+      phone: newClient.telephone || "",
+      address: newClient.address || "",
+      city: newClient.city || "",
       status: "Actif",
       totalOrders: 0,
       totalSpent: 0,
       lastOrder: null,
-      notes: notes || "",
-      createdAt: new Date().toISOString()
+      notes: newClient.notes || "",
+      createdAt: newClient.createdAt.toISOString()
     }
 
-    console.log("✅ Client created:", newClient.id)
-
-    return NextResponse.json({ client: newClient }, { status: 201 })
+    return NextResponse.json({ client: formattedClient }, { status: 201 })
 
   } catch (error) {
     console.error("❌ Error creating client:", error)

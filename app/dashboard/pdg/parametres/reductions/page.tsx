@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Edit, Trash2 } from "lucide-react"
+import { toast } from "sonner"
+import { apiClient } from "@/lib/api-client"
 
 
 interface Reduction {
@@ -24,80 +26,33 @@ interface Reduction {
   image?: string
 }
 
-const mockReductions: Reduction[] = [
-  {
-    id: "1",
-    client: "Librairie",
-    livre: "Tous les livres",
-    quantiteMin: 10,
-    reduction: 100,
-    statut: "Actif",
-    creeLe: "ven. 3 janv. 2025 11:03",
-    creePar: "billfass2010@gmail.com",
-    description: "",
-    type: "Montant",
-    image: "/communication-book.jpg",
-  },
-  {
-    id: "2",
-    client: "Librairie",
-    livre: "Tous les livres",
-    quantiteMin: 30,
-    reduction: 200,
-    statut: "Actif",
-    creeLe: "ven. 3 janv. 2025 11:03",
-    creePar: "billfass2010@gmail.com",
-    description: "",
-    type: "Montant",
-    image: "/communication-book.jpg",
-  },
-  {
-    id: "3",
-    client: "Librairie",
-    livre: "Tous les livres",
-    quantiteMin: 50,
-    reduction: 300,
-    statut: "Actif",
-    creeLe: "ven. 3 janv. 2025 11:03",
-    creePar: "billfass2010@gmail.com",
-    description: "",
-    type: "Montant",
-    image: "/communication-book.jpg",
-  },
-  {
-    id: "4",
-    client: "Librairie",
-    livre: "Communication Écrite 4/3ème",
-    quantiteMin: 10,
-    reduction: 50,
-    statut: "Actif",
-    creeLe: "ven. 3 janv. 2025 11:03",
-    creePar: "billfass2010@gmail.com",
-    description: "",
-    type: "Montant",
-    image: "/communication-book.jpg",
-  },
-  {
-    id: "5",
-    client: "Librairie",
-    livre: "Communication Écrite 4/3ème",
-    quantiteMin: 30,
-    reduction: 150,
-    statut: "Actif",
-    creeLe: "ven. 3 janv. 2025 11:03",
-    creePar: "billfass2010@gmail.com",
-    description: "",
-    type: "Montant",
-    image: "/communication-book.jpg",
-  },
-]
-
 export default function ReductionsPage() {
-  const [reductions, setReductions] = useState<Reduction[]>(mockReductions)
+  const [reductions, setReductions] = useState<Reduction[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [showAddModal, setShowAddModal] = useState(false)
   const [clientFilter, setClientFilter] = useState("Tous les clients")
   const [statusFilter, setStatusFilter] = useState("Tous les statuts")
+
+  // Charger les réductions depuis l'API
+  useEffect(() => {
+    loadReductions()
+  }, [])
+
+  const loadReductions = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/pdg/reductions')
+      if (!response.ok) throw new Error('Erreur lors du chargement des réductions')
+      const data = await response.json()
+      setReductions(data)
+    } catch (error) {
+      console.error('Error loading reductions:', error)
+      toast.error('Erreur lors du chargement des réductions')
+    } finally {
+      setLoading(false)
+    }
+  }
   const [livreFilter, setLivreFilter] = useState("Tous les livres")
   const [itemsPerPage, setItemsPerPage] = useState("20")
 

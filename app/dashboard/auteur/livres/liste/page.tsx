@@ -12,47 +12,35 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { apiClient } from "@/lib/api-client";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 export default function LivresListePage() {
+  const [livres, setLivres] = useState([])
+  const [loading, setLoading] = useState(true)
+  const { user } = useCurrentUser()
 
-  const livres = [
-    {
-      id: 1,
-      image: "/french-textbook-ce1-ce2.jpg",
-      libelle: "The New English Student 6e",
-      categorie: "Manuels (Primaire et Secondaire)",
-      collection: "",
-      statut: "Disponible",
-      ajouteLe: "24/06/2024 16:39:02",
-      classes: "6ème",
-      matiere: "Anglais",
-      code: "NES6",
-    },
-    {
-      id: 2,
-      image: "/french-textbook-coffret-ce2.jpg",
-      libelle: "Réussir en conjugaison 6e en Tle",
-      categorie: "Manuels (Primaire et Secondaire)",
-      collection: "",
-      statut: "Disponible",
-      ajouteLe: "24/06/2024 16:52:46",
-      classes: "6ème, 5ème, 4ème, 3ème, 2nde, 1ère, Tle",
-      matiere: "Français",
-      code: "REC",
-    },
-    {
-      id: 3,
-      image: "/mathematics-textbook-ce1.jpg",
-      libelle: "Tests de Lecture 6e et 5e",
-      categorie: "Livre Exercices (secondaire)",
-      collection: "",
-      statut: "Disponible",
-      ajouteLe: "24/06/2024 16:59:08",
-      classes: "6ème, 5ème",
-      matiere: "Français",
-      code: "TDL1",
-    },
-  ];
+  // Charger les livres de l'auteur depuis l'API
+  useEffect(() => {
+    if (user?.id) {
+      loadLivres()
+    }
+  }, [user])
+
+  const loadLivres = async () => {
+    try {
+      setLoading(true)
+      const data = await apiClient.getAuthorWorks(user.id)
+      setLivres(data)
+    } catch (error) {
+      console.error('Error loading livres:', error)
+      toast.error('Erreur lors du chargement des livres')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <DynamicDashboardLayout title="Mes œuvres" breadcrumb="Auteur - Mes œuvres">

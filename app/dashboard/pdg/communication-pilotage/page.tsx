@@ -76,49 +76,15 @@ export default function CommunicationPilotagePage() {
     const fetchData = async () => {
       try {
         setIsLoading(true)
-        const usersData = await apiClient.getUsers()
+        const [usersData, commsResponse] = await Promise.all([
+          apiClient.getUsers(),
+          fetch('/api/pdg/communications')
+        ])
         
-        // Simuler des communications
-        const mockCommunications: Communication[] = [
-          {
-            id: 'comm-1',
-            title: 'Nouvelle politique de prix',
-            message: 'Nous informons tous les partenaires de la mise à jour de notre politique de prix pour l\'année 2024.',
-            type: 'policy',
-            targetAudience: ['PARTENAIRE', 'REPRESENTANT'],
-            status: 'sent',
-            createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-            sentAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-            recipients: 45,
-            readCount: 38
-          },
-          {
-            id: 'comm-2',
-            title: 'Promotion rentrée scolaire',
-            message: 'Profitez de notre offre spéciale rentrée avec 15% de réduction sur tous les manuels scolaires.',
-            type: 'promotion',
-            targetAudience: ['CLIENT'],
-            status: 'scheduled',
-            createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-            scheduledFor: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-            recipients: 0,
-            readCount: 0
-          },
-          {
-            id: 'comm-3',
-            title: 'Mise à jour système',
-            message: 'Le système sera en maintenance le dimanche prochain de 2h à 6h.',
-            type: 'announcement',
-            targetAudience: ['CONCEPTEUR', 'AUTEUR', 'REPRESENTANT', 'PARTENAIRE', 'CLIENT'],
-            status: 'sent',
-            createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-            sentAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-            recipients: 156,
-            readCount: 142
-          }
-        ]
+        if (!commsResponse.ok) throw new Error('Erreur lors du chargement des communications')
+        const commsData = await commsResponse.json()
         
-        setCommunications(mockCommunications)
+        setCommunications(commsData)
         setUsers(usersData)
       } catch (error: any) {
         console.error("Error fetching data:", error)

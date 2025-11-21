@@ -24,7 +24,8 @@ import {
   AlertTriangle,
   FileText,
   Edit,
-  Trash2
+  Trash2,
+  GraduationCap
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -69,6 +70,7 @@ export default function AuteurDashboardPage() {
   const { user, isLoading: userLoading } = useCurrentUser();
   const [works, setWorks] = useState<Work[]>([]);
   const [disciplines, setDisciplines] = useState<Discipline[]>([]);
+  const [userDiscipline, setUserDiscipline] = useState<Discipline | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -88,8 +90,20 @@ export default function AuteurDashboardPage() {
   useEffect(() => {
     if (user && user.role === "AUTEUR") {
       fetchData();
+      fetchUserProfile();
     }
   }, [user]);
+
+  const fetchUserProfile = async () => {
+    try {
+      const profile = await apiClient.getUserProfile();
+      if (profile.discipline) {
+        setUserDiscipline(profile.discipline);
+      }
+    } catch (error) {
+      console.error("❌ Erreur lors du chargement du profil:", error);
+    }
+  };
 
   const fetchData = async () => {
     try {

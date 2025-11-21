@@ -36,6 +36,10 @@ export class ApiClient {
     return response.users || response || []
   }
 
+  async getUserProfile() {
+    return this.request('/users/profile')
+  }
+
   async createUser(data: { 
     name: string, 
     email: string, 

@@ -351,18 +351,6 @@ export default function DashboardLayout({
           </div>
 
           <Link
-            href="/dashboard/pdg/utilisateurs"
-            className={`flex items-center space-x-3 px-3 py-2 rounded-lg ${
-              isActivePath("/dashboard/pdg/utilisateurs")
-                ? "bg-blue-50 text-blue-600"
-                : "hover:bg-gray-100"
-            }`}
-          >
-            <Users className="w-5 h-5" />
-            <span>Utilisateurs</span>
-          </Link>
-
-          <Link
             href="/dashboard/pdg/clients"
             className={`flex items-center space-x-3 px-3 py-2 rounded-lg ${
               isActivePath("/dashboard/pdg/clients")

@@ -60,90 +60,28 @@ export default function AuditHistoriquePage() {
       try {
         setIsLoading(true)
         
-        // Simuler des logs d'audit
-        const mockAuditLogs: AuditLog[] = [
-          {
-            id: 'audit-1',
-            action: 'USER_CREATED',
-            description: 'Nouvel utilisateur créé',
-            user: { id: 'user-1', name: 'PDG Admin', role: 'PDG' },
-            target: { type: 'user', id: 'user-2', name: 'Marie Koffi' },
-            timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-            level: 'success',
-            category: 'user'
-          },
-          {
-            id: 'audit-2',
-            action: 'ORDER_CONFIRMED',
-            description: 'Commande confirmée et expédiée',
-            user: { id: 'user-1', name: 'PDG Admin', role: 'PDG' },
-            target: { type: 'order', id: 'order-1', name: 'CMD-2024-001' },
-            timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-            level: 'success',
-            category: 'order'
-          },
-          {
-            id: 'audit-3',
-            action: 'WORK_APPROVED',
-            description: 'Œuvre approuvée pour publication',
-            user: { id: 'user-1', name: 'PDG Admin', role: 'PDG' },
-            target: { type: 'work', id: 'work-1', name: 'Mathématiques CE1' },
-            timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-            level: 'success',
-            category: 'work'
-          },
-          {
-            id: 'audit-4',
-            action: 'DISCIPLINE_CREATED',
-            description: 'Nouvelle discipline ajoutée',
-            user: { id: 'user-1', name: 'PDG Admin', role: 'PDG' },
-            target: { type: 'discipline', id: 'disc-1', name: 'Sciences Physiques' },
-            timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
-            level: 'info',
-            category: 'discipline'
-          },
-          {
-            id: 'audit-5',
-            action: 'USER_SUSPENDED',
-            description: 'Utilisateur suspendu temporairement',
-            user: { id: 'user-1', name: 'PDG Admin', role: 'PDG' },
-            target: { type: 'user', id: 'user-3', name: 'Jean Adou' },
-            timestamp: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-            level: 'warning',
-            category: 'user'
-          },
-          {
-            id: 'audit-6',
-            action: 'PAYMENT_RECEIVED',
-            description: 'Paiement reçu pour commande',
-            user: { id: 'user-1', name: 'PDG Admin', role: 'PDG' },
-            target: { type: 'order', id: 'order-2', name: 'CMD-2024-002' },
-            timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-            level: 'success',
-            category: 'financial'
-          },
-          {
-            id: 'audit-7',
-            action: 'SYSTEM_BACKUP',
-            description: 'Sauvegarde automatique du système',
-            user: { id: 'system', name: 'Système', role: 'SYSTEM' },
-            timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-            level: 'info',
-            category: 'system'
-          },
-          {
-            id: 'audit-8',
-            action: 'WORK_REJECTED',
-            description: 'Œuvre rejetée pour non-conformité',
-            user: { id: 'user-1', name: 'PDG Admin', role: 'PDG' },
-            target: { type: 'work', id: 'work-2', name: 'Histoire CM1' },
-            timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-            level: 'warning',
-            category: 'work'
-          }
-        ]
+        const response = await fetch('/api/pdg/audit-logs')
+        if (!response.ok) throw new Error('Erreur lors du chargement')
         
-        setAuditLogs(mockAuditLogs)
+        const data = await response.json()
+        
+        // Formater les données si nécessaire
+        const formattedLogs = data.map((log: any) => ({
+          id: log.id,
+          action: log.action,
+          description: log.details || log.action,
+          user: {
+            id: log.userId || 'system',
+            name: log.performedBy || 'Système',
+            role: 'PDG'
+          },
+          target: log.metadata ? JSON.parse(log.metadata) : undefined,
+          timestamp: log.createdAt,
+          level: 'info',
+          category: 'system'
+        }))
+        
+        setAuditLogs(formattedLogs)
       } catch (error) {
         console.error("Error fetching audit data:", error)
         toast.error("Erreur lors du chargement des données d'audit")

@@ -6,54 +6,36 @@ import { Role, WorkStatus, OrderStatus, ProjectStatus } from "@prisma/client"
 // GET - Récupérer les données du dashboard concepteur
 export async function GET(request: NextRequest) {
   try {
-    console.log("🎨 Dashboard API called")
+    if (process.env.NODE_ENV === 'development') {
+      console.log("🎨 Dashboard API called")
+    }
     
     const user = await getCurrentUser(request)
-    console.log("🎨 User:", user ? { id: user.id, name: user.name, role: user.role } : "No user")
+    if (process.env.NODE_ENV === 'development') {
+      console.log("🎨 User:", user ? { id: user.id, name: user.name, role: user.role } : "No user")
+    }
     
     if (!user) {
-      console.log("🎨 No user found, returning 401")
+      if (process.env.NODE_ENV === 'development') {
+        console.log("🎨 No user found, returning 401")
+      }
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     // Vérifier que l'utilisateur est un concepteur
     if (user.role !== "CONCEPTEUR") {
-      console.log("🎨 User role is not CONCEPTEUR:", user.role)
-      // Temporairement, accepter tous les rôles pour debug
-      console.log("🎨 Temporarily accepting all roles for debug")
+      if (process.env.NODE_ENV === 'development') {
+        console.log("🎨 User role is not CONCEPTEUR:", user.role)
+      }
+      return NextResponse.json({ error: "Forbidden - CONCEPTEUR role required" }, { status: 403 })
     }
 
-    console.log("🎨 Fetching concepteur dashboard for:", user.name)
+    if (process.env.NODE_ENV === 'development') {
+      console.log("🎨 Fetching concepteur dashboard for:", user.name)
+    }
 
     const userId = user.id
-
-    // Si l'utilisateur n'est pas concepteur, créer un concepteur ou utiliser l'utilisateur actuel
-    let concepteurId = userId
-    if (user.role !== "CONCEPTEUR") {
-      console.log("🎨 User is not concepteur, checking if concepteur exists...")
-      
-      // Chercher un concepteur existant
-      const existingConcepteur = await prisma.user.findFirst({
-        where: { role: "CONCEPTEUR" }
-      })
-      
-      if (existingConcepteur) {
-        concepteurId = existingConcepteur.id
-        console.log("🎨 Using existing concepteur:", existingConcepteur.name)
-      } else {
-        // Créer un concepteur temporaire
-        const newConcepteur = await prisma.user.create({
-          data: {
-            name: "Concepteur Test",
-            email: "concepteur@test.com",
-            role: "CONCEPTEUR",
-            emailVerified: new Date()
-          }
-        })
-        concepteurId = newConcepteur.id
-        console.log("🎨 Created new concepteur:", newConcepteur.name)
-      }
-    }
+    const concepteurId = userId
 
     // Récupérer les projets du concepteur
     const concepteurProjects = await prisma.project.findMany({
@@ -87,8 +69,10 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" }
     })
 
-    console.log("🎨 Found projects:", concepteurProjects.length)
-    console.log("🎨 Found works:", concepteurWorks.length)
+    if (process.env.NODE_ENV === 'development') {
+      console.log("🎨 Found projects:", concepteurProjects.length)
+      console.log("🎨 Found works:", concepteurWorks.length)
+    }
 
     // Calculer les statistiques générales
     const totalProjects = concepteurProjects.length
@@ -240,7 +224,9 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    console.log(`🎨 Concepteur dashboard data: ${totalProjects} projects, ${totalWorks} works, ${totalSales} sales, ${totalRevenue} revenue`)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🎨 Concepteur dashboard data: ${totalProjects} projects, ${totalWorks} works, ${totalSales} sales, ${totalRevenue} revenue`)
+    }
 
     return NextResponse.json({
       stats: {

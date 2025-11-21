@@ -15,72 +15,34 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden - PDG role required" }, { status: 403 })
     }
 
-    // Pour l'instant, on retourne des réductions par défaut
-    // Dans un vrai système, il faudrait une table Discount dédiée
-    const defaultReductions = [
-      {
-        id: "red-1",
-        client: "Librairie",
-        livre: "Tous les livres",
-        quantiteMin: 10,
-        reduction: 100,
-        statut: "Actif" as const,
-        creeLe: new Date().toLocaleDateString('fr-FR', {
-          weekday: 'short',
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        creePar: "PDG Administrateur",
-        description: "Réduction pour commande en volume",
-        type: "Montant",
-        image: "/communication-book.jpg"
-      },
-      {
-        id: "red-2",
-        client: "Librairie",
-        livre: "Tous les livres",
-        quantiteMin: 30,
-        reduction: 200,
-        statut: "Actif" as const,
-        creeLe: new Date().toLocaleDateString('fr-FR', {
-          weekday: 'short',
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        creePar: "PDG Administrateur",
-        description: "Réduction volume important",
-        type: "Montant",
-        image: "/communication-book.jpg"
-      },
-      {
-        id: "red-3",
-        client: "Librairie",
-        livre: "Tous les livres",
-        quantiteMin: 50,
-        reduction: 300,
-        statut: "Actif" as const,
-        creeLe: new Date().toLocaleDateString('fr-FR', {
-          weekday: 'short',
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        creePar: "PDG Administrateur",
-        description: "Réduction grande commande",
-        type: "Montant",
-        image: "/communication-book.jpg"
-      }
-    ]
+    // Récupérer les réductions depuis la base de données
+    const discounts = await prisma.discount.findMany({
+      orderBy: { createdAt: 'desc' }
+    })
 
-    return NextResponse.json(defaultReductions)
+    // Formater les données pour le frontend
+    const formattedDiscounts = discounts.map(discount => ({
+      id: discount.id,
+      client: discount.client,
+      livre: discount.livre,
+      quantiteMin: discount.quantiteMin,
+      reduction: discount.reduction,
+      statut: discount.statut === 'ACTIF' ? 'Actif' : 'Inactif',
+      creeLe: discount.createdAt.toLocaleDateString('fr-FR', {
+        weekday: 'short',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      creePar: discount.createdBy,
+      description: discount.description || "",
+      type: discount.type,
+      image: discount.image || "/placeholder.jpg"
+    }))
+
+    return NextResponse.json(formattedDiscounts)
 
   } catch (error) {
     console.error("Error fetching reductions:", error)
@@ -102,15 +64,35 @@ export async function POST(request: NextRequest) {
 
     const { client, livre, quantiteMin, reduction, statut, description, type, image } = await request.json()
 
-    // Dans un vrai système, il faudrait une table Discount dédiée
-    const newReduction = {
-      id: `red-${Date.now()}`,
-      client,
-      livre,
-      quantiteMin: parseInt(quantiteMin) || 1,
-      reduction: parseFloat(reduction) || 0,
-      statut: statut || "Actif",
-      creeLe: new Date().toLocaleDateString('fr-FR', {
+    // Validation des données
+    if (!client || !livre || !reduction) {
+      return NextResponse.json({ error: "Client, livre et montant requis" }, { status: 400 })
+    }
+
+    // Créer la réduction dans la base de données
+    const newDiscount = await prisma.discount.create({
+      data: {
+        client,
+        livre,
+        quantiteMin: parseInt(quantiteMin) || 1,
+        reduction: parseFloat(reduction),
+        statut: statut === "Inactif" ? "INACTIF" : "ACTIF",
+        description: description || "",
+        type: type || "Montant",
+        image: image || "/placeholder.jpg",
+        createdBy: session.user.name || session.user.email || "PDG Administrateur"
+      }
+    })
+
+    // Formater la réponse
+    const formattedDiscount = {
+      id: newDiscount.id,
+      client: newDiscount.client,
+      livre: newDiscount.livre,
+      quantiteMin: newDiscount.quantiteMin,
+      reduction: newDiscount.reduction,
+      statut: newDiscount.statut === 'ACTIF' ? 'Actif' : 'Inactif',
+      creeLe: newDiscount.createdAt.toLocaleDateString('fr-FR', {
         weekday: 'short',
         day: '2-digit',
         month: 'short',
@@ -118,13 +100,13 @@ export async function POST(request: NextRequest) {
         hour: '2-digit',
         minute: '2-digit'
       }),
-      creePar: session.user.name || "PDG Administrateur",
-      description: description || "",
-      type: type || "Montant",
-      image: image || "/placeholder.jpg"
+      creePar: newDiscount.createdBy,
+      description: newDiscount.description || "",
+      type: newDiscount.type,
+      image: newDiscount.image || "/placeholder.jpg"
     }
 
-    return NextResponse.json(newReduction, { status: 201 })
+    return NextResponse.json(formattedDiscount, { status: 201 })
 
   } catch (error) {
     console.error("Error creating reduction:", error)
@@ -132,7 +114,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT /api/pdg/reductions/[id] - Modifier une réduction
+// PUT /api/pdg/reductions - Modifier une réduction
 export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -144,28 +126,58 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden - PDG role required" }, { status: 403 })
     }
 
-    const { id, client, livre, quantiteMin, reduction, statut, description, type } = await request.json()
+    const { id, client, livre, quantiteMin, reduction, statut, description, type, image } = await request.json()
 
-    const updatedReduction = {
-      id,
-      client,
-      livre,
-      quantiteMin: parseInt(quantiteMin) || 1,
-      reduction: parseFloat(reduction) || 0,
-      statut,
-      description: description || "",
-      type: type || "Montant",
-      modifieLe: new Date().toLocaleDateString('fr-FR', {
+    if (!id) {
+      return NextResponse.json({ error: "ID requis" }, { status: 400 })
+    }
+
+    // Mettre à jour la réduction dans la base de données
+    const updatedDiscount = await prisma.discount.update({
+      where: { id },
+      data: {
+        client,
+        livre,
+        quantiteMin: parseInt(quantiteMin) || 1,
+        reduction: parseFloat(reduction),
+        statut: statut === "Inactif" ? "INACTIF" : "ACTIF",
+        description: description || "",
+        type: type || "Montant",
+        image: image || "/placeholder.jpg"
+      }
+    })
+
+    // Formater la réponse
+    const formattedDiscount = {
+      id: updatedDiscount.id,
+      client: updatedDiscount.client,
+      livre: updatedDiscount.livre,
+      quantiteMin: updatedDiscount.quantiteMin,
+      reduction: updatedDiscount.reduction,
+      statut: updatedDiscount.statut === 'ACTIF' ? 'Actif' : 'Inactif',
+      creeLe: updatedDiscount.createdAt.toLocaleDateString('fr-FR', {
         weekday: 'short',
         day: '2-digit',
         month: 'short',
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit'
-      })
+      }),
+      modifieLe: updatedDiscount.updatedAt.toLocaleDateString('fr-FR', {
+        weekday: 'short',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      creePar: updatedDiscount.createdBy,
+      description: updatedDiscount.description || "",
+      type: updatedDiscount.type,
+      image: updatedDiscount.image || "/placeholder.jpg"
     }
 
-    return NextResponse.json(updatedReduction)
+    return NextResponse.json(formattedDiscount)
 
   } catch (error) {
     console.error("Error updating reduction:", error)
@@ -173,7 +185,7 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE /api/pdg/reductions/[id] - Supprimer une réduction
+// DELETE /api/pdg/reductions - Supprimer une réduction
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -191,6 +203,11 @@ export async function DELETE(request: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: "ID required" }, { status: 400 })
     }
+
+    // Supprimer la réduction de la base de données
+    await prisma.discount.delete({
+      where: { id }
+    })
 
     return NextResponse.json({ success: true, message: "Réduction supprimée" })
 
