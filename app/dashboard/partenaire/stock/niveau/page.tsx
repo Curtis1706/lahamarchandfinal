@@ -26,25 +26,6 @@ import { apiClient } from "@/lib/api-client"
 export default function NiveauStockPage() {
   const { user } = useCurrentUser()
   const [stockData, setStockData] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  // Charger le stock depuis l'API
-  useEffect(() => {
-    loadStock()
-  }, [])
-
-  const loadStock = async () => {
-    try {
-      setLoading(true)
-      const data = await apiClient.getPartenaireStockAllocation()
-      setStockData(data)
-    } catch (error) {
-      console.error('Error loading stock:', error)
-      toast.error('Erreur lors du chargement du stock')
-    } finally {
-      setLoading(false)
-    }
-  }
   const [filteredData, setFilteredData] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
@@ -53,28 +34,29 @@ export default function NiveauStockPage() {
   const [selectedClass, setSelectedClass] = useState("toutes")
   const [selectedStatus, setSelectedStatus] = useState("tous")
 
-  // Charger le stock
+  // Charger le stock au montage et quand les filtres changent
   useEffect(() => {
+    const loadStock = async () => {
+      try {
+        setIsLoading(true)
+        
+        const data = await apiClient.getPartenaireStockAllocation({ 
+          discipline: selectedDiscipline === 'toutes' ? undefined : selectedDiscipline
+        })
+        
+        setStockData(data.stockItems || data || [])
+        
+      } catch (error: any) {
+        console.error('Erreur lors du chargement du stock:', error)
+        toast.error('Erreur lors du chargement du stock')
+        setStockData([])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
     loadStock()
   }, [selectedDiscipline, selectedStatus])
-
-  const loadStock = async () => {
-    try {
-      setIsLoading(true)
-      
-      const data = await apiClient.getPartenaireStockAllocation({ 
-        discipline: selectedDiscipline === 'toutes' ? undefined : selectedDiscipline
-      })
-      
-      setStockData(data.stockItems)
-      
-    } catch (error: any) {
-      console.error('Erreur lors du chargement du stock:', error)
-      setStockData([])
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
   // Calculer les statistiques
   const totalStock = stockData.reduce((sum, item) => sum + (item.allocatedQuantity || 0), 0)
