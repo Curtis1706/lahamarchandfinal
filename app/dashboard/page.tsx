@@ -1,11 +1,11 @@
 "use client"
 
+import { useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
 import { Loader2 } from "lucide-react"
 
-export default function HomePage() {
+export default function DashboardPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
 
@@ -14,32 +14,31 @@ export default function HomePage() {
     if (status === "loading") {
       return
     }
-    
-    // Par défaut, rediriger vers la page de connexion si pas authentifié
-    // Ne rediriger vers le dashboard QUE si on est certain que l'utilisateur est authentifié
+
+    // Si l'utilisateur n'est pas connecté, rediriger immédiatement vers la page de connexion
     if (status === "unauthenticated") {
-      console.log("🔒 Home: User not authenticated, redirecting to login")
+      console.log("🔒 Dashboard: User not authenticated, redirecting to login")
       router.replace("/auth/login")
       return
     }
-    
-    // Vérifier strictement l'authentification
+
+    // Vérifier strictement l'authentification et le rôle
     if (status === "authenticated" && session?.user?.role) {
       const validRoles = ['PDG', 'REPRESENTANT', 'PARTENAIRE', 'CONCEPTEUR', 'AUTEUR', 'CLIENT']
       if (validRoles.includes(session.user.role)) {
         const role = session.user.role.toLowerCase()
-        console.log("✅ Home: User authenticated, redirecting to", `/dashboard/${role}`)
+        console.log("✅ Dashboard: User authenticated, redirecting to", `/dashboard/${role}`)
         router.replace(`/dashboard/${role}`)
         return
       }
     }
-    
+
     // Si on arrive ici, rediriger vers login par sécurité
-    console.log("🔒 Home: Authentication check failed, redirecting to login")
+    console.log("🔒 Dashboard: Authentication check failed, redirecting to login")
     router.replace("/auth/login")
   }, [status, session, router])
 
-  // Toujours afficher un loader pendant la vérification et la redirection
+  // Afficher un loader pendant la vérification
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
@@ -49,3 +48,4 @@ export default function HomePage() {
     </div>
   )
 }
+
