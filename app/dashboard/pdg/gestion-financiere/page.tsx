@@ -479,24 +479,32 @@ export default function GestionFinancierePage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {topWorks.map((work, index) => (
-                          <TableRow key={work.work?.id || index}>
-                            <TableCell>
-                              <div>
-                                <div className="font-medium">{work.work?.title || 'Œuvre inconnue'}</div>
-                                <div className="text-sm text-gray-500">ISBN: {work.work?.isbn || 'N/A'}</div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{work.work?.discipline?.name || 'Non définie'}</Badge>
-                            </TableCell>
-                            <TableCell>{work.totalSold}</TableCell>
-                            <TableCell>{work.work?.price ? work.work.price.toFixed(2) : '0.00'} FCFA</TableCell>
-                            <TableCell className="font-medium">
-                              {work.totalRevenue.toFixed(2)} FCFA
+                        {topWorks && topWorks.length > 0 ? (
+                          topWorks.map((work, index) => (
+                            <TableRow key={work.work?.id || index}>
+                              <TableCell>
+                                <div>
+                                  <div className="font-medium">{work.work?.title || 'Œuvre inconnue'}</div>
+                                  <div className="text-sm text-gray-500">ISBN: {work.work?.isbn || 'N/A'}</div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline">{work.work?.discipline?.name || 'Non définie'}</Badge>
+                              </TableCell>
+                              <TableCell>{work.totalSold || 0}</TableCell>
+                              <TableCell>{work.work?.price ? work.work.price.toFixed(2) : '0.00'} FCFA</TableCell>
+                              <TableCell className="font-medium">
+                                {(work.totalRevenue || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} FCFA
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                              Aucune œuvre vendue pour le moment
                             </TableCell>
                           </TableRow>
-                        ))}
+                        )}
                       </TableBody>
                     </Table>
                   </CardContent>
@@ -512,22 +520,28 @@ export default function GestionFinancierePage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {Object.entries(disciplineRevenue).map(([discipline, data]) => (
-                        <div key={discipline} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <div>
-                            <div className="font-medium">{discipline}</div>
-                            <div className="text-sm text-gray-500">
-                              {data?.orders || 0} commandes • {data?.quantity || 0} exemplaires
+                      {Object.entries(disciplineRevenue).length > 0 ? (
+                        Object.entries(disciplineRevenue).map(([discipline, revenue]) => (
+                          <div key={discipline} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div>
+                              <div className="font-medium">{discipline}</div>
+                              <div className="text-sm text-gray-500">
+                                Revenus de cette discipline
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-bold">{(revenue || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} FCFA</div>
+                              <div className="text-sm text-gray-500">
+                                {overview?.totalRevenue && overview.totalRevenue > 0 ? (((revenue || 0) / overview.totalRevenue) * 100).toFixed(1) : 0}%
+                              </div>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <div className="font-bold">{(data?.revenue || 0).toFixed(2)} FCFA</div>
-                            <div className="text-sm text-gray-500">
-                              {overview?.totalRevenue ? (((data?.revenue || 0) / overview.totalRevenue) * 100).toFixed(1) : 0}%
-                            </div>
-                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-8 text-gray-500">
+                          Aucune donnée de vente par discipline disponible
                         </div>
-                      ))}
+                      )}
                     </div>
                   </CardContent>
                 </Card>

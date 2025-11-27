@@ -387,6 +387,10 @@ export default function DynamicDashboardLayout({
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
 
+  // Calculer les variables (même si user n'est pas encore disponible)
+  const basePath = user ? `/dashboard/${user.role.toLowerCase()}` : '';
+  const navigation = user ? getNavigationForRole(user.role, basePath) : [];
+
   // Vérifier l'authentification et rediriger si nécessaire
   useEffect(() => {
     if (!userLoading && (!isAuthenticated || !user || !user.role)) {
@@ -395,22 +399,6 @@ export default function DynamicDashboardLayout({
       return
     }
   }, [userLoading, isAuthenticated, user, router])
-
-  // Si l'utilisateur n'est pas authentifié, ne rien afficher (redirection en cours)
-  if (userLoading || !isAuthenticated || !user || !user.role) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-          <p className="text-gray-500">Vérification de l'authentification...</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Calculer les variables avant les returns conditionnels
-  const basePath = `/dashboard/${user.role.toLowerCase()}`;
-  const navigation = getNavigationForRole(user.role, basePath);
 
   // Restreindre l'accès aux routes non prévues pour le rôle
   useEffect(() => {
@@ -430,6 +418,18 @@ export default function DynamicDashboardLayout({
       router.replace(basePath);
     }
   }, [pathname, basePath, navigation, router, user]);
+
+  // Si l'utilisateur n'est pas authentifié, ne rien afficher (redirection en cours)
+  if (userLoading || !isAuthenticated || !user || !user.role) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+          <p className="text-gray-500">Vérification de l'authentification...</p>
+        </div>
+      </div>
+    )
+  }
 
   const handleLogout = async () => {
     try {

@@ -252,11 +252,11 @@ async function loadOverviewData() {
       if (!disciplineRevenue[disciplineName]) {
         disciplineRevenue[disciplineName] = 0
       }
-      disciplineRevenue[disciplineName] += sale.amount
+      disciplineRevenue[disciplineName] += sale?.amount || 0
     })
 
     const overview = {
-      totalRevenue: totalSales._sum.amount || 0,
+      totalRevenue: totalSales || 0,
       totalOrders,
       totalWorks,
       totalPartners,

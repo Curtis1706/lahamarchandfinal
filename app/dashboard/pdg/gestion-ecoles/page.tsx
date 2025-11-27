@@ -150,10 +150,13 @@ export default function GestionEcolesPage() {
       const data = await response.json();
 
       if (response.ok) {
-        setRepresentants(data.filter((user: any) => user.status === "ACTIVE"));
+        // L'API retourne un objet avec une propriété 'users', pas directement un tableau
+        const users = Array.isArray(data) ? data : (data.users || []);
+        setRepresentants(users.filter((user: any) => user.status === "ACTIVE"));
       }
     } catch (error) {
       console.error("Error fetching representants:", error);
+      setRepresentants([]); // S'assurer que representants est toujours un tableau
     }
   };
 

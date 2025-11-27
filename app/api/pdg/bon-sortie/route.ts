@@ -114,27 +114,27 @@ export async function GET(request: NextRequest) {
         id: note.id,
         reference: note.reference,
         order: {
-          id: note.order.id,
-          reference: `CMD-${note.order.id.slice(-8)}`,
-          client: note.order.user.name,
-          clientEmail: note.order.user.email,
-          partner: note.order.partner?.name,
-          total: note.order.total,
-          status: note.order.status,
-          items: note.order.items.map(item => ({
-            work: item.work.title,
-            isbn: item.work.isbn,
-            quantity: item.quantity,
-            price: item.price
+          id: note.order?.id || '',
+          reference: note.order?.id ? `CMD-${note.order.id.slice(-8)}` : 'N/A',
+          client: note.order?.user?.name || 'Client inconnu',
+          clientEmail: note.order?.user?.email || '',
+          partner: note.order?.partner?.name || null,
+          total: note.order?.total || 0,
+          status: note.order?.status || 'UNKNOWN',
+          items: (note.order?.items || []).map(item => ({
+            work: item.work?.title || 'Œuvre inconnue',
+            isbn: item.work?.isbn || 'N/A',
+            quantity: item.quantity || 0,
+            price: item.price || 0
           }))
         },
-        generatedBy: note.generatedBy.name,
+        generatedBy: note.generatedBy?.name || 'Utilisateur inconnu',
         validatedBy: note.validatedBy?.name || null,
         validatedAt: note.validatedAt ? format(note.validatedAt, 'dd MMM yyyy, HH:mm', { locale: fr }) : null,
         controlledBy: note.controlledBy?.name || null,
         controlledAt: note.controlledAt ? format(note.controlledAt, 'dd MMM yyyy, HH:mm', { locale: fr }) : null,
         status: note.status,
-        period: note.period,
+        period: note.period || null,
         createdAt: format(note.createdAt, 'dd MMM yyyy, HH:mm', { locale: fr })
       })),
       pagination: {
@@ -144,10 +144,11 @@ export async function GET(request: NextRequest) {
         totalPages: Math.ceil(total / limit)
       }
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching delivery notes:', error)
+    console.error('Error details:', error.message, error.stack)
     return NextResponse.json(
-      { error: 'Erreur lors de la récupération des bons de sortie' },
+      { error: error.message || 'Erreur lors de la récupération des bons de sortie' },
       { status: 500 }
     )
   }

@@ -128,15 +128,21 @@ export default function GestionPartenairesPage() {
       const data = await response.json();
 
       if (response.ok) {
-        setPartners(data.partners);
-        setTotalPages(data.pagination.pages);
+        // Vérifier que les données sont présentes et dans le bon format
+        const partnersList = Array.isArray(data.partners) ? data.partners : (data.partners || []);
+        const pagination = data.pagination || { pages: 1, total: 0 };
+        
+        setPartners(partnersList);
+        setTotalPages(pagination.pages || 1);
 
-        // Calculer les statistiques
-        const total = data.partners.length;
-        const active = data.partners.filter((partner: Partner) => partner.user.status === "ACTIVE").length;
-        const pending = data.partners.filter((partner: Partner) => partner.user.status === "PENDING").length;
-        const suspended = data.partners.filter((partner: Partner) => partner.user.status === "SUSPENDED").length;
-        const totalOrders = data.partners.reduce((sum: number, partner: Partner) => sum + partner._count.orders, 0);
+        // Calculer les statistiques avec vérifications de sécurité
+        const total = partnersList.length;
+        const active = partnersList.filter((partner: Partner) => partner?.user?.status === "ACTIVE").length;
+        const pending = partnersList.filter((partner: Partner) => partner?.user?.status === "PENDING").length;
+        const suspended = partnersList.filter((partner: Partner) => partner?.user?.status === "SUSPENDED").length;
+        const totalOrders = partnersList.reduce((sum: number, partner: Partner) => {
+          return sum + (partner?._count?.orders || 0);
+        }, 0);
 
         // Calculer le chiffre d'affaires (simulation)
         const totalRevenue = totalOrders * 150000; // Estimation moyenne de 150000 FCFA par commande
@@ -144,6 +150,8 @@ export default function GestionPartenairesPage() {
         setPartnerStats({ total, active, pending, suspended, totalOrders, totalRevenue });
       } else {
         toast.error(data.error || "Erreur lors du chargement des partenaires");
+        setPartners([]);
+        setPartnerStats({ total: 0, active: 0, pending: 0, suspended: 0, totalOrders: 0, totalRevenue: 0 });
       }
     } catch (error) {
       console.error("Error fetching partners:", error);
@@ -159,10 +167,13 @@ export default function GestionPartenairesPage() {
       const data = await response.json();
 
       if (response.ok) {
-        setRepresentants(data.filter((user: any) => user.status === "ACTIVE"));
+        // L'API retourne un objet avec une propriété 'users', pas directement un tableau
+        const users = Array.isArray(data) ? data : (data.users || []);
+        setRepresentants(users.filter((user: any) => user.status === "ACTIVE"));
       }
     } catch (error) {
       console.error("Error fetching representants:", error);
+      setRepresentants([]); // S'assurer que representants est toujours un tableau
     }
   };
 
@@ -454,8 +465,8 @@ export default function GestionPartenairesPage() {
                             <TableCell>{getTypeBadge(partner.type)}</TableCell>
                             <TableCell>
                               <div className="space-y-1">
-                                <div className="text-sm">{partner.user.name}</div>
-                                {partner.user.phone && (
+                                <div className="text-sm">{partner.user?.name || "N/A"}</div>
+                                {partner.user?.phone && (
                                   <div className="text-xs text-gray-500">{partner.user.phone}</div>
                                 )}
                       </div>
@@ -470,11 +481,11 @@ export default function GestionPartenairesPage() {
                                 <span className="text-gray-500 text-sm">Non assigné</span>
                               )}
                             </TableCell>
-                            <TableCell>{getStatusBadge(partner.user.status)}</TableCell>
+                            <TableCell>{getStatusBadge(partner.user?.status || "INACTIVE")}</TableCell>
                             <TableCell>
                             <div className="flex items-center space-x-1">
                                 <Package className="h-4 w-4 text-gray-400" />
-                                <span>{partner._count.orders}</span>
+                                <span>{partner._count?.orders || 0}</span>
                               </div>
                             </TableCell>
                             <TableCell>
