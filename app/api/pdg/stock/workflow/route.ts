@@ -94,40 +94,52 @@ export async function POST(request: NextRequest) {
       // Déterminer le type de mouvement et la quantité
       let movementType: any
       let movementQuantity = quantity
+      let isExitOperation = false
 
       switch (subType) {
         case 'APPROVISIONNEMENT':
           movementType = 'INBOUND'
+          // C'est une entrée, quantity reste positive
           break
         case 'RETOUR_PARTENAIRE':
           movementType = 'PARTNER_RETURN'
+          // C'est une entrée (retour vers le stock principal), quantity reste positive
           break
         case 'CORRECTION':
           movementType = 'CORRECTION'
+          // Pour les corrections, on peut avoir des entrées ou sorties selon operationType
+          if (operationType === 'EXIT') {
+            movementQuantity = -Math.abs(quantity)
+            isExitOperation = true
+          }
           break
         case 'VENTE_DIRECTE':
           movementType = 'DIRECT_SALE'
           movementQuantity = -Math.abs(quantity) // Sortie
+          isExitOperation = true
           break
         case 'DEPOT_PARTENAIRE':
           movementType = 'PARTNER_ALLOCATION'
           movementQuantity = -Math.abs(quantity) // Sortie
+          isExitOperation = true
           break
         case 'PERTE':
           movementType = 'DAMAGED'
           movementQuantity = -Math.abs(quantity) // Sortie
+          isExitOperation = true
           break
         case 'TRANSFERT':
           movementType = 'TRANSFER'
           movementQuantity = -Math.abs(quantity) // Sortie du dépôt source
+          isExitOperation = true
           break
         default:
           throw new Error('Type d\'opération non reconnu')
       }
 
       // Vérifier le stock disponible pour les sorties
-      if (operationType === 'EXIT' && work.stock < Math.abs(movementQuantity)) {
-        throw new Error(`Stock insuffisant. Disponible: ${work.stock}, Demandé: ${Math.abs(movementQuantity)}`)
+      if (isExitOperation && work.stock < Math.abs(quantity)) {
+        throw new Error(`Stock insuffisant. Disponible: ${work.stock}, Demandé: ${Math.abs(quantity)}`)
       }
 
       // Créer le mouvement de stock

@@ -347,7 +347,29 @@ export default function GestionStockPage() {
 
   const handleExportReport = async (type: 'inventory' | 'movements' | 'alerts') => {
     try {
-      await apiClient.exportStockReport(type)
+      const response = await fetch(`/api/stock/export?type=${type}&format=csv`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Erreur lors de l'export")
+      }
+
+      // Télécharger le fichier
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${type}_${new Date().toISOString().split('T')[0]}.csv`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
       toast.success("Rapport exporté avec succès")
     } catch (error: any) {
       toast.error(error.message || "Erreur lors de l'export")
@@ -432,16 +454,21 @@ export default function GestionStockPage() {
     setAutomationLoading(true)
     try {
       const [rulesData, reportsData, integrationsData] = await Promise.all([
-        apiClient.getStockAlerts('rules'),
-        apiClient.getStockReports('reports'),
-        apiClient.getStockIntegrations('list')
+        apiClient.getStockAlerts('rules', {}),
+        apiClient.getStockReports('reports', {}),
+        apiClient.getStockIntegrations('list', {})
       ])
       
-      setAlertRules(rulesData)
-      setStockReports(reportsData)
-      setIntegrations(integrationsData)
+      setAlertRules(Array.isArray(rulesData) ? rulesData : [])
+      setStockReports(Array.isArray(reportsData) ? reportsData : [])
+      setIntegrations(Array.isArray(integrationsData) ? integrationsData : [])
     } catch (error: any) {
+      console.error('Erreur chargement automatisation:', error)
       toast.error(error.message || "Erreur lors du chargement des données d'automatisation")
+      // Initialiser avec des tableaux vides en cas d'erreur
+      setAlertRules([])
+      setStockReports([])
+      setIntegrations([])
     } finally {
       setAutomationLoading(false)
     }

@@ -70,6 +70,15 @@ export default function CategoriesPage() {
   }
 
   const handleCreateCategory = async () => {
+    if (!newCategory.nom.trim()) {
+      toast({
+        title: "Erreur",
+        description: "Le nom de la catégorie est obligatoire",
+        variant: "destructive"
+      })
+      return
+    }
+
     try {
       const response = await fetch('/api/pdg/categories', {
         method: 'POST',
@@ -80,25 +89,35 @@ export default function CategoriesPage() {
       })
 
       if (response.ok) {
+        const data = await response.json()
+        console.log("✅ Catégorie créée:", data)
+        
         toast({
           title: "Succès",
           description: "Catégorie créée avec succès"
         })
+        
+        // Réinitialiser le formulaire
         setNewCategory({ nom: "", description: "", statut: "Disponible" })
         setIsModalOpen(false)
-        loadCategories()
+        
+        // Recharger les catégories
+        await loadCategories()
       } else {
+        const errorData = await response.json().catch(() => ({ error: 'Erreur inconnue' }))
+        console.error("❌ Erreur API:", errorData)
+        
         toast({
           title: "Erreur",
-          description: "Impossible de créer la catégorie",
+          description: errorData.error || "Impossible de créer la catégorie",
           variant: "destructive"
         })
       }
-    } catch (error) {
-      console.error("Error creating category:", error)
+    } catch (error: any) {
+      console.error("❌ Error creating category:", error)
       toast({
         title: "Erreur",
-        description: "Erreur lors de la création de la catégorie",
+        description: error.message || "Erreur lors de la création de la catégorie",
         variant: "destructive"
       })
     }
@@ -200,7 +219,13 @@ export default function CategoriesPage() {
           </div>
 
           <DialogFooter className="flex justify-end gap-2 mt-6">
-            <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsModalOpen(false)
+                setNewCategory({ nom: "", description: "", statut: "Disponible" })
+              }}
+            >
               Fermer
             </Button>
             <Button 

@@ -10,7 +10,15 @@ export async function GET(request: NextRequest) {
     const includeInactive = searchParams.get("includeInactive") === "true";
 
     // Construire les filtres
-    const where: any = {};
+    const where: any = {
+      // Exclure les collections (qui commencent par "Collection")
+      NOT: {
+        name: {
+          startsWith: "Collection",
+          mode: "insensitive"
+        }
+      }
+    };
     
     if (search) {
       where.name = { contains: search, mode: "insensitive" };

@@ -1,11 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { apiClient } from "@/lib/api-client"
+import { toast } from "sonner"
 import {
   Plus,
   Filter,
@@ -14,41 +17,250 @@ import {
   Edit,
   Trash2,
   MoreHorizontal,
-  FileText,
   Package,
-  User,
-  LogOut,
-  Bell,
-  ChevronDown,
   X,
   Printer,
+  Download,
+  Search,
 } from "lucide-react"
-import Link from "next/link"
+
+interface Order {
+  id: string
+  userId: string
+  partnerId?: string
+  status: 'PENDING' | 'VALIDATED' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED'
+  createdAt: string
+  updatedAt: string
+  user: {
+    id: string
+    name: string
+    email: string
+    phone?: string
+  }
+  partner?: {
+    id: string
+    name: string
+    email: string
+  }
+  items: Array<{
+    id: string
+    workId: string
+    quantity: number
+    price: number
+    work: {
+      id: string
+      title: string
+      price: number
+      discipline?: {
+        name: string
+      }
+    }
+  }>
+  total: number
+  bookCount: number
+}
+
+interface Work {
+  id: string
+  title: string
+  isbn: string
+  price: number
+  stock: number
+  discipline?: {
+    name: string
+  }
+}
+
+interface User {
+  id: string
+  name: string
+  email: string
+  phone?: string
+  role: string
+}
+
+interface OrderItem {
+  workId: string
+  quantity: number
+  price: number
+  title: string
+}
 
 export default function CommandesPage() {
-  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [orders, setOrders] = useState<Order[]>([])
+  const [works, setWorks] = useState<Work[]>([])
+  const [users, setUsers] = useState<User[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [showCreateOrderModal, setShowCreateOrderModal] = useState(false)
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
-  const [showNotifications, setShowNotifications] = useState(false)
-  const [showUserMenu, setShowUserMenu] = useState(false)
+  
+  // Filtres
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [searchTerm, setSearchTerm] = useState("")
+  const [itemsPerPage, setItemsPerPage] = useState(25)
+  const [currentPage, setCurrentPage] = useState(1)
+  
+  // Formulaire de création
+  const [selectedUserId, setSelectedUserId] = useState("")
+  const [orderItems, setOrderItems] = useState<OrderItem[]>([])
+  const [selectedWorkId, setSelectedWorkId] = useState("")
+  const [quantity, setQuantity] = useState("")
+  const [paymentMethod, setPaymentMethod] = useState("")
 
-  const toggleSection = (section: string) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }))
-  }
+  useEffect(() => {
+    loadData()
+  }, [])
 
-  const handleRefresh = () => {
-    console.log("[v0] Refreshing table data...")
-  }
-
-  const handleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen()
-    } else {
-      document.exitFullscreen()
+  const loadData = async () => {
+    try {
+      setIsLoading(true)
+      const [ordersData, worksData, usersData] = await Promise.all([
+        apiClient.getOrders(),
+        apiClient.getWorks({ status: 'PUBLISHED' }),
+        apiClient.getUsers()
+      ])
+      
+      setOrders(Array.isArray(ordersData) ? ordersData : [])
+      setWorks(Array.isArray(worksData) ? worksData : [])
+      setUsers(Array.isArray(usersData) ? usersData : [])
+    } catch (error: any) {
+      console.error('Erreur lors du chargement:', error)
+      toast.error("Erreur lors du chargement des données")
+    } finally {
+      setIsLoading(false)
     }
+  }
+
+  const handleAddItem = () => {
+    if (!selectedWorkId || !quantity) {
+      toast.error("Sélectionnez un livre et saisissez une quantité")
+      return
+    }
+
+    const work = works.find(w => w.id === selectedWorkId)
+    if (!work) return
+
+    const qty = parseInt(quantity)
+    if (qty <= 0) {
+      toast.error("La quantité doit être supérieure à 0")
+      return
+    }
+
+    if (work.stock < qty) {
+      toast.error(`Stock insuffisant. Disponible: ${work.stock}`)
+      return
+    }
+
+    const newItem: OrderItem = {
+      workId: work.id,
+      quantity: qty,
+      price: work.price,
+      title: work.title
+    }
+
+    setOrderItems([...orderItems, newItem])
+    setSelectedWorkId("")
+    setQuantity("")
+  }
+
+  const handleRemoveItem = (index: number) => {
+    setOrderItems(orderItems.filter((_, i) => i !== index))
+  }
+
+  const handleCreateOrder = async () => {
+    if (!selectedUserId) {
+      toast.error("Sélectionnez un client")
+      return
+    }
+
+    if (orderItems.length === 0) {
+      toast.error("Ajoutez au moins un livre à la commande")
+      return
+    }
+
+    try {
+      const items = orderItems.map(item => ({
+        workId: item.workId,
+        quantity: item.quantity,
+        price: item.price
+      }))
+
+      await apiClient.createOrder({
+        userId: selectedUserId,
+        items
+      })
+
+      toast.success("Commande créée avec succès")
+      setShowCreateOrderModal(false)
+      setSelectedUserId("")
+      setOrderItems([])
+      setPaymentMethod("")
+      loadData()
+    } catch (error: any) {
+      console.error('Erreur lors de la création:', error)
+      toast.error(error.message || "Erreur lors de la création de la commande")
+    }
+  }
+
+  const handleUpdateStatus = async (orderId: string, newStatus: string) => {
+    try {
+      await apiClient.updateOrder(orderId, { status: newStatus })
+      toast.success("Statut mis à jour")
+      loadData()
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de la mise à jour")
+    }
+  }
+
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!confirm("Êtes-vous sûr de vouloir supprimer cette commande ?")) {
+      return
+    }
+
+    try {
+      await apiClient.deleteOrder(orderId)
+      toast.success("Commande supprimée")
+      loadData()
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de la suppression")
+    }
+  }
+
+  const getStatusBadge = (status: string) => {
+    const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+      PENDING: { label: "En attente", variant: "outline" },
+      VALIDATED: { label: "Validée", variant: "default" },
+      PROCESSING: { label: "En traitement", variant: "default" },
+      SHIPPED: { label: "Expédiée", variant: "default" },
+      DELIVERED: { label: "Livrée", variant: "default" },
+      CANCELLED: { label: "Annulée", variant: "destructive" }
+    }
+    const statusInfo = statusMap[status] || { label: status, variant: "outline" as const }
+    return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+  }
+
+  const filteredOrders = orders.filter(order => {
+    const matchesStatus = statusFilter === "all" || order.status === statusFilter
+    const matchesSearch = searchTerm === "" || 
+      order.user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.id.toLowerCase().includes(searchTerm.toLowerCase())
+    return matchesStatus && matchesSearch
+  })
+
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const paginatedOrders = filteredOrders.slice(startIndex, startIndex + itemsPerPage)
+  const totalAmount = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Chargement des commandes...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -58,11 +270,6 @@ export default function CommandesPage() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold">Les commandes</h2>
-          </div>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-slate-300">
-              Tableau de bord - Les commandes
-            </span>
           </div>
         </div>
       </div>
@@ -93,94 +300,61 @@ export default function CommandesPage() {
                     <div className="space-y-6">
                       {/* Client Selection */}
                       <div>
-                        <Label>Sélectionner le client</Label>
-                        <Select>
+                        <Label>Sélectionner le client *</Label>
+                        <Select value={selectedUserId} onValueChange={setSelectedUserId}>
                           <SelectTrigger>
                             <SelectValue placeholder="Sélectionnez un client" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="client1">ECOLE CONTRACTUELLE</SelectItem>
-                            <SelectItem value="client2">EPP AZALO</SelectItem>
+                            {users.filter(u => u.role === 'CLIENT' || u.role === 'PARTENAIRE').map(user => (
+                              <SelectItem key={user.id} value={user.id}>
+                                {user.name} ({user.email})
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
 
-                      {/* Form Grid */}
+                      {/* Add Book */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                          <Label>Choix de la catégorie</Label>
-                          <Select>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Sélectionnez une catégorie" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="primaire">Primaire</SelectItem>
-                              <SelectItem value="secondaire">Secondaire</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <Label>Choix de la Matière</Label>
-                          <Select>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Sélectionnez une matière" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="francais">Français</SelectItem>
-                              <SelectItem value="mathematiques">Mathématiques</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <Label>Choix de la classe</Label>
-                          <Select>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Sélectionnez la classe" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="ce1">CE1</SelectItem>
-                              <SelectItem value="ce2">CE2</SelectItem>
-                              <SelectItem value="cm1">CM1</SelectItem>
-                              <SelectItem value="cm2">CM2</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <Label>Choix du livre</Label>
-                          <Select>
+                          <Label>Choix du livre *</Label>
+                          <Select value={selectedWorkId} onValueChange={setSelectedWorkId}>
                             <SelectTrigger>
                               <SelectValue placeholder="Sélectionnez un livre" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="livre1">Réussir en Dictée Orthographe CE1-CE2</SelectItem>
-                              <SelectItem value="livre2">Coffret Réussir en Français CE2</SelectItem>
-                              <SelectItem value="livre3">Réussir en Mathématiques CE1</SelectItem>
+                              {works.map(work => (
+                                <SelectItem key={work.id} value={work.id}>
+                                  {work.title} - Stock: {work.stock} - {work.price} F CFA
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </div>
 
                         <div>
-                          <Label>Quantité</Label>
-                          <Input type="number" placeholder="0" />
+                          <Label>Quantité *</Label>
+                          <Input 
+                            type="number" 
+                            placeholder="0" 
+                            value={quantity}
+                            onChange={(e) => setQuantity(e.target.value)}
+                            min="1"
+                          />
                         </div>
 
                         <div className="flex items-end">
-                          <Button className="w-full bg-indigo-600 hover:bg-indigo-700">
-                            Ajouter <ChevronDown className="w-4 h-4 ml-2" />
+                          <Button 
+                            className="w-full bg-indigo-600 hover:bg-indigo-700"
+                            onClick={handleAddItem}
+                          >
+                            Ajouter
                           </Button>
                         </div>
                       </div>
 
-                      <Button variant="outline" className="bg-indigo-600 text-white hover:bg-indigo-700">
-                        Auto
-                      </Button>
-
-                      {/* Order Table */}
+                      {/* Order Items Table */}
                       <div className="border rounded-lg overflow-hidden">
                         <div className="overflow-x-auto">
                           <table className="w-full min-w-[600px]">
@@ -194,78 +368,44 @@ export default function CommandesPage() {
                               </tr>
                             </thead>
                             <tbody>
-                              <tr>
-                                <td colSpan={5} className="p-8 text-center text-gray-500">
-                                  Aucune commande ajoutée
-                                </td>
-                              </tr>
+                              {orderItems.length === 0 ? (
+                                <tr>
+                                  <td colSpan={5} className="p-8 text-center text-gray-500">
+                                    Aucune commande ajoutée
+                                  </td>
+                                </tr>
+                              ) : (
+                                orderItems.map((item, index) => (
+                                  <tr key={index} className="border-t">
+                                    <td className="p-3">{item.title}</td>
+                                    <td className="p-3">{item.price} F CFA</td>
+                                    <td className="p-3">{item.quantity}</td>
+                                    <td className="p-3">{item.price * item.quantity} F CFA</td>
+                                    <td className="p-3">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleRemoveItem(index)}
+                                      >
+                                        <X className="w-4 h-4" />
+                                      </Button>
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
                             </tbody>
                           </table>
                         </div>
                       </div>
 
                       <div className="text-right">
-                        <p className="text-xl font-semibold">Total: 0 XOF</p>
+                        <p className="text-xl font-semibold">Total: {totalAmount} F CFA</p>
                       </div>
 
-                      {/* Bottom Form */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label>Code promo</Label>
-                          <div className="flex gap-2">
-                            <Input placeholder="CODE PROMO" className="flex-1" />
-                            <Button className="bg-indigo-600 hover:bg-indigo-700">Appliquer</Button>
-                          </div>
-                        </div>
-
-                        <div>
-                          <Label>Type de commande</Label>
-                          <Select>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Commande pour la rentrée scolaire" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="commande">Commande</SelectItem>
-                              <SelectItem value="precommande">Précommande</SelectItem>
-                              <SelectItem value="depot">Dépôt</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-
-                      {/* Delivery coordination section */}
-                      <div className="bg-black text-white p-4 rounded-lg">
-                        <h3 className="font-semibold text-center">Coordonnées de Livraison</h3>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label>Date de livraison</Label>
-                          <Input type="date" defaultValue="2025-09-20" />
-                        </div>
-                        <div>
-                          <Label>Plage horaire</Label>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm">De</span>
-                            <Input type="time" defaultValue="07:00" className="flex-1" />
-                            <span className="text-sm">à</span>
-                            <Input type="time" defaultValue="19:00" className="flex-1" />
-                          </div>
-                        </div>
-                      </div>
-
+                      {/* Payment Method */}
                       <div>
-                        <Label>Adresse de livraison</Label>
-                        <textarea
-                          className="w-full p-3 border rounded-lg resize-none"
-                          rows={3}
-                          placeholder="Adresse de livraison"
-                        />
-                      </div>
-
-                      <div>
-                        <Label>Sélectionnez Mode de paiement</Label>
-                        <Select>
+                        <Label>Mode de paiement</Label>
+                        <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                           <SelectTrigger>
                             <SelectValue placeholder="Sélectionnez mode de règlement" />
                           </SelectTrigger>
@@ -284,12 +424,15 @@ export default function CommandesPage() {
 
                       {/* Action buttons */}
                       <div className="flex gap-4 pt-4">
-                        <Button className="bg-indigo-600 hover:bg-indigo-700 flex-1">
+                        <Button 
+                          className="bg-indigo-600 hover:bg-indigo-700 flex-1"
+                          onClick={handleCreateOrder}
+                        >
                           Enregistrer <Package className="w-4 h-4 ml-2" />
                         </Button>
                         <Button
                           variant="outline"
-                          className="flex-1 bg-transparent"
+                          className="flex-1"
                           onClick={() => setShowCreateOrderModal(false)}
                         >
                           Fermer <X className="w-4 h-4 ml-2" />
@@ -299,262 +442,176 @@ export default function CommandesPage() {
                   </DialogContent>
                 </Dialog>
               </div>
-
-
-            </div>
-          </div>
-
-          {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
-            <div className="relative">
-              <button
-                onClick={() => setShowDatePicker(!showDatePicker)}
-                className="flex items-center space-x-2 px-4 py-2 border rounded-lg hover:bg-gray-50 w-full"
-              >
-                <Calendar className="w-4 h-4" />
-                <span className="text-sm">20 juin 2025 - 20 sept. 2025</span>
-              </button>
             </div>
 
-            <Select>
-              <SelectTrigger>
-                <SelectValue placeholder="Tous les statuts" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="tous">Tous les statuts</SelectItem>
-                <SelectItem value="commande">Commande</SelectItem>
-                <SelectItem value="precommande">Précommande</SelectItem>
-                <SelectItem value="depot">Dépôt</SelectItem>
-              </SelectContent>
-            </Select>
+            {/* Filters */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="Rechercher..."
+                  className="pl-10"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
 
-            <Select>
-              <SelectTrigger>
-                <SelectValue placeholder="Tous les types" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="tous">Tous les types</SelectItem>
-                <SelectItem value="commande">Commande</SelectItem>
-                <SelectItem value="precommande">Précommande</SelectItem>
-                <SelectItem value="depot">Dépôt</SelectItem>
-              </SelectContent>
-            </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Tous les statuts" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les statuts</SelectItem>
+                  <SelectItem value="PENDING">En attente</SelectItem>
+                  <SelectItem value="VALIDATED">Validée</SelectItem>
+                  <SelectItem value="PROCESSING">En traitement</SelectItem>
+                  <SelectItem value="SHIPPED">Expédiée</SelectItem>
+                  <SelectItem value="DELIVERED">Livrée</SelectItem>
+                  <SelectItem value="CANCELLED">Annulée</SelectItem>
+                </SelectContent>
+              </Select>
 
-            <Select>
-              <SelectTrigger>
-                <SelectValue placeholder="Toutes les méthodes" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="toutes">Toutes les méthodes</SelectItem>
-                <SelectItem value="mtn-benin">MTN Benin (Mobile Money)</SelectItem>
-                <SelectItem value="autre-reseau">Autre réseau (Moov, Celtis, ...)</SelectItem>
-                <SelectItem value="depot-stock">Dépôt de stock</SelectItem>
-                <SelectItem value="momopay">MomoPay (Paiement comptant)</SelectItem>
-                <SelectItem value="carte-bancaire">Carte bancaire</SelectItem>
-                <SelectItem value="cheque-virement">Chèque/Virement</SelectItem>
-                <SelectItem value="reapprovisionnement">Réapprovisionnement</SelectItem>
-                <SelectItem value="proform">Proform</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select>
-              <SelectTrigger>
-                <SelectValue placeholder="Vacances et rentrée scolaire" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="cours-vacances">Cours de vacances</SelectItem>
-                <SelectItem value="rentree-scolaire">Rentrée scolaire</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex justify-end">
-            <Button className="bg-indigo-600 hover:bg-indigo-700">
-              <Filter className="w-4 h-4 mr-2" />
-              Appliquer
-            </Button>
-          </div>
-        </div>
-
-        {/* Table Controls */}
-        <div className="p-6 border-b">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-600">Afficher</span>
-              <Select defaultValue="25">
-                <SelectTrigger className="w-20">
+              <Select value={itemsPerPage.toString()} onValueChange={(v) => setItemsPerPage(parseInt(v))}>
+                <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
                   <SelectItem value="25">25</SelectItem>
                   <SelectItem value="50">50</SelectItem>
                   <SelectItem value="100">100</SelectItem>
                 </SelectContent>
               </Select>
-              <span className="text-sm text-gray-600">éléments</span>
-            </div>
 
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-600">Rechercher:</span>
-              <Input placeholder="Rechercher..." className="w-64" />
-            </div>
-          </div>
-        </div>
-
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1200px]">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="text-left p-4">Référence</th>
-                <th className="text-left p-4">Nbr. livre</th>
-                <th className="text-left p-4">Demandé par</th>
-                <th className="text-left p-4">Date livraison</th>
-                <th className="text-left p-4">Type</th>
-                <th className="text-left p-4">Statut</th>
-                <th className="text-left p-4">Livraison</th>
-                <th className="text-left p-4">État Réception</th>
-                <th className="text-left p-4">Paiement</th>
-                <th className="text-left p-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b">
-                <td className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span>2025COM28</span>
-                  </div>
-                </td>
-                <td className="p-4">5</td>
-                <td className="p-4">
-                  <div>
-                    <p>ECOLE CONTRACTUELLE (</p>
-                    <p className="text-sm text-gray-500">+22994551975)</p>
-                  </div>
-                </td>
-                <td className="p-4">22/08/2025</td>
-                <td className="p-4">
-                  <span className="px-2 py-1 bg-pink-100 text-pink-800 rounded text-sm">Commande</span>
-                </td>
-                <td className="p-4">
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">Validée</span>
-                </td>
-                <td className="p-4">
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">Livraison partielle</span>
-                </td>
-                <td className="p-4">
-                  <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-sm">Aucune réception</span>
-                </td>
-                <td className="p-4">
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">Enregistrée</span>
-                </td>
-                <td className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <button className="p-1 hover:bg-gray-100 rounded">
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    <button className="p-1 hover:bg-gray-100 rounded">
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button className="p-1 hover:bg-gray-100 rounded">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                    <button className="p-1 hover:bg-gray-100 rounded">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-
-              <tr className="border-b">
-                <td className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span>2025COM27</span>
-                  </div>
-                </td>
-                <td className="p-4">5</td>
-                <td className="p-4">
-                  <div>
-                    <p>EPP AZALO (</p>
-                    <p className="text-sm text-gray-500">+22997648441)</p>
-                  </div>
-                </td>
-                <td className="p-4">25/07/2025</td>
-                <td className="p-4">
-                  <span className="px-2 py-1 bg-pink-100 text-pink-800 rounded text-sm">Commande</span>
-                </td>
-                <td className="p-4">
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">Validée</span>
-                </td>
-                <td className="p-4">
-                  <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded text-sm">en attente de validation</span>
-                </td>
-                <td className="p-4">
-                  <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-sm">Aucune réception</span>
-                </td>
-                <td className="p-4">
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">Enregistrée</span>
-                </td>
-                <td className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <button className="p-1 hover:bg-gray-100 rounded">
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    <button className="p-1 hover:bg-gray-100 rounded">
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button className="p-1 hover:bg-gray-100 rounded">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                    <button className="p-1 hover:bg-gray-100 rounded">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        <div className="p-6 border-t">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-600">Affichage de 1 à 2 sur 2 éléments</p>
-
-            <div className="flex items-center space-x-2">
-              <Button variant="outline" size="sm">
-                Premier
-              </Button>
-              <Button variant="outline" size="sm">
-                Précédent
-              </Button>
-              <Button variant="outline" size="sm" className="bg-indigo-600 text-white">
-                1
-              </Button>
-              <Button variant="outline" size="sm">
-                Suivant
-              </Button>
-              <Button variant="outline" size="sm">
-                Dernier
+              <Button 
+                variant="outline"
+                onClick={loadData}
+              >
+                Actualiser
               </Button>
             </div>
           </div>
-        </div>
 
-        {/* Export Buttons */}
-        <div className="p-6 border-t bg-gray-50">
-          <div className="flex justify-end space-x-2">
-            <Button variant="outline" className="bg-blue-600 text-white hover:bg-blue-700">
-              PDF
-            </Button>
-            <Button variant="outline" className="bg-blue-600 text-white hover:bg-blue-700">
-              EXCEL
-            </Button>
-            <Button variant="outline">
-              <Printer className="w-4 h-4" />
-            </Button>
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1200px]">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="text-left p-4">Référence</th>
+                  <th className="text-left p-4">Nbr. livre</th>
+                  <th className="text-left p-4">Demandé par</th>
+                  <th className="text-left p-4">Date</th>
+                  <th className="text-left p-4">Statut</th>
+                  <th className="text-left p-4">Total</th>
+                  <th className="text-left p-4">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-gray-500">
+                      Aucune commande trouvée
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedOrders.map((order) => (
+                    <tr key={order.id} className="border-b hover:bg-gray-50">
+                      <td className="p-4">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span className="font-medium">{order.id.slice(0, 12)}</span>
+                        </div>
+                      </td>
+                      <td className="p-4">{order.bookCount}</td>
+                      <td className="p-4">
+                        <div>
+                          <p className="font-medium">{order.user.name}</p>
+                          <p className="text-sm text-gray-500">{order.user.email}</p>
+                          {order.user.phone && (
+                            <p className="text-sm text-gray-500">{order.user.phone}</p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        {new Date(order.createdAt).toLocaleDateString('fr-FR')}
+                      </td>
+                      <td className="p-4">
+                        {getStatusBadge(order.status)}
+                      </td>
+                      <td className="p-4 font-semibold">
+                        {order.total.toLocaleString()} F CFA
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleUpdateStatus(order.id, order.status === 'PENDING' ? 'VALIDATED' : 'PROCESSING')}
+                            disabled={order.status === 'DELIVERED' || order.status === 'CANCELLED'}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteOrder(order.id)}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          <div className="p-6 border-t">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-600">
+                Affichage de {startIndex + 1} à {Math.min(startIndex + itemsPerPage, filteredOrders.length)} sur {filteredOrders.length} éléments
+              </p>
+
+              <div className="flex items-center space-x-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                >
+                  Premier
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Précédent
+                </Button>
+                <span className="px-3 py-1 text-sm">
+                  Page {currentPage} sur {totalPages}
+                </span>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Suivant
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                >
+                  Dernier
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

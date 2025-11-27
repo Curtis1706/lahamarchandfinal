@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,39 +18,218 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Filter, Calendar, Printer } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { apiClient } from "@/lib/api-client";
+import { toast } from "sonner";
+import { Plus, Filter, Calendar, Printer, Download, Search, X } from "lucide-react";
+
+interface Work {
+  id: string;
+  title: string;
+  isbn: string;
+  price: number;
+  stock: number;
+  discipline?: {
+    name: string;
+  };
+}
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  role: string;
+}
+
+interface ProformaItem {
+  workId: string;
+  livre: string;
+  prix: number;
+  quantite: number;
+  montant: number;
+}
+
+interface Proforma {
+  id: string;
+  clientId: string;
+  client: User;
+  items: ProformaItem[];
+  total: number;
+  status: string;
+  createdAt: string;
+}
 
 export default function ProformaPage() {
+  const [proformas, setProformas] = useState<Proforma[]>([]);
+  const [works, setWorks] = useState<Work[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  
+  // Filtres
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [currentPage, setCurrentPage] = useState(1);
+  
+  // Formulaire de création
   const [selectedClient, setSelectedClient] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [selectedMatiere, setSelectedMatiere] = useState("");
-  const [selectedClasse, setSelectedClasse] = useState("");
+  const [items, setItems] = useState<ProformaItem[]>([]);
   const [selectedLivre, setSelectedLivre] = useState("");
   const [quantity, setQuantity] = useState("");
   const [price, setPrice] = useState("");
   const [promoCode, setPromoCode] = useState("");
   const [commandType, setCommandType] = useState("");
-  const [items, setItems] = useState<any[]>([]);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      const [worksData, usersData] = await Promise.all([
+        apiClient.getWorks({ status: 'PUBLISHED' }),
+        apiClient.getUsers()
+      ]);
+      
+      setWorks(Array.isArray(worksData) ? worksData : []);
+      setUsers(Array.isArray(usersData) ? usersData : []);
+      
+      // Pour l'instant, on simule les proformas depuis les commandes
+      // Dans un vrai système, il faudrait un endpoint dédié
+      const ordersData = await apiClient.getOrders();
+      if (Array.isArray(ordersData)) {
+        const proformasData = ordersData
+          .filter(order => order.status === 'PENDING')
+          .map(order => ({
+            id: order.id,
+            clientId: order.userId,
+            client: order.user,
+            items: order.items.map(item => ({
+              workId: item.workId,
+              title: item.work.title,
+              price: item.price,
+              quantity: item.quantity,
+              amount: item.price * item.quantity
+            })),
+            total: order.total,
+            status: 'PENDING',
+            createdAt: order.createdAt
+          }));
+        setProformas(proformasData);
+      }
+    } catch (error: any) {
+      console.error('Erreur lors du chargement:', error);
+      toast.error("Erreur lors du chargement des données");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleAddItem = () => {
-    if (selectedLivre && quantity && price) {
-      const unitPrice = Number.parseFloat(price);
-      const qty = Number.parseInt(quantity);
-      const newItem = {
-        id: Date.now(),
-        livre: selectedLivre,
-        prix: unitPrice,
-        quantite: qty,
-        montant: unitPrice * qty,
-      };
-      setItems([...items, newItem]);
-      setQuantity("");
-      setPrice("");
+    if (!selectedLivre || !quantity || !price) {
+      toast.error("Sélectionnez un livre, saisissez une quantité et un prix");
+      return;
+    }
+
+    const work = works.find(w => w.id === selectedLivre);
+    if (!work) return;
+
+    const unitPrice = parseFloat(price);
+    const qty = parseInt(quantity);
+    
+    if (qty <= 0) {
+      toast.error("La quantité doit être supérieure à 0");
+      return;
+    }
+
+    if (unitPrice <= 0) {
+      toast.error("Le prix doit être supérieur à 0");
+      return;
+    }
+
+    const newItem: ProformaItem = {
+      workId: work.id,
+      livre: work.title,
+      prix: unitPrice,
+      quantite: qty,
+      montant: unitPrice * qty
+    };
+
+    setItems([...items, newItem]);
+    setSelectedLivre("");
+    setQuantity("");
+    setPrice("");
+  };
+
+  const handleRemoveItem = (index: number) => {
+    setItems(items.filter((_, i) => i !== index));
+  };
+
+  const handleCreateProforma = async () => {
+    if (!selectedClient) {
+      toast.error("Sélectionnez un client");
+      return;
+    }
+
+    if (items.length === 0) {
+      toast.error("Ajoutez au moins un livre au proforma");
+      return;
+    }
+
+    try {
+      // Créer une commande en statut PENDING qui servira de proforma
+      const orderItems = items.map(item => ({
+        workId: item.workId,
+        quantity: item.quantite,
+        price: item.prix
+      }));
+
+      await apiClient.createOrder({
+        userId: selectedClient,
+        items: orderItems
+      });
+
+      toast.success("Proforma créé avec succès");
+      setShowCreateModal(false);
+      setSelectedClient("");
+      setItems([]);
+      setPromoCode("");
+      setCommandType("");
+      loadData();
+    } catch (error: any) {
+      console.error('Erreur lors de la création:', error);
+      toast.error(error.message || "Erreur lors de la création du proforma");
     }
   };
 
   const total = items.reduce((sum, item) => sum + item.montant, 0);
+
+  const filteredProformas = proformas.filter(proforma => {
+    const matchesStatus = statusFilter === "all" || proforma.status === statusFilter;
+    const matchesSearch = searchTerm === "" || 
+      proforma.client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      proforma.client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      proforma.id.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesStatus && matchesSearch;
+  });
+
+  const totalPages = Math.ceil(filteredProformas.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedProformas = filteredProformas.slice(startIndex, startIndex + itemsPerPage);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Chargement des proformas...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -60,11 +238,6 @@ export default function ProformaPage() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold">Proforma</h2>
-          </div>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-slate-300">
-              Tableau de bord - Proforma
-            </span>
           </div>
         </div>
       </div>
@@ -96,7 +269,7 @@ export default function ProformaPage() {
                 <div className="space-y-6">
                   {/* Client Selection */}
                   <div>
-                    <Label>Sélectionner le client</Label>
+                    <Label>Sélectionner le client *</Label>
                     <Select
                       value={selectedClient}
                       onValueChange={setSelectedClient}
@@ -105,76 +278,19 @@ export default function ProformaPage() {
                         <SelectValue placeholder="Sélectionnez un client" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="client1">
-                          ECOLE CONTRACTUELLE
-                        </SelectItem>
-                        <SelectItem value="client2">EPP AZALO</SelectItem>
-                        <SelectItem value="client3">Particulier</SelectItem>
+                        {users.filter(u => u.role === 'CLIENT' || u.role === 'PARTENAIRE').map(user => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.name} ({user.email})
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
 
-                  {/* Selection Row */}
+                  {/* Book and Quantity */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <Label>Choix de la catégorie</Label>
-                      <Select
-                        value={selectedCategory}
-                        onValueChange={setSelectedCategory}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sélectionnez une catégorie" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="manuels">
-                            Manuels (Primaire et Secondaire)
-                          </SelectItem>
-                          <SelectItem value="exercices">
-                            Livre Exercices (secondaire)
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label>Choix de la Matière</Label>
-                      <Select
-                        value={selectedMatiere}
-                        onValueChange={setSelectedMatiere}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sélectionnez une matière" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="francais">Français</SelectItem>
-                          <SelectItem value="anglais">Anglais</SelectItem>
-                          <SelectItem value="maths">Mathématiques</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label>Choix de la classe</Label>
-                      <Select
-                        value={selectedClasse}
-                        onValueChange={setSelectedClasse}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sélectionnez la classe" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="6eme">6ème</SelectItem>
-                          <SelectItem value="5eme">5ème</SelectItem>
-                          <SelectItem value="4eme">4ème</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Book and Quantity */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label>Choix du livre</Label>
+                      <Label>Choix du livre *</Label>
                       <Select
                         value={selectedLivre}
                         onValueChange={setSelectedLivre}
@@ -183,23 +299,17 @@ export default function ProformaPage() {
                           <SelectValue placeholder="Sélectionnez un livre" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="livre1">
-                            The New English Student 6e
-                          </SelectItem>
-                          <SelectItem value="livre2">
-                            Réussir en conjugaison 6e en Tle
-                          </SelectItem>
+                          {works.map(work => (
+                            <SelectItem key={work.id} value={work.id}>
+                              {work.title} - Stock: {work.stock}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
-                      {!selectedLivre && (
-                        <p className="text-red-500 text-sm mt-1">
-                          Sélectionnez un livre
-                        </p>
-                      )}
                     </div>
 
                     <div>
-                      <Label>Prix unitaire (F CFA)</Label>
+                      <Label>Prix unitaire (F CFA) *</Label>
                       <Input
                         type="number"
                         value={price}
@@ -211,7 +321,7 @@ export default function ProformaPage() {
                     </div>
 
                     <div>
-                      <Label>Quantité</Label>
+                      <Label>Quantité *</Label>
                       <div className="flex gap-2">
                         <Input
                           type="number"
@@ -228,11 +338,6 @@ export default function ProformaPage() {
                           Ajouter
                         </Button>
                       </div>
-                      {quantity && Number.parseInt(quantity) <= 0 && (
-                        <p className="text-red-500 text-sm mt-1">
-                          La quantité doit être supérieure à 0
-                        </p>
-                      )}
                     </div>
                   </div>
 
@@ -259,37 +364,41 @@ export default function ProformaPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {items.map((item) => (
-                          <tr key={item.id} className="border-t">
-                            <td className="px-4 py-3 text-sm">{item.livre}</td>
-                            <td className="px-4 py-3 text-sm">{item.prix}</td>
-                            <td className="px-4 py-3 text-sm">
-                              {item.quantite}
-                            </td>
-                            <td className="px-4 py-3 text-sm">
-                              {item.montant}
-                            </td>
-                            <td className="px-4 py-3 text-sm">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  setItems(
-                                    items.filter((i) => i.id !== item.id)
-                                  )
-                                }
-                              >
-                                Supprimer
-                              </Button>
+                        {items.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                              Aucun livre ajouté
                             </td>
                           </tr>
-                        ))}
+                        ) : (
+                          items.map((item, index) => (
+                            <tr key={index} className="border-t">
+                              <td className="px-4 py-3 text-sm">{item.livre}</td>
+                              <td className="px-4 py-3 text-sm">{item.prix} F CFA</td>
+                              <td className="px-4 py-3 text-sm">
+                                {item.quantite}
+                              </td>
+                              <td className="px-4 py-3 text-sm">
+                                {item.montant} F CFA
+                              </td>
+                              <td className="px-4 py-3 text-sm">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleRemoveItem(index)}
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
                       </tbody>
                     </table>
                   </div>
 
                   <div className="text-right">
-                    <p className="text-xl font-semibold">Total: {total} XOF</p>
+                    <p className="text-xl font-semibold">Total: {total} F CFA</p>
                   </div>
 
                   {/* Promo Code and Command Type */}
@@ -335,7 +444,10 @@ export default function ProformaPage() {
                     >
                       Fermer
                     </Button>
-                    <Button className="bg-indigo-600 hover:bg-indigo-700">
+                    <Button 
+                      className="bg-indigo-600 hover:bg-indigo-700"
+                      onClick={handleCreateProforma}
+                    >
                       Enregistrer
                     </Button>
                   </div>
@@ -345,31 +457,34 @@ export default function ProformaPage() {
           </div>
 
           {/* Date Range and Status Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div className="flex items-center gap-2 border rounded-lg px-3 py-2">
-              <Calendar className="w-4 h-4 text-gray-500" />
-              <span className="text-sm text-gray-600">
-                20 juin 2025 - 20 sept. 2025
-              </span>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                placeholder="Rechercher..."
+                className="pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
 
-            <div className="flex gap-4">
-              <Select defaultValue="tous-statuts">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tous-statuts">Tous les statuts</SelectItem>
-                  <SelectItem value="en-cours">En cours</SelectItem>
-                  <SelectItem value="valide">Validé</SelectItem>
-                </SelectContent>
-              </Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les statuts</SelectItem>
+                <SelectItem value="PENDING">En cours</SelectItem>
+                <SelectItem value="VALIDATED">Validé</SelectItem>
+              </SelectContent>
+            </Select>
 
-              <Button className="bg-indigo-600 hover:bg-indigo-700 text-white">
-                <Filter className="w-4 h-4 mr-2" />
-                Appliquer
-              </Button>
-            </div>
+            <Button 
+              variant="outline"
+              onClick={loadData}
+            >
+              Actualiser
+            </Button>
           </div>
         </div>
 
@@ -379,7 +494,7 @@ export default function ProformaPage() {
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-4">
                 <span className="text-sm text-gray-600">Afficher</span>
-                <Select defaultValue="25">
+                <Select value={itemsPerPage.toString()} onValueChange={(v) => setItemsPerPage(parseInt(v))}>
                   <SelectTrigger className="w-20">
                     <SelectValue />
                   </SelectTrigger>
@@ -390,11 +505,6 @@ export default function ProformaPage() {
                   </SelectContent>
                 </Select>
                 <span className="text-sm text-gray-600">éléments</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600">Rechercher:</span>
-                <Input placeholder="" className="w-64" />
               </div>
             </div>
 
@@ -418,10 +528,7 @@ export default function ProformaPage() {
                       Statut
                     </th>
                     <th className="text-left py-3 px-4 font-medium text-gray-900">
-                      Département
-                    </th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-900">
-                      Zone
+                      Total
                     </th>
                     <th className="text-left py-3 px-4 font-medium text-gray-900">
                       Actions
@@ -429,30 +536,89 @@ export default function ProformaPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td colSpan={8} className="text-center py-8 text-gray-500">
-                      Aucune donnée disponible dans le tableau
-                    </td>
-                  </tr>
+                  {paginatedProformas.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-8 text-gray-500">
+                        Aucune donnée disponible dans le tableau
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedProformas.map((proforma) => (
+                      <tr key={proforma.id} className="border-b hover:bg-gray-50">
+                        <td className="py-3 px-4">{proforma.id.slice(0, 12)}</td>
+                        <td className="py-3 px-4">{proforma.items.length}</td>
+                        <td className="py-3 px-4">
+                          <div>
+                            <p className="font-medium">{proforma.client.name}</p>
+                            <p className="text-sm text-gray-500">{proforma.client.email}</p>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          {new Date(proforma.createdAt).toLocaleDateString('fr-FR')}
+                        </td>
+                        <td className="py-3 px-4">
+                          <Badge variant={proforma.status === 'VALIDATED' ? 'default' : 'outline'}>
+                            {proforma.status === 'VALIDATED' ? 'Validé' : 'En cours'}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-4 font-semibold">
+                          {proforma.total.toLocaleString()} F CFA
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex gap-2">
+                            <Button variant="ghost" size="sm">
+                              <Printer className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm">
+                              <Download className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
 
             <div className="flex justify-between items-center mt-4">
               <span className="text-sm text-gray-600">
-                Affichage de 0 à 0 sur 0 éléments
+                Affichage de {startIndex + 1} à {Math.min(startIndex + itemsPerPage, filteredProformas.length)} sur {filteredProformas.length} éléments
               </span>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                >
                   Premier
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
                   Précédent
                 </Button>
-                <Button variant="outline" size="sm">
+                <span className="px-3 py-1 text-sm">
+                  Page {currentPage} sur {totalPages}
+                </span>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
                   Suivant
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                >
                   Dernier
                 </Button>
               </div>
@@ -461,10 +627,10 @@ export default function ProformaPage() {
 
           {/* Export Buttons */}
           <div className="border-t p-4 flex justify-end gap-2">
-            <Button variant="outline" className="bg-[#6967CE] text-white ">
+            <Button variant="outline" className="bg-[#6967CE] text-white">
               PDF
             </Button>
-            <Button variant="outline" className="bg-[#6967CE] text-white ">
+            <Button variant="outline" className="bg-[#6967CE] text-white">
               EXCEL
             </Button>
             <Button variant="outline">

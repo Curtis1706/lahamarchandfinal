@@ -519,6 +519,7 @@ enum WorkStatus {
   ON_SALE
   OUT_OF_STOCK
   DISCONTINUED
+  SUSPENDED
 }
 
 enum OrderStatus {

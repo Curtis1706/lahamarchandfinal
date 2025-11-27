@@ -25,7 +25,8 @@ import {
   Building2,
   Truck,
   XCircle,
-  RotateCcw
+  RotateCcw,
+  Loader2
 } from "lucide-react"
 
 interface Work {
@@ -74,6 +75,7 @@ export default function StockOperationsPage() {
   const [partners, setPartners] = useState<Partner[]>([])
   const [operations, setOperations] = useState<StockOperation[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [isExecuting, setIsExecuting] = useState(false)
   const [showOperationDialog, setShowOperationDialog] = useState(false)
   const [selectedOperation, setSelectedOperation] = useState<string>('')
   const [selectedSubType, setSelectedSubType] = useState<string>('')
@@ -98,6 +100,7 @@ export default function StockOperationsPage() {
   const loadData = async () => {
     try {
       setIsLoading(true)
+      console.log('📥 Chargement des données...')
       
       const [worksData, partnersData, operationsData] = await Promise.all([
         apiClient.getPDGWorks({ status: 'PUBLISHED' }),
@@ -105,15 +108,23 @@ export default function StockOperationsPage() {
         apiClient.getPDGStockMovements({ limit: 50 })
       ])
       
+      console.log('📦 Données reçues:', {
+        works: worksData?.works?.length || 0,
+        partners: partnersData?.partners?.length || 0,
+        operations: operationsData?.movements?.length || 0
+      })
+      
       setWorks(worksData.works || [])
       setPartners(partnersData.partners || [])
       setOperations(operationsData.movements || [])
       
+      console.log('✅ Données mises à jour dans le state')
+      
     } catch (error: any) {
-      console.error('Erreur lors du chargement:', error)
+      console.error('❌ Erreur lors du chargement:', error)
       toast({
         title: "Erreur",
-        description: "Erreur lors du chargement des données",
+        description: error.message || "Erreur lors du chargement des données",
         variant: "destructive"
       })
     } finally {
@@ -122,8 +133,28 @@ export default function StockOperationsPage() {
   }
 
   const handleExecuteOperation = async () => {
+    console.log('🖱️ handleExecuteOperation appelé')
+    console.log('📋 État actuel:', {
+      selectedOperation,
+      selectedSubType,
+      workId: formData.workId,
+      quantity: formData.quantity,
+      isExecuting
+    })
+    
     try {
+      if (!selectedOperation || !selectedSubType) {
+        console.log('❌ Validation échouée: type ou sous-type manquant')
+        toast({
+          title: "Erreur",
+          description: "Sélectionnez un type d'opération et un sous-type",
+          variant: "destructive"
+        })
+        return
+      }
+
       if (!formData.workId || !formData.quantity) {
+        console.log('❌ Validation échouée: œuvre ou quantité manquante')
         toast({
           title: "Erreur",
           description: "Sélectionnez une œuvre et saisissez une quantité",
@@ -132,11 +163,43 @@ export default function StockOperationsPage() {
         return
       }
 
+      const qty = parseInt(formData.quantity)
+      if (isNaN(qty) || qty <= 0) {
+        console.log('❌ Validation échouée: quantité invalide')
+        toast({
+          title: "Erreur",
+          description: "La quantité doit être un nombre positif",
+          variant: "destructive"
+        })
+        return
+      }
+
+      // Vérifier le stock disponible pour les sorties
+      if (selectedOperation === 'EXIT') {
+        const selectedWork = works.find(w => w.id === formData.workId)
+        if (selectedWork && selectedWork.stock < qty) {
+          console.log('❌ Validation échouée: stock insuffisant')
+          toast({
+            title: "Erreur",
+            description: `Stock insuffisant. Disponible: ${selectedWork.stock}, Demandé: ${qty}`,
+            variant: "destructive"
+          })
+          return
+        }
+      }
+
+      console.log('✅ Toutes les validations passées, démarrage de l\'exécution...')
+      
+      // Mettre à jour l'état d'exécution
+      setIsExecuting(true)
+      console.log('🔄 isExecuting mis à true')
+      console.log('🚀 Début de l\'exécution de l\'opération...')
+
       const operationData = {
         operationType: selectedOperation,
         subType: selectedSubType,
         workId: formData.workId,
-        quantity: parseInt(formData.quantity),
+        quantity: qty,
         source: formData.source || null,
         destination: formData.destination || null,
         partnerId: formData.partnerId || null,
@@ -146,12 +209,25 @@ export default function StockOperationsPage() {
         transferDestinationId: formData.transferDestinationId || null
       }
 
-      await apiClient.executeStockOperation(operationData)
+      console.log('📤 Données envoyées:', operationData)
+      console.log('⏳ Appel API en cours...')
+
+      let result
+      try {
+        result = await apiClient.executeStockOperation(operationData)
+        console.log('✅ Réponse reçue:', result)
+      } catch (apiError: any) {
+        console.error('❌ Erreur API:', apiError)
+        throw apiError
+      }
       
+      // Afficher le message de succès immédiatement
       toast({
         title: "Succès",
-        description: "Opération de stock exécutée avec succès"
+        description: result.message || "Opération de stock exécutée avec succès",
+        duration: 3000
       })
+      console.log('📢 Toast de succès affiché')
       
       // Réinitialiser le formulaire
       setFormData({
@@ -165,18 +241,50 @@ export default function StockOperationsPage() {
         unitPrice: '',
         transferDestinationId: ''
       })
-      setShowOperationDialog(false)
+      setSelectedOperation('')
+      setSelectedSubType('')
+      console.log('🔄 Formulaire réinitialisé')
       
-      // Recharger les données
-      loadData()
+      // Fermer le dialogue immédiatement
+      setShowOperationDialog(false)
+      setIsExecuting(false)
+      console.log('🔒 Dialogue fermé et état réinitialisé')
+      
+      // Recharger les données immédiatement
+      console.log('🔄 Rechargement des données...')
+      loadData().then(() => {
+        console.log('✅ Données rechargées avec succès')
+      }).catch((err) => {
+        console.error('❌ Erreur lors du rechargement:', err)
+      })
       
     } catch (error: any) {
-      console.error('Erreur lors de l\'exécution:', error)
+      console.error('❌ Erreur lors de l\'exécution:', error)
+      console.error('❌ Détails de l\'erreur:', {
+        message: error.message,
+        error: error.error,
+        stack: error.stack
+      })
+      
+      // Extraire le message d'erreur de la réponse API si disponible
+      let errorMessage = "Erreur lors de l'exécution de l'opération"
+      if (error.message) {
+        errorMessage = error.message
+      } else if (error.error) {
+        errorMessage = error.error
+      } else if (typeof error === 'string') {
+        errorMessage = error
+      }
+      
       toast({
         title: "Erreur",
-        description: error.message || "Erreur lors de l'exécution de l'opération",
-        variant: "destructive"
+        description: errorMessage,
+        variant: "destructive",
+        duration: 5000
       })
+      
+      // Ne pas fermer le dialogue en cas d'erreur pour permettre la correction
+      setIsExecuting(false)
     }
   }
 
@@ -216,7 +324,34 @@ export default function StockOperationsPage() {
             <p className="text-slate-300 text-lg">Gestion complète des entrées et sorties de stock</p>
           </div>
         
-        <Dialog open={showOperationDialog} onOpenChange={setShowOperationDialog}>
+        <Dialog 
+          open={showOperationDialog} 
+          onOpenChange={(open) => {
+            // Ne pas permettre la fermeture pendant l'exécution
+            if (isExecuting) {
+              return
+            }
+            
+            setShowOperationDialog(open)
+            
+            // Réinitialiser le formulaire quand le dialogue se ferme
+            if (!open) {
+              setFormData({
+                workId: '',
+                quantity: '',
+                source: '',
+                destination: '',
+                partnerId: '',
+                reason: '',
+                notes: '',
+                unitPrice: '',
+                transferDestinationId: ''
+              })
+              setSelectedOperation('')
+              setSelectedSubType('')
+            }
+          }}
+        >
           <DialogTrigger asChild>
             <Button 
               onClick={() => setShowOperationDialog(true)}
@@ -377,11 +512,49 @@ export default function StockOperationsPage() {
               </div>
 
               <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setShowOperationDialog(false)}>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowOperationDialog(false)
+                    setFormData({
+                      workId: '',
+                      quantity: '',
+                      source: '',
+                      destination: '',
+                      partnerId: '',
+                      reason: '',
+                      notes: '',
+                      unitPrice: '',
+                      transferDestinationId: ''
+                    })
+                    setSelectedOperation('')
+                    setSelectedSubType('')
+                  }}
+                  disabled={isExecuting}
+                >
                   Annuler
                 </Button>
-                <Button onClick={handleExecuteOperation}>
-                  Exécuter l'opération
+                <Button 
+                  onClick={async (e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    console.log('🖱️ Bouton cliqué, exécution de handleExecuteOperation')
+                    console.log('🔍 État isExecuting avant appel:', isExecuting)
+                    await handleExecuteOperation()
+                    console.log('✅ handleExecuteOperation terminé')
+                  }}
+                  disabled={isExecuting}
+                  className="bg-black hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  type="button"
+                >
+                  {isExecuting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Exécution...
+                    </>
+                  ) : (
+                    "Exécuter l'opération"
+                  )}
                 </Button>
               </div>
             </div>

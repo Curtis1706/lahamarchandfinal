@@ -61,7 +61,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden - PDG role required" }, { status: 403 })
     }
 
-    const { libelle, code, periode, livre, statut, taux, quantiteMinimale } = await request.json()
+    const { libelle, code, periode, livre, statut, taux, quantiteMinimale, dateDebut, dateFin } = await request.json()
+    
+    // Utiliser dateDebut/dateFin si fournis, sinon utiliser les noms startDate/endDate
+    const startDate = dateDebut ? new Date(dateDebut) : null
+    const endDate = dateFin ? new Date(dateFin) : null
 
     // Validation
     if (!libelle || !code || !taux) {
@@ -81,17 +85,25 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
+    // Formater la période à partir des dates si fournies
+    let periodeFormatted = periode || "Non spécifié"
+    if (startDate && endDate) {
+      periodeFormatted = `${startDate.toLocaleDateString('fr-FR')} - ${endDate.toLocaleDateString('fr-FR')}`
+    }
+
     // Créer la promotion en base de données
     const newPromotion = await prisma.promotion.create({
       data: {
         libelle,
         code: code.toUpperCase(), // Code en majuscules
-        periode: periode || "Non spécifié",
+        periode: periodeFormatted,
         livre: livre || "Tous les livres",
         statut: statut === "Actif" ? 'ACTIF' : 'INACTIF',
         taux,
         quantiteMinimale: quantiteMinimale || 1,
-        createdBy: session.user.name || session.user.email
+        createdBy: session.user.name || session.user.email,
+        startDate: startDate,
+        endDate: endDate
       }
     })
 

@@ -1,15 +1,133 @@
 "use client"
 
-import { useState } from "react"
-
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Calendar, Filter } from "lucide-react"
+import { Calendar, Filter, RotateCcw, RefreshCw } from "lucide-react"
+import { Calendar as CalendarComponent } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { useToast } from "@/hooks/use-toast"
+import { format } from "date-fns"
+import { fr } from "date-fns/locale"
+import { cn } from "@/lib/utils"
+
+interface Ristourne {
+  id: string
+  reference: string
+  partnerId: string
+  partnerName: string
+  versement: number
+  retrait: number
+  statut: string
+  creeLe: string
+  createdAt: string
+}
+
+interface Stats {
+  versements: number
+  retraits: number
+  solde: number
+}
 
 export default function RistournePartenairePage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [itemsPerPage, setItemsPerPage] = useState("20")
+  const [ristournes, setRistournes] = useState<Ristourne[]>([])
+  const [stats, setStats] = useState<Stats>({ versements: 0, retraits: 0, solde: 0 })
+  const [isLoading, setIsLoading] = useState(true)
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [dateRange, setDateRange] = useState<{from: Date | undefined, to: Date | undefined}>({
+    from: undefined,
+    to: undefined
+  })
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const { toast } = useToast()
+
+  // Charger les ristournes
+  useEffect(() => {
+    loadRistournes()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, dateRange.from, dateRange.to])
+
+  // Recherche avec debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadRistournes()
+    }, 500)
+
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm])
+
+  const loadRistournes = async () => {
+    try {
+      setIsLoading(true)
+      const params = new URLSearchParams()
+      
+      if (dateRange.from) {
+        params.append("startDate", dateRange.from.toISOString())
+      }
+      if (dateRange.to) {
+        params.append("endDate", dateRange.to.toISOString())
+      }
+      if (statusFilter !== "all") {
+        params.append("status", statusFilter)
+      }
+      if (searchTerm) {
+        params.append("search", searchTerm)
+      }
+
+      const response = await fetch(`/api/pdg/ristournes/partenaire?${params}`)
+      if (response.ok) {
+        const data = await response.json()
+        setRistournes(data.ristournes || [])
+        setStats(data.stats || { versements: 0, retraits: 0, solde: 0 })
+      } else {
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les ristournes",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error("Error loading ristournes:", error)
+      toast({
+        title: "Erreur",
+        description: "Erreur lors du chargement des ristournes",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleApplyFilters = () => {
+    loadRistournes()
+  }
+
+  const handleResetFilters = () => {
+    setDateRange({ from: undefined, to: undefined })
+    setStatusFilter("all")
+    setSearchTerm("")
+    setCurrentPage(1)
+  }
+
+  // Pagination
+  const itemsPerPageNum = parseInt(itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPageNum
+  const endIndex = startIndex + itemsPerPageNum
+  const paginatedRistournes = ristournes.slice(startIndex, endIndex)
+  const totalPages = Math.ceil(ristournes.length / itemsPerPageNum)
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'decimal',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount)
+  }
 
   return (
     <>
@@ -33,19 +151,19 @@ export default function RistournePartenairePage() {
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
             <h3 className="text-sm font-medium text-gray-600 mb-2">Versements</h3>
             <div className="text-2xl font-bold text-gray-900">
-              0 <span className="text-sm font-normal">XOF</span>
+              {formatCurrency(stats.versements)} <span className="text-sm font-normal">XOF</span>
             </div>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
             <h3 className="text-sm font-medium text-gray-600 mb-2">Retraits</h3>
             <div className="text-2xl font-bold text-gray-900">
-              0 <span className="text-sm font-normal">XOF</span>
+              {formatCurrency(stats.retraits)} <span className="text-sm font-normal">XOF</span>
             </div>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
             <h3 className="text-sm font-medium text-gray-600 mb-2">Solde</h3>
             <div className="text-2xl font-bold text-gray-900">
-              0 <span className="text-sm font-normal">XOF</span>
+              {formatCurrency(stats.solde)} <span className="text-sm font-normal">XOF</span>
             </div>
           </div>
         </div>
@@ -54,33 +172,77 @@ export default function RistournePartenairePage() {
         <div className="bg-white rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
-              <button className="p-2 hover:bg-gray-100 rounded">
-                <span className="text-gray-400">↻</span>
+              <button 
+                className="p-2 hover:bg-gray-100 rounded"
+                onClick={loadRistournes}
+                title="Actualiser"
+              >
+                <RefreshCw className="w-4 h-4 text-gray-400" />
               </button>
-              <button className="p-2 hover:bg-gray-100 rounded">
-                <span className="text-gray-400">⛶</span>
+              <button 
+                className="p-2 hover:bg-gray-100 rounded"
+                onClick={handleResetFilters}
+                title="Réinitialiser les filtres"
+              >
+                <RotateCcw className="w-4 h-4 text-gray-400" />
               </button>
             </div>
           </div>
 
           {/* Filters */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div className="flex items-center space-x-2">
-              <Calendar className="w-4 h-4 text-gray-400" />
-              <Input type="text" defaultValue="22 août 2025 - 20 sept. 2025" className="flex-1" />
-            </div>
-            <Select defaultValue="all-status">
+            <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !dateRange.from && "text-muted-foreground"
+                  )}
+                >
+                  <Calendar className="mr-2 h-4 w-4" />
+                  {dateRange.from ? (
+                    dateRange.to ? (
+                      <>
+                        {format(dateRange.from, "dd MMM yyyy", { locale: fr })} -{" "}
+                        {format(dateRange.to, "dd MMM yyyy", { locale: fr })}
+                      </>
+                    ) : (
+                      format(dateRange.from, "dd MMM yyyy", { locale: fr })
+                    )
+                  ) : (
+                    <span>Période de validité</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  initialFocus
+                  mode="range"
+                  defaultMonth={dateRange.from}
+                  selected={{ from: dateRange.from, to: dateRange.to }}
+                  onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger>
                 <SelectValue placeholder="Tous les statuts" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all-status">Tous les statuts</SelectItem>
+                <SelectItem value="all">Tous les statuts</SelectItem>
+                <SelectItem value="Payé">Payé</SelectItem>
+                <SelectItem value="En attente">En attente</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="flex justify-end mb-6">
-            <Button className="bg-indigo-600 hover:bg-indigo-700">
+            <Button 
+              className="bg-indigo-600 hover:bg-indigo-700"
+              onClick={handleApplyFilters}
+            >
               <Filter className="w-4 h-4 mr-2" />
               Appliquer
             </Button>
@@ -124,29 +286,86 @@ export default function RistournePartenairePage() {
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td colSpan={7} className="text-center py-8 text-gray-500">
-                    Aucune donnée disponible dans le tableau
-                  </td>
-                </tr>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-8 text-gray-500">
+                      Chargement des ristournes...
+                    </td>
+                  </tr>
+                ) : paginatedRistournes.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-8 text-gray-500">
+                      Aucune donnée disponible dans le tableau
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedRistournes.map((ristourne) => (
+                    <tr key={ristourne.id} className="border-b hover:bg-gray-50">
+                      <td className="py-3 px-4 font-medium">{ristourne.reference}</td>
+                      <td className="py-3 px-4">{ristourne.partnerName}</td>
+                      <td className="py-3 px-4">{formatCurrency(ristourne.versement)} XOF</td>
+                      <td className="py-3 px-4">{formatCurrency(ristourne.retrait)} XOF</td>
+                      <td className="py-3 px-4">
+                        <span className={`inline-block px-2 py-1 text-xs rounded ${
+                          ristourne.statut === "Payé"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}>
+                          {ristourne.statut}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-600">{ristourne.creeLe}</td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          {/* Actions à implémenter si nécessaire */}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
 
           {/* Pagination */}
           <div className="flex items-center justify-between mt-6">
-            <p className="text-sm text-gray-600">Affichage de 0 à 0 sur 0 éléments</p>
+            <p className="text-sm text-gray-600">
+              Affichage de {ristournes.length > 0 ? startIndex + 1 : 0} à {Math.min(endIndex, ristournes.length)} sur {ristournes.length} éléments
+            </p>
             <div className="flex items-center space-x-2">
-              <Button variant="outline" size="sm">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+              >
                 Premier
               </Button>
-              <Button variant="outline" size="sm">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+              >
                 Précédent
               </Button>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="bg-indigo-600 text-white">
+                {currentPage}
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages || totalPages === 0}
+              >
                 Suivant
               </Button>
-              <Button variant="outline" size="sm">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages || totalPages === 0}
+              >
                 Dernier
               </Button>
             </div>

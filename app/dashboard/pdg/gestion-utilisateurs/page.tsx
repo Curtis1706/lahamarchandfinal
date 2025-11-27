@@ -115,7 +115,31 @@ export default function GestionUtilisateursPage() {
         const usersArray = Array.isArray(usersData) ? usersData : []
         const disciplinesArray = Array.isArray(disciplinesData) ? disciplinesData : []
         
-        setUsers(usersArray)
+        // Enrichir les utilisateurs avec les statistiques d'œuvres pour les auteurs
+        const enrichedUsers = await Promise.all(
+          usersArray.map(async (user: User) => {
+            if (user.role === 'AUTEUR') {
+              try {
+                const worksResponse = await fetch(`/api/authors/works?authorId=${user.id}`)
+                if (worksResponse.ok) {
+                  const worksData = await worksResponse.json()
+                  const works = worksData.works || []
+                  return {
+                    ...user,
+                    worksCount: works.length,
+                    publishedWorksCount: works.filter((w: any) => w.status === 'ON_SALE' || w.status === 'PUBLISHED').length,
+                    pendingWorksCount: works.filter((w: any) => w.status === 'PENDING' || w.status === 'DRAFT').length
+                  }
+                }
+              } catch (error) {
+                console.error(`Error fetching works for author ${user.id}:`, error)
+              }
+            }
+            return user
+          })
+        )
+        
+        setUsers(enrichedUsers)
         setDisciplines(disciplinesArray)
         
         console.log("🔍 État mis à jour:", {
@@ -757,33 +781,92 @@ export default function GestionUtilisateursPage() {
                               </Badge>
                             </div>
                             
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium text-gray-600">Département</label>
-                              <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">
-                                {user.discipline?.name || "Non assigné"}
-                              </Badge>
-                            </div>
-                            
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium text-gray-600">Compte principal</label>
-                              <p className="text-sm text-gray-900">
-                                {user.role === 'PDG' ? 'Compte administrateur' : 'Compte standard'}
-                              </p>
-                            </div>
-                            
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium text-gray-600">Chef département</label>
-                              <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">
-                                {user.role === 'REPRESENTANT' ? 'Responsable département' : 'Non applicable'}
-                              </Badge>
-                            </div>
-                            
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium text-gray-600">Responsable département</label>
-                              <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">
-                                {user.role === 'REPRESENTANT' ? 'Responsable hiérarchique' : 'Non applicable'}
-                              </Badge>
-                            </div>
+                            {user.role === 'AUTEUR' ? (
+                              <>
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium text-gray-600">Discipline</label>
+                                  <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">
+                                    {user.discipline?.name || "Non assigné"}
+                                  </Badge>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium text-gray-600">Nombre d'œuvres</label>
+                                  <p className="text-sm text-gray-900 font-semibold">
+                                    {user.worksCount || 0}
+                                  </p>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium text-gray-600">Œuvres publiées</label>
+                                  <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+                                    {user.publishedWorksCount || 0}
+                                  </Badge>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium text-gray-600">Œuvres en attente</label>
+                                  <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
+                                    {user.pendingWorksCount || 0}
+                                  </Badge>
+                                </div>
+                              </>
+                            ) : user.role === 'CONCEPTEUR' ? (
+                              <>
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium text-gray-600">Discipline</label>
+                                  <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">
+                                    {user.discipline?.name || "Non assigné"}
+                                  </Badge>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium text-gray-600">Compte principal</label>
+                                  <p className="text-sm text-gray-900">
+                                    {user.role === 'PDG' ? 'Compte administrateur' : 'Compte standard'}
+                                  </p>
+                                </div>
+                              </>
+                            ) : user.role === 'REPRESENTANT' ? (
+                              <>
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium text-gray-600">Discipline</label>
+                                  <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">
+                                    {user.discipline?.name || "Non assigné"}
+                                  </Badge>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium text-gray-600">Compte principal</label>
+                                  <p className="text-sm text-gray-900">
+                                    Compte standard
+                                  </p>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium text-gray-600">Rôle hiérarchique</label>
+                                  <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+                                    Responsable département
+                                  </Badge>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium text-gray-600">Discipline</label>
+                                  <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">
+                                    {user.discipline?.name || "Non assigné"}
+                                  </Badge>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium text-gray-600">Compte principal</label>
+                                  <p className="text-sm text-gray-900">
+                                    {user.role === 'PDG' ? 'Compte administrateur' : 'Compte standard'}
+                                  </p>
+                                </div>
+                              </>
+                            )}
                           </div>
                           
                           <div className="pt-4 border-t border-gray-200">

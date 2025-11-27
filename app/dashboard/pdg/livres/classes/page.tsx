@@ -35,6 +35,8 @@ export default function ClassesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingClass, setEditingClass] = useState<Class | null>(null);
   const [classes, setClasses] = useState<Class[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [newClass, setNewClass] = useState({
@@ -113,6 +115,91 @@ export default function ClassesPage() {
 
   const handleRefresh = () => {
     loadClasses();
+  };
+
+  const handleEdit = (classe: Class) => {
+    setEditingClass(classe);
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateClass = async () => {
+    if (!editingClass) return;
+
+    try {
+      const response = await fetch('/api/pdg/classes', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: editingClass.id,
+          classe: editingClass.classe,
+          section: editingClass.section,
+          statut: editingClass.statut
+        }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Succès",
+          description: "Classe modifiée avec succès"
+        });
+        setIsEditModalOpen(false);
+        setEditingClass(null);
+        loadClasses();
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Erreur",
+          description: errorData.error || "Impossible de modifier la classe",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error updating class:", error);
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de la modification de la classe",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleToggleStatus = async (classe: Class) => {
+    try {
+      const response = await fetch('/api/pdg/classes', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: classe.id
+        }),
+      });
+
+      if (response.ok) {
+        const updatedClass = await response.json();
+        toast({
+          title: "Succès",
+          description: `Classe ${updatedClass.statut === "Disponible" ? "activée" : "désactivée"} avec succès`
+        });
+        loadClasses();
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Erreur",
+          description: errorData.error || "Impossible de modifier le statut",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error toggling status:", error);
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de la modification du statut",
+        variant: "destructive"
+      });
+    }
   };
 
   const filteredClasses = classes.filter((classe) => {
@@ -243,6 +330,87 @@ export default function ClassesPage() {
               </DialogContent>
             </Dialog>
 
+            {/* Modal d'édition */}
+            <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-semibold">
+                    Modifier la classe
+                  </DialogTitle>
+                </DialogHeader>
+
+                {editingClass && (
+                  <div className="space-y-4 mt-2">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Niveau :
+                      </label>
+                      <Select 
+                        value={editingClass.section}
+                        onValueChange={(value) => setEditingClass({ ...editingClass, section: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Primaire">Primaire</SelectItem>
+                          <SelectItem value="Secondaire">Secondaire</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Classe :
+                      </label>
+                      <Input 
+                        placeholder="Nom de la classe" 
+                        value={editingClass.classe}
+                        onChange={(e) => setEditingClass({ ...editingClass, classe: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Statut :
+                      </label>
+                      <Select 
+                        value={editingClass.statut}
+                        onValueChange={(value) => setEditingClass({ ...editingClass, statut: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Disponible">Disponible</SelectItem>
+                          <SelectItem value="Indisponible">
+                            Indisponible
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+
+                <DialogFooter className="flex justify-end gap-2 mt-6">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsEditModalOpen(false);
+                      setEditingClass(null);
+                    }}
+                  >
+                    Annuler
+                  </Button>
+                  <Button 
+                    className="bg-indigo-600 hover:bg-indigo-700"
+                    onClick={handleUpdateClass}
+                    disabled={!editingClass?.classe.trim()}
+                  >
+                    Enregistrer
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
             {/* Table Controls */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
               <div className="flex items-center gap-2">
@@ -314,7 +482,11 @@ export default function ClassesPage() {
                           </span>
                         </td>
                         <td className="py-3 px-2">
-                          <span className="inline-block px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
+                          <span className={`inline-block px-2 py-1 text-xs rounded ${
+                            classe.statut === "Disponible"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-red-100 text-red-800"
+                          }`}>
                             {classe.statut}
                           </span>
                         </td>
@@ -327,11 +499,19 @@ export default function ClassesPage() {
                         </td>
                         <td className="py-3 px-2">
                           <div className="flex items-center gap-2">
-                            <button className="p-1 hover:bg-gray-100 rounded">
+                            <button 
+                              className="p-1 hover:bg-gray-100 rounded transition-colors"
+                              onClick={() => handleEdit(classe)}
+                              title="Modifier la classe"
+                            >
                               <Edit className="w-4 h-4 text-orange-500" />
                             </button>
-                            <button className="p-1 hover:bg-gray-100 rounded">
-                              <Power className="w-4 h-4 text-red-500" />
+                            <button 
+                              className="p-1 hover:bg-gray-100 rounded transition-colors"
+                              onClick={() => handleToggleStatus(classe)}
+                              title={classe.statut === "Disponible" ? "Désactiver la classe" : "Activer la classe"}
+                            >
+                              <Power className={`w-4 h-4 ${classe.statut === "Disponible" ? "text-red-500" : "text-green-500"}`} />
                             </button>
                           </div>
                         </td>

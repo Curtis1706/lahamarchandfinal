@@ -29,7 +29,10 @@ export async function POST(request: NextRequest) {
       estimatedPrice = 0,
       keywords = [],
       files = [],
-      status = "PENDING"
+      status = "PENDING",
+      collectionId,
+      coverImage,
+      isbn
     } = body;
     
     console.log("🔍 Données extraites:", { 
@@ -129,15 +132,15 @@ export async function POST(request: NextRequest) {
       console.log(`🔗 L'œuvre sera automatiquement assignée au concepteur: ${project.concepteur.name} (${project.concepteur.email})`);
     }
 
-    // Générer un ISBN unique temporaire
-    const isbn = `978-${Date.now().toString().slice(-9)}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+    // Générer un ISBN unique temporaire si non fourni
+    const workIsbn = isbn || `978-${Date.now().toString().slice(-9)}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
 
     // Créer l'œuvre
     const work = await prisma.work.create({
       data: {
         title: title.trim(),
         description: description.trim(),
-        isbn: isbn,
+        isbn: workIsbn,
         price: estimatedPrice,
         tva: 0.18,
         stock: 0,
@@ -149,7 +152,11 @@ export async function POST(request: NextRequest) {
         educationalObjectives: educationalObjectives?.trim() || null,
         contentType: contentType,
         keywords: keywords.length > 0 ? keywords.join(',') : null,
-        files: files.length > 0 ? JSON.stringify(files) : null,
+        files: files.length > 0 || coverImage || collectionId ? JSON.stringify({ 
+          files: files.length > 0 ? files : [],
+          coverImage: coverImage || null,
+          collectionId: collectionId || null
+        }) : null,
         
         // Statut et dates
         status: status,

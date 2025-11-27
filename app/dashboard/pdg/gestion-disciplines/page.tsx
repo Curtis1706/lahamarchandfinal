@@ -244,6 +244,11 @@ export default function GestionDisciplinesPage() {
 
   // Filtrage
   const filteredDisciplines = disciplines.filter(discipline => {
+    // Exclure les collections (qui commencent par "Collection")
+    if (discipline.name.toLowerCase().startsWith('collection')) {
+      return false
+    }
+    
     const matchesSearch = discipline.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (discipline.description && discipline.description.toLowerCase().includes(searchTerm.toLowerCase()))
     const matchesStatus = showInactive || discipline.isActive

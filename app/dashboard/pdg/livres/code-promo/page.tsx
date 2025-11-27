@@ -4,7 +4,9 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Edit, Power, X, Save } from "lucide-react"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Edit, Power, X, Save, Calendar as CalendarIcon } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -14,6 +16,9 @@ import {
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
+import { format } from "date-fns"
+import { fr } from "date-fns/locale"
+import { cn } from "@/lib/utils"
 
 interface Promotion {
   id: string
@@ -42,6 +47,11 @@ export default function CodePromoPage() {
     taux: "",
     quantiteMinimale: 1
   })
+  const [dateRange, setDateRange] = useState<{from: Date | undefined, to: Date | undefined}>({
+    from: undefined,
+    to: undefined
+  })
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
   const { toast } = useToast()
 
   // Charger les promotions depuis l'API
@@ -77,12 +87,22 @@ export default function CodePromoPage() {
 
   const handleCreatePromotion = async () => {
     try {
+      // Préparer les données avec les dates formatées
+      const promotionData = {
+        ...newPromotion,
+        dateDebut: dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : null,
+        dateFin: dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : null,
+        periode: dateRange.from && dateRange.to 
+          ? `${format(dateRange.from, "dd/MM/yyyy", { locale: fr })} - ${format(dateRange.to, "dd/MM/yyyy", { locale: fr })}`
+          : newPromotion.periode
+      }
+      
       const response = await fetch('/api/pdg/code-promo', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newPromotion),
+        body: JSON.stringify(promotionData),
       })
 
       if (response.ok) {
@@ -99,6 +119,7 @@ export default function CodePromoPage() {
           taux: "",
           quantiteMinimale: 1
         })
+        setDateRange({ from: undefined, to: undefined })
         setIsModalOpen(false)
         loadPromotions()
       } else {
@@ -259,7 +280,25 @@ export default function CodePromoPage() {
             </div>
 
             {/* --- MODALE --- */}
-            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+            <Dialog 
+              open={isModalOpen} 
+              onOpenChange={(open) => {
+                setIsModalOpen(open)
+                if (!open) {
+                  // Réinitialiser le formulaire quand le dialogue se ferme
+                  setNewPromotion({
+                    libelle: "",
+                    code: "",
+                    periode: "",
+                    livre: "",
+                    statut: "Actif",
+                    taux: "",
+                    quantiteMinimale: 1
+                  })
+                  setDateRange({ from: undefined, to: undefined })
+                }
+              }}
+            >
               <DialogContent className="max-w-lg">
                 <DialogHeader>
                   <DialogTitle className="text-xl font-semibold">
@@ -290,14 +329,49 @@ export default function CodePromoPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">
-                      Période :
+                      Période de validité :
                     </label>
-                    <Textarea 
-                      placeholder="Période de validité" 
-                      rows={2}
-                      value={newPromotion.periode}
-                      onChange={(e) => setNewPromotion({ ...newPromotion, periode: e.target.value })}
-                    />
+                    <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !dateRange.from && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dateRange.from ? (
+                            dateRange.to ? (
+                              <>
+                                {format(dateRange.from, "dd MMM yyyy", { locale: fr })} -{" "}
+                                {format(dateRange.to, "dd MMM yyyy", { locale: fr })}
+                              </>
+                            ) : (
+                              format(dateRange.from, "dd MMM yyyy", { locale: fr })
+                            )
+                          ) : (
+                            <span>Sélectionner une période</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          initialFocus
+                          mode="range"
+                          defaultMonth={dateRange.from}
+                          selected={{ from: dateRange.from, to: dateRange.to }}
+                          onSelect={(range) => {
+                            setDateRange({ from: range?.from, to: range?.to })
+                            if (range?.from && range?.to) {
+                              const periodeStr = `${format(range.from, "dd/MM/yyyy", { locale: fr })} - ${format(range.to, "dd/MM/yyyy", { locale: fr })}`
+                              setNewPromotion({ ...newPromotion, periode: periodeStr })
+                            }
+                          }}
+                          numberOfMonths={2}
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">

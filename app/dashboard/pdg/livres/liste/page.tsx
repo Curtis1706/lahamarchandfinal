@@ -20,7 +20,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Upload, Edit, Trash2 } from "lucide-react";
+import { Plus, Upload, Edit, Trash2, Image as ImageIcon, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Livre {
@@ -45,11 +45,15 @@ export default function LivresListePage() {
   const [newLivre, setNewLivre] = useState({
     titre: "",
     categorie: "",
-    collection: "",
+    collectionId: "",
     classes: "",
     matiere: "",
-    isbn: ""
+    isbn: "",
+    courteDescription: ""
   });
+  const [collections, setCollections] = useState<any[]>([]);
+  const [coverImage, setCoverImage] = useState<File | null>(null);
+  const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null);
   const [disciplines, setDisciplines] = useState<any[]>([]);
   const [auteurs, setAuteurs] = useState<any[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
@@ -60,6 +64,7 @@ export default function LivresListePage() {
     loadLivres();
     loadDisciplines();
     loadAuteurs();
+    loadCollections();
   }, []);
 
   // Vérifier si les données sont chargées
@@ -88,18 +93,42 @@ export default function LivresListePage() {
         const worksArray = data.works || [];
         console.log("Works array:", worksArray);
         // Transformer les données des œuvres en format livre
-        const livresData = worksArray.map((work: any) => ({
-          id: work.id,
-          image: work.coverImage || "/placeholder.jpg",
-          libelle: work.title,
-          categorie: work.discipline?.name || "Non définie",
-          collection: work.collection || "-",
-          statut: work.status === 'PUBLISHED' ? 'Disponible' : 'En attente',
-          ajouteLe: new Date(work.createdAt).toLocaleDateString('fr-FR'),
-          classes: work.targetClasses || "-",
-          matiere: work.discipline?.name || "Non définie",
-          code: work.isbn || "-"
-        }));
+        const livresData = worksArray.map((work: any) => {
+          // Extraire l'image de couverture et la collection depuis le champ files
+          let coverImage = "/placeholder.jpg";
+          let collectionName = "-";
+          
+          if (work.files) {
+            try {
+              const filesData = typeof work.files === 'string' ? JSON.parse(work.files) : work.files;
+              if (filesData.coverImage) {
+                coverImage = filesData.coverImage;
+              }
+              if (filesData.collectionId && collections.length > 0) {
+                // Trouver le nom de la collection depuis l'ID
+                const collection = collections.find((c: any) => c.id === filesData.collectionId);
+                if (collection) {
+                  collectionName = collection.nom;
+                }
+              }
+            } catch (e) {
+              console.error("Erreur lors du parsing des fichiers:", e);
+            }
+          }
+          
+          return {
+            id: work.id,
+            image: coverImage,
+            libelle: work.title,
+            categorie: work.discipline?.name || "Non définie",
+            collection: collectionName,
+            statut: work.status === 'PUBLISHED' ? 'Disponible' : 'En attente',
+            ajouteLe: new Date(work.createdAt).toLocaleDateString('fr-FR'),
+            classes: work.targetAudience || "-",
+            matiere: work.discipline?.name || "Non définie",
+            code: work.isbn || "-"
+          };
+        });
         setLivres(livresData);
       } else {
         toast({
@@ -149,6 +178,58 @@ export default function LivresListePage() {
     }
   };
 
+  const loadCollections = async () => {
+    try {
+      const response = await fetch('/api/pdg/collections');
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Collections chargées:", data);
+        setCollections(data);
+      }
+    } catch (error) {
+      console.error("Error loading collections:", error);
+    }
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Vérifier le type de fichier
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Erreur",
+          description: "Veuillez sélectionner un fichier image",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Vérifier la taille (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "Erreur",
+          description: "L'image ne doit pas dépasser 5MB",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setCoverImage(file);
+      
+      // Créer une preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCoverImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setCoverImage(null);
+    setCoverImagePreview(null);
+  };
+
   const handleCreateLivre = async () => {
     if (!newLivre.titre.trim() || !newLivre.isbn.trim()) {
       toast({
@@ -188,6 +269,35 @@ export default function LivresListePage() {
 
     try {
       setIsSaving(true);
+      
+      // 1. Upload de l'image de couverture si présente
+      let coverImageUrl = null;
+      if (coverImage) {
+        const formData = new FormData();
+        formData.append('files', coverImage);
+        formData.append('type', 'work');
+        
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (uploadResponse.ok) {
+          const uploadData = await uploadResponse.json();
+          if (uploadData.files && uploadData.files.length > 0) {
+            coverImageUrl = uploadData.files[0].path;
+          }
+        } else {
+          console.warn("Erreur lors de l'upload de l'image, continuation sans image");
+        }
+      }
+
+      // 2. Créer le livre
+      // Utiliser la courte description si fournie, sinon générer une description par défaut
+      const description = newLivre.courteDescription.trim() 
+        ? newLivre.courteDescription.trim()
+        : `Livre de ${newLivre.matiere} pour ${newLivre.classes}`;
+      
       const response = await fetch('/api/works', {
         method: 'POST',
         headers: {
@@ -195,14 +305,17 @@ export default function LivresListePage() {
         },
         body: JSON.stringify({
           title: newLivre.titre,
-          description: `Livre de ${newLivre.matiere} pour ${newLivre.classes}`,
+          description: description,
           disciplineId: selectedDiscipline.id,
           authorId: selectedAuthor.id,
           category: newLivre.categorie,
           targetAudience: newLivre.classes,
           contentType: 'MANUAL',
           estimatedPrice: 0,
-          status: 'PENDING'
+          status: 'PENDING',
+          isbn: newLivre.isbn,
+          collectionId: newLivre.collectionId || null,
+          coverImage: coverImageUrl
         }),
       });
 
@@ -214,11 +327,14 @@ export default function LivresListePage() {
         setNewLivre({
           titre: "",
           categorie: "",
-          collection: "",
+          collectionId: "",
           classes: "",
           matiere: "",
-          isbn: ""
+          isbn: "",
+          courteDescription: ""
         });
+        setCoverImage(null);
+        setCoverImagePreview(null);
         setShowCreateModal(false);
         loadLivres();
       } else {
@@ -511,13 +627,60 @@ export default function LivresListePage() {
             </div>
             <div>
               <Label className="block text-sm font-medium mb-1">
-                Collection :
+                Collection (optionnel) :
               </Label>
-              <Input 
-                placeholder="Nom de la collection" 
-                value={newLivre.collection}
-                onChange={(e) => setNewLivre({ ...newLivre, collection: e.target.value })}
-              />
+              <Select 
+                value={newLivre.collectionId || "none"} 
+                onValueChange={(value) => setNewLivre({ ...newLivre, collectionId: value === "none" ? "" : value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner une collection" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Aucune collection</SelectItem>
+                  {collections.map((collection) => (
+                    <SelectItem key={collection.id} value={collection.id}>
+                      {collection.nom}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="block text-sm font-medium mb-1">
+                Photo de couverture (optionnel) :
+              </Label>
+              {coverImagePreview ? (
+                <div className="relative">
+                  <img 
+                    src={coverImagePreview} 
+                    alt="Aperçu" 
+                    className="w-full h-48 object-cover rounded border"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                  <ImageIcon className="w-12 h-12 mx-auto text-gray-400 mb-2" />
+                  <Label htmlFor="cover-image" className="cursor-pointer">
+                    <span className="text-sm text-gray-600">Cliquez pour sélectionner une image</span>
+                    <Input
+                      id="cover-image"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="hidden"
+                    />
+                  </Label>
+                  <p className="text-xs text-gray-500 mt-2">JPG, PNG ou GIF (max 5MB)</p>
+                </div>
+              )}
             </div>
             <div>
               <Label className="block text-sm font-medium mb-1">
@@ -552,6 +715,17 @@ export default function LivresListePage() {
                 placeholder="ISBN du livre" 
                 value={newLivre.isbn}
                 onChange={(e) => setNewLivre({ ...newLivre, isbn: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label className="block text-sm font-medium mb-1">
+                Courte description (optionnel) :
+              </Label>
+              <Textarea 
+                placeholder="Description courte du livre" 
+                value={newLivre.courteDescription}
+                onChange={(e) => setNewLivre({ ...newLivre, courteDescription: e.target.value })}
+                rows={3}
               />
             </div>
           </div>

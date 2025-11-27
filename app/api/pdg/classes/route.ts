@@ -144,3 +144,188 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// PUT /api/pdg/classes - Modifier une classe
+export async function PUT(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    if (session.user.role !== "PDG") {
+      return NextResponse.json({ error: "Forbidden - PDG role required" }, { status: 403 })
+    }
+
+    const { id, classe, section, statut } = await request.json()
+
+    if (!id) {
+      return NextResponse.json({ error: "ID de la classe requis" }, { status: 400 })
+    }
+
+    // Vérifier que la classe existe
+    const existingClass = await prisma.schoolClass.findUnique({
+      where: { id }
+    })
+
+    if (!existingClass) {
+      return NextResponse.json({ error: "Classe non trouvée" }, { status: 404 })
+    }
+
+    // Mettre à jour la classe
+    const updatedClass = await prisma.schoolClass.update({
+      where: { id },
+      data: {
+        ...(classe && { name: classe }),
+        ...(section && { section }),
+        ...(statut !== undefined && { isActive: statut === 'Disponible' }),
+        updatedAt: new Date()
+      }
+    })
+
+    // Audit log
+    try {
+      await prisma.auditLog.create({
+        data: {
+          userId: session.user.id,
+          userEmail: session.user.email || "",
+          userRole: session.user.role,
+          action: 'UPDATE_CLASS',
+          entityType: 'SchoolClass',
+          entityId: updatedClass.id,
+          details: `Classe mise à jour: ${updatedClass.name} (${updatedClass.section})`
+        }
+      })
+    } catch (auditError) {
+      console.error("⚠️ Erreur lors de la création de l'audit log:", auditError)
+    }
+
+    const formattedClass = {
+      id: updatedClass.id,
+      classe: updatedClass.name,
+      section: updatedClass.section,
+      statut: updatedClass.isActive ? "Disponible" : "Indisponible",
+      creeLe: updatedClass.createdAt.toLocaleDateString('fr-FR', {
+        weekday: 'short',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      creePar: updatedClass.createdBy,
+      modifieLe: updatedClass.updatedAt.toLocaleDateString('fr-FR', {
+        weekday: 'short',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    }
+
+    return NextResponse.json(formattedClass)
+
+  } catch (error: any) {
+    console.error("❌ Error updating class:", error)
+    
+    if (error.code === 'P2002') {
+      return NextResponse.json({ 
+        error: "Cette classe existe déjà dans le système" 
+      }, { status: 409 })
+    }
+    
+    return NextResponse.json({ 
+      error: "Erreur lors de la modification de la classe",
+      details: error instanceof Error ? error.message : "Unknown error"
+    }, { status: 500 })
+  }
+}
+
+// PATCH /api/pdg/classes - Toggle le statut d'une classe
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    if (session.user.role !== "PDG") {
+      return NextResponse.json({ error: "Forbidden - PDG role required" }, { status: 403 })
+    }
+
+    const { id } = await request.json()
+
+    if (!id) {
+      return NextResponse.json({ error: "ID de la classe requis" }, { status: 400 })
+    }
+
+    // Vérifier que la classe existe
+    const existingClass = await prisma.schoolClass.findUnique({
+      where: { id }
+    })
+
+    if (!existingClass) {
+      return NextResponse.json({ error: "Classe non trouvée" }, { status: 404 })
+    }
+
+    // Toggle le statut
+    const updatedClass = await prisma.schoolClass.update({
+      where: { id },
+      data: {
+        isActive: !existingClass.isActive,
+        updatedAt: new Date()
+      }
+    })
+
+    // Audit log
+    try {
+      await prisma.auditLog.create({
+        data: {
+          userId: session.user.id,
+          userEmail: session.user.email || "",
+          userRole: session.user.role,
+          action: 'TOGGLE_CLASS_STATUS',
+          entityType: 'SchoolClass',
+          entityId: updatedClass.id,
+          details: `Statut de la classe ${updatedClass.name} changé: ${updatedClass.isActive ? 'Disponible' : 'Indisponible'}`
+        }
+      })
+    } catch (auditError) {
+      console.error("⚠️ Erreur lors de la création de l'audit log:", auditError)
+    }
+
+    const formattedClass = {
+      id: updatedClass.id,
+      classe: updatedClass.name,
+      section: updatedClass.section,
+      statut: updatedClass.isActive ? "Disponible" : "Indisponible",
+      creeLe: updatedClass.createdAt.toLocaleDateString('fr-FR', {
+        weekday: 'short',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      creePar: updatedClass.createdBy,
+      modifieLe: updatedClass.updatedAt.toLocaleDateString('fr-FR', {
+        weekday: 'short',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    }
+
+    return NextResponse.json(formattedClass)
+
+  } catch (error: any) {
+    console.error("❌ Error toggling class status:", error)
+    return NextResponse.json({ 
+      error: "Erreur lors de la modification du statut",
+      details: error instanceof Error ? error.message : "Unknown error"
+    }, { status: 500 })
+  }
+}
+

@@ -20,14 +20,24 @@ export class ApiClient {
       ...options,
     }
 
-    const response = await fetch(url, config)
-    
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Erreur inconnue' }))
-      throw new Error(error.error || `HTTP ${response.status}`)
-    }
+    try {
+      const response = await fetch(url, config)
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Erreur inconnue' }))
+        const errorMessage = errorData.error || errorData.message || `HTTP ${response.status}`
+        throw new Error(errorMessage)
+      }
 
-    return response.json()
+      return response.json()
+    } catch (error) {
+      // Si c'est déjà une Error avec un message, la relancer
+      if (error instanceof Error) {
+        throw error
+      }
+      // Sinon, créer une nouvelle Error
+      throw new Error(typeof error === 'string' ? error : 'Erreur réseau')
+    }
   }
 
   // Users API

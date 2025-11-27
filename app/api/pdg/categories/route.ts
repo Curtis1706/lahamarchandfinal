@@ -65,29 +65,65 @@ export async function POST(request: NextRequest) {
 
     const { nom, description, statut } = await request.json()
 
+    if (!nom || !nom.trim()) {
+      return NextResponse.json({ 
+        error: "Le nom de la catégorie est obligatoire" 
+      }, { status: 400 })
+    }
+
     const category = await prisma.category.create({
       data: {
-        name: nom,
-        description: description || "",
+        name: nom.trim(),
+        description: description?.trim() || "",
         isActive: statut === 'Disponible',
         createdBy: session.user.name || "PDG Administrateur"
       }
     })
 
     // Audit log
-    await prisma.auditLog.create({
-      data: {
-        userId: session.user.id,
-        userEmail: session.user.email || "",
-        userRole: session.user.role,
-        action: 'CREATE_CATEGORY',
-        entityType: 'Category',
-        entityId: category.id,
-        details: `Catégorie créée: ${category.name}`
-      }
-    })
+    try {
+      await prisma.auditLog.create({
+        data: {
+          userId: session.user.id,
+          userEmail: session.user.email || "",
+          userRole: session.user.role,
+          action: 'CREATE_CATEGORY',
+          entityType: 'Category',
+          entityId: category.id,
+          details: `Catégorie créée: ${category.name}`
+        }
+      })
+    } catch (auditError) {
+      console.error("⚠️ Erreur lors de la création de l'audit log:", auditError)
+      // Ne pas bloquer la création de la catégorie si l'audit log échoue
+    }
 
-    return NextResponse.json(category, { status: 201 })
+    // Retourner le format attendu par le frontend
+    const formattedCategory = {
+      id: category.id,
+      nom: category.name,
+      description: category.description || "",
+      statut: category.isActive ? 'Disponible' : 'Indisponible',
+      creeLe: category.createdAt.toLocaleDateString('fr-FR', {
+        weekday: 'short',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      creePar: category.createdBy || "PDG Administrateur",
+      modifieLe: category.updatedAt.toLocaleDateString('fr-FR', {
+        weekday: 'short',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    }
+
+    return NextResponse.json(formattedCategory, { status: 201 })
 
   } catch (error: any) {
     console.error("Error creating category:", error)
