@@ -21,81 +21,26 @@ import {
   TrendingUp,
 } from "lucide-react"
 import { useCurrentUser } from "@/hooks/use-current-user"
+import { apiClient } from "@/lib/api-client"
+import { toast } from "sonner"
+import { Loader2 } from "lucide-react"
 
 interface Notification {
   id: string
-  type: "commande" | "livraison" | "stock" | "nouveaute" | "systeme"
-  titre: string
+  type: string
+  title: string
   message: string
-  statut: "non_lue" | "lue"
-  dateCreation: string
-  priorite: "haute" | "moyenne" | "basse"
-  actionRequise: boolean
-  lien?: string
+  read: boolean
+  createdAt: string
+  priority: "high" | "medium" | "low"
+  data?: any
 }
-
-// Mock data pour les notifications automatiques du partenaire
-const mockNotifications: Notification[] = [
-  {
-    id: "1",
-    type: "commande",
-    titre: "Commande validée par le PDG",
-    message: "Votre commande 2025COM28 a été validée par le PDG et sera traitée sous 24h.",
-    statut: "non_lue",
-    dateCreation: "2025-01-16T10:30:00",
-    priorite: "haute",
-    actionRequise: false,
-    lien: "/dashboard/partenaire/commandes"
-  },
-  {
-    id: "2",
-    type: "livraison",
-    titre: "Livraison en cours",
-    message: "Votre commande 2025COM27 est en cours de livraison. Livreur: Jean KOUAME (+22912345678)",
-    statut: "non_lue",
-    dateCreation: "2025-01-15T14:20:00",
-    priorite: "haute",
-    actionRequise: false,
-    lien: "/dashboard/partenaire/commandes"
-  },
-  {
-    id: "3",
-    type: "stock",
-    titre: "Stock faible détecté",
-    message: "Le stock de 'Réussir en Dictée CE1-CE2' est faible (5 exemplaires restants).",
-    statut: "lue",
-    dateCreation: "2025-01-14T09:15:00",
-    priorite: "moyenne",
-    actionRequise: true,
-    lien: "/dashboard/partenaire/stock/niveau"
-  },
-  {
-    id: "4",
-    type: "nouveaute",
-    titre: "Nouveaux titres disponibles",
-    message: "3 nouveaux titres sont disponibles dans votre discipline: 'Mathématiques CE2', 'Français CM1', 'Sciences CE1'.",
-    statut: "lue",
-    dateCreation: "2025-01-13T16:45:00",
-    priorite: "basse",
-    actionRequise: false,
-    lien: "/dashboard/partenaire/livres/liste"
-  },
-  {
-    id: "5",
-    type: "systeme",
-    titre: "Mise à jour du système",
-    message: "Une nouvelle fonctionnalité de suivi des ventes a été ajoutée à votre tableau de bord.",
-    statut: "lue",
-    dateCreation: "2025-01-12T11:00:00",
-    priorite: "basse",
-    actionRequise: false
-  }
-]
 
 export default function NotificationsPage() {
   const { user } = useCurrentUser()
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications)
-  const [filteredNotifications, setFilteredNotifications] = useState<Notification[]>(mockNotifications)
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [filteredNotifications, setFilteredNotifications] = useState<Notification[]>([])
   const [selectedType, setSelectedType] = useState("tous")
   const [selectedStatus, setSelectedStatus] = useState("tous")
   const [selectedPriority, setSelectedPriority] = useState("tous")
@@ -103,11 +48,27 @@ export default function NotificationsPage() {
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null)
 
+  useEffect(() => {
+    loadNotifications()
+  }, [])
+
+  const loadNotifications = async () => {
+    try {
+      setIsLoading(true)
+      const response = await apiClient.getPartenaireNotifications()
+      setNotifications(response.notifications || [])
+    } catch (error: any) {
+      console.error("Error loading notifications:", error)
+      toast.error("Erreur lors du chargement des notifications")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   // Calculer les statistiques
   const totalNotifications = notifications.length
-  const nonLues = notifications.filter(n => n.statut === "non_lue").length
-  const actionRequise = notifications.filter(n => n.actionRequise).length
-  const hautePriorite = notifications.filter(n => n.priorite === "haute").length
+  const nonLues = notifications.filter(n => !n.read).length
+  const hautePriorite = notifications.filter(n => n.priority === "high").length
 
   // Filtrer les notifications
   useEffect(() => {
@@ -115,75 +76,94 @@ export default function NotificationsPage() {
 
     if (searchTerm) {
       filtered = filtered.filter(notif => 
-        notif.titre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        notif.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         notif.message.toLowerCase().includes(searchTerm.toLowerCase())
       )
     }
 
     if (selectedType !== "tous") {
-      filtered = filtered.filter(notif => notif.type === selectedType)
+      filtered = filtered.filter(notif => notif.type.toLowerCase() === selectedType)
     }
 
     if (selectedStatus !== "tous") {
-      filtered = filtered.filter(notif => notif.statut === selectedStatus)
+      filtered = filtered.filter(notif => 
+        selectedStatus === "non_lue" ? !notif.read : notif.read
+      )
     }
 
     if (selectedPriority !== "tous") {
-      filtered = filtered.filter(notif => notif.priorite === selectedPriority)
+      const priorityMap: { [key: string]: string } = {
+        "haute": "high",
+        "moyenne": "medium",
+        "basse": "low"
+      }
+      filtered = filtered.filter(notif => notif.priority === priorityMap[selectedPriority])
     }
 
     setFilteredNotifications(filtered)
   }, [searchTerm, selectedType, selectedStatus, selectedPriority, notifications])
 
   // Marquer comme lue
-  const markAsRead = (notificationId: string) => {
-    setNotifications(notifications.map(notif => 
-      notif.id === notificationId 
-        ? { ...notif, statut: "lue" as const }
-        : notif
-    ))
+  const markAsRead = async (notificationIds: string[]) => {
+    try {
+      await apiClient.markPartenaireNotificationsAsRead(notificationIds)
+      setNotifications(prev => 
+        prev.map(notif => 
+          notificationIds.includes(notif.id) ? { ...notif, read: true } : notif
+        )
+      )
+      toast.success("Notification(s) marquée(s) comme lue(s)")
+    } catch (error: any) {
+      console.error("Error marking notifications as read:", error)
+      toast.error("Erreur lors de la mise à jour")
+    }
   }
 
   // Voir les détails
   const viewDetails = (notification: Notification) => {
     setSelectedNotification(notification)
     setShowDetailModal(true)
-    if (notification.statut === "non_lue") {
-      markAsRead(notification.id)
+    if (!notification.read) {
+      markAsRead([notification.id])
     }
   }
 
   // Obtenir l'icône selon le type
   const getTypeIcon = (type: string) => {
-    switch (type) {
-      case "commande": return <ShoppingCart className="w-4 h-4" />
-      case "livraison": return <Package className="w-4 h-4" />
-      case "stock": return <AlertCircle className="w-4 h-4" />
-      case "nouveaute": return <TrendingUp className="w-4 h-4" />
-      case "systeme": return <Bell className="w-4 h-4" />
-      default: return <Bell className="w-4 h-4" />
-    }
+    const typeLower = type.toLowerCase()
+    if (typeLower.includes("commande") || typeLower.includes("order")) return <ShoppingCart className="w-4 h-4" />
+    if (typeLower.includes("livraison") || typeLower.includes("delivery")) return <Package className="w-4 h-4" />
+    if (typeLower.includes("stock")) return <AlertCircle className="w-4 h-4" />
+    if (typeLower.includes("nouveaute") || typeLower.includes("catalog")) return <TrendingUp className="w-4 h-4" />
+    return <Bell className="w-4 h-4" />
   }
 
   // Obtenir la couleur selon le type
   const getTypeColor = (type: string) => {
-    switch (type) {
-      case "commande": return "bg-blue-100 text-blue-800"
-      case "livraison": return "bg-green-100 text-green-800"
-      case "stock": return "bg-yellow-100 text-yellow-800"
-      case "nouveaute": return "bg-purple-100 text-purple-800"
-      case "systeme": return "bg-gray-100 text-gray-800"
-      default: return "bg-gray-100 text-gray-800"
-    }
+    const typeLower = type.toLowerCase()
+    if (typeLower.includes("commande") || typeLower.includes("order")) return "bg-blue-100 text-blue-800"
+    if (typeLower.includes("livraison") || typeLower.includes("delivery")) return "bg-green-100 text-green-800"
+    if (typeLower.includes("stock")) return "bg-yellow-100 text-yellow-800"
+    if (typeLower.includes("nouveaute") || typeLower.includes("catalog")) return "bg-purple-100 text-purple-800"
+    return "bg-gray-100 text-gray-800"
   }
 
   // Obtenir la couleur selon la priorité
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case "haute": return "bg-red-100 text-red-800"
-      case "moyenne": return "bg-yellow-100 text-yellow-800"
-      case "basse": return "bg-green-100 text-green-800"
+      case "high": return "bg-red-100 text-red-800"
+      case "medium": return "bg-yellow-100 text-yellow-800"
+      case "low": return "bg-green-100 text-green-800"
       default: return "bg-gray-100 text-gray-800"
+    }
+  }
+
+  const getPriorityLabel = (priority: string) => {
+    switch (priority) {
+      case "high": return "haute"
+      case "medium": return "moyenne"
+      case "low": return "basse"
+      default: return priority
     }
   }
 
@@ -201,11 +181,12 @@ export default function NotificationsPage() {
             </span>
             <div className="flex items-center space-x-2">
               <button
-                onClick={() => window.location.reload()}
+                onClick={loadNotifications}
                 className="p-2 hover:bg-slate-600 rounded-lg"
                 title="Actualiser"
+                disabled={isLoading}
               >
-                <RefreshCw className="w-5 h-5" />
+                <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
               </button>
             </div>
           </div>
@@ -214,7 +195,12 @@ export default function NotificationsPage() {
 
       <div className="p-4 lg:p-6">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        {isLoading ? (
+          <div className="flex items-center justify-center p-12 mb-6">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
             <h3 className="text-sm font-medium text-gray-600 mb-2">Total notifications</h3>
             <div className="text-2xl font-bold text-gray-900 mb-1">{totalNotifications}</div>
@@ -230,13 +216,6 @@ export default function NotificationsPage() {
             </div>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
-            <h3 className="text-sm font-medium text-gray-600 mb-2">Action requise</h3>
-            <div className="text-2xl font-bold text-gray-900 mb-1">{actionRequise}</div>
-            <div className="w-12 h-12 bg-yellow-100 rounded-lg mx-auto flex items-center justify-center">
-              <AlertCircle className="w-6 h-6 text-yellow-600" />
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-6 text-center">
             <h3 className="text-sm font-medium text-gray-600 mb-2">Haute priorité</h3>
             <div className="text-2xl font-bold text-gray-900 mb-1">{hautePriorite}</div>
             <div className="w-12 h-12 bg-orange-100 rounded-lg mx-auto flex items-center justify-center">
@@ -244,6 +223,7 @@ export default function NotificationsPage() {
             </div>
           </div>
         </div>
+        )}
 
         <div className="bg-white rounded-lg shadow-sm">
           {/* Header Section */}
@@ -356,7 +336,7 @@ export default function NotificationsPage() {
                   </tr>
                 ) : (
                   filteredNotifications.map((notification) => (
-                    <tr key={notification.id} className={`hover:bg-gray-50 ${notification.statut === "non_lue" ? "bg-blue-50" : ""}`}>
+                    <tr key={notification.id} className={`hover:bg-gray-50 ${!notification.read ? "bg-blue-50" : ""}`}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className={`p-2 rounded-lg ${getTypeColor(notification.type)}`}>
@@ -372,9 +352,9 @@ export default function NotificationsPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="text-sm font-medium text-gray-900">
-                            {notification.titre}
+                            {notification.title}
                           </div>
-                          {notification.statut === "non_lue" && (
+                          {!notification.read && (
                             <div className="ml-2 w-2 h-2 bg-blue-500 rounded-full"></div>
                           )}
                         </div>
@@ -385,24 +365,17 @@ export default function NotificationsPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge className={getPriorityColor(notification.priorite)}>
-                          {notification.priorite}
+                        <Badge className={getPriorityColor(notification.priority)}>
+                          {getPriorityLabel(notification.priority)}
                         </Badge>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge className={notification.statut === "non_lue" ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-800"}>
-                          {notification.statut === "non_lue" ? "Non lue" : "Lue"}
+                        <Badge className={!notification.read ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-800"}>
+                          {!notification.read ? "Non lue" : "Lue"}
                         </Badge>
-                        {notification.actionRequise && (
-                          <div className="mt-1">
-                            <Badge className="bg-red-100 text-red-800 text-xs">
-                              Action requise
-                            </Badge>
-                          </div>
-                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(notification.dateCreation).toLocaleDateString('fr-FR', {
+                        {new Date(notification.createdAt).toLocaleDateString('fr-FR', {
                           day: '2-digit',
                           month: '2-digit',
                           year: 'numeric',
@@ -419,11 +392,11 @@ export default function NotificationsPage() {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          {notification.lien && (
+                          {!notification.read && (
                             <button 
                               className="text-green-600 hover:text-green-800"
-                              onClick={() => window.location.href = notification.lien!}
-                              title="Aller à la page"
+                              onClick={() => markAsRead([notification.id])}
+                              title="Marquer comme lue"
                             >
                               <CheckCircle className="w-4 h-4" />
                             </button>
@@ -478,7 +451,7 @@ export default function NotificationsPage() {
             <div className="space-y-4">
               <div>
                 <Label className="text-sm font-medium text-gray-700">Titre</Label>
-                <p className="text-sm text-gray-900 mt-1">{selectedNotification.titre}</p>
+                <p className="text-sm text-gray-900 mt-1">{selectedNotification.title}</p>
               </div>
               <div>
                 <Label className="text-sm font-medium text-gray-700">Message</Label>
@@ -493,25 +466,17 @@ export default function NotificationsPage() {
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-gray-700">Priorité</Label>
-                  <Badge className={`mt-1 ${getPriorityColor(selectedNotification.priorite)}`}>
-                    {selectedNotification.priorite}
+                  <Badge className={`mt-1 ${getPriorityColor(selectedNotification.priority)}`}>
+                    {getPriorityLabel(selectedNotification.priority)}
                   </Badge>
                 </div>
               </div>
               <div>
                 <Label className="text-sm font-medium text-gray-700">Date de création</Label>
                 <p className="text-sm text-gray-900 mt-1">
-                  {new Date(selectedNotification.dateCreation).toLocaleString('fr-FR')}
+                  {new Date(selectedNotification.createdAt).toLocaleString('fr-FR')}
                 </p>
               </div>
-              {selectedNotification.actionRequise && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                  <div className="flex items-center">
-                    <AlertCircle className="w-5 h-5 text-yellow-600 mr-2" />
-                    <span className="text-yellow-800 font-medium">Action requise</span>
-                  </div>
-                </div>
-              )}
             </div>
           )}
           <div className="flex justify-end gap-3 pt-4">
@@ -522,17 +487,6 @@ export default function NotificationsPage() {
             >
               Fermer
             </Button>
-            {selectedNotification?.lien && (
-              <Button
-                onClick={() => {
-                  window.location.href = selectedNotification.lien!
-                  setShowDetailModal(false)
-                }}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                Aller à la page
-              </Button>
-            )}
           </div>
         </DialogContent>
       </Dialog>

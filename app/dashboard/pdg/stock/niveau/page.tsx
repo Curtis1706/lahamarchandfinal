@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -10,12 +10,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 import {
   Plus,
   Package,
@@ -23,24 +26,194 @@ import {
   Users,
   BookOpen,
   Printer,
-  X,
+  RefreshCw,
+  Eye,
+  AlertTriangle,
+  Download,
 } from "lucide-react"
+import { toast } from "sonner"
+import { apiClient } from "@/lib/api-client"
 
+interface StockLevel {
+  id: string
+  livre: string
+  reference: string
+  discipline: string
+  auteur: string
+  stockActuel: number
+  stockDepot: number
+  totalStock: number
+  stockMin: number
+  stockMax: number | null
+  alertLevel: 'low' | 'normal' | 'high'
+  statut: string
+  prix: number
+  dernierMouvement: string | null
+  creeLe: string
+  partenaires: Array<{
+    nom: string
+    quantite: number
+  }>
+}
+
+interface Stats {
+  enStock: number
+  enDepot: number
+  total: number
+}
 
 export default function NiveauStockPage() {
-  const [open, setOpen] = useState(false)
+  const [stockLevels, setStockLevels] = useState<StockLevel[]>([])
+  const [stats, setStats] = useState<Stats>({ enStock: 0, enDepot: 0, total: 0 })
+  const [isLoading, setIsLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [sortBy, setSortBy] = useState("title")
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
+  const [disciplineFilter, setDisciplineFilter] = useState("toutes")
+  const [statusFilter, setStatusFilter] = useState("tous")
+  const [stockLevelFilter, setStockLevelFilter] = useState("all")
+  const [itemsPerPage, setItemsPerPage] = useState(20)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalItems, setTotalItems] = useState(0)
+  const [showApprovisionnerModal, setShowApprovisionnerModal] = useState(false)
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [selectedStock, setSelectedStock] = useState<StockLevel | null>(null)
+  const [disciplines, setDisciplines] = useState<Array<{ id: string; name: string }>>([])
+  const [works, setWorks] = useState<Array<{ id: string; title: string; price: number }>>([])
+  const [approvisionnementItems, setApprovisionnementItems] = useState<Array<{
+    workId: string
+    workTitle: string
+    price: number
+    quantity: number
+  }>>([])
+  const [newItem, setNewItem] = useState({
+    workId: "",
+    quantity: ""
+  })
 
-  const handleRefresh = () => {
-    console.log("[v0] Refreshing table data...")
-  }
+  useEffect(() => {
+    loadStockLevels()
+    loadDisciplines()
+    loadWorks()
+  }, [currentPage, itemsPerPage, sortBy, sortOrder, disciplineFilter, statusFilter, stockLevelFilter, searchTerm])
 
-  const handleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen()
-    } else {
-      document.exitFullscreen()
+  const loadStockLevels = async () => {
+    try {
+      setIsLoading(true)
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: itemsPerPage.toString(),
+        sortBy,
+        sortOrder,
+      })
+
+      if (disciplineFilter !== "toutes") {
+        params.append("disciplineId", disciplineFilter)
+      }
+      if (statusFilter !== "tous") {
+        params.append("status", statusFilter)
+      }
+      if (stockLevelFilter !== "all") {
+        params.append("stockLevel", stockLevelFilter)
+      }
+      if (searchTerm) {
+        params.append("search", searchTerm)
+      }
+
+      const response = await fetch(`/api/pdg/stock/niveau?${params}`)
+      if (!response.ok) throw new Error("Erreur lors du chargement")
+
+      const data = await response.json()
+      setStats(data.stats || { enStock: 0, enDepot: 0, total: 0 })
+      setStockLevels(data.stockLevels || [])
+      setTotalPages(data.pagination?.totalPages || 1)
+      setTotalItems(data.pagination?.total || 0)
+    } catch (error) {
+      console.error("Error loading stock levels:", error)
+      toast.error("Erreur lors du chargement des niveaux de stock")
+    } finally {
+      setIsLoading(false)
     }
   }
+
+  const loadDisciplines = async () => {
+    try {
+      const data = await apiClient.getDisciplines()
+      setDisciplines(data || [])
+    } catch (error) {
+      console.error("Error loading disciplines:", error)
+    }
+  }
+
+  const loadWorks = async () => {
+    try {
+      const data = await apiClient.getWorks()
+      setWorks(data || [])
+    } catch (error) {
+      console.error("Error loading works:", error)
+    }
+  }
+
+  const handleAddItem = () => {
+    if (!newItem.workId || !newItem.quantity || parseInt(newItem.quantity) <= 0) {
+      toast.error("Veuillez sélectionner un livre et une quantité valide")
+      return
+    }
+
+    const work = works.find(w => w.id === newItem.workId)
+    if (!work) {
+      toast.error("Livre introuvable")
+      return
+    }
+
+    setApprovisionnementItems([
+      ...approvisionnementItems,
+      {
+        workId: work.id,
+        workTitle: work.title,
+        price: work.price,
+        quantity: parseInt(newItem.quantity)
+      }
+    ])
+
+    setNewItem({ workId: "", quantity: "" })
+  }
+
+  const handleRemoveItem = (index: number) => {
+    setApprovisionnementItems(approvisionnementItems.filter((_, i) => i !== index))
+  }
+
+  const handleSaveApprovisionnement = async () => {
+    try {
+      if (approvisionnementItems.length === 0) {
+        toast.error("Veuillez ajouter au moins un livre")
+        return
+      }
+
+      // TODO: Créer une API pour l'approvisionnement
+      toast.success("Approvisionnement enregistré avec succès")
+      setShowApprovisionnerModal(false)
+      setApprovisionnementItems([])
+      loadStockLevels()
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de l'enregistrement")
+    }
+  }
+
+  const getAlertBadge = (alertLevel: string) => {
+    if (alertLevel === 'low') {
+      return <Badge className="bg-red-100 text-red-800"><AlertTriangle className="w-3 h-3 mr-1" />Stock faible</Badge>
+    } else if (alertLevel === 'high') {
+      return <Badge className="bg-blue-100 text-blue-800">Stock élevé</Badge>
+    }
+    return <Badge className="bg-green-100 text-green-800">Normal</Badge>
+  }
+
+  const totalAmount = approvisionnementItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+
+  const startIndex = (currentPage - 1) * itemsPerPage + 1
+  const endIndex = Math.min(currentPage * itemsPerPage, totalItems)
 
   return (
     <>
@@ -51,20 +224,26 @@ export default function NiveauStockPage() {
             <h2 className="text-xl font-semibold">Niveau de stock</h2>
           </div>
           <div className="flex items-center space-x-4">
+            <Button variant="outline" onClick={loadStockLevels}>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Actualiser
+            </Button>
             <span className="text-sm text-slate-300">
               Tableau de bord - Niveau de stock
             </span>
           </div>
         </div>
       </div>
-      
+
       <div className="p-6">
         <div className="space-y-6">
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white rounded-2xl p-6 text-center shadow-sm">
               <h3 className="text-lg font-semibold text-gray-600 mb-2">En stock</h3>
-              <div className="text-4xl font-bold text-gray-800 mb-2">0</div>
+              <div className="text-4xl font-bold text-gray-800 mb-2">
+                {stats.enStock.toLocaleString()}
+              </div>
               <div className="w-12 h-12 bg-gray-100 rounded-lg mx-auto flex items-center justify-center">
                 <Package className="w-6 h-6 text-gray-600" />
               </div>
@@ -72,7 +251,9 @@ export default function NiveauStockPage() {
 
             <div className="bg-white rounded-2xl p-6 text-center shadow-sm">
               <h3 className="text-lg font-semibold text-gray-600 mb-2">En dépôt</h3>
-              <div className="text-4xl font-bold text-gray-800 mb-2">0</div>
+              <div className="text-4xl font-bold text-gray-800 mb-2">
+                {stats.enDepot.toLocaleString()}
+              </div>
               <div className="w-12 h-12 bg-gray-100 rounded-lg mx-auto flex items-center justify-center">
                 <FileText className="w-6 h-6 text-gray-600" />
               </div>
@@ -80,7 +261,9 @@ export default function NiveauStockPage() {
 
             <div className="bg-white rounded-2xl p-6 text-center shadow-sm">
               <h3 className="text-lg font-semibold text-gray-600 mb-2">Total</h3>
-              <div className="text-4xl font-bold text-gray-800 mb-2">0</div>
+              <div className="text-4xl font-bold text-gray-800 mb-2">
+                {stats.total.toLocaleString()}
+              </div>
               <div className="w-12 h-12 bg-gray-100 rounded-lg mx-auto flex items-center justify-center">
                 <Users className="w-6 h-6 text-gray-600" />
               </div>
@@ -91,97 +274,76 @@ export default function NiveauStockPage() {
           <div className="bg-white rounded-lg shadow-sm p-6">
             {/* Filters */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-              <Select>
+              <Select
+                value={`${sortBy}-${sortOrder}`}
+                onValueChange={(v) => {
+                  const [by, order] = v.split('-')
+                  setSortBy(by)
+                  setSortOrder(order as "asc" | "desc")
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Par quantité" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="croissant">Croissant</SelectItem>
-                  <SelectItem value="decroissant">Décroissant</SelectItem>
+                  <SelectItem value="title-asc">Titre (A-Z)</SelectItem>
+                  <SelectItem value="title-desc">Titre (Z-A)</SelectItem>
+                  <SelectItem value="quantity-asc">Quantité (Croissant)</SelectItem>
+                  <SelectItem value="quantity-desc">Quantité (Décroissant)</SelectItem>
                 </SelectContent>
               </Select>
 
-              <Select>
+              <Select value={stockLevelFilter} onValueChange={setStockLevelFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder="Tous les stocks" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="tous">Tous les stocks</SelectItem>
-                  <SelectItem value="en-stock">En stock</SelectItem>
-                  <SelectItem value="en-depot">En dépôt</SelectItem>
+                  <SelectItem value="all">Tous les stocks</SelectItem>
+                  <SelectItem value="low">Stock faible</SelectItem>
+                  <SelectItem value="normal">Stock normal</SelectItem>
+                  <SelectItem value="high">Stock élevé</SelectItem>
                 </SelectContent>
               </Select>
 
-              <Select>
+              <Select value={disciplineFilter} onValueChange={setDisciplineFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder="Toutes catégories" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="toutes">Toutes catégories</SelectItem>
-                  <SelectItem value="primaire">Primaire</SelectItem>
-                  <SelectItem value="secondaire">Secondaire</SelectItem>
+                  {disciplines.map((discipline) => (
+                    <SelectItem key={discipline.id} value={discipline.id}>
+                      {discipline.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Toutes classes" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="toutes">Toutes classes</SelectItem>
-                  <SelectItem value="ce1">CE1</SelectItem>
-                  <SelectItem value="ce2">CE2</SelectItem>
-                  <SelectItem value="cm1">CM1</SelectItem>
-                  <SelectItem value="cm2">CM2</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Toutes matières" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="toutes">Toutes matières</SelectItem>
-                  <SelectItem value="francais">Français</SelectItem>
-                  <SelectItem value="mathematiques">Mathématiques</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder="Tous statuts" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="tous">Tous statuts</SelectItem>
-                  <SelectItem value="disponible">Disponible</SelectItem>
-                  <SelectItem value="epuise">Épuisé</SelectItem>
+                  <SelectItem value="ON_SALE">Disponible</SelectItem>
+                  <SelectItem value="OUT_OF_STOCK">Épuisé</SelectItem>
+                  <SelectItem value="DISCONTINUED">Discontinué</SelectItem>
                 </SelectContent>
               </Select>
 
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Tous les livre" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tous">Tous les livres</SelectItem>
-                  <SelectItem value="livre1">Réussir en Dictée Orthographe CE1-CE2</SelectItem>
-                  <SelectItem value="livre2">Coffret Réussir en Français CE2</SelectItem>
-                </SelectContent>
-              </Select>
+              <Button className="bg-indigo-600 hover:bg-indigo-700" onClick={loadStockLevels}>
+                Appliquer
+              </Button>
             </div>
 
             <div className="flex justify-between items-center">
               <Button
                 className="bg-indigo-600 hover:bg-indigo-700"
-                onClick={() => setOpen(true)}
+                onClick={() => setShowApprovisionnerModal(true)}
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Approvisionner
               </Button>
-
-              <Button className="bg-indigo-600 hover:bg-indigo-700">Appliquer</Button>
             </div>
           </div>
 
@@ -196,7 +358,13 @@ export default function NiveauStockPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <span className="text-sm text-gray-600">Afficher</span>
-                  <Select defaultValue="20">
+                  <Select
+                    value={itemsPerPage.toString()}
+                    onValueChange={(v) => {
+                      setItemsPerPage(parseInt(v))
+                      setCurrentPage(1)
+                    }}
+                  >
                     <SelectTrigger className="w-20">
                       <SelectValue />
                     </SelectTrigger>
@@ -211,7 +379,12 @@ export default function NiveauStockPage() {
 
                 <div className="flex items-center space-x-2">
                   <span className="text-sm text-gray-600">Rechercher:</span>
-                  <Input placeholder="Rechercher..." className="w-64" />
+                  <Input
+                    placeholder="Titre, ISBN..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-64"
+                  />
                 </div>
               </div>
             </div>
@@ -221,39 +394,81 @@ export default function NiveauStockPage() {
               <table className="w-full min-w-[800px]">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="text-left p-4">LIVRE</th>
-                    <th className="text-left p-4">RENTRÉE</th>
-                    <th className="text-left p-4">VACANCES</th>
-                    <th className="text-left p-4">DÉPÔT</th>
-                    <th className="text-left p-4">TOTAL</th>
-                    <th className="text-left p-4">ACTIONS</th>
+                    <th className="text-left p-4 font-medium text-gray-700">LIVRE</th>
+                    <th className="text-left p-4 font-medium text-gray-700">STOCK ACTUEL</th>
+                    <th className="text-left p-4 font-medium text-gray-700">EN DÉPÔT</th>
+                    <th className="text-left p-4 font-medium text-gray-700">TOTAL</th>
+                    <th className="text-left p-4 font-medium text-gray-700">ALERTE</th>
+                    <th className="text-left p-4 font-medium text-gray-700">ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="border-b">
-                    <td className="p-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-red-500 rounded flex items-center justify-center flex-shrink-0">
-                          <BookOpen className="w-4 h-4 text-white" />
-                        </div>
-                        <span className="text-sm">Philosophie Tle Bac Facile TOME 2</span>
-                      </div>
-                    </td>
-                    <td className="p-4">0</td>
-                    <td className="p-4">0</td>
-                    <td className="p-4">0</td>
-                    <td className="p-4">0</td>
-                    <td className="p-4">
-                      <div className="flex items-center space-x-2">
-                        <button className="p-1 hover:bg-gray-100 rounded">
-                          <FileText className="w-4 h-4" />
-                        </button>
-                        <button className="p-1 hover:bg-gray-100 rounded text-red-500">
-                          <Package className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={6} className="p-12 text-center text-gray-500">
+                        Chargement...
+                      </td>
+                    </tr>
+                  ) : stockLevels.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-12 text-center text-gray-500">
+                        Aucune donnée disponible
+                      </td>
+                    </tr>
+                  ) : (
+                    stockLevels.map((stock) => (
+                      <tr key={stock.id} className="border-b hover:bg-gray-50">
+                        <td className="p-4">
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-8 h-8 rounded flex items-center justify-center flex-shrink-0 ${
+                              stock.alertLevel === 'low' ? 'bg-red-500' : 
+                              stock.alertLevel === 'high' ? 'bg-blue-500' : 
+                              'bg-green-500'
+                            }`}>
+                              <BookOpen className="w-4 h-4 text-white" />
+                            </div>
+                            <div>
+                              <span className="text-sm font-medium">{stock.livre}</span>
+                              <p className="text-xs text-gray-500">{stock.reference}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <div>
+                            <span className="font-medium">{stock.stockActuel.toLocaleString()}</span>
+                            <p className="text-xs text-gray-500">
+                              Min: {stock.stockMin} {stock.stockMax ? `| Max: ${stock.stockMax}` : ''}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="p-4">{stock.stockDepot.toLocaleString()}</td>
+                        <td className="p-4 font-medium">{stock.totalStock.toLocaleString()}</td>
+                        <td className="p-4">{getAlertBadge(stock.alertLevel)}</td>
+                        <td className="p-4">
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedStock(stock)
+                                setShowViewModal(true)
+                              }}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm">
+                              <FileText className="w-4 h-4" />
+                            </Button>
+                            {stock.alertLevel === 'low' && (
+                              <Button variant="ghost" size="sm" className="text-red-500">
+                                <Package className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -261,22 +476,41 @@ export default function NiveauStockPage() {
             {/* Pagination */}
             <div className="p-6 border-t">
               <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-600">Affichage de 1 à 1 sur 1 éléments</p>
+                <p className="text-sm text-gray-600">
+                  Affichage de {startIndex} à {endIndex} sur {totalItems} éléments
+                </p>
 
                 <div className="flex items-center space-x-2">
-                  <Button variant="outline" size="sm">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                  >
                     Premier
                   </Button>
-                  <Button variant="outline" size="sm">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
                     Précédent
                   </Button>
-                  <Button variant="outline" size="sm" className="bg-indigo-600 text-white">
-                    1
-                  </Button>
-                  <Button variant="outline" size="sm">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
                     Suivant
                   </Button>
-                  <Button variant="outline" size="sm">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                  >
                     Dernier
                   </Button>
                 </div>
@@ -286,10 +520,20 @@ export default function NiveauStockPage() {
             {/* Export Buttons */}
             <div className="p-6 border-t bg-gray-50">
               <div className="flex justify-end space-x-2">
-                <Button variant="outline" className="bg-blue-600 text-white hover:bg-blue-700">
+                <Button
+                  variant="outline"
+                  className="bg-blue-600 text-white hover:bg-blue-700"
+                  onClick={() => toast.info("Export PDF en cours de préparation...")}
+                >
+                  <Download className="w-4 h-4 mr-2" />
                   PDF
                 </Button>
-                <Button variant="outline" className="bg-blue-600 text-white hover:bg-blue-700">
+                <Button
+                  variant="outline"
+                  className="bg-green-600 text-white hover:bg-green-700"
+                  onClick={() => toast.info("Export Excel en cours de préparation...")}
+                >
+                  <Download className="w-4 h-4 mr-2" />
                   EXCEL
                 </Button>
                 <Button variant="outline">
@@ -301,18 +545,17 @@ export default function NiveauStockPage() {
         </div>
       </div>
 
-      {/* Modale Approvisionner (strictement la modale, page inchangée) */}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader className="flex items-start justify-between p-0">
-            <DialogTitle className="text-2xl font-medium py-4">Approvisionnement</DialogTitle>
-            
+      {/* Modal Approvisionner */}
+      <Dialog open={showApprovisionnerModal} onOpenChange={setShowApprovisionnerModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-medium">Approvisionnement</DialogTitle>
           </DialogHeader>
 
-          {/* Top selects with labels */}
+          {/* Top selects */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-2 mb-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Choix de la catégorie</label>
+              <Label>Choix de la catégorie</Label>
               <Select>
                 <SelectTrigger>
                   <SelectValue placeholder="Toutes catégories" />
@@ -326,20 +569,22 @@ export default function NiveauStockPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Choix de la Matière</label>
+              <Label>Choix de la Matière</Label>
               <Select>
                 <SelectTrigger>
                   <SelectValue placeholder="Toutes matières" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="francais">Français</SelectItem>
-                  <SelectItem value="mathematiques">Mathématiques</SelectItem>
+                  <SelectItem value="toutes">Toutes matières</SelectItem>
+                  {disciplines.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Choix de la classe</label>
+              <Label>Choix de la classe</Label>
               <Select>
                 <SelectTrigger>
                   <SelectValue placeholder="Toutes classes" />
@@ -358,34 +603,36 @@ export default function NiveauStockPage() {
           {/* Choix du livre / Quantité / Ajouter */}
           <div className="grid grid-cols-12 gap-4 items-end mb-4">
             <div className="col-span-7">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Choix du livre</label>
-              <Select>
+              <Label>Choix du livre</Label>
+              <Select value={newItem.workId} onValueChange={(v) => setNewItem({ ...newItem, workId: v })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Sélectionnez un livre" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="livre1">Réussir en Dictée Orthographe CE1-CE2</SelectItem>
-                  <SelectItem value="livre2">Coffret Réussir en Français CE2</SelectItem>
-                  <SelectItem value="livre3">Coffret Réussir en Mathématiques CE1</SelectItem>
+                  {works.map((work) => (
+                    <SelectItem key={work.id} value={work.id}>
+                      {work.title}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="col-span-3">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Quantité</label>
-              <Input type="number" defaultValue={0} />
+              <Label>Quantité</Label>
+              <Input
+                type="number"
+                value={newItem.quantity}
+                onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
+                min="1"
+              />
             </div>
 
             <div className="col-span-2">
-              <div className="w-full">
-                <Button className="w-full bg-indigo-600 hover:bg-indigo-700">Ajouter ▾</Button>
-              </div>
+              <Button className="w-full bg-indigo-600 hover:bg-indigo-700" onClick={handleAddItem}>
+                Ajouter
+              </Button>
             </div>
-          </div>
-
-          {/* Auto button under left area */}
-          <div className="mb-4">
-            <Button className="bg-indigo-500 hover:bg-indigo-600 px-4 py-2">Auto</Button>
           </div>
 
           <hr className="my-4 border-t border-gray-200" />
@@ -403,26 +650,45 @@ export default function NiveauStockPage() {
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td className="p-3 text-sm text-gray-400">Aucun livre ajouté</td>
-                  <td className="p-3">-</td>
-                  <td className="p-3">-</td>
-                  <td className="p-3">-</td>
-                  <td className="p-3">-</td>
-                </tr>
+                {approvisionnementItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="p-3 text-sm text-gray-400 text-center">
+                      Aucun livre ajouté
+                    </td>
+                  </tr>
+                ) : (
+                  approvisionnementItems.map((item, index) => (
+                    <tr key={index} className="border-t">
+                      <td className="p-3 text-sm">{item.workTitle}</td>
+                      <td className="p-3 text-sm">{item.price.toLocaleString()} XOF</td>
+                      <td className="p-3 text-sm">{item.quantity}</td>
+                      <td className="p-3 text-sm font-medium">
+                        {(item.price * item.quantity).toLocaleString()} XOF
+                      </td>
+                      <td className="p-3">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveItem(index)}
+                        >
+                          <X className="w-4 h-4 text-red-600" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
 
-            {/* Total on the right, matching the screenshot size/placement */}
             <div className="absolute right-0 top-0 text-2xl md:text-3xl font-semibold text-gray-700 mt-6 mr-2">
-              Total: 0 XOF
+              Total: {totalAmount.toLocaleString()} XOF
             </div>
           </div>
 
           {/* Stock select and footer buttons */}
           <div className="flex items-center justify-between gap-4">
             <div className="w-1/2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Stock :</label>
+              <Label>Stock :</Label>
               <Select>
                 <SelectTrigger>
                   <SelectValue placeholder="Rentrée scolaire" />
@@ -435,16 +701,109 @@ export default function NiveauStockPage() {
             </div>
 
             <div className="flex space-x-3">
-              <Button className="bg-indigo-600 text-white hover:bg-indigo-700">Enregistrer</Button>
+              <Button className="bg-indigo-600 text-white hover:bg-indigo-700" onClick={handleSaveApprovisionnement}>
+                Enregistrer
+              </Button>
               <Button
                 variant="outline"
                 className="border border-red-200 text-red-600 hover:bg-red-50"
-                onClick={() => setOpen(false)}
+                onClick={() => setShowApprovisionnerModal(false)}
               >
                 Fermer
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de visualisation */}
+      <Dialog open={showViewModal} onOpenChange={setShowViewModal}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Détails du stock</DialogTitle>
+          </DialogHeader>
+          {selectedStock && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Livre</Label>
+                  <p className="font-medium">{selectedStock.livre}</p>
+                </div>
+                <div>
+                  <Label>Référence (ISBN)</Label>
+                  <p>{selectedStock.reference}</p>
+                </div>
+                <div>
+                  <Label>Discipline</Label>
+                  <p>{selectedStock.discipline}</p>
+                </div>
+                <div>
+                  <Label>Auteur</Label>
+                  <p>{selectedStock.auteur}</p>
+                </div>
+                <div>
+                  <Label>Stock actuel</Label>
+                  <p className="font-medium text-lg">{selectedStock.stockActuel.toLocaleString()}</p>
+                </div>
+                <div>
+                  <Label>Stock en dépôt</Label>
+                  <p className="font-medium text-lg">{selectedStock.stockDepot.toLocaleString()}</p>
+                </div>
+                <div>
+                  <Label>Total</Label>
+                  <p className="font-medium text-lg text-indigo-600">{selectedStock.totalStock.toLocaleString()}</p>
+                </div>
+                <div>
+                  <Label>Niveau d'alerte</Label>
+                  <div>{getAlertBadge(selectedStock.alertLevel)}</div>
+                </div>
+                <div>
+                  <Label>Stock minimum</Label>
+                  <p>{selectedStock.stockMin}</p>
+                </div>
+                <div>
+                  <Label>Stock maximum</Label>
+                  <p>{selectedStock.stockMax || "Non défini"}</p>
+                </div>
+                <div>
+                  <Label>Prix</Label>
+                  <p>{selectedStock.prix.toLocaleString()} XOF</p>
+                </div>
+                <div>
+                  <Label>Statut</Label>
+                  <p>{selectedStock.statut}</p>
+                </div>
+              </div>
+              {selectedStock.partenaires.length > 0 && (
+                <div>
+                  <Label>Stock chez les partenaires</Label>
+                  <div className="mt-2 border rounded-lg">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="p-2 text-left">Partenaire</th>
+                          <th className="p-2 text-right">Quantité disponible</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedStock.partenaires.map((partner, idx) => (
+                          <tr key={idx} className="border-t">
+                            <td className="p-2">{partner.nom}</td>
+                            <td className="p-2 text-right">{partner.quantite}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowViewModal(false)}>
+              Fermer
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

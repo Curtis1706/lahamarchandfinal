@@ -74,8 +74,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Le type de contenu est obligatoire" }, { status: 400 });
     }
 
-    // Vérifier que l'utilisateur connecté est bien l'auteur
-    if (session.user.id !== authorId && session.user.role !== "PDG") {
+    // Vérifier que l'utilisateur connecté a les permissions
+    // Les concepteurs peuvent créer des œuvres pour n'importe quel auteur
+    // Les auteurs ne peuvent créer que pour eux-mêmes
+    // Les PDG peuvent créer pour n'importe qui
+    const concepteurId = body.concepteurId || null;
+    if (session.user.role === "AUTEUR" && session.user.id !== authorId && session.user.role !== "PDG") {
       return NextResponse.json({ error: "Vous ne pouvez créer une œuvre que pour vous-même" }, { status: 403 });
     }
 
@@ -99,7 +103,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (author.role !== "AUTEUR") {
-      return NextResponse.json({ error: "Seul un utilisateur avec le rôle AUTEUR peut créer des œuvres" }, { status: 403 });
+      return NextResponse.json({ error: "Seul un utilisateur avec le rôle AUTEUR peut être assigné comme auteur" }, { status: 403 });
     }
 
     // Si un projectId est fourni, vérifier qu'il existe et est validé
@@ -130,6 +134,12 @@ export async function POST(request: NextRequest) {
       projectConcepteurId = project.concepteurId;
       console.log(`✅ Projet validé trouvé: "${project.title}" par ${project.concepteur.name}`);
       console.log(`🔗 L'œuvre sera automatiquement assignée au concepteur: ${project.concepteur.name} (${project.concepteur.email})`);
+    }
+
+    // Déterminer le concepteurId : priorité au concepteurId fourni, puis au concepteur du projet, puis à l'utilisateur connecté si c'est un concepteur
+    let finalConcepteurId = concepteurId || projectConcepteurId;
+    if (!finalConcepteurId && session.user.role === "CONCEPTEUR") {
+      finalConcepteurId = session.user.id;
     }
 
     // Générer un ISBN unique temporaire si non fourni
@@ -166,8 +176,8 @@ export async function POST(request: NextRequest) {
         discipline: { connect: { id: disciplineId } },
         author: { connect: { id: authorId } },
         project: projectId ? { connect: { id: projectId } } : undefined,
-        // Assignation automatique au concepteur du projet si un projet est rattaché
-        concepteur: projectConcepteurId ? { connect: { id: projectConcepteurId } } : undefined
+        // Assignation au concepteur (du projet, fourni explicitement, ou utilisateur connecté si concepteur)
+        concepteur: finalConcepteurId ? { connect: { id: finalConcepteurId } } : undefined
       },
       include: {
         author: {

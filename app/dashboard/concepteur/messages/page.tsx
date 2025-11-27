@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { 
   MessageSquare, 
   Send,
@@ -20,7 +21,8 @@ import {
   MailOpen,
   Reply,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCw
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -45,36 +47,16 @@ interface Message {
   type: "sent" | "received";
 }
 
-const mockMessages: Message[] = [
-  {
-    id: "1",
-    subject: "Validation de votre projet 'Manuel d'Histoire'",
-    content: "Bonjour,\n\nVotre projet 'Manuel d'Histoire' a été validé avec succès. Vous pouvez maintenant commencer à créer les œuvres associées.\n\nCordialement,\nL'équipe PDG",
-    sender: { id: "pdg1", name: "Marie Dubois", role: "PDG" },
-    recipient: { id: "concepteur1", name: "Jean Martin", role: "CONCEPTEUR" },
-    read: true,
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    type: "received"
-  },
-  {
-    id: "2",
-    subject: "Question sur les droits d'auteur",
-    content: "Bonjour,\n\nJ'aurais une question concernant les droits d'auteur pour mon prochain projet. Pourriez-vous m'éclairer sur la procédure ?\n\nMerci d'avance,\nJean Martin",
-    sender: { id: "concepteur1", name: "Jean Martin", role: "CONCEPTEUR" },
-    recipient: { id: "pdg1", name: "Marie Dubois", role: "PDG" },
-    read: false,
-    createdAt: new Date(Date.now() - 3600000).toISOString(),
-    type: "sent"
-  }
-];
-
 export default function MessagesPage() {
   const { user } = useCurrentUser();
-  const [messages, setMessages] = useState<Message[]>(mockMessages);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filter, setFilter] = useState("all");
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [recipients, setRecipients] = useState<Array<{ id: string; name: string; role: string; email: string }>>([]);
   
   // Formulaire de nouveau message
   const [newMessage, setNewMessage] = useState({
@@ -83,57 +65,147 @@ export default function MessagesPage() {
     content: ""
   });
 
-  const handleSendMessage = () => {
+  useEffect(() => {
+    if (user && user.role === "CONCEPTEUR") {
+      loadMessages();
+      loadRecipients();
+    }
+  }, [user, filter, searchTerm]);
+
+  const loadMessages = async () => {
+    try {
+      setIsLoading(true);
+      const params = new URLSearchParams({
+        filter: filter,
+      });
+
+      if (searchTerm) {
+        params.append("search", searchTerm);
+      }
+
+      const response = await fetch(`/api/concepteur/messages?${params}`);
+      if (!response.ok) throw new Error("Erreur lors du chargement");
+
+      const data = await response.json();
+      setMessages(data.messages || []);
+      setUnreadCount(data.unreadCount || 0);
+    } catch (error) {
+      console.error("Error loading messages:", error);
+      toast.error("Erreur lors du chargement des messages");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadRecipients = async () => {
+    try {
+      const response = await fetch("/api/pdg/users?role=PDG");
+      if (response.ok) {
+        const data = await response.json();
+        setRecipients(data.users || []);
+      }
+    } catch (error) {
+      console.error("Error loading recipients:", error);
+    }
+  };
+
+  const handleSendMessage = async () => {
     if (!newMessage.subject.trim() || !newMessage.content.trim() || !newMessage.recipient) {
       toast.error("Veuillez remplir tous les champs");
       return;
     }
 
-    const message: Message = {
-      id: Date.now().toString(),
-      subject: newMessage.subject.trim(),
-      content: newMessage.content.trim(),
-      sender: { id: user?.id || "", name: user?.name || "", role: user?.role || "" },
-      recipient: { id: "pdg1", name: "Marie Dubois", role: "PDG" }, // Simplifié pour l'exemple
-      read: false,
-      createdAt: new Date().toISOString(),
-      type: "sent"
-    };
+    try {
+      const response = await fetch("/api/concepteur/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipientId: newMessage.recipient,
+          subject: newMessage.subject.trim(),
+          content: newMessage.content.trim(),
+        }),
+      });
 
-    setMessages(prev => [message, ...prev]);
-    setNewMessage({ recipient: "", subject: "", content: "" });
-    setIsComposeOpen(false);
-    toast.success("Message envoyé avec succès");
-  };
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Erreur lors de l'envoi");
+      }
 
-  const handleMarkAsRead = (messageId: string) => {
-    setMessages(prev => prev.map(msg => 
-      msg.id === messageId ? { ...msg, read: true } : msg
-    ));
-  };
-
-  const handleDeleteMessage = (messageId: string) => {
-    setMessages(prev => prev.filter(msg => msg.id !== messageId));
-    if (selectedMessage?.id === messageId) {
-      setSelectedMessage(null);
+      toast.success("Message envoyé avec succès");
+      setNewMessage({ recipient: "", subject: "", content: "" });
+      setIsComposeOpen(false);
+      loadMessages();
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de l'envoi du message");
     }
-    toast.success("Message supprimé");
+  };
+
+  const handleMarkAsRead = async (messageId: string) => {
+    try {
+      const response = await fetch("/api/concepteur/messages", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId, read: true }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Erreur lors de la mise à jour");
+      }
+
+      setMessages(prev => prev.map(msg => 
+        msg.id === messageId ? { ...msg, read: true } : msg
+      ));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (error: any) {
+      console.error("Error marking message as read:", error);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!confirm("Êtes-vous sûr de vouloir supprimer ce message ?")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/concepteur/messages?id=${messageId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Erreur lors de la suppression");
+      }
+
+      toast.success("Message supprimé");
+      setMessages(prev => prev.filter(msg => msg.id !== messageId));
+      if (selectedMessage?.id === messageId) {
+        setSelectedMessage(null);
+      }
+      loadMessages();
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de la suppression");
+    }
+  };
+
+  const handleReply = () => {
+    if (!selectedMessage) return;
+    
+    setNewMessage({
+      recipient: selectedMessage.type === "received" ? selectedMessage.sender.id : selectedMessage.recipient.id,
+      subject: `Re: ${selectedMessage.subject}`,
+      content: `\n\n--- Message original ---\n${selectedMessage.content}`
+    });
+    setIsComposeOpen(true);
   };
 
   const filteredMessages = messages.filter(message => {
     const matchesSearch = message.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          message.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         message.sender.name.toLowerCase().includes(searchTerm.toLowerCase());
+                         (message.type === "received" ? message.sender.name : message.recipient.name).toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesFilter = filter === "all" || 
-                         (filter === "unread" && !message.read) ||
-                         (filter === "sent" && message.type === "sent") ||
-                         (filter === "received" && message.type === "received");
-    
-    return matchesSearch && matchesFilter;
+    return matchesSearch;
   });
-
-  const unreadCount = messages.filter(m => !m.read && m.type === "received").length;
 
   if (!user || user.role !== "CONCEPTEUR") {
     return (
@@ -163,56 +235,64 @@ export default function MessagesPage() {
           </p>
         </div>
         
-        <Dialog open={isComposeOpen} onOpenChange={setIsComposeOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Nouveau message
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>Nouveau message</DialogTitle>
-              <DialogDescription>
-                Envoyez un message à l'équipe administrative
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Destinataire</label>
-                <Select value={newMessage.recipient} onValueChange={(value) => setNewMessage(prev => ({ ...prev, recipient: value }))}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Sélectionner un destinataire" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pdg">PDG - Marie Dubois</SelectItem>
-                    <SelectItem value="admin">Administration</SelectItem>
-                  </SelectContent>
-                </Select>
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" onClick={loadMessages}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Actualiser
+          </Button>
+          <Dialog open={isComposeOpen} onOpenChange={setIsComposeOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Nouveau message
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px]">
+              <DialogHeader>
+                <DialogTitle>Nouveau message</DialogTitle>
+                <DialogDescription>
+                  Envoyez un message à l'équipe administrative
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label>Destinataire</Label>
+                  <Select value={newMessage.recipient} onValueChange={(value) => setNewMessage(prev => ({ ...prev, recipient: value }))}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Sélectionner un destinataire" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {recipients.map((recipient) => (
+                        <SelectItem key={recipient.id} value={recipient.id}>
+                          {recipient.name} ({recipient.role})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label>Sujet</Label>
+                  <Input
+                    placeholder="Sujet du message"
+                    value={newMessage.subject}
+                    onChange={(e) => setNewMessage(prev => ({ ...prev, subject: e.target.value }))}
+                    className="mt-1"
+                  />
+                </div>
+                
+                <div>
+                  <Label>Message</Label>
+                  <Textarea
+                    placeholder="Votre message..."
+                    value={newMessage.content}
+                    onChange={(e) => setNewMessage(prev => ({ ...prev, content: e.target.value }))}
+                    rows={6}
+                    className="mt-1"
+                  />
+                </div>
               </div>
-              
-              <div>
-                <label className="text-sm font-medium">Sujet</label>
-                <Input
-                  placeholder="Sujet du message"
-                  value={newMessage.subject}
-                  onChange={(e) => setNewMessage(prev => ({ ...prev, subject: e.target.value }))}
-                  className="mt-1"
-                />
-              </div>
-              
-              <div>
-                <label className="text-sm font-medium">Message</label>
-                <Textarea
-                  placeholder="Votre message..."
-                  value={newMessage.content}
-                  onChange={(e) => setNewMessage(prev => ({ ...prev, content: e.target.value }))}
-                  rows={6}
-                  className="mt-1"
-                />
-              </div>
-              
-              <div className="flex justify-end space-x-2">
+              <DialogFooter>
                 <Button variant="outline" onClick={() => setIsComposeOpen(false)}>
                   Annuler
                 </Button>
@@ -220,10 +300,10 @@ export default function MessagesPage() {
                   <Send className="h-4 w-4 mr-2" />
                   Envoyer
                 </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Filtres et recherche */}
@@ -237,7 +317,7 @@ export default function MessagesPage() {
             className="pl-10"
           />
         </div>
-        <Select value={filter} onValueChange={setFilter}>
+        <Select value={filter} onValueChange={(value) => { setFilter(value); }}>
           <SelectTrigger className="w-full sm:w-[200px]">
             <SelectValue placeholder="Filtrer" />
           </SelectTrigger>
@@ -259,7 +339,12 @@ export default function MessagesPage() {
               <CardTitle className="text-lg">Messages ({filteredMessages.length})</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              {filteredMessages.length === 0 ? (
+              {isLoading ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <RefreshCw className="h-8 w-8 text-muted-foreground mb-4 animate-spin" />
+                  <p className="text-muted-foreground">Chargement...</p>
+                </div>
+              ) : filteredMessages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12">
                   <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
                   <p className="text-muted-foreground text-center">
@@ -342,7 +427,7 @@ export default function MessagesPage() {
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className="text-sm text-muted-foreground">
-                      {format(new Date(selectedMessage.createdAt), "dd/MM/yyyy à HH:mm", { locale: fr })}
+                      {selectedMessage.createdAt}
                     </span>
                     <Button
                       variant="ghost"
@@ -364,7 +449,7 @@ export default function MessagesPage() {
                   
                   {selectedMessage.type === "received" && (
                     <div className="flex justify-end">
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" onClick={handleReply}>
                         <Reply className="h-4 w-4 mr-2" />
                         Répondre
                       </Button>

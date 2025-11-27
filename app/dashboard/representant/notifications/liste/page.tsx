@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -11,59 +11,60 @@ import { Textarea } from "@/components/ui/textarea"
 import {
   RefreshCw,
   Maximize2,
-  Edit,
-  Trash2,
   Play,
   ChevronsUpDown,
+  Loader2,
+  CheckCircle,
 } from "lucide-react"
-import DashboardLayout from "@/components/dashboard-layout"
+import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout"
+import { apiClient } from "@/lib/api-client"
+import { toast } from "sonner"
+import { format } from "date-fns"
+import { fr } from "date-fns/locale"
 
 interface Notification {
-  code: string
-  titre: string
-  statut: "Actif" | "Inactif"
-  dateCreation: string
-  dateModification: string
-  creePar: string
-  texte: string
-  actions: string[]
+  id: string
+  type: string
+  title: string
+  message: string
+  date: string
+  read: boolean
+  priority: "high" | "medium" | "low"
+  icon?: string
+  data?: any
 }
 
-const mockNotifications: Notification[] = [
-  {
-    code: "WELCOME_CLIENT",
-    titre: "Bienvenue",
-    statut: "Actif",
-    dateCreation: "ven. 2 août 2024 14:10",
-    dateModification: "2024-09-11T12:56:57+01:00",
-    creePar: "Super administrateur (FASSINOU)",
-    texte:
-      "Bienvenue ! Votre compte a été créé avec succès. Vous pouvez maintenant commencer à explorer toutes les fonctionnalités de l'application.",
-    actions: ["play", "edit", "delete"],
-  },
-  {
-    code: "784149",
-    titre: "test",
-    statut: "Actif",
-    dateCreation: "mer. 24 juil. 2024 17:48",
-    dateModification: "Pas de modification",
-    creePar: "Super administrateur (FASSINOU)",
-    texte: "test",
-    actions: ["play", "edit", "delete"],
-  },
-]
-
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications)
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [formData, setFormData] = useState({
     code: "",
     titre: "",
     note: "",
   })
+  const [searchTerm, setSearchTerm] = useState("")
+
+  useEffect(() => {
+    loadNotifications()
+  }, [])
+
+  const loadNotifications = async () => {
+    try {
+      setIsLoading(true)
+      const response = await apiClient.getRepresentantNotifications()
+      setNotifications(response.notifications || [])
+    } catch (error: any) {
+      console.error("Error loading notifications:", error)
+      toast.error("Erreur lors du chargement des notifications")
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const handleRefresh = () => {
-    console.log("[v0] Refreshing notifications...")
+    loadNotifications()
+    toast.success("Notifications actualisées")
   }
 
   const handleFullscreen = () => {
@@ -78,15 +79,42 @@ export default function NotificationsPage() {
     console.log("[v0] Adding notification:", formData)
     setShowAddModal(false)
     setFormData({ code: "", titre: "", note: "" })
+    toast.info("Fonctionnalité à implémenter")
+  }
+
+  const markAsRead = async (notificationId: string) => {
+    try {
+      await apiClient.markRepresentantNotificationAsRead(notificationId)
+      setNotifications(prev => 
+        prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+      )
+      toast.success("Notification marquée comme lue")
+    } catch (error: any) {
+      console.error("Error marking notification as read:", error)
+      toast.error("Erreur lors de la mise à jour")
+    }
+  }
+
+  const filteredNotifications = notifications.filter(notif => {
+    if (searchTerm) {
+      const search = searchTerm.toLowerCase()
+      return notif.title.toLowerCase().includes(search) || 
+             notif.message.toLowerCase().includes(search)
+    }
+    return true
+  })
+
+  const formatDate = (dateString: string) => {
+    try {
+      return format(new Date(dateString), "dd MMM yyyy HH:mm", { locale: fr })
+    } catch {
+      return dateString
+    }
   }
 
   return (
-    <DashboardLayout
-      title="Gestions des notifications"
-      breadcrumb="Tableau de bord - Notifications"
-    >
-      <div>
-        <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
+    <DynamicDashboardLayout title="Notifications" breadcrumb="Représentant - Notifications">
+      <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold">Gestions des notifications</h2>
@@ -100,8 +128,9 @@ export default function NotificationsPage() {
                 onClick={handleRefresh}
                 className="p-2 hover:bg-slate-600 rounded-lg"
                 title="Actualiser"
+                disabled={isLoading}
               >
-                <RefreshCw className="w-5 h-5" />
+                <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
               </button>
               <button
                 onClick={handleFullscreen}
@@ -131,142 +160,135 @@ export default function NotificationsPage() {
 
             {/* Filters */}
             <div className="flex items-center gap-4 mb-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm">Afficher</span>
-                <Select defaultValue="5">
-                  <SelectTrigger className="w-20">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="5">5</SelectItem>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="25">25</SelectItem>
-                  </SelectContent>
-                </Select>
-                <span className="text-sm">éléments</span>
-              </div>
               <div className="ml-auto">
                 <div className="flex items-center gap-2">
                   <span className="text-sm">Rechercher:</span>
-                  <Input className="w-64" placeholder="" />
+                  <Input 
+                    className="w-64" 
+                    placeholder="Rechercher..." 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
                 </div>
               </div>
             </div>
           </div>
 
           {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  {[
-                    "Code",
-                    "Titre",
-                    "Statut",
-                    "Date de création",
-                    "Date de modification",
-                    "Créé par",
-                    "Texte",
-                    "Actions",
-                  ].map((col, index) => (
-                    <th
-                      key={index}
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      <div className="flex items-center gap-1">
-                        <span>{col}</span>
-                        {col !== "Actions" && (
-                          <ChevronsUpDown className="w-3 h-3 text-gray-400" />
-                        )}
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {notifications.map((notification, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {notification.code}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {notification.titre}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge
-                        className={
-                          notification.statut === "Actif"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-gray-100 text-gray-800"
-                        }
+          {isLoading ? (
+            <div className="flex items-center justify-center p-12">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {[
+                      "ID",
+                      "Titre",
+                      "Message",
+                      "Type",
+                      "Priorité",
+                      "Date",
+                      "Statut",
+                      "Actions",
+                    ].map((col, index) => (
+                      <th
+                        key={index}
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                       >
-                        {notification.statut}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {notification.dateCreation}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {notification.dateModification}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge className="bg-blue-100 text-blue-800 text-xs">
-                        {notification.creePar}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
-                      {notification.texte}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="flex items-center gap-2">
-                        <button className="text-blue-600 hover:text-blue-800">
-                          <Play className="w-4 h-4" />
-                        </button>
-                        <button className="text-yellow-600 hover:text-yellow-800">
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button className="text-red-600 hover:text-red-800">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
+                        <div className="flex items-center gap-1">
+                          <span>{col}</span>
+                          {col !== "Actions" && (
+                            <ChevronsUpDown className="w-3 h-3 text-gray-400" />
+                          )}
+                        </div>
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredNotifications.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="px-6 py-4 text-center text-sm text-gray-500">
+                        Aucune notification trouvée
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredNotifications.map((notification) => (
+                      <tr key={notification.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {notification.id.substring(0, 8)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {notification.icon && <span className="mr-2">{notification.icon}</span>}
+                          {notification.title}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
+                          {notification.message}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <Badge variant="outline">{notification.type}</Badge>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <Badge
+                            className={
+                              notification.priority === "high"
+                                ? "bg-red-100 text-red-800"
+                                : notification.priority === "medium"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-gray-100 text-gray-800"
+                            }
+                          >
+                            {notification.priority}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {formatDate(notification.date)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <Badge
+                            className={
+                              notification.read
+                                ? "bg-green-100 text-green-800"
+                                : "bg-blue-100 text-blue-800"
+                            }
+                          >
+                            {notification.read ? "Lue" : "Non lue"}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <div className="flex items-center gap-2">
+                            {!notification.read && (
+                              <button
+                                onClick={() => markAsRead(notification.id)}
+                                className="text-blue-600 hover:text-blue-800"
+                                title="Marquer comme lue"
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                              </button>
+                            )}
+                            <Play className="w-4 h-4 text-green-600" />
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {/* Pagination */}
           <div className="px-6 py-4 border-t bg-gray-50">
             <div className="flex items-center justify-between">
               <p className="text-sm text-gray-600">
-                Affichage de 1 à 2 sur 2 éléments
+                Affichage de 1 à {filteredNotifications.length} sur {notifications.length} éléments
               </p>
-              <div className="flex items-center space-x-2">
-                <Button variant="outline" size="sm">
-                  Premier
-                </Button>
-                <Button variant="outline" size="sm">
-                  Précédent
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="bg-blue-600 text-white"
-                >
-                  1
-                </Button>
-                <Button variant="outline" size="sm">
-                  Suivant
-                </Button>
-                <Button variant="outline" size="sm">
-                  Dernier
-                </Button>
-              </div>
             </div>
           </div>
         </div>
-      </div>
       </div>
 
       {/* Add Modal */}
@@ -330,6 +352,6 @@ export default function NotificationsPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </DashboardLayout>
+    </DynamicDashboardLayout>
   )
 }

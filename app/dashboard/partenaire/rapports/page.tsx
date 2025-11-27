@@ -13,79 +13,53 @@ import {
   Eye,
   FileText,
   PieChart,
-  Activity
+  Activity,
+  RefreshCw
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar as CalendarComponent } from "@/components/ui/calendar"
+import { format } from "date-fns"
+import { fr } from "date-fns/locale"
+import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 
-// Mock data pour les rapports
-const mockRapports = [
-  {
-    id: "RPT001",
-    titre: "Rapport mensuel - Janvier 2025",
-    type: "mensuel",
-    periode: "2025-01",
-    statut: "généré",
-    dateCreation: "2025-01-31T10:00:00Z",
-    donnees: {
-      ventesTotal: 1250000,
-      commandesTotal: 45,
-      livresVendus: 320,
-      chiffreAffaires: 1250000,
-      evolution: "+12.5%"
-    }
-  },
-  {
-    id: "RPT002", 
-    titre: "Rapport trimestriel - Q4 2024",
-    type: "trimestriel",
-    periode: "2024-Q4",
-    statut: "généré",
-    dateCreation: "2024-12-31T15:30:00Z",
-    donnees: {
-      ventesTotal: 3800000,
-      commandesTotal: 128,
-      livresVendus: 950,
-      chiffreAffaires: 3800000,
-      evolution: "+8.2%"
-    }
-  },
-  {
-    id: "RPT003",
-    titre: "Rapport annuel - 2024",
-    type: "annuel", 
-    periode: "2024",
-    statut: "en_cours",
-    dateCreation: "2025-01-01T09:00:00Z",
-    donnees: {
-      ventesTotal: 0,
-      commandesTotal: 0,
-      livresVendus: 0,
-      chiffreAffaires: 0,
-      evolution: "0%"
-    }
+interface Rapport {
+  id: string
+  titre: string
+  type: string
+  periode: string
+  statut: string
+  dateCreation: string
+  donnees: {
+    ventesTotal: number
+    commandesTotal: number
+    livresVendus: number
+    chiffreAffaires: number
+    evolution: string
   }
-]
+}
 
-const mockStatsGenerales = {
-  totalVentes: 5050000,
-  totalCommandes: 173,
-  totalLivres: 1270,
-  chiffreAffaires: 5050000,
-  evolutionMensuelle: "+12.5%",
-  meilleurMois: "Janvier 2025",
-  disciplinePopulaire: "Sciences",
-  livrePopulaire: "Mathématiques 6ème"
+interface SummaryData {
+  totalVentes: number
+  totalCommandes: number
+  totalLivres: number
+  chiffreAffaires: number
+  evolution: string
+  meilleurMois: string
+  disciplinePopulaire: string
+  livrePopulaire: string
 }
 
 export default function RapportsPage() {
-  const [rapports, setRapports] = useState([])
-  const [filteredRapports, setFilteredRapports] = useState([])
-  const [summaryData, setSummaryData] = useState(null)
-  const [detailedData, setDetailedData] = useState(null)
+  const [summaryData, setSummaryData] = useState<SummaryData | null>(null)
+  const [detailedData, setDetailedData] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [typeFilter, setTypeFilter] = useState("tous")
@@ -93,54 +67,139 @@ export default function RapportsPage() {
   const [periodeFilter, setPeriodeFilter] = useState("tous")
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [selectedRapport, setSelectedRapport] = useState<any>(null)
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: undefined,
+    to: undefined
+  })
+  const [showGenerateModal, setShowGenerateModal] = useState(false)
+  const [reportType, setReportType] = useState("mensuel")
 
-  // Charger les rapports
   useEffect(() => {
     loadReports()
-  }, [])
+  }, [dateRange])
 
   const loadReports = async () => {
     try {
       setIsLoading(true)
       
-      const data = await apiClient.getPartenaireReports({ 
+      const params = new URLSearchParams({
         type: 'summary'
       })
-      
-      setSummaryData(data)
-      
+
+      if (dateRange.from) {
+        params.append('startDate', dateRange.from.toISOString())
+      }
+      if (dateRange.to) {
+        params.append('endDate', dateRange.to.toISOString())
+      }
+
+      const response = await fetch(`/api/partenaire/rapports?${params}`)
+      if (!response.ok) throw new Error("Erreur lors du chargement")
+
+      const data = await response.json()
+      setSummaryData(data.summary || null)
+      setDetailedData(data)
     } catch (error: any) {
       console.error('Erreur lors du chargement des rapports:', error)
+      toast.error(error.message || "Erreur lors du chargement des rapports")
     } finally {
       setIsLoading(false)
     }
   }
 
-  const viewDetails = (rapport: any) => {
+  const loadDetailedReport = async () => {
+    try {
+      setIsLoading(true)
+      
+      const params = new URLSearchParams({
+        type: 'detailed'
+      })
+
+      if (dateRange.from) {
+        params.append('startDate', dateRange.from.toISOString())
+      }
+      if (dateRange.to) {
+        params.append('endDate', dateRange.to.toISOString())
+      }
+
+      const response = await fetch(`/api/partenaire/rapports?${params}`)
+      if (!response.ok) throw new Error("Erreur lors du chargement")
+
+      const data = await response.json()
+      setDetailedData(data)
+      return data
+    } catch (error: any) {
+      console.error('Erreur lors du chargement du rapport détaillé:', error)
+      toast.error(error.message || "Erreur lors du chargement")
+      return null
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const viewDetails = async (rapport: any) => {
     setSelectedRapport(rapport)
+    const detailed = await loadDetailedReport()
+    if (detailed) {
+      setSelectedRapport({ ...rapport, detailed })
+    }
     setShowDetailModal(true)
   }
 
-  const generateRapport = () => {
-    // Simulation de génération de rapport
-    const newRapport = {
-      id: `RPT${Date.now().toString().slice(-3)}`,
-      titre: `Rapport automatique - ${new Date().toLocaleDateString('fr-FR')}`,
-      type: "automatique",
-      periode: new Date().toISOString().slice(0, 7),
-      statut: "généré",
-      dateCreation: new Date().toISOString(),
-      donnees: {
-        ventesTotal: Math.floor(Math.random() * 1000000) + 500000,
-        commandesTotal: Math.floor(Math.random() * 50) + 20,
-        livresVendus: Math.floor(Math.random() * 200) + 100,
-        chiffreAffaires: Math.floor(Math.random() * 1000000) + 500000,
-        evolution: `+${(Math.random() * 20).toFixed(1)}%`
+  const generateRapport = async () => {
+    try {
+      const startDate = dateRange.from || new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+      const endDate = dateRange.to || new Date()
+
+      const response = await fetch("/api/partenaire/rapports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reportType,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString()
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Erreur lors de la génération")
       }
+
+      toast.success("Rapport généré avec succès")
+      setShowGenerateModal(false)
+      loadReports()
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de la génération du rapport")
     }
-    
-    setRapports([newRapport, ...rapports])
-    alert("Rapport généré avec succès !")
+  }
+
+  const handleExport = () => {
+    if (!summaryData) {
+      toast.error("Aucune donnée à exporter")
+      return
+    }
+
+    const csvContent = [
+      ["Rapport Partenaire", ""],
+      ["Chiffre d'affaires total", `${summaryData.chiffreAffaires} F CFA`],
+      ["Total commandes", summaryData.totalCommandes],
+      ["Total livres vendus", summaryData.totalLivres],
+      ["Évolution", summaryData.evolution],
+      ["Discipline populaire", summaryData.disciplinePopulaire],
+      ["Livre populaire", summaryData.livrePopulaire],
+    ].map(row => row.join(",")).join("\n")
+
+    const blob = new Blob([csvContent], { type: "text/csv" })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `rapport_partenaire_${format(new Date(), "yyyy-MM-dd")}.csv`
+    document.body.appendChild(a)
+    a.click()
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+    toast.success("Rapport exporté avec succès")
   }
 
   const getTypeIcon = (type: string) => {
@@ -174,30 +233,39 @@ export default function RapportsPage() {
 
   return (
     <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Rapports simplifiés</h1>
-            <p className="text-gray-600 mt-1">
-              Consultez vos rapports de performance et statistiques
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              onClick={generateRapport}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              <FileText className="w-4 h-4 mr-2" />
-              Générer rapport
-            </Button>
-            <Button variant="outline">
-              <Download className="w-4 h-4 mr-2" />
-              Exporter
-            </Button>
-          </div>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Rapports simplifiés</h1>
+          <p className="text-gray-600 mt-1">
+            Consultez vos rapports de performance et statistiques
+          </p>
         </div>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setShowGenerateModal(true)}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            Générer rapport
+          </Button>
+          <Button variant="outline" onClick={handleExport}>
+            <Download className="w-4 h-4 mr-2" />
+            Exporter
+          </Button>
+          <Button variant="outline" onClick={loadReports}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Actualiser
+          </Button>
+        </div>
+      </div>
 
-        {/* Stats générales */}
+      {/* Stats générales */}
+      {isLoading ? (
+        <div className="flex justify-center items-center py-12">
+          <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
+        </div>
+      ) : summaryData ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -205,9 +273,11 @@ export default function RapportsPage() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{mockStatsGenerales.chiffreAffaires.toLocaleString()} F CFA</div>
+              <div className="text-2xl font-bold">{summaryData.chiffreAffaires.toLocaleString()} F CFA</div>
               <p className="text-xs text-muted-foreground">
-                <span className="text-green-600">{mockStatsGenerales.evolutionMensuelle}</span> vs mois précédent
+                <span className={summaryData.evolution.startsWith('+') ? "text-green-600" : "text-red-600"}>
+                  {summaryData.evolution}
+                </span> vs période précédente
               </p>
             </CardContent>
           </Card>
@@ -218,9 +288,9 @@ export default function RapportsPage() {
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{mockStatsGenerales.totalCommandes}</div>
+              <div className="text-2xl font-bold">{summaryData.totalCommandes}</div>
               <p className="text-xs text-muted-foreground">
-                Meilleur mois: {mockStatsGenerales.meilleurMois}
+                Meilleur mois: {summaryData.meilleurMois}
               </p>
             </CardContent>
           </Card>
@@ -231,9 +301,9 @@ export default function RapportsPage() {
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{mockStatsGenerales.totalLivres}</div>
+              <div className="text-2xl font-bold">{summaryData.totalLivres}</div>
               <p className="text-xs text-muted-foreground">
-                Discipline populaire: {mockStatsGenerales.disciplinePopulaire}
+                Discipline populaire: {summaryData.disciplinePopulaire}
               </p>
             </CardContent>
           </Card>
@@ -244,285 +314,246 @@ export default function RapportsPage() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{mockStatsGenerales.evolutionMensuelle}</div>
+              <div className={`text-2xl font-bold ${summaryData.evolution.startsWith('+') ? "text-green-600" : "text-red-600"}`}>
+                {summaryData.evolution}
+              </div>
               <p className="text-xs text-muted-foreground">
-                Livre populaire: {mockStatsGenerales.livrePopulaire}
+                Livre populaire: {summaryData.livrePopulaire}
               </p>
             </CardContent>
           </Card>
         </div>
+      ) : (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">Aucune donnée disponible</p>
+          </CardContent>
+        </Card>
+      )}
 
-        {/* Filtres */}
-        <div className="bg-white rounded-lg border p-6">
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  placeholder="Rechercher par titre ou ID..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+      {/* Filtres */}
+      <div className="bg-white rounded-lg border p-6">
+        <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                placeholder="Rechercher..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
             </div>
-            <div className="flex gap-4">
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Type" />
+          </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={"outline"}
+                className={cn(
+                  "w-full lg:w-[300px] justify-start text-left font-normal",
+                  !dateRange.from && "text-muted-foreground"
+                )}
+              >
+                <Calendar className="mr-2 h-4 w-4" />
+                {dateRange.from ? (
+                  dateRange.to ? (
+                    <>
+                      {format(dateRange.from, "dd MMM yyyy", { locale: fr })} -{" "}
+                      {format(dateRange.to, "dd MMM yyyy", { locale: fr })}
+                    </>
+                  ) : (
+                    format(dateRange.from, "dd MMM yyyy", { locale: fr })
+                  )
+                ) : (
+                  <span>Sélectionner une période</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarComponent
+                initialFocus
+                mode="range"
+                defaultMonth={dateRange.from}
+                selected={dateRange as any}
+                onSelect={setDateRange as any}
+                numberOfMonths={2}
+                locale={fr}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
+
+      {/* Statistiques détaillées */}
+      {detailedData && detailedData.disciplineStats && detailedData.disciplineStats.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Top disciplines</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {detailedData.disciplineStats.slice(0, 5).map((stat: any, index: number) => (
+                  <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                    <span className="text-sm font-medium">{stat.name}</span>
+                    <div className="text-right">
+                      <span className="text-sm font-semibold">{stat.count} livres</span>
+                      <p className="text-xs text-gray-500">{stat.revenue.toLocaleString()} F CFA</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Top livres</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {detailedData.livreStats && detailedData.livreStats.slice(0, 5).map((stat: any, index: number) => (
+                  <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                    <span className="text-sm font-medium truncate flex-1">{stat.title}</span>
+                    <div className="text-right ml-2">
+                      <span className="text-sm font-semibold">{stat.count} ex.</span>
+                      <p className="text-xs text-gray-500">{stat.revenue.toLocaleString()} F CFA</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Modal de génération */}
+      <Dialog open={showGenerateModal} onOpenChange={setShowGenerateModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Générer un rapport</DialogTitle>
+            <DialogDescription>
+              Sélectionnez le type de rapport à générer
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Type de rapport</Label>
+              <Select value={reportType} onValueChange={setReportType}>
+                <SelectTrigger>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="tous">Tous les types</SelectItem>
                   <SelectItem value="mensuel">Mensuel</SelectItem>
                   <SelectItem value="trimestriel">Trimestriel</SelectItem>
                   <SelectItem value="annuel">Annuel</SelectItem>
-                  <SelectItem value="automatique">Automatique</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Select value={statutFilter} onValueChange={setStatutFilter}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Statut" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tous">Tous les statuts</SelectItem>
-                  <SelectItem value="généré">Généré</SelectItem>
-                  <SelectItem value="en_cours">En cours</SelectItem>
-                  <SelectItem value="erreur">Erreur</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Select value={periodeFilter} onValueChange={setPeriodeFilter}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Période" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tous">Toutes périodes</SelectItem>
-                  <SelectItem value="2025">2025</SelectItem>
-                  <SelectItem value="2024">2024</SelectItem>
-                  <SelectItem value="Q4">Q4 2024</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          </div>
-          
-          <div className="mt-4 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600">
-                Résultats: {filteredRapports.length}
-              </span>
+            <div>
+              <Label>Période</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !dateRange.from && "text-muted-foreground"
+                    )}
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {dateRange.from ? (
+                      dateRange.to ? (
+                        <>
+                          {format(dateRange.from, "dd MMM yyyy", { locale: fr })} -{" "}
+                          {format(dateRange.to, "dd MMM yyyy", { locale: fr })}
+                        </>
+                      ) : (
+                        format(dateRange.from, "dd MMM yyyy", { locale: fr })
+                      )
+                    ) : (
+                      <span>Sélectionner une période</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    initialFocus
+                    mode="range"
+                    defaultMonth={dateRange.from}
+                    selected={dateRange as any}
+                    onSelect={setDateRange as any}
+                    numberOfMonths={2}
+                    locale={fr}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
-        </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowGenerateModal(false)}>
+              Annuler
+            </Button>
+            <Button onClick={generateRapport} className="bg-blue-600 hover:bg-blue-700">
+              Générer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-        {/* Table */}
-        <div className="bg-white rounded-lg border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Titre
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Période
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Chiffre d'affaires
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Évolution
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Statut
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredRapports.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
-                      Aucun rapport trouvé
-                    </td>
-                  </tr>
-                ) : (
-                  filteredRapports.map((rapport) => (
-                    <tr key={rapport.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className={`p-2 rounded-lg ${getTypeColor(rapport.type)}`}>
-                            {getTypeIcon(rapport.type)}
+      {/* Modal de détails */}
+      {showDetailModal && selectedRapport && detailedData && (
+        <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Détails du rapport</DialogTitle>
+              <DialogDescription>
+                Informations détaillées sur vos performances
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6">
+              {detailedData.orders && detailedData.orders.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-4">Commandes</h3>
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {detailedData.orders.map((order: any) => (
+                      <div key={order.id} className="border rounded-lg p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <p className="font-medium">{order.reference}</p>
+                            <p className="text-sm text-gray-500">{order.date}</p>
                           </div>
-                          <div className="ml-3">
-                            <div className="text-sm font-medium text-gray-900 capitalize">
-                              {rapport.type}
+                          <Badge>{order.status}</Badge>
+                        </div>
+                        <div className="mt-2 space-y-1">
+                          {order.items.map((item: any, idx: number) => (
+                            <div key={idx} className="text-sm text-gray-600">
+                              {item.work} - {item.quantity}x {item.price.toLocaleString()} F CFA
                             </div>
-                          </div>
+                          ))}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          {rapport.titre}
+                        <div className="mt-2 text-sm font-semibold">
+                          Total: {order.total.toLocaleString()} F CFA
                         </div>
-                        <div className="text-sm text-gray-500">
-                          ID: {rapport.id}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {rapport.periode}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {rapport.donnees.chiffreAffaires.toLocaleString()} F CFA
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`text-sm font-medium ${
-                          rapport.donnees.evolution.startsWith('+') ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          {rapport.donnees.evolution}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge className={getStatutColor(rapport.statut)}>
-                          {rapport.statut}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(rapport.dateCreation).toLocaleDateString('fr-FR', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <div className="flex items-center gap-2">
-                          <button 
-                            className="text-blue-600 hover:text-blue-800"
-                            onClick={() => viewDetails(rapport)}
-                            title="Voir les détails"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button 
-                            className="text-green-600 hover:text-green-800"
-                            title="Télécharger"
-                          >
-                            <Download className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Detail Modal */}
-        {showDetailModal && selectedRapport && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  {getTypeIcon(selectedRapport.type)}
-                  {selectedRapport.titre}
-                </h3>
-                <button 
-                  onClick={() => setShowDetailModal(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  ✕
-                </button>
-              </div>
-              
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-700">ID du rapport</label>
-                    <p className="text-sm text-gray-900 mt-1">{selectedRapport.id}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-700">Période</label>
-                    <p className="text-sm text-gray-900 mt-1">{selectedRapport.periode}</p>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-700">Type</label>
-                    <Badge className={`mt-1 ${getTypeColor(selectedRapport.type)}`}>
-                      {selectedRapport.type}
-                    </Badge>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-700">Statut</label>
-                    <Badge className={`mt-1 ${getStatutColor(selectedRapport.statut)}`}>
-                      {selectedRapport.statut}
-                    </Badge>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="text-sm font-medium text-gray-700">Données du rapport</label>
-                  <div className="mt-2 grid grid-cols-2 gap-4">
-                    <div className="bg-gray-50 p-3 rounded">
-                      <div className="text-sm text-gray-600">Ventes totales</div>
-                      <div className="text-lg font-semibold">{selectedRapport.donnees.ventesTotal.toLocaleString()} F CFA</div>
-                    </div>
-                    <div className="bg-gray-50 p-3 rounded">
-                      <div className="text-sm text-gray-600">Commandes totales</div>
-                      <div className="text-lg font-semibold">{selectedRapport.donnees.commandesTotal}</div>
-                    </div>
-                    <div className="bg-gray-50 p-3 rounded">
-                      <div className="text-sm text-gray-600">Livres vendus</div>
-                      <div className="text-lg font-semibold">{selectedRapport.donnees.livresVendus}</div>
-                    </div>
-                    <div className="bg-gray-50 p-3 rounded">
-                      <div className="text-sm text-gray-600">Évolution</div>
-                      <div className={`text-lg font-semibold ${
-                        selectedRapport.donnees.evolution.startsWith('+') ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {selectedRapport.donnees.evolution}
                       </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
-                
-                <div>
-                  <label className="text-sm font-medium text-gray-700">Date de création</label>
-                  <p className="text-sm text-gray-900 mt-1">
-                    {new Date(selectedRapport.dateCreation).toLocaleString('fr-FR')}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex justify-end gap-3 pt-6">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowDetailModal(false)}
-                  className="text-gray-600 border-gray-600 hover:bg-gray-50"
-                >
-                  Fermer
-                </Button>
-                <Button className="bg-blue-600 hover:bg-blue-700">
-                  <Download className="w-4 h-4 mr-2" />
-                  Télécharger
-                </Button>
-              </div>
+              )}
             </div>
-          </div>
-        )}
-      </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowDetailModal(false)}>
+                Fermer
+              </Button>
+              <Button onClick={handleExport} className="bg-blue-600 hover:bg-blue-700">
+                <Download className="w-4 h-4 mr-2" />
+                Exporter
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
   )
 }

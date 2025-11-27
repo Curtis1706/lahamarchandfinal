@@ -1097,7 +1097,51 @@ export class ApiClient {
     const params = new URLSearchParams()
     if (filters?.startDate) params.append('startDate', filters.startDate)
     if (filters?.endDate) params.append('endDate', filters.endDate)
-    return this.request(`/pdg/stock/workflow?${params}`)
+    return this.request(`/pdg/stock/workflow/stats?${params}`)
+  }
+
+  // Notifications - Auteur
+  async getAuthorNotifications(filters?: { category?: string; limit?: number }) {
+    const params = new URLSearchParams()
+    if (filters?.category) params.append('category', filters.category)
+    if (filters?.limit) params.append('limit', filters.limit.toString())
+    return this.request(`/author/notifications?${params}`)
+  }
+
+  async markAuthorNotificationAsRead(notificationId: string) {
+    return this.request('/author/notifications', {
+      method: 'PATCH',
+      body: JSON.stringify({ notificationId })
+    })
+  }
+
+  // Notifications - Concepteur
+  async getConcepteurNotifications() {
+    return this.request('/concepteur/notifications')
+  }
+
+  // Notifications - Partenaire
+  async getPartenaireNotifications() {
+    return this.request('/partenaire/notifications')
+  }
+
+  async markPartenaireNotificationsAsRead(notificationIds: string[]) {
+    return this.request('/partenaire/notifications', {
+      method: 'PATCH',
+      body: JSON.stringify({ notificationIds })
+    })
+  }
+
+  // Notifications - Représentant
+  async getRepresentantNotifications() {
+    return this.request('/representant/notifications')
+  }
+
+  async markRepresentantNotificationAsRead(notificationId?: string, notificationIds?: string[]) {
+    return this.request('/representant/notifications', {
+      method: 'PATCH',
+      body: JSON.stringify({ notificationId, notificationIds, action: 'read' })
+    })
   }
 
   // Download file helper

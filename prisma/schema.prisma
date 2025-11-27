@@ -8,45 +8,53 @@ datasource db {
 }
 
 model User {
-  id                      String             @id @default(cuid())
-  name                    String
-  email                   String             @unique
-  phone                   String?
-  emailVerified           DateTime?
-  image                   String?
-  password                String
-  role                    Role
-  status                  UserStatus         @default(PENDING)
-  disciplineId            String?
-  representantId          String?            // Représentant assigné (pour auteurs)
-  lastLoginAt             DateTime?          // Dernière connexion
-  createdAt               DateTime           @default(now())
-  updatedAt               DateTime           @updatedAt
-  accounts                Account[]
-  receivedMessages        Message[]          @relation("ReceivedMessages")
-  sentMessages            Message[]          @relation("SentMessages")
-  notifications           Notification[]
-  orders                  Order[]
-  partnerClients          Partner[]          @relation("PartnerRepresentant")
-  partner                 Partner?
-  conceivedProjects       Project[]          @relation("ConceptorProjects")
-  reviewedProjects        Project[]          @relation("ReviewedProjects")
-  royalties               Royalty[]
-  sessions                Session[]
-  resolvedAlerts          StockAlert[]
-  createdAlertRules       StockAlertRule[]
-  createdIntegrations     StockIntegration[]
-  performedStockMovements StockMovement[]    @relation("StockMovements")
-  createdReports          StockReport[]
-  discipline              Discipline?        @relation(fields: [disciplineId], references: [id])
-  representant            User?              @relation("RepresentantAuthors", fields: [representantId], references: [id], onDelete: SetNull)
-  managedAuthors          User[]             @relation("RepresentantAuthors")
-  authoredWorks           Work[]             @relation("AuthorWorks")
-  conceivedWorks          Work[]             @relation("ConceptorWorks")
-  reviewedWorks           Work[]             @relation("ReviewedWorks")
-  workSales               WorkSale[]
-  createdWorkVersions     WorkVersion[]
-  workViews               WorkView[]
+  id                        String              @id @default(cuid())
+  name                      String
+  email                     String              @unique
+  phone                     String?
+  emailVerified             DateTime?
+  image                     String?
+  password                  String
+  role                      Role
+  status                    UserStatus          @default(PENDING)
+  disciplineId              String?
+  representantId            String? // Représentant assigné (pour auteurs)
+  lastLoginAt               DateTime? // Dernière connexion
+  createdAt                 DateTime            @default(now())
+  updatedAt                 DateTime            @updatedAt
+  accounts                  Account[]
+  receivedMessages          Message[]           @relation("ReceivedMessages")
+  sentMessages              Message[]           @relation("SentMessages")
+  notifications             Notification[]
+  orders                    Order[]
+  partnerClients            Partner[]           @relation("PartnerRepresentant")
+  partner                   Partner?
+  conceivedProjects         Project[]           @relation("ConceptorProjects")
+  reviewedProjects          Project[]           @relation("ReviewedProjects")
+  royalties                 Royalty[]
+  sessions                  Session[]
+  resolvedAlerts            StockAlert[]
+  createdAlertRules         StockAlertRule[]
+  createdIntegrations       StockIntegration[]
+  performedStockMovements   StockMovement[]     @relation("StockMovements")
+  createdReports            StockReport[]
+  discipline                Discipline?         @relation(fields: [disciplineId], references: [id])
+  representant              User?               @relation("RepresentantAuthors", fields: [representantId], references: [id], onDelete: SetNull)
+  managedAuthors            User[]              @relation("RepresentantAuthors")
+  authoredWorks             Work[]              @relation("AuthorWorks")
+  conceivedWorks            Work[]              @relation("ConceptorWorks")
+  reviewedWorks             Work[]              @relation("ReviewedWorks")
+  workSales                 WorkSale[]
+  createdWorkVersions       WorkVersion[]
+  workViews                 WorkView[]
+  generatedDeliveryNotes    DeliveryNote[]      @relation("GeneratedDeliveryNotes")
+  validatedDeliveryNotes    DeliveryNote[]      @relation("ValidatedDeliveryNotes")
+  controlledDeliveryNotes   DeliveryNote[]      @relation("ControlledDeliveryNotes")
+  stockRequests             StockRequest[]      @relation("StockRequests")
+  approvedStockRequests     StockRequest[]      @relation("ApprovedStockRequests")
+  notificationChains        NotificationChain[] @relation("NotificationChains")
+  createdNotificationChains NotificationChain[] @relation("CreatedNotificationChains")
+  updatedAdvancedSettings   AdvancedSetting[]   @relation("UpdatedAdvancedSettings")
 }
 
 model Account {
@@ -147,6 +155,7 @@ model Work {
   workSales             WorkSale[]
   versions              WorkVersion[]
   workViews             WorkView[]
+  stockRequestItems     StockRequestItem[]
 }
 
 model StockMovement {
@@ -237,20 +246,23 @@ model PartnerStock {
 }
 
 model Order {
-  id               String      @id @default(cuid())
-  userId           String
-  partnerId        String?
-  paymentMethod    String?     // Mobile Money, Virement, Espèces, Carte Bancaire
-  paymentReference String?     // Référence de transaction
-  subtotal         Float       @default(0)
-  tax              Float       @default(0)
-  total            Float       @default(0)
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @default(now()) @updatedAt
-  status           OrderStatus @default(PENDING)
-  partner          Partner?    @relation("PartnerOrders", fields: [partnerId], references: [id])
-  user             User        @relation(fields: [userId], references: [id])
-  items            OrderItem[]
+  id                 String              @id @default(cuid())
+  userId             String
+  partnerId          String?
+  paymentMethod      String? // Mobile Money, Virement, Espèces, Carte Bancaire
+  paymentReference   String? // Référence de transaction
+  subtotal           Float               @default(0)
+  tax                Float               @default(0)
+  total              Float               @default(0)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @default(now()) @updatedAt
+  status             OrderStatus         @default(PENDING)
+  partner            Partner?            @relation("PartnerOrders", fields: [partnerId], references: [id])
+  user               User                @relation(fields: [userId], references: [id])
+  items              OrderItem[]
+  deliveryNote       DeliveryNote?
+  stockRequests      StockRequest[]      @relation("StockRequestOrders")
+  notificationChains NotificationChain[] @relation("NotificationChainOrders")
 }
 
 model OrderItem {
@@ -261,6 +273,74 @@ model OrderItem {
   price    Float
   order    Order  @relation(fields: [orderId], references: [id])
   work     Work   @relation(fields: [workId], references: [id])
+}
+
+model DeliveryNote {
+  id             String             @id @default(cuid())
+  reference      String             @unique // Référence unique du bon de sortie (ex: BS-2025-001)
+  orderId        String             @unique // Lien vers la commande
+  order          Order              @relation(fields: [orderId], references: [id])
+  generatedById  String // ID de l'utilisateur qui a généré le bon
+  generatedBy    User               @relation("GeneratedDeliveryNotes", fields: [generatedById], references: [id])
+  validatedById  String? // ID de l'utilisateur qui a validé
+  validatedBy    User?              @relation("ValidatedDeliveryNotes", fields: [validatedById], references: [id])
+  validatedAt    DateTime? // Date de validation
+  controlledById String? // ID de l'utilisateur qui a contrôlé
+  controlledBy   User?              @relation("ControlledDeliveryNotes", fields: [controlledById], references: [id])
+  controlledAt   DateTime? // Date de contrôle
+  status         DeliveryNoteStatus @default(PENDING)
+  period         String? // Période (ex: "Vacances et rentrée scolaire")
+  notes          String? // Notes additionnelles
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([orderId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([reference])
+}
+
+model StockRequest {
+  id            String             @id @default(cuid())
+  reference     String             @unique
+  requestedById String
+  requestedBy   User               @relation("StockRequests", fields: [requestedById], references: [id])
+  approvedById  String?
+  approvedBy    User?              @relation("ApprovedStockRequests", fields: [approvedById], references: [id])
+  approvedAt    DateTime?
+  status        StockRequestStatus @default(PENDING)
+  type          StockRequestType
+  method        String?
+  period        String?
+  deliveryDate  DateTime?
+  departmentId  String?
+  zoneId        String?
+  orderId       String?
+  order         Order?             @relation("StockRequestOrders", fields: [orderId], references: [id])
+  notes         String?
+  items         StockRequestItem[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([requestedById])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+  @@index([reference])
+}
+
+model StockRequestItem {
+  id               String       @id @default(cuid())
+  requestId        String
+  request          StockRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  workId           String
+  work             Work         @relation(fields: [workId], references: [id])
+  quantity         Int
+  approvedQuantity Int?
+  createdAt        DateTime     @default(now())
+
+  @@index([requestId])
+  @@index([workId])
 }
 
 model Royalty {
@@ -304,6 +384,30 @@ model Notification {
   @@index([createdAt])
 }
 
+model NotificationChain {
+  id            String   @id @default(cuid())
+  title         String
+  clientId      String? // ID du client concerné (peut être null pour tous les clients)
+  client        User?    @relation("NotificationChains", fields: [clientId], references: [id])
+  scheduledDate DateTime // Date et heure programmée
+  sendSMS       Boolean  @default(true)
+  sendEmail     Boolean  @default(true)
+  daysBefore    Int      @default(1) // Nombre de jours avant l'événement
+  status        String   @default("Actif") // Actif ou Désactivé
+  message       String
+  orderId       String? // ID de la commande si liée à une commande
+  order         Order?   @relation("NotificationChainOrders", fields: [orderId], references: [id])
+  createdById   String
+  createdBy     User     @relation("CreatedNotificationChains", fields: [createdById], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([status])
+  @@index([scheduledDate])
+  @@index([createdAt])
+}
+
 model AuditLog {
   id          String   @id @default(cuid())
   action      String
@@ -312,6 +416,24 @@ model AuditLog {
   details     String
   metadata    String?
   createdAt   DateTime @default(now())
+}
+
+model AdvancedSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  description String
+  value       String
+  type        String   @default("string")
+  category    String?
+  status      String   @default("Actif")
+  updatedById String?
+  updatedBy   User?    @relation("UpdatedAdvancedSettings", fields: [updatedById], references: [id])
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@index([key])
+  @@index([category])
+  @@index([status])
 }
 
 model WorkVersion {
@@ -531,6 +653,30 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum DeliveryNoteStatus {
+  PENDING
+  VALIDATED
+  CONTROLLED
+  COMPLETED
+  CANCELLED
+}
+
+enum StockRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSING
+  DELIVERED
+  CANCELLED
+}
+
+enum StockRequestType {
+  COMMANDE
+  PRECOMMANDE
+  DEPOT
+  REAPPROVISIONNEMENT
+}
+
 enum StockMovementType {
   INBOUND
   OUTBOUND
@@ -630,20 +776,20 @@ enum SyncStatus {
 
 // Modèle pour les codes promo et promotions
 model Promotion {
-  id                String           @id @default(cuid())
-  libelle           String           // Nom de la promotion
-  code              String           @unique // Code promo unique
-  periode           String           // Période de validité (texte libre)
-  startDate         DateTime?        // Date de début (optionnel)
-  endDate           DateTime?        // Date de fin (optionnel)
-  livre             String           // Livres concernés
-  statut            PromotionStatus  @default(ACTIF)
-  taux              String           // Montant ou pourcentage de réduction
-  quantiteMinimale  Int              @default(1)
-  description       String?          // Description optionnelle
-  createdBy         String           // Créé par
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  id               String          @id @default(cuid())
+  libelle          String // Nom de la promotion
+  code             String          @unique // Code promo unique
+  periode          String // Période de validité (texte libre)
+  startDate        DateTime? // Date de début (optionnel)
+  endDate          DateTime? // Date de fin (optionnel)
+  livre            String // Livres concernés
+  statut           PromotionStatus @default(ACTIF)
+  taux             String // Montant ou pourcentage de réduction
+  quantiteMinimale Int             @default(1)
+  description      String? // Description optionnelle
+  createdBy        String // Créé par
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
   @@index([code])
   @@index([statut])
@@ -673,7 +819,7 @@ model Category {
 model SchoolClass {
   id        String   @id @default(cuid())
   name      String   @unique // ex: "CI", "CP", "CE1", etc.
-  section   String   // "Primaire" ou "Secondaire"
+  section   String // "Primaire" ou "Secondaire"
   isActive  Boolean  @default(true)
   createdBy String
   createdAt DateTime @default(now())
@@ -686,18 +832,18 @@ model SchoolClass {
 
 // Modèle pour les réductions (différent des promotions)
 model Discount {
-  id           String         @id @default(cuid())
-  client       String         // Type de client (Librairie, École, etc.)
-  livre        String         // Livres concernés
-  quantiteMin  Int            @default(1)
-  reduction    Float          // Montant de la réduction
-  statut       DiscountStatus @default(ACTIF)
-  description  String?
-  type         String         @default("Montant") // "Montant" ou "Pourcentage"
-  image        String?
-  createdBy    String
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id          String         @id @default(cuid())
+  client      String // Type de client (Librairie, École, etc.)
+  livre       String // Livres concernés
+  quantiteMin Int            @default(1)
+  reduction   Float // Montant de la réduction
+  statut      DiscountStatus @default(ACTIF)
+  description String?
+  type        String         @default("Montant") // "Montant" ou "Pourcentage"
+  image       String?
+  createdBy   String
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
   @@index([statut])
   @@index([client])
@@ -714,15 +860,15 @@ model Client {
   nom            String
   telephone      String?
   email          String?
-  type           String       // Concepteur, École, Librairie, Auteur, etc.
+  type           String // Concepteur, École, Librairie, Auteur, etc.
   departement    String?
   address        String?
   city           String?
-  contact        String?      // Personne de contact
+  contact        String? // Personne de contact
   statut         ClientStatus @default(EN_ATTENTE)
   dette          Float        @default(0)
   notes          String?
-  representantId String?      // Représentant assigné
+  representantId String? // Représentant assigné
   totalOrders    Int          @default(0)
   totalSpent     Float        @default(0)
   lastOrder      DateTime?
@@ -749,7 +895,7 @@ model Communication {
   title          String
   message        String              @db.Text
   type           CommunicationType   @default(ANNOUNCEMENT)
-  targetAudience String              // JSON array des rôles ciblés
+  targetAudience String // JSON array des rôles ciblés
   status         CommunicationStatus @default(DRAFT)
   scheduledFor   DateTime?
   sentAt         DateTime?
@@ -781,8 +927,8 @@ enum CommunicationStatus {
 // Modèle pour les paramètres globaux du système
 model Setting {
   id        String   @id @default(cuid())
-  category  String   // platform, business, stock, pricing, notifications, security, audit
-  key       String   // Clé du paramètre
+  category  String // platform, business, stock, pricing, notifications, security, audit
+  key       String // Clé du paramètre
   value     String   @db.Text // Valeur (JSON ou texte)
   type      String   @default("string") // string, number, boolean, json
   updatedBy String?
