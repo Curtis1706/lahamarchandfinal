@@ -53,9 +53,7 @@ import {
   Users,
   BookOpen,
   Settings,
-  Zap,
-  FileText,
-  Link
+  FileText
 } from "lucide-react"
 import { toast } from "sonner"
 import { apiClient } from '@/lib/api-client'
@@ -241,11 +239,6 @@ export default function GestionStockPage() {
   const [statisticsPeriod, setStatisticsPeriod] = useState(30)
   const [selectedDiscipline, setSelectedDiscipline] = useState<string>('all')
 
-  // États pour l'automatisation
-  const [alertRules, setAlertRules] = useState<any[]>([])
-  const [stockReports, setStockReports] = useState<any[]>([])
-  const [integrations, setIntegrations] = useState<any[]>([])
-  const [automationLoading, setAutomationLoading] = useState(false)
 
   // États des filtres
   const [searchTerm, setSearchTerm] = useState('')
@@ -450,29 +443,6 @@ export default function GestionStockPage() {
     }
   }
 
-  const loadAutomationData = async () => {
-    setAutomationLoading(true)
-    try {
-      const [rulesData, reportsData, integrationsData] = await Promise.all([
-        apiClient.getStockAlerts('rules', {}),
-        apiClient.getStockReports('reports', {}),
-        apiClient.getStockIntegrations('list', {})
-      ])
-      
-      setAlertRules(Array.isArray(rulesData) ? rulesData : [])
-      setStockReports(Array.isArray(reportsData) ? reportsData : [])
-      setIntegrations(Array.isArray(integrationsData) ? integrationsData : [])
-    } catch (error: any) {
-      console.error('Erreur chargement automatisation:', error)
-      toast.error(error.message || "Erreur lors du chargement des données d'automatisation")
-      // Initialiser avec des tableaux vides en cas d'erreur
-      setAlertRules([])
-      setStockReports([])
-      setIntegrations([])
-    } finally {
-      setAutomationLoading(false)
-    }
-  }
 
   // Filtrage des données
   const filteredWorks = works.filter(work => {
@@ -537,8 +507,7 @@ export default function GestionStockPage() {
             { id: 'alerts', label: 'Alertes', icon: AlertTriangle },
             { id: 'pending', label: 'En attente', icon: Eye },
             { id: 'versions', label: 'Versions', icon: GitBranch },
-            { id: 'statistics', label: 'Statistiques', icon: BarChart3 },
-            { id: 'automation', label: 'Automatisation', icon: Activity }
+            { id: 'statistics', label: 'Statistiques', icon: BarChart3 }
           ].map((tab) => {
             const Icon = tab.icon
             return (
@@ -1719,291 +1688,6 @@ export default function GestionStockPage() {
           </div>
         )}
 
-        {/* Automatisation */}
-        {activeTab === 'automation' && (
-          <div className="space-y-6">
-            {/* En-tête avec actions */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Automatisation</h2>
-                <p className="text-gray-600">Gérez les alertes intelligentes, rapports automatisés et intégrations</p>
-              </div>
-              <Button 
-                onClick={loadAutomationData}
-                disabled={automationLoading}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {automationLoading ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                ) : (
-                  <Zap className="h-4 w-4 mr-2" />
-                )}
-                Actualiser
-              </Button>
-            </div>
-
-            {/* Vue d'ensemble de l'automatisation */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Règles d'Alerte</CardTitle>
-                  <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{alertRules.length}</div>
-                  <p className="text-xs text-muted-foreground">
-                    Règles actives
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Rapports</CardTitle>
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stockReports.length}</div>
-                  <p className="text-xs text-muted-foreground">
-                    Rapports configurés
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Intégrations</CardTitle>
-                  <Link className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{integrations.length}</div>
-                  <p className="text-xs text-muted-foreground">
-                    Systèmes connectés
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Sections d'automatisation */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Règles d'alerte */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <AlertTriangle className="h-5 w-5 mr-2 text-orange-500" />
-                    Règles d'Alerte
-                  </CardTitle>
-                  <CardDescription>
-                    Configurez des alertes automatiques pour surveiller votre stock
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {alertRules.length === 0 ? (
-                      <div className="text-center py-8">
-                        <AlertTriangle className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                        <p className="text-gray-500">Aucune règle d'alerte configurée</p>
-                        <Button className="mt-4" size="sm">
-                          <Plus className="h-4 w-4 mr-2" />
-                          Créer une règle
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {alertRules.slice(0, 3).map((rule) => (
-                          <div key={rule.id} className="flex items-center justify-between p-3 border rounded-lg">
-                            <div>
-                              <p className="font-medium">{rule.name}</p>
-                              <p className="text-sm text-gray-500">{rule.type}</p>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <Badge variant={rule.isActive ? "default" : "secondary"}>
-                                {rule.isActive ? "Active" : "Inactive"}
-                              </Badge>
-                              <Badge variant="outline">
-                                {rule._count.triggeredAlerts} alertes
-                              </Badge>
-                            </div>
-                          </div>
-                        ))}
-                        {alertRules.length > 3 && (
-                          <Button variant="outline" size="sm" className="w-full">
-                            Voir toutes les règles ({alertRules.length})
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Rapports automatisés */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <FileText className="h-5 w-5 mr-2 text-blue-500" />
-                    Rapports Automatisés
-                  </CardTitle>
-                  <CardDescription>
-                    Planifiez et générez des rapports automatiquement
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {stockReports.length === 0 ? (
-                      <div className="text-center py-8">
-                        <FileText className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                        <p className="text-gray-500">Aucun rapport automatisé configuré</p>
-                        <Button className="mt-4" size="sm">
-                          <Plus className="h-4 w-4 mr-2" />
-                          Créer un rapport
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {stockReports.slice(0, 3).map((report) => (
-                          <div key={report.id} className="flex items-center justify-between p-3 border rounded-lg">
-                            <div>
-                              <p className="font-medium">{report.name}</p>
-                              <p className="text-sm text-gray-500">{report.type}</p>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <Badge variant={report.isActive ? "default" : "secondary"}>
-                                {report.isActive ? "Actif" : "Inactif"}
-                              </Badge>
-                              {report.schedule && (
-                                <Badge variant="outline">
-                                  {report.schedule}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                        {stockReports.length > 3 && (
-                          <Button variant="outline" size="sm" className="w-full">
-                            Voir tous les rapports ({stockReports.length})
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Intégrations */}
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Link className="h-5 w-5 mr-2 text-green-500" />
-                    Intégrations Système
-                  </CardTitle>
-                  <CardDescription>
-                    Connectez votre gestion de stock avec d'autres systèmes
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {integrations.length === 0 ? (
-                      <div className="text-center py-8">
-                        <Link className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                        <p className="text-gray-500">Aucune intégration configurée</p>
-                        <Button className="mt-4" size="sm">
-                          <Plus className="h-4 w-4 mr-2" />
-                          Ajouter une intégration
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {integrations.map((integration) => (
-                          <div key={integration.id} className="flex items-center justify-between p-4 border rounded-lg">
-                            <div>
-                              <p className="font-medium">{integration.name}</p>
-                              <p className="text-sm text-gray-500">{integration.type}</p>
-                              {integration.lastSync && (
-                                <p className="text-xs text-gray-400">
-                                  Dernière sync: {new Date(integration.lastSync).toLocaleDateString('fr-FR')}
-                                </p>
-                              )}
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <Badge variant={integration.isActive ? "default" : "secondary"}>
-                                {integration.isActive ? "Active" : "Inactive"}
-                              </Badge>
-                              <Badge 
-                                variant={
-                                  integration.syncStatus === 'SUCCESS' ? "default" :
-                                  integration.syncStatus === 'FAILED' ? "destructive" : "secondary"
-                                }
-                              >
-                                {integration.syncStatus}
-                              </Badge>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Actions rapides */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Actions Rapides</CardTitle>
-                <CardDescription>
-                  Générez des rapports ou synchronisez les intégrations
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <Button 
-                    variant="outline" 
-                    className="h-20 flex flex-col items-center justify-center"
-                    onClick={() => apiClient.generateReport('INVENTORY_SUMMARY')}
-                  >
-                    <Package className="h-6 w-6 mb-2" />
-                    <span>Résumé Stock</span>
-                  </Button>
-
-                  <Button 
-                    variant="outline" 
-                    className="h-20 flex flex-col items-center justify-center"
-                    onClick={() => apiClient.generateReport('SALES_ANALYSIS')}
-                  >
-                    <TrendingUp className="h-6 w-6 mb-2" />
-                    <span>Analyse Ventes</span>
-                  </Button>
-
-                  <Button 
-                    variant="outline" 
-                    className="h-20 flex flex-col items-center justify-center"
-                    onClick={() => apiClient.generateReport('ALERTS_SUMMARY')}
-                  >
-                    <AlertTriangle className="h-6 w-6 mb-2" />
-                    <span>Résumé Alertes</span>
-                  </Button>
-
-                  <Button 
-                    variant="outline" 
-                    className="h-20 flex flex-col items-center justify-center"
-                    onClick={() => {
-                      integrations.forEach(integration => {
-                        if (integration.isActive) {
-                          apiClient.syncIntegration(integration.id)
-                        }
-                      })
-                      toast.success("Synchronisation des intégrations lancée")
-                    }}
-                  >
-                    <Link className="h-6 w-6 mb-2" />
-                    <span>Sync Toutes</span>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
       </div>
   )
 }
