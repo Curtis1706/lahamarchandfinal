@@ -71,6 +71,7 @@ export default function MessageriePage() {
   const [filterType, setFilterType] = useState("all")
   const [newMessage, setNewMessage] = useState("")
   const [showNewMessageModal, setShowNewMessageModal] = useState(false)
+  const [recipients, setRecipients] = useState<Array<{ id: string; name: string; email: string; role: string }>>([])
   const [newMessageData, setNewMessageData] = useState({
     recipientId: "",
     subject: "",
@@ -82,6 +83,7 @@ export default function MessageriePage() {
   // Load data
   useEffect(() => {
     loadConversations()
+    loadRecipients()
   }, [])
 
   // Load messages when conversation is selected
@@ -106,9 +108,19 @@ export default function MessageriePage() {
   const loadMessages = async (conversationId: string) => {
     try {
       const data = await apiClient.getRepresentantMessages(conversationId)
-      setMessages(data)
+      setMessages(data.messages || data)
     } catch (error: any) {
       toast.error("Erreur lors du chargement des messages")
+    }
+  }
+
+  const loadRecipients = async () => {
+    try {
+      const data = await apiClient.getRepresentantRecipients()
+      setRecipients(data.recipients || [])
+    } catch (error: any) {
+      console.error("Erreur lors du chargement des destinataires:", error)
+      toast.error("Erreur lors du chargement des destinataires")
     }
   }
 
@@ -377,9 +389,11 @@ export default function MessageriePage() {
                   className="w-full p-2 border rounded-md"
                 >
                   <option value="">Sélectionner un destinataire</option>
-                  <option value="1">PDG LAHA (pdg@laha.gabon)</option>
-                  <option value="3">Jean Auteur (jean.auteur@example.com)</option>
-                  <option value="4">Marie Écrivaine (marie.ecrivaine@example.com)</option>
+                  {recipients.map((recipient) => (
+                    <option key={recipient.id} value={recipient.id}>
+                      {recipient.name} ({recipient.email})
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>

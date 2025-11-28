@@ -839,6 +839,10 @@ export class ApiClient {
     return this.request(`/representant/messages?conversationId=${conversationId}`)
   }
 
+  async getRepresentantRecipients() {
+    return this.request('/representant/recipients')
+  }
+
   async sendRepresentantMessage(data: {
     recipientId: string
     subject: string

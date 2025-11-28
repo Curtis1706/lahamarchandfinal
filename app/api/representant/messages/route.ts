@@ -56,7 +56,21 @@ export async function GET(request: NextRequest) {
         }
       })
 
-      return NextResponse.json({ messages })
+      // Formater les messages pour correspondre à l'interface frontend
+      const formattedMessages = messages.map(message => ({
+        id: message.id,
+        subject: message.subject,
+        content: message.content,
+        sender: message.sender,
+        recipient: message.recipient,
+        sentAt: message.createdAt.toISOString(),
+        readAt: message.readAt?.toISOString(),
+        isRead: message.read,
+        priority: 'NORMAL' as const,
+        type: (message.type || 'GENERAL') as 'INTERNAL' | 'WORK_REVIEW' | 'ORDER_UPDATE' | 'GENERAL'
+      }))
+
+      return NextResponse.json({ messages: formattedMessages })
     }
 
     // Récupérer les messages du représentant
@@ -100,45 +114,72 @@ export async function GET(request: NextRequest) {
     // Grouper les messages par correspondant pour simuler des conversations
     const conversations = messages.reduce((acc, message) => {
       const isSentByUser = message.sender.id === session.user.id
-      const otherUserId = isSentByUser 
-        ? message.recipient.id 
-        : message.sender.id
-      
-      const otherUserName = isSentByUser 
-        ? message.recipient.name 
-        : message.sender.name
+      const otherUser = isSentByUser ? message.recipient : message.sender
+      const otherUserId = otherUser.id
 
       if (!acc[otherUserId]) {
         acc[otherUserId] = {
           id: otherUserId,
-          name: otherUserName,
-          lastMessage: message,
+          participant: {
+            id: otherUser.id,
+            name: otherUser.name,
+            email: otherUser.email,
+            role: otherUser.role
+          },
+          lastMessage: {
+            id: message.id,
+            subject: message.subject,
+            content: message.content,
+            sender: message.sender,
+            recipient: message.recipient,
+            sentAt: message.createdAt.toISOString(),
+            readAt: message.readAt?.toISOString(),
+            isRead: message.read,
+            priority: 'NORMAL' as const,
+            type: message.type as any
+          },
           unreadCount: 0,
           messages: []
         }
       }
 
-      acc[otherUserId].messages.push(message)
+      acc[otherUserId].messages.push({
+        id: message.id,
+        subject: message.subject,
+        content: message.content,
+        sender: message.sender,
+        recipient: message.recipient,
+        sentAt: message.createdAt.toISOString(),
+        readAt: message.readAt?.toISOString(),
+        isRead: message.read,
+        priority: 'NORMAL' as const,
+        type: message.type as any
+      })
+
       if (!message.read && !isSentByUser) {
         acc[otherUserId].unreadCount++
+      }
+
+      // Mettre à jour le dernier message si nécessaire
+      if (new Date(message.createdAt) > new Date(acc[otherUserId].lastMessage.sentAt)) {
+        acc[otherUserId].lastMessage = {
+          id: message.id,
+          subject: message.subject,
+          content: message.content,
+          sender: message.sender,
+          recipient: message.recipient,
+          sentAt: message.createdAt.toISOString(),
+          readAt: message.readAt?.toISOString(),
+          isRead: message.read,
+          priority: 'NORMAL' as const,
+          type: message.type as any
+        }
       }
 
       return acc
     }, {} as Record<string, any>)
 
-    const formattedConversations = Object.values(conversations).map((conv: any) => ({
-      id: conv.id,
-      name: conv.name,
-      lastMessage: {
-        id: conv.lastMessage.id,
-        subject: conv.lastMessage.subject,
-        content: conv.lastMessage.content,
-        createdAt: conv.lastMessage.createdAt,
-        sender: conv.lastMessage.sender
-      },
-      unreadCount: conv.unreadCount,
-      totalMessages: conv.messages.length
-    }))
+    const formattedConversations = Object.values(conversations)
 
     return NextResponse.json(formattedConversations)
 
