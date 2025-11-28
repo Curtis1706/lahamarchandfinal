@@ -34,6 +34,8 @@ export async function GET(request: NextRequest) {
           read: true,
           readAt: true,
           createdAt: true,
+          senderId: true,
+          recipientId: true,
           sender: {
             select: {
               id: true,
@@ -143,8 +145,12 @@ export async function GET(request: NextRequest) {
 
   } catch (error: any) {
     console.error('Erreur lors de la récupération des messages:', error)
+    console.error('Stack trace:', error.stack)
     return NextResponse.json(
-      { error: 'Erreur interne du serveur' },
+      { 
+        error: 'Erreur interne du serveur',
+        message: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     )
   }
@@ -210,8 +216,12 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('Erreur lors de l\'envoi du message:', error)
+    console.error('Stack trace:', error.stack)
     return NextResponse.json(
-      { error: 'Erreur interne du serveur' },
+      { 
+        error: 'Erreur interne du serveur',
+        message: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     )
   }
