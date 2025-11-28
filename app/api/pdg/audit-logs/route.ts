@@ -27,12 +27,14 @@ export async function GET(request: NextRequest) {
 
     const auditLogs = await prisma.auditLog.findMany({
       where: whereClause,
-      orderBy: { timestamp: 'desc' },
+      orderBy: { createdAt: 'desc' },
       take: 100
     })
 
     const formattedLogs = auditLogs.map(log => {
       let parsedDetails: any = {}
+      let parsedMetadata: any = {}
+      
       try {
         if (log.details) {
           parsedDetails = JSON.parse(log.details)
@@ -41,41 +43,50 @@ export async function GET(request: NextRequest) {
         console.error("Error parsing log details:", e)
       }
 
+      try {
+        if (log.metadata) {
+          parsedMetadata = JSON.parse(log.metadata)
+        }
+      } catch (e) {
+        console.error("Error parsing log metadata:", e)
+      }
+
       // Déterminer la catégorie à partir de l'action
-      let logCategory = 'system'
-      if (log.action.includes('user') || log.action.includes('User')) {
+      let logCategory: 'user' | 'order' | 'work' | 'discipline' | 'system' | 'financial' = 'system'
+      const actionLower = log.action.toLowerCase()
+      if (actionLower.includes('user')) {
         logCategory = 'user'
-      } else if (log.action.includes('order') || log.action.includes('Order')) {
+      } else if (actionLower.includes('order')) {
         logCategory = 'order'
-      } else if (log.action.includes('work') || log.action.includes('Work')) {
+      } else if (actionLower.includes('work')) {
         logCategory = 'work'
-      } else if (log.action.includes('discipline') || log.action.includes('Discipline')) {
+      } else if (actionLower.includes('discipline')) {
         logCategory = 'discipline'
-      } else if (log.action.includes('payment') || log.action.includes('finance')) {
+      } else if (actionLower.includes('payment') || actionLower.includes('finance')) {
         logCategory = 'financial'
       }
 
       // Déterminer le niveau à partir de l'action
       let logLevel: 'info' | 'success' | 'warning' | 'error' = 'info'
-      if (log.action.includes('created') || log.action.includes('validated')) {
+      if (actionLower.includes('created') || actionLower.includes('validated') || actionLower.includes('approved')) {
         logLevel = 'success'
-      } else if (log.action.includes('deleted') || log.action.includes('rejected')) {
+      } else if (actionLower.includes('deleted') || actionLower.includes('rejected')) {
         logLevel = 'warning'
-      } else if (log.action.includes('error') || log.action.includes('failed')) {
+      } else if (actionLower.includes('error') || actionLower.includes('failed')) {
         logLevel = 'error'
       }
 
       return {
         id: log.id,
         action: log.action,
-        description: log.description || log.action,
+        description: parsedDetails.message || parsedDetails.description || log.action,
         user: {
           id: log.userId || '',
           name: log.performedBy || 'Système',
-          role: parsedDetails.performedByRole || 'PDG'
+          role: parsedDetails.performedByRole || parsedMetadata.role || 'PDG'
         },
-        target: parsedDetails.target || undefined,
-        timestamp: log.timestamp.toISOString(),
+        target: parsedDetails.target || parsedMetadata.target || undefined,
+        timestamp: log.createdAt.toISOString(),
         level: logLevel,
         category: logCategory
       }
@@ -89,9 +100,16 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(filteredLogs)
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching audit logs:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    console.error("Stack trace:", error.stack)
+    return NextResponse.json(
+      { 
+        error: "Erreur lors de la récupération des logs d'audit",
+        message: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
+      { status: 500 }
+    )
   }
 }
 
