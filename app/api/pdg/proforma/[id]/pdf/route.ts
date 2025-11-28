@@ -80,20 +80,14 @@ export async function GET(
       return NextResponse.json({ error: 'Le proforma n\'a pas d\'articles' }, { status: 400 })
     }
 
-    console.log('Generating PDF for proforma:', proforma.reference, 'with', proforma.items.length, 'items')
-
     // Générer le PDF avec jsPDF
     let pdfBuffer: Buffer
     try {
-      console.log('Starting PDF generation...')
       pdfBuffer = await generateProformaPDF(proforma)
-      console.log('PDF generation completed')
       
       if (!pdfBuffer || pdfBuffer.length === 0) {
         throw new Error('PDF buffer is empty')
       }
-
-      console.log('PDF generated successfully, size:', pdfBuffer.length, 'bytes')
     } catch (pdfError: any) {
       console.error('❌ Error in generateProformaPDF:', pdfError)
       console.error('PDF Error message:', pdfError?.message)
@@ -131,7 +125,6 @@ export async function GET(
 
 async function generateProformaPDF(proforma: any): Promise<Buffer> {
   try {
-    console.log('Creating jsPDF document...')
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
@@ -400,7 +393,6 @@ async function generateProformaPDF(proforma: any): Promise<Buffer> {
     const pdfOutput = doc.output('arraybuffer')
     const pdfBuffer = Buffer.from(pdfOutput)
     
-    console.log('PDF buffer created successfully, size:', pdfBuffer.length)
     return pdfBuffer
     
   } catch (error: any) {

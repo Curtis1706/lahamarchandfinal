@@ -34,7 +34,8 @@ import {
   Building2,
   Camera,
   TrendingUp,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Wallet
 } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import Link from "next/link";
@@ -169,13 +170,17 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           label: "Gestion Financière"
         },
         {
+          href: `${basePath}/retraits-auteurs`,
+          icon: Wallet,
+          label: "Retraits Auteurs"
+        },
+        {
           href: `${basePath}/notifications`,
           icon: Bell,
           label: "Notifications",
           children: [
             { href: `${basePath}/notifications/liste`, label: "Liste" },
-            { href: `${basePath}/notifications/diffusion`, label: "Diffusion" },
-            { href: `${basePath}/notifications/chaine`, label: "Chaîne" }
+            { href: `${basePath}/notifications/diffusion`, label: "Diffusion" }
           ]
         },
         {
@@ -225,6 +230,11 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           href: `${basePath}/mes-droits`,
           icon: DollarSign,
           label: "Mes droits"
+        },
+        {
+          href: `${basePath}/retraits`,
+          icon: Wallet,
+          label: "Retraits"
         },
         {
           href: `${basePath}/historique`,

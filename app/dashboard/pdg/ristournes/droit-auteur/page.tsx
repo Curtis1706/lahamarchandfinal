@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Calendar, Filter, RotateCcw, RefreshCw } from "lucide-react"
+import { Calendar, Filter, RotateCcw, RefreshCw, Calculator } from "lucide-react"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useToast } from "@/hooks/use-toast"
@@ -43,6 +43,9 @@ export default function DroitAuteurPage() {
   })
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
+  const [isRecalculating, setIsRecalculating] = useState(false)
+  const [isChecking, setIsChecking] = useState(false)
+  const [checkResults, setCheckResults] = useState<any>(null)
   const { toast } = useToast()
 
   // Charger les droits d'auteur
@@ -112,6 +115,86 @@ export default function DroitAuteurPage() {
     setStatusFilter("all")
     setSearchTerm("")
     setCurrentPage(1)
+  }
+
+  const handleCheckOrders = async () => {
+    try {
+      setIsChecking(true)
+      const response = await fetch("/api/pdg/ristournes/check-orders")
+      
+      if (!response.ok) {
+        throw new Error("Erreur lors de la vérification")
+      }
+
+      const data = await response.json()
+      setCheckResults(data)
+      
+      if (data.stats.ordersNeedingRoyaltyCalculation > 0) {
+        toast({
+          title: "Diagnostic",
+          description: `${data.stats.ordersNeedingRoyaltyCalculation} commande(s) nécessitent le calcul des droits d'auteur`,
+          duration: 5000
+        })
+      } else if (data.stats.totalItemsWithAuthors === 0) {
+        toast({
+          title: "Information",
+          description: "Aucune commande validée ne contient d'œuvres avec des auteurs associés",
+          duration: 5000
+        })
+      } else {
+        toast({
+          title: "Vérification terminée",
+          description: `Toutes les commandes ont leurs droits d'auteur calculés`,
+          duration: 3000
+        })
+      }
+    } catch (error: any) {
+      toast({
+        title: "Erreur",
+        description: error.message || "Erreur lors de la vérification",
+        variant: "destructive"
+      })
+    } finally {
+      setIsChecking(false)
+    }
+  }
+
+  const handleRecalculateAll = async () => {
+    if (!confirm("Voulez-vous recalculer les droits d'auteur pour toutes les commandes validées ? Cette opération peut prendre quelques instants.")) {
+      return
+    }
+
+    try {
+      setIsRecalculating(true)
+      const response = await fetch("/api/pdg/ristournes/recalculate-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Erreur lors du recalcul")
+      }
+
+      const data = await response.json()
+      toast({
+        title: "Succès",
+        description: `Recalcul terminé: ${data.results.authorRoyaltiesCreated} droits d'auteur créés pour ${data.results.ordersProcessed} commandes`,
+        duration: 5000
+      })
+
+      // Recharger les données et réinitialiser les résultats de vérification
+      setCheckResults(null)
+      loadDroitsAuteur()
+    } catch (error: any) {
+      toast({
+        title: "Erreur",
+        description: error.message || "Erreur lors du recalcul",
+        variant: "destructive"
+      })
+    } finally {
+      setIsRecalculating(false)
+    }
   }
 
   // Pagination
@@ -187,7 +270,72 @@ export default function DroitAuteurPage() {
                 <RotateCcw className="w-4 h-4 text-gray-400" />
               </button>
             </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                onClick={handleCheckOrders}
+                disabled={isChecking}
+                variant="outline"
+                className="flex items-center space-x-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${isChecking ? 'animate-spin' : ''}`} />
+                <span>{isChecking ? "Vérification..." : "Vérifier les commandes"}</span>
+              </Button>
+              <Button
+                onClick={handleRecalculateAll}
+                disabled={isRecalculating}
+                variant="default"
+                className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700"
+              >
+                <Calculator className="w-4 h-4" />
+                <span>{isRecalculating ? "Calcul en cours..." : "Recalculer tous les droits d'auteur"}</span>
+              </Button>
+            </div>
           </div>
+
+          {/* Résultats de la vérification */}
+          {checkResults && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h3 className="font-semibold text-blue-900 mb-3">📊 Diagnostic des commandes validées</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <div>
+                  <div className="text-sm text-blue-700">Commandes validées</div>
+                  <div className="text-lg font-bold text-blue-900">{checkResults.stats.totalValidatedOrders}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-blue-700">Avec auteurs</div>
+                  <div className="text-lg font-bold text-blue-900">{checkResults.stats.ordersWithAuthors}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-blue-700">Items avec auteurs</div>
+                  <div className="text-lg font-bold text-blue-900">{checkResults.stats.totalItemsWithAuthors}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-blue-700">Nécessitent calcul</div>
+                  <div className={`text-lg font-bold ${checkResults.stats.ordersNeedingRoyaltyCalculation > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    {checkResults.stats.ordersNeedingRoyaltyCalculation}
+                  </div>
+                </div>
+              </div>
+              {checkResults.stats.ordersNeedingRoyaltyCalculation > 0 && (
+                <div className="mt-3">
+                  <p className="text-sm text-blue-800 mb-2">
+                    ⚠️ {checkResults.stats.ordersNeedingRoyaltyCalculation} commande(s) validée(s) nécessitent le calcul des droits d'auteur.
+                  </p>
+                  <p className="text-xs text-blue-600">
+                    Cliquez sur "Recalculer tous les droits d'auteur" pour générer les royalties manquantes.
+                  </p>
+                </div>
+              )}
+              {checkResults.stats.totalItemsWithAuthors === 0 && (
+                <div className="mt-3">
+                  <p className="text-sm text-blue-800">
+                    ℹ️ Aucune commande validée ne contient d'œuvres avec des auteurs associés. 
+                    Vérifiez que les œuvres ont bien un auteur (authorId) défini.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Filters */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">

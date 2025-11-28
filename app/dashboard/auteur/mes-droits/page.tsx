@@ -15,6 +15,7 @@ import { toast } from "sonner";
 interface Royalty {
   id: string;
   amount: number;
+  rate?: number;
   paid: boolean;
   createdAt: string;
   paidAt?: string;
@@ -25,6 +26,14 @@ interface Royalty {
     discipline: { name: string };
     orderItems?: any[];
   };
+  order?: {
+    id: string;
+    status: string;
+    saleDate: string;
+    saleAmount: number;
+    quantity: number;
+    unitPrice: number;
+  } | null;
 }
 
 export default function MesDroitsPage() {
@@ -46,27 +55,40 @@ export default function MesDroitsPage() {
   const loadRoyalties = async () => {
     try {
       setLoading(true);
-      const allWorks = await apiClient.getWorks();
-      const myWorks = allWorks.filter((work: any) => work.authorId === user?.id);
+      const data = await apiClient.getAuthorRoyalties();
       
-      // Extract all royalties from my works
-      const allRoyalties = myWorks.flatMap((work: any) =>
-        work.royalties?.map((royalty: any) => ({
-          ...royalty,
-          work: {
-            id: work.id,
-            title: work.title,
-            coverImage: work.coverImage,
-            discipline: work.discipline,
-            orderItems: work.orderItems
-          }
-        })) || []
-      );
+      // Mettre à jour le solde disponible
+      if (data.balance) {
+        setBalance({
+          available: data.balance.available || 0,
+          totalWithdrawn: data.balance.totalWithdrawn || 0
+        })
+      } else if (data.stats) {
+        setBalance({
+          available: data.stats.availableBalance || 0,
+          totalWithdrawn: data.stats.totalWithdrawn || 0
+        })
+      }
       
-      // Sort by creation date (newest first)
-      allRoyalties.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      // Formater les royalties pour correspondre à l'interface
+      const formattedRoyalties = (data.royalties || []).map((royalty: any) => ({
+        id: royalty.id,
+        amount: royalty.amount,
+        rate: royalty.rate,
+        paid: royalty.paid,
+        paidAt: royalty.paidAt,
+        createdAt: royalty.createdAt,
+        work: {
+          id: royalty.work.id,
+          title: royalty.work.title,
+          coverImage: null, // L'image n'est pas incluse dans l'API
+          discipline: royalty.work.discipline,
+          orderItems: []
+        },
+        order: royalty.order || null // Inclure les détails de la commande
+      }));
       
-      setRoyalties(allRoyalties);
+      setRoyalties(formattedRoyalties);
     } catch (error) {
       console.error("Error loading royalties:", error);
       toast.error("Erreur lors du chargement de vos droits d'auteur.");
@@ -105,12 +127,17 @@ export default function MesDroitsPage() {
     );
   };
 
+  const [balance, setBalance] = useState({
+    available: 0,
+    totalWithdrawn: 0
+  })
+
   const getRoyaltyStats = () => {
     const total = royalties.reduce((sum, roy) => sum + roy.amount, 0);
     const paid = royalties.filter(roy => roy.paid).reduce((sum, roy) => sum + roy.amount, 0);
     const pending = royalties.filter(roy => !roy.paid).reduce((sum, roy) => sum + roy.amount, 0);
     
-    return { total, paid, pending };
+    return { total, paid, pending, available: balance.available, totalWithdrawn: balance.totalWithdrawn };
   };
 
   const formatCurrency = (amount: number) => {
@@ -193,7 +220,7 @@ export default function MesDroitsPage() {
 
       {/* Statistiques en cartes */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card className="bg-blue-50 border-blue-200">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -229,6 +256,19 @@ export default function MesDroitsPage() {
                   <p className="text-xs text-yellow-600">À recevoir</p>
                 </div>
                 <Clock className="h-8 w-8 text-yellow-600" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-purple-50 border-purple-200">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-purple-800">Solde disponible</p>
+                  <p className="text-2xl font-bold text-purple-900">{formatCurrency(stats.available || 0)}</p>
+                  <p className="text-xs text-purple-600">Retirable</p>
+                </div>
+                <Wallet className="h-8 w-8 text-purple-600" />
               </div>
             </CardContent>
           </Card>
@@ -368,9 +408,12 @@ export default function MesDroitsPage() {
                   {/* Montant */}
                   <td className="py-4 px-6">
                     <div className="text-sm font-medium text-gray-900">{formatCurrency(royalty.amount)}</div>
-                    <div className="text-xs text-gray-500">
-                      {royalty.work.orderItems?.reduce((sum: number, item: any) => sum + item.quantity, 0) || 0} ventes
-                    </div>
+                    {royalty.order && (
+                      <div className="text-xs text-gray-500">
+                        {royalty.order.quantity}x {formatCurrency(royalty.order.unitPrice)} = {formatCurrency(royalty.order.saleAmount)}
+                        {royalty.rate && ` (${(royalty.rate * 100).toFixed(1)}%)`}
+                      </div>
+                    )}
                   </td>
                   
                   {/* Statut */}

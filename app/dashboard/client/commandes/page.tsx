@@ -336,10 +336,18 @@ function ClientCommandePageContent() {
                       </div>
                   <div className="flex items-center justify-end mt-4 space-x-2">
                     <Dialog open={openOrderId === order.id} onOpenChange={(open) => {
-                      if (!open) setOpenOrderId(null)
+                      if (open) {
+                        setOpenOrderId(order.id)
+                      } else {
+                        setOpenOrderId(null)
+                      }
                     }}>
                       <DialogTrigger asChild>
-                        <Button variant="outline" size="sm">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setOpenOrderId(order.id)}
+                        >
                           <Eye className="h-4 w-4 mr-2" />
                           Voir détails
                         </Button>

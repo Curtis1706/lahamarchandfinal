@@ -727,20 +727,34 @@ export default function GestionFinancierePage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(partnerPerformance || []).map((partner) => (
-                      <TableRow key={partner.partnerId}>
-                        <TableCell className="font-medium">{partner.partnerName || 'N/A'}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{partner.partnerType || 'N/A'}</Badge>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                          Chargement des données...
                         </TableCell>
-                        <TableCell>{getStatusBadge(partner.userStatus)}</TableCell>
-                        <TableCell>{partner.ordersCount || 0}</TableCell>
-                        <TableCell className="font-medium">
-                          {(partner.totalRevenue || 0).toFixed(2)} FCFA
-                        </TableCell>
-                        <TableCell>{(partner.avgOrderValue || 0).toFixed(2)} FCFA</TableCell>
                       </TableRow>
-                    ))}
+                    ) : (partnerPerformance || []).length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                          Aucun partenaire avec des commandes pour cette période
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      partnerPerformance.map((partner) => (
+                        <TableRow key={partner.partnerId}>
+                          <TableCell className="font-medium">{partner.partnerName || 'N/A'}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{partner.partnerType || 'N/A'}</Badge>
+                          </TableCell>
+                          <TableCell>{getStatusBadge(partner.userStatus)}</TableCell>
+                          <TableCell>{partner.ordersCount || 0}</TableCell>
+                          <TableCell className="font-medium">
+                            {(partner.totalRevenue || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} FCFA
+                          </TableCell>
+                          <TableCell>{(partner.avgOrderValue || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} FCFA</TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </CardContent>

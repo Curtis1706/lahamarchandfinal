@@ -411,16 +411,6 @@ export default function DashboardLayout({
                 >
                   Diffusion
                 </Link>
-                <Link
-                  href="/dashboard/pdg/notifications/chaine"
-                  className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/notifications/chaine")
-                      ? "bg-blue-50 text-blue-600"
-                      : "hover:bg-gray-100"
-                  }`}
-                >
-                  Chaîne
-                </Link>
               </div>
             )}
           </div>

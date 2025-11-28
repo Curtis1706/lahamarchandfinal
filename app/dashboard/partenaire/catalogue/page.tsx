@@ -188,8 +188,8 @@ export default function PartenaireCataloguePage() {
       {/* Header */}
       <div className="mb-6 flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Catalogue des Œuvres</h1>
-          <p className="text-gray-600">Découvrez et commandez les œuvres disponibles</p>
+        <h1 className="text-2xl font-bold text-gray-900">Catalogue des Œuvres</h1>
+        <p className="text-gray-600">Découvrez et commandez les œuvres disponibles</p>
         </div>
         <Dialog open={showCartDialog} onOpenChange={setShowCartDialog}>
           <DialogTrigger asChild>

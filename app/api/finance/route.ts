@@ -556,19 +556,61 @@ async function loadRoyaltiesData(startDate?: string, endDate?: string) {
 // Fonction pour charger les données de performance des partenaires
 async function loadPartnerPerformanceData(startDate?: string, endDate?: string) {
   try {
-    // Récupérer tous les partenaires
-    const partners = await prisma.user.findMany({
-      where: { role: 'PARTENAIRE' },
+    // Construire les filtres pour les commandes
+    // Inclure toutes les commandes avec partenaire qui sont soit validées/livrées, soit payées (même si PENDING)
+    const orderWhere: any = {
+      partnerId: { not: null }, // Seulement les commandes avec un partenaire
+      OR: [
+        // Commandes validées/livrées
+        {
+          status: {
+            in: ['VALIDATED', 'PROCESSING', 'SHIPPED', 'DELIVERED']
+          }
+        },
+        // Commandes payées mais pas encore validées (ont une référence de paiement)
+        {
+          status: 'PENDING',
+          paymentReference: { not: null }
+        }
+      ]
+    }
+    
+    // Filtrer par date seulement si les deux dates sont fournies
+    if (startDate && endDate) {
+      // Ajouter un jour à la date de fin pour inclure toute la journée
+      const endDateObj = new Date(endDate)
+      endDateObj.setHours(23, 59, 59, 999)
+      
+      orderWhere.createdAt = {
+        gte: new Date(startDate),
+        lte: endDateObj
+      }
+    }
+
+    // Récupérer toutes les commandes de partenaires avec leurs items
+    const orders = await prisma.order.findMany({
+      where: orderWhere,
       include: {
         partner: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            user: {
+              select: {
+                id: true,
+                status: true
+              }
+            }
+          }
+        },
+        items: {
           include: {
-            orders: {
-              include: {
-                items: {
-                  include: {
-                    work: true
-                  }
-                }
+            work: {
+              select: {
+                id: true,
+                title: true,
+                price: true
               }
             }
           }
@@ -576,69 +618,90 @@ async function loadPartnerPerformanceData(startDate?: string, endDate?: string) 
       }
     })
 
-    // Construire les filtres de date
-    const dateFilter: any = {}
-    if (startDate && endDate) {
-      dateFilter.createdAt = {
-        gte: new Date(startDate),
-        lte: new Date(endDate)
-      }
-    }
 
-    const partnerPerformance = await Promise.all(
-      partners.map(async (partner) => {
-        // Calculer les statistiques pour ce partenaire
-        const partnerOrders = partner.partner?.orders || []
-        const filteredOrders = dateFilter.createdAt 
-          ? partnerOrders.filter(order => 
-              order.createdAt >= dateFilter.createdAt.gte && 
-              order.createdAt <= dateFilter.createdAt.lte
-            )
-          : partnerOrders
-
-        const totalOrders = filteredOrders.length
-        const totalRevenue = filteredOrders.reduce((sum, order) => {
-          return sum + order.items.reduce((itemSum, item) => {
-            return itemSum + (item.price * item.quantity)
-          }, 0)
-        }, 0)
-
-        const totalItems = filteredOrders.reduce((sum, order) => {
-          return sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0)
-        }, 0)
-
-        const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
-
-        return {
-          id: partner.id,
-          name: partner.name,
-          email: partner.email,
-          status: partner.status,
-          totalOrders,
-          totalRevenue,
-          totalItems,
-          avgOrderValue,
-          userStatus: partner.status
+    // Récupérer tous les partenaires pour s'assurer qu'ils apparaissent même sans commandes
+    const allPartners = await prisma.partner.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            status: true
+          }
         }
-      })
-    )
+      }
+    })
 
-    const activePartners = partnerPerformance.filter(p => p.status === 'ACTIVE').length
+    // Grouper les commandes par partenaire
+    const ordersByPartner = orders.reduce((acc, order) => {
+      if (!order.partnerId || !order.partner) return acc
+      
+      const partnerId = order.partnerId
+      if (!acc[partnerId]) {
+        acc[partnerId] = []
+      }
+      acc[partnerId].push(order)
+      return acc
+    }, {} as Record<string, typeof orders>)
+
+    // Calculer les statistiques pour chaque partenaire
+    const partnerPerformance = allPartners.map((partner) => {
+      const partnerOrders = ordersByPartner[partner.id] || []
+      
+      const totalOrders = partnerOrders.length
+      
+      // Calculer le revenu total (utiliser order.total si disponible, sinon calculer depuis items)
+      const totalRevenue = partnerOrders.reduce((sum, order) => {
+        if (order.total && order.total > 0) {
+          return sum + Number(order.total)
+        }
+        // Calculer à partir des items si total n'est pas disponible
+        const calculatedTotal = order.items.reduce((itemSum, item) => {
+          return itemSum + (Number(item.price) * Number(item.quantity))
+        }, 0)
+        return sum + calculatedTotal
+      }, 0)
+
+      const totalItems = partnerOrders.reduce((sum, order) => {
+        return sum + order.items.reduce((itemSum, item) => itemSum + Number(item.quantity), 0)
+      }, 0)
+
+      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
+
+
+      return {
+        partnerId: partner.id,
+        partnerName: partner.name || 'N/A',
+        partnerType: partner.type || 'N/A',
+        ordersCount: totalOrders,
+        totalRevenue: totalRevenue,
+        totalItems: totalItems,
+        avgOrderValue: avgOrderValue,
+        userStatus: partner.user?.status || 'UNKNOWN'
+      }
+    })
+
+    const activePartners = partnerPerformance.filter(p => p.userStatus === 'ACTIVE').length
     const totalRevenue = partnerPerformance.reduce((sum, p) => sum + p.totalRevenue, 0)
+
 
     const response = {
       partners: partnerPerformance,
-      totalPartners: partners.length,
+      totalPartners: allPartners.length,
       activePartners,
       totalRevenue
     }
 
     return NextResponse.json(response)
 
-  } catch (error) {
-    console.error("Erreur lors du chargement des données de performance des partenaires:", error)
+  } catch (error: any) {
+    console.error("❌ Erreur lors du chargement des données de performance des partenaires:", error)
+    console.error("Stack trace:", error.stack)
     return NextResponse.json(
-      { error: "Erreur lors du chargement des données des partenaires" },
+      { 
+        error: "Erreur lors du chargement des données des partenaires",
+        message: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     )
   }

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { OrderStatus } from "@prisma/client"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { calculatePartnerRebate, calculateAuthorRoyalty } from "@/lib/rebate-calculator"
 
 // GET /api/orders - Liste des commandes
 export async function GET(request: NextRequest) {
@@ -89,15 +90,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
+    // Calculer le total de la commande
+    let subtotal = 0
+    for (const item of items) {
+      const work = await prisma.work.findUnique({
+        where: { id: item.workId },
+        select: { price: true }
+      })
+      const itemPrice = item.price || work?.price || 0
+      subtotal += itemPrice * item.quantity
+    }
+    
+    const tax = subtotal * 0.18 // TVA à 18%
+    const total = subtotal + tax
+
     const newOrder = await prisma.order.create({
       data: {
         userId,
         partnerId: partnerId || null,
+        subtotal,
+        tax,
+        total,
         items: {
           create: items.map((item: any) => ({
             workId: item.workId,
             quantity: item.quantity,
-            price: item.price
+            price: item.price || 0
           }))
         }
       },
@@ -201,16 +219,12 @@ export async function PUT(request: NextRequest) {
     // 🔹 Créer automatiquement un Bon de Sortie et réduire le stock si la commande est validée
     if (status === "VALIDATED") {
       try {
-        console.log(`📦 [AUTO] Creating delivery note for validated order: ${id}`)
-        
         // Vérifier qu'un bon de sortie n'existe pas déjà
         const existingDeliveryNote = await prisma.deliveryNote.findUnique({
           where: { orderId: id }
         })
 
-        if (existingDeliveryNote) {
-          console.log(`⚠️ Delivery note already exists for order ${id}: ${existingDeliveryNote.reference}`)
-        } else {
+        if (!existingDeliveryNote) {
           // Récupérer l'ID de l'utilisateur (PDG ou utilisateur de la session)
           let userId = session?.user?.id
           if (!userId) {
@@ -221,7 +235,6 @@ export async function PUT(request: NextRequest) {
             })
             if (pdg) {
               userId = pdg.id
-              console.log(`📌 Using PDG ID: ${userId}`)
             } else {
               throw new Error("Aucun utilisateur PDG trouvé pour créer le bon de sortie")
             }
@@ -240,8 +253,6 @@ export async function PUT(request: NextRequest) {
             })
             const reference = `BS-${year}-${String(count + 1).padStart(4, '0')}`
 
-            console.log(`📝 Generating delivery note reference: ${reference}`)
-
             // 2. Créer le bon de sortie
             const deliveryNote = await tx.deliveryNote.create({
               data: {
@@ -252,14 +263,10 @@ export async function PUT(request: NextRequest) {
               }
             })
 
-            console.log(`✅ Delivery note created: ${reference} (ID: ${deliveryNote.id})`)
-
             // 3. Réduire le stock pour chaque item et créer des mouvements de stock
             for (const item of updatedOrder.items) {
               const work = item.work
               const quantity = item.quantity
-
-              console.log(`📦 Processing item: ${work.title} (qty: ${quantity}, stock: ${work.stock})`)
 
               // Vérifier que le stock est suffisant
               if (work.stock < quantity) {
@@ -285,8 +292,6 @@ export async function PUT(request: NextRequest) {
                 }
               })
 
-              console.log(`✅ Stock reduced for "${work.title}": ${work.stock} → ${updatedWork.stock}`)
-
               // Créer un mouvement de stock pour tracer l'historique
               await tx.stockMovement.create({
                 data: {
@@ -301,12 +306,87 @@ export async function PUT(request: NextRequest) {
                   totalAmount: item.price * quantity
                 }
               })
-
-              console.log(`✅ Stock movement created for "${work.title}"`)
             }
-
-            console.log(`✅✅ Delivery note ${reference} created and stock reduced for order ${id}`)
           })
+        }
+
+        // 🔹 Calculer automatiquement les ristournes si la commande est validée
+        try {
+          // Calculer les ristournes partenaires si c'est une commande partenaire
+          if (updatedOrder.partnerId && updatedOrder.partner) {
+            const totalAmount = updatedOrder.total || updatedOrder.subtotal || 0
+            const { amount, rate } = await calculatePartnerRebate(
+              id,
+              updatedOrder.partnerId,
+              totalAmount
+            )
+
+            // Vérifier si une ristourne existe déjà
+            const existingRebate = await prisma.partnerRebate.findFirst({
+              where: {
+                orderId: id,
+                partnerId: updatedOrder.partnerId
+              }
+            })
+
+            if (!existingRebate) {
+              await prisma.partnerRebate.create({
+                data: {
+                  partnerId: updatedOrder.partnerId,
+                  orderId: id,
+                  amount,
+                  rate,
+                  status: 'PENDING'
+                }
+              })
+            }
+          }
+
+          // Calculer les droits d'auteur pour chaque item
+          for (const item of updatedOrder.items) {
+            const work = item.work
+            if (!work) continue
+
+            // Récupérer l'auteur de l'œuvre
+            const workWithAuthor = await prisma.work.findUnique({
+              where: { id: work.id },
+              select: { authorId: true }
+            })
+
+            if (!workWithAuthor?.authorId) continue
+
+            const saleAmount = item.price * item.quantity
+            const { amount, rate } = await calculateAuthorRoyalty(
+              work.id,
+              workWithAuthor.authorId,
+              saleAmount
+            )
+
+            // Vérifier si une royalty existe déjà
+            const existingRoyalty = await prisma.royalty.findFirst({
+              where: {
+                orderId: id,
+                workId: work.id,
+                userId: workWithAuthor.authorId
+              }
+            })
+
+            if (!existingRoyalty) {
+              await prisma.royalty.create({
+                data: {
+                  workId: work.id,
+                  userId: workWithAuthor.authorId,
+                  orderId: id,
+                  amount,
+                  rate,
+                  paid: false
+                }
+              })
+            }
+          }
+        } catch (rebateError: any) {
+          console.error("❌ Error calculating rebates:", rebateError)
+          console.warn("⚠️ Order validated but rebate calculation failed:", rebateError.message)
         }
       } catch (deliveryNoteError: any) {
         console.error("❌❌ Error creating delivery note or reducing stock:", deliveryNoteError)

@@ -21,11 +21,8 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status")
     const search = searchParams.get("search")
 
-    // Récupérer toutes les commandes des partenaires
-    const where: any = {
-      partnerId: { not: null },
-      status: { in: ["VALIDATED", "PROCESSING", "SHIPPED", "DELIVERED"] }
-    }
+    // Récupérer les ristournes partenaires depuis la base de données
+    const where: any = {}
 
     if (startDate && endDate) {
       where.createdAt = {
@@ -34,7 +31,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const orders = await prisma.order.findMany({
+    const rebates = await prisma.partnerRebate.findMany({
       where,
       include: {
         partner: {
@@ -44,36 +41,41 @@ export async function GET(request: NextRequest) {
             email: true
           }
         },
-        items: {
-          include: {
-            work: {
-              select: {
-                id: true,
-                title: true,
-                price: true
-              }
-            }
+        order: {
+          select: {
+            id: true,
+            status: true,
+            createdAt: true
+          }
+        },
+        validatedBy: {
+          select: {
+            id: true,
+            name: true
           }
         }
       },
       orderBy: { createdAt: 'desc' }
     })
 
-    // Calculer les ristournes (par exemple 10% du montant total des commandes)
-    const rebateRate = 0.10
-    const ristournes = orders.map(order => {
-      const totalAmount = order.total || order.subtotal || 0
-      const rebateAmount = totalAmount * rebateRate
+    // Transformer en format pour l'affichage
+    const ristournes = rebates.map(rebate => {
+      const statutMap: Record<string, string> = {
+        'PENDING': 'En attente',
+        'VALIDATED': 'Validé',
+        'PAID': 'Payé',
+        'CANCELLED': 'Annulé'
+      }
       
       return {
-        id: order.id,
-        reference: `RST-${order.id.slice(-8).toUpperCase()}`,
-        partnerId: order.partnerId,
-        partnerName: order.partner?.name || "Partenaire inconnu",
-        versement: rebateAmount, // Ristourne calculée
+        id: rebate.id,
+        reference: `RST-${rebate.id.slice(-8).toUpperCase()}`,
+        partnerId: rebate.partnerId,
+        partnerName: rebate.partner?.name || "Partenaire inconnu",
+        versement: rebate.amount,
         retrait: 0, // Pour l'instant, pas de retraits
-        statut: order.status === "DELIVERED" ? "Payé" : "En attente",
-        creeLe: order.createdAt.toLocaleDateString('fr-FR', {
+        statut: statutMap[rebate.status] || rebate.status,
+        creeLe: rebate.createdAt.toLocaleDateString('fr-FR', {
           weekday: 'short',
           day: '2-digit',
           month: 'short',
@@ -81,14 +83,26 @@ export async function GET(request: NextRequest) {
           hour: '2-digit',
           minute: '2-digit'
         }),
-        createdAt: order.createdAt
+        createdAt: rebate.createdAt,
+        rate: rebate.rate,
+        orderId: rebate.orderId
       }
     })
 
     // Filtrer par statut si fourni
     let filteredRistournes = ristournes
     if (status && status !== "all") {
-      filteredRistournes = ristournes.filter(r => r.statut === status)
+      const statusMap: Record<string, string> = {
+        'Payé': 'PAID',
+        'En attente': 'PENDING',
+        'Validé': 'VALIDATED',
+        'Annulé': 'CANCELLED'
+      }
+      const dbStatus = statusMap[status] || status
+      filteredRistournes = ristournes.filter(r => {
+        const rebate = rebates.find(b => b.id === r.id)
+        return rebate?.status === dbStatus
+      })
     }
 
     // Filtrer par recherche si fourni

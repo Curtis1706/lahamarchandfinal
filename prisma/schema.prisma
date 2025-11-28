@@ -38,6 +38,9 @@ model User {
   createdIntegrations       StockIntegration[]
   performedStockMovements   StockMovement[]     @relation("StockMovements")
   createdReports            StockReport[]
+  validatedPartnerRebates   PartnerRebate[]     @relation("ValidatedPartnerRebates")
+  createdRebateRates        RebateRate[]        @relation("CreatedRebateRates")
+  authorRebateRates         RebateRate[]        @relation("AuthorRebateRates")
   discipline                Discipline?         @relation(fields: [disciplineId], references: [id])
   representant              User?               @relation("RepresentantAuthors", fields: [representantId], references: [id], onDelete: SetNull)
   managedAuthors            User[]              @relation("RepresentantAuthors")
@@ -57,6 +60,8 @@ model User {
   updatedAdvancedSettings   AdvancedSetting[]   @relation("UpdatedAdvancedSettings")
   createdProformas          Proforma[]          @relation("CreatedProformas")
   userProformas             Proforma[]          @relation("UserProformas")
+  authorWithdrawals         Withdrawal[]        @relation("AuthorWithdrawals")
+  validatedWithdrawals      Withdrawal[]        @relation("ValidatedWithdrawals")
 }
 
 model Account {
@@ -149,6 +154,8 @@ model Work {
   sales                 Sale[]
   stockAlerts           StockAlert[]
   stockMovements        StockMovement[]
+  partnerRebates        PartnerRebate[]      @relation("WorkPartnerRebates")
+  rebateRates           RebateRate[]         @relation("WorkRebateRates")
   author                User               @relation("AuthorWorks", fields: [authorId], references: [id])
   concepteur            User?              @relation("ConceptorWorks", fields: [concepteurId], references: [id])
   discipline            Discipline         @relation(fields: [disciplineId], references: [id])
@@ -229,6 +236,8 @@ model Partner {
   stockItems     PartnerStock[]
   stockMovements StockMovement[]
   proformas      Proforma[]      @relation("PartnerProformas")
+  rebates        PartnerRebate[]
+  rebateRates    RebateRate[]
 }
 
 model PartnerStock {
@@ -268,6 +277,8 @@ model Order {
   stockRequests      StockRequest[]      @relation("StockRequestOrders")
   notificationChains NotificationChain[] @relation("NotificationChainOrders")
   proforma           Proforma?           @relation("ProformaOrder")
+  royalties          Royalty[]           @relation("OrderRoyalties")
+  partnerRebates     PartnerRebate[]     @relation("OrderPartnerRebates")
 }
 
 model OrderItem {
@@ -400,14 +411,137 @@ model StockRequestItem {
 }
 
 model Royalty {
-  id        String   @id @default(cuid())
-  workId    String
-  userId    String
-  amount    Float
-  paid      Boolean  @default(false)
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
-  work      Work     @relation(fields: [workId], references: [id])
+  id         String    @id @default(cuid())
+  workId     String
+  userId     String
+  amount     Float
+  approved   Boolean   @default(false) // Royalties approuvées par le PDG (prêtes à être retirées)
+  approvedAt DateTime? // Date d'approbation par le PDG
+  paid       Boolean   @default(false)  // Royalties déjà payées à l'auteur
+  paidAt     DateTime?
+  orderId    String?   // ID de la commande qui a généré cette royalty
+  saleId     String?   // ID de la vente directe (si applicable)
+  rate       Float?    // Taux utilisé pour le calcul (en %)
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id])
+  work       Work      @relation(fields: [workId], references: [id])
+  order      Order?    @relation("OrderRoyalties", fields: [orderId], references: [id])
+
+  @@index([userId])
+  @@index([workId])
+  @@index([orderId])
+  @@index([paid])
+  @@index([approved])
+  @@index([createdAt])
+}
+
+// Retraits des auteurs (Withdrawals)
+model Withdrawal {
+  id              String            @id @default(cuid())
+  userId          String            // ID de l'auteur
+  amount          Float             // Montant demandé
+  method          WithdrawalMethod  // Méthode de paiement
+  momoNumber      String?           // Numéro Mobile Money (si method = MOMO)
+  bankName        String?           // Nom de la banque (si method = BANK)
+  bankAccount     String?           // Numéro de compte bancaire (si method = BANK)
+  bankAccountName String?           // Nom du titulaire du compte
+  status          WithdrawalStatus @default(PENDING)
+  requestedAt     DateTime          @default(now())
+  validatedById   String?           // ID du PDG qui a validé
+  validatedBy     User?             @relation("ValidatedWithdrawals", fields: [validatedById], references: [id])
+  validatedAt     DateTime?
+  paidAt          DateTime?
+  rejectionReason String?           // Raison du rejet (si status = REJECTED)
+  notes           String?           // Notes internes
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  user            User              @relation("AuthorWithdrawals", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([requestedAt])
+}
+
+enum WithdrawalMethod {
+  MOMO      // Mobile Money (MTN/Moov)
+  BANK      // Virement bancaire
+  CASH      // Espèces
+}
+
+enum WithdrawalStatus {
+  PENDING   // En attente de validation
+  APPROVED  // Approuvé par le PDG
+  REJECTED  // Rejeté par le PDG
+  PAID      // Payé
+  CANCELLED // Annulé par l'auteur
+}
+
+// Ristournes Partenaires
+model PartnerRebate {
+  id              String            @id @default(cuid())
+  partnerId       String
+  orderId         String?           // ID de la commande (si applicable)
+  saleId          String?           // ID de la vente directe (si applicable)
+  workId          String?           // ID de l'œuvre (si calculé par œuvre)
+  amount          Float             // Montant de la ristourne
+  rate            Float             // Taux utilisé (en %)
+  status          RebateStatus      @default(PENDING)
+  validatedById   String?           // ID du PDG qui a validé
+  validatedBy     User?             @relation("ValidatedPartnerRebates", fields: [validatedById], references: [id])
+  validatedAt     DateTime?
+  paidAt          DateTime?
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  partner         Partner           @relation(fields: [partnerId], references: [id])
+  order           Order?            @relation("OrderPartnerRebates", fields: [orderId], references: [id])
+  work            Work?             @relation("WorkPartnerRebates", fields: [workId], references: [id])
+
+  @@index([partnerId])
+  @@index([orderId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Taux de ristourne configurables
+model RebateRate {
+  id          String        @id @default(cuid())
+  type        RebateRateType // GLOBAL, PARTNER, AUTHOR, WORK
+  partnerId   String?       // Si type = PARTNER
+  userId      String?       // Si type = AUTHOR
+  workId      String?       // Si type = WORK
+  rate        Float         // Taux en pourcentage (ex: 15.5 pour 15.5%)
+  isActive    Boolean       @default(true)
+  startDate   DateTime?     // Date de début d'application
+  endDate     DateTime?     // Date de fin d'application
+  createdById String        // ID du PDG qui a créé
+  createdBy   User          @relation("CreatedRebateRates", fields: [createdById], references: [id])
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  partner     Partner?      @relation(fields: [partnerId], references: [id])
+  user        User?         @relation("AuthorRebateRates", fields: [userId], references: [id])
+  work        Work?         @relation("WorkRebateRates", fields: [workId], references: [id])
+
+  @@unique([type, partnerId, userId, workId])
+  @@index([type])
+  @@index([partnerId])
+  @@index([userId])
+  @@index([workId])
+  @@index([isActive])
+}
+
+enum RebateStatus {
+  PENDING      // En attente de validation
+  VALIDATED    // Validé par le PDG
+  PAID         // Payé
+  CANCELLED    // Annulé
+}
+
+enum RebateRateType {
+  GLOBAL       // Taux global pour tous
+  PARTNER      // Taux spécifique à un partenaire
+  AUTHOR       // Taux spécifique à un auteur
+  WORK         // Taux spécifique à une œuvre
 }
 
 model Message {

@@ -132,8 +132,6 @@ async function createDeliveryNoteForOrder(orderId: string, userId: string) {
       }
     })
 
-    console.log(`✅ Delivery note created: ${reference} for order ${orderId}`)
-
     // 3. Réduire le stock pour chaque item et créer des mouvements de stock
     // Note: Si la commande est déjà livrée, on ne réduit pas le stock (il a déjà été réduit)
     // Mais on crée quand même le mouvement pour l'historique
@@ -177,8 +175,6 @@ async function createDeliveryNoteForOrder(orderId: string, userId: string) {
           totalAmount: item.price * quantity
         }
       })
-
-      console.log(`✅ Stock movement created for "${work.title}": -${quantity}`)
     }
 
     return { deliveryNote, reference }

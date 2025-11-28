@@ -15,8 +15,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
-    console.log("👑 Fetching PDG dashboard stats:", session.user.name)
-
     // Statistiques générales
     const [
       totalUsers,
@@ -41,38 +39,42 @@ export async function GET(request: NextRequest) {
       // Total commandes
       prisma.order.count(),
       
-      // Chiffre d'affaires total (commandes validées/livrées)
-      prisma.order.aggregate({
+        // Récupérer les commandes validées/livrées avec leurs items pour calculer les totaux
+      prisma.order.findMany({
         where: {
           status: { 
             in: [OrderStatus.VALIDATED, OrderStatus.PROCESSING, OrderStatus.SHIPPED, OrderStatus.DELIVERED] 
           }
         },
-        _sum: { total: true }
+        include: {
+          items: true
+        }
       }),
 
-      // Commandes validées aux clients (non partenaires)
-      prisma.order.aggregate({
+      // Commandes validées aux clients (non partenaires) avec items
+      prisma.order.findMany({
         where: {
           status: { 
             in: [OrderStatus.VALIDATED, OrderStatus.PROCESSING, OrderStatus.SHIPPED, OrderStatus.DELIVERED] 
           },
           partnerId: null
         },
-        _sum: { total: true },
-        _count: { id: true }
+        include: {
+          items: true
+        }
       }),
 
-      // Commandes aux collaborateurs (partenaires)
-      prisma.order.aggregate({
+      // Commandes aux collaborateurs (partenaires) avec items
+      prisma.order.findMany({
         where: {
           status: { 
             in: [OrderStatus.VALIDATED, OrderStatus.PROCESSING, OrderStatus.SHIPPED, OrderStatus.DELIVERED] 
           },
           partnerId: { not: null }
         },
-        _sum: { total: true },
-        _count: { id: true }
+        include: {
+          items: true
+        }
       }),
 
       // Œuvres en rupture de stock
@@ -148,22 +150,69 @@ export async function GET(request: NextRequest) {
       _sum: { quantity: true }
     })
 
+    // Calculer les totaux à partir des items si le total de la commande n'est pas disponible
+    const calculateOrderTotal = (order: any) => {
+      try {
+        // Prioriser le total stocké s'il existe et est valide
+        if (order.total && Number(order.total) > 0) {
+          return Number(order.total)
+        }
+        // Sinon calculer à partir des items
+        if (order.items && Array.isArray(order.items) && order.items.length > 0) {
+          const calculatedTotal = order.items.reduce((sum: number, item: any) => {
+            const itemPrice = Number(item.price || 0)
+            const itemQuantity = Number(item.quantity || 0)
+            return sum + (itemPrice * itemQuantity)
+          }, 0)
+          return calculatedTotal
+        }
+        return 0
+      } catch (calcError: any) {
+        console.error('⚠️ Error calculating order total:', calcError.message)
+        return 0
+      }
+    }
+
+    // Calculer le chiffre d'affaires total
+    const totalRevenueAmount = Array.isArray(totalRevenue) 
+      ? totalRevenue.reduce((sum, order) => {
+          const orderTotal = calculateOrderTotal(order)
+          return sum + orderTotal
+        }, 0)
+      : 0
+
+    // Calculer les montants pour les clients
+    const validatedToClientsAmount = Array.isArray(validatedOrders)
+      ? validatedOrders.reduce((sum, order) => {
+          const orderTotal = calculateOrderTotal(order)
+          return sum + orderTotal
+        }, 0)
+      : 0
+
+    // Calculer les montants pour les collaborateurs
+    const toCollaboratorsAmount = Array.isArray(collaboratorOrders)
+      ? collaboratorOrders.reduce((sum, order) => {
+          const orderTotal = calculateOrderTotal(order)
+          return sum + orderTotal
+        }, 0)
+      : 0
+
     const totalValidatedBooks = (validatedBooksCount._sum.quantity || 0) + (collaboratorBooksCount._sum.quantity || 0)
-    const totalValidatedAmount = (validatedOrders._sum.total || 0) + (collaboratorOrders._sum.total || 0)
+    const totalValidatedAmount = validatedToClientsAmount + toCollaboratorsAmount
 
     return NextResponse.json({
       stats: {
         totalUsers,
         totalWorks,
         totalOrders,
-        totalRevenue: totalRevenue._sum.total || 0,
+        totalRevenue: totalRevenueAmount,
         validatedToClients: {
           books: validatedBooksCount._sum.quantity || 0,
-          amount: validatedOrders._sum.total || 0
+          amount: validatedToClientsAmount
         },
         toCollaborators: {
           books: collaboratorBooksCount._sum.quantity || 0,
-          amount: collaboratorOrders._sum.total || 0
+          amount: toCollaboratorsAmount
         },
         totalValidated: {
           books: totalValidatedBooks,
@@ -176,7 +225,7 @@ export async function GET(request: NextRequest) {
         title: work.title,
         isbn: work.isbn,
         price: work.price,
-        discipline: work.discipline.name
+        discipline: work.discipline?.name || 'N/A'
       })),
       user: {
         name: session.user.name,
@@ -187,11 +236,17 @@ export async function GET(request: NextRequest) {
 
   } catch (error: any) {
     console.error("❌ Error fetching PDG dashboard stats:", error)
-    console.error("Stack trace:", error.stack)
+    console.error("Error name:", error?.name)
+    console.error("Error message:", error?.message)
+    console.error("Stack trace:", error?.stack)
+    if (error?.code) {
+      console.error("Error code:", error.code)
+    }
     return NextResponse.json(
       { 
         error: 'Erreur lors de la récupération des statistiques',
-        message: process.env.NODE_ENV === 'development' ? error.message : undefined
+        message: process.env.NODE_ENV === 'development' ? (error?.message || String(error)) : undefined,
+        code: process.env.NODE_ENV === 'development' ? error?.code : undefined
       },
       { status: 500 }
     )

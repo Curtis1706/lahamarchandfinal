@@ -63,13 +63,16 @@ export async function GET(request: NextRequest) {
           authorEmail: royalty.user.email,
           royalties: [],
           totalVersement: 0,
-          totalRetrait: 0
+          totalRetrait: 0,
+          totalPending: 0 // Total des royalties en attente
         }
       }
       
       acc[authorId].royalties.push(royalty)
       if (royalty.paid) {
         acc[authorId].totalVersement += royalty.amount
+      } else {
+        acc[authorId].totalPending += royalty.amount
       }
       // Pour l'instant, pas de retraits
       acc[authorId].totalRetrait = 0
@@ -80,6 +83,7 @@ export async function GET(request: NextRequest) {
     // Transformer en format pour l'affichage
     const droitsAuteur = Object.values(royaltiesByAuthor).map((authorData: any) => {
       const latestRoyalty = authorData.royalties[0]
+      const totalRoyalties = authorData.totalVersement + authorData.totalPending
       const statut = authorData.royalties.some((r: any) => r.paid) ? "Payé" : "En attente"
       
       return {
@@ -87,7 +91,7 @@ export async function GET(request: NextRequest) {
         reference: `DA-${authorData.authorId.slice(-8).toUpperCase()}`,
         authorId: authorData.authorId,
         authorName: authorData.authorName,
-        versement: authorData.totalVersement,
+        versement: totalRoyalties, // Afficher le total (payé + en attente)
         retrait: authorData.totalRetrait,
         statut: statut,
         creeLe: latestRoyalty.createdAt.toLocaleDateString('fr-FR', {
@@ -117,8 +121,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculer les statistiques
+    // Le versement inclut maintenant toutes les royalties (payées + en attente)
     const totalVersements = filteredDroits
-      .filter(d => d.statut === "Payé")
       .reduce((sum, d) => sum + d.versement, 0)
     
     const totalRetraits = filteredDroits

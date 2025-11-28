@@ -312,6 +312,21 @@ export class ApiClient {
     })
   }
 
+  async getAuthorRoyalties() {
+    return this.request('/auteur/royalties')
+  }
+
+  async getAuthorWithdrawals() {
+    return this.request('/auteur/withdrawals')
+  }
+
+  async createWithdrawal(data: any) {
+    return this.request('/auteur/withdrawals', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
   // Notifications API
   async createNotification(data: any) {
     return this.request('/notifications', {
