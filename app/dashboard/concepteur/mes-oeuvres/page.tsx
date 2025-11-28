@@ -145,7 +145,7 @@ export default function MesOeuvresPage() {
     published: works.filter(w => w.status === "PUBLISHED" || w.status === "ON_SALE").length,
     pending: works.filter(w => w.status === "PENDING").length,
     draft: works.filter(w => w.status === "DRAFT").length,
-    totalOrders: works.reduce((sum, w) => sum + w.totalOrders, 0)
+    totalOrders: works.reduce((sum, w) => sum + (w.totalOrders || 0), 0)
   }
 
   if (!user || user.role !== "CONCEPTEUR") {
@@ -163,16 +163,12 @@ export default function MesOeuvresPage() {
         <div>
           <h1 className="text-3xl font-bold flex items-center space-x-2">
             <BookOpen className="h-8 w-8" />
-            <span>Mes œuvres</span>
+            <span>Œuvres des projets</span>
           </h1>
           <p className="text-muted-foreground mt-1">
-            Gérez vos œuvres créées en tant que concepteur
+            Consultez les œuvres soumises dans le cadre de vos projets
           </p>
         </div>
-        <Button onClick={() => window.location.href = "/dashboard/concepteur/nouvelle-oeuvre"}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nouvelle œuvre
-        </Button>
       </div>
 
       {/* Statistiques */}

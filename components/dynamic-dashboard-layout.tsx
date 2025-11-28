@@ -251,24 +251,9 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           label: "Mes projets"
         },
         {
-          href: `${basePath}/nouvelle-oeuvre`,
-          icon: Plus,
-          label: "Nouvelle œuvre"
-        },
-        {
           href: `${basePath}/mes-oeuvres`,
           icon: BookOpen,
-          label: "Mes œuvres"
-        },
-        {
-          href: `${basePath}/partenaires`,
-          icon: Users,
-          label: "Mes partenaires"
-        },
-        {
-          href: `${basePath}/commandes`,
-          icon: ShoppingCart,
-          label: "Commandes partenaires"
+          label: "Œuvres des projets"
         },
         {
           href: `${basePath}/notifications`,
