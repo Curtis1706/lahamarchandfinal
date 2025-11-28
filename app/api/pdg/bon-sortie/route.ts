@@ -105,38 +105,100 @@ export async function GET(request: NextRequest) {
         orderBy: { createdAt: 'desc' },
         take: limit,
         skip: skip
+      }).catch((error) => {
+        console.error('Error in deliveryNote.findMany:', error)
+        throw error
       }),
-      prisma.deliveryNote.count({ where })
+      prisma.deliveryNote.count({ where }).catch((error) => {
+        console.error('Error in deliveryNote.count:', error)
+        return 0
+      })
     ])
 
     return NextResponse.json({
-      deliveryNotes: deliveryNotes.map(note => ({
-        id: note.id,
-        reference: note.reference,
-        order: {
-          id: note.order?.id || '',
-          reference: note.order?.id ? `CMD-${note.order.id.slice(-8)}` : 'N/A',
-          client: note.order?.user?.name || 'Client inconnu',
-          clientEmail: note.order?.user?.email || '',
-          partner: note.order?.partner?.name || null,
-          total: note.order?.total || 0,
-          status: note.order?.status || 'UNKNOWN',
-          items: (note.order?.items || []).map(item => ({
-            work: item.work?.title || 'Œuvre inconnue',
-            isbn: item.work?.isbn || 'N/A',
-            quantity: item.quantity || 0,
-            price: item.price || 0
-          }))
-        },
-        generatedBy: note.generatedBy?.name || 'Utilisateur inconnu',
-        validatedBy: note.validatedBy?.name || null,
-        validatedAt: note.validatedAt ? format(note.validatedAt, 'dd MMM yyyy, HH:mm', { locale: fr }) : null,
-        controlledBy: note.controlledBy?.name || null,
-        controlledAt: note.controlledAt ? format(note.controlledAt, 'dd MMM yyyy, HH:mm', { locale: fr }) : null,
-        status: note.status,
-        period: note.period || null,
-        createdAt: format(note.createdAt, 'dd MMM yyyy, HH:mm', { locale: fr })
-      })),
+      deliveryNotes: deliveryNotes.map(note => {
+        try {
+          // Calculer le total de la commande si nécessaire
+          let orderTotal = 0
+          if (note.order) {
+            if (note.order.total && note.order.total > 0) {
+              orderTotal = note.order.total
+            } else if (note.order.items && note.order.items.length > 0) {
+              orderTotal = note.order.items.reduce((sum: number, item: any) => {
+                return sum + ((item.price || 0) * (item.quantity || 0))
+              }, 0)
+            }
+          }
+
+          return {
+            id: note.id,
+            reference: note.reference,
+            order: note.order ? {
+              id: note.order.id || '',
+              reference: note.order.id ? `CMD-${note.order.id.slice(-8)}` : 'N/A',
+              client: note.order.user?.name || 'Client inconnu',
+              clientEmail: note.order.user?.email || '',
+              partner: note.order.partner?.name || null,
+              total: orderTotal,
+              status: note.order.status || 'UNKNOWN',
+              items: (note.order.items || []).map((item: any) => ({
+                work: item.work?.title || 'Œuvre inconnue',
+                isbn: item.work?.isbn || 'N/A',
+                quantity: item.quantity || 0,
+                price: item.price || 0
+              }))
+            } : null,
+            generatedBy: note.generatedBy?.name || 'Utilisateur inconnu',
+            validatedBy: note.validatedBy?.name || null,
+            validatedAt: note.validatedAt ? (() => {
+              try {
+                return format(new Date(note.validatedAt), 'dd MMM yyyy, HH:mm', { locale: fr })
+              } catch (e) {
+                return note.validatedAt.toISOString()
+              }
+            })() : null,
+            controlledBy: note.controlledBy?.name || null,
+            controlledAt: note.controlledAt ? (() => {
+              try {
+                return format(new Date(note.controlledAt), 'dd MMM yyyy, HH:mm', { locale: fr })
+              } catch (e) {
+                return note.controlledAt.toISOString()
+              }
+            })() : null,
+            status: note.status,
+            period: note.period || null,
+            createdAt: (() => {
+              try {
+                return format(new Date(note.createdAt), 'dd MMM yyyy, HH:mm', { locale: fr })
+              } catch (e) {
+                return note.createdAt.toISOString()
+              }
+            })()
+          }
+        } catch (mapError: any) {
+          console.error('Error mapping delivery note:', mapError)
+          console.error('Note ID:', note.id)
+          return {
+            id: note.id,
+            reference: note.reference,
+            order: null,
+            generatedBy: note.generatedBy?.name || 'Utilisateur inconnu',
+            validatedBy: null,
+            validatedAt: null,
+            controlledBy: null,
+            controlledAt: null,
+            status: note.status,
+            period: note.period || null,
+            createdAt: (() => {
+              try {
+                return format(new Date(note.createdAt), 'dd MMM yyyy, HH:mm', { locale: fr })
+              } catch (e) {
+                return note.createdAt.toISOString()
+              }
+            })()
+          }
+        }
+      }),
       pagination: {
         total,
         page,
@@ -148,7 +210,10 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching delivery notes:', error)
     console.error('Error details:', error.message, error.stack)
     return NextResponse.json(
-      { error: error.message || 'Erreur lors de la récupération des bons de sortie' },
+      { 
+        error: 'Erreur lors de la récupération des bons de sortie',
+        message: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     )
   }

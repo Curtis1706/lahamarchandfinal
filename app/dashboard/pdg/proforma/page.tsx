@@ -52,8 +52,11 @@ interface ProformaItem {
 
 interface Proforma {
   id: string;
-  clientId: string;
-  client: User;
+  reference?: string;
+  clientId?: string;
+  partnerId?: string;
+  client?: User;
+  partner?: User;
   items: ProformaItem[];
   total: number;
   status: string;
@@ -89,36 +92,36 @@ export default function ProformaPage() {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [worksData, usersData] = await Promise.all([
+      const [worksData, usersData, proformasData] = await Promise.all([
         apiClient.getWorks({ status: 'PUBLISHED' }),
-        apiClient.getUsers()
+        apiClient.getUsers(),
+        apiClient.getPDGProformas().catch(() => ({ proformas: [] }))
       ]);
       
       setWorks(Array.isArray(worksData) ? worksData : []);
       setUsers(Array.isArray(usersData) ? usersData : []);
       
-      // Pour l'instant, on simule les proformas depuis les commandes
-      // Dans un vrai système, il faudrait un endpoint dédié
-      const ordersData = await apiClient.getOrders();
-      if (Array.isArray(ordersData)) {
-        const proformasData = ordersData
-          .filter(order => order.status === 'PENDING')
-          .map(order => ({
-            id: order.id,
-            clientId: order.userId,
-            client: order.user,
-            items: order.items.map(item => ({
-              workId: item.workId,
-              title: item.work.title,
-              price: item.price,
-              quantity: item.quantity,
-              amount: item.price * item.quantity
-            })),
-            total: order.total,
-            status: 'PENDING',
-            createdAt: order.createdAt
-          }));
-        setProformas(proformasData);
+      // Utiliser les proformas depuis l'API
+      if (proformasData && Array.isArray(proformasData.proformas || proformasData)) {
+        const proformas = Array.isArray(proformasData.proformas) ? proformasData.proformas : proformasData;
+        setProformas(proformas.map((pf: any) => ({
+          id: pf.id,
+          reference: pf.reference,
+          clientId: pf.userId,
+          partnerId: pf.partnerId,
+          client: pf.user || null,
+          partner: pf.partner || null,
+          items: (pf.items || []).map((item: any) => ({
+            workId: item.workId,
+            livre: item.work?.title || 'N/A',
+            prix: item.unitPrice || item.price || 0,
+            quantite: item.quantity || 0,
+            montant: item.total || (item.unitPrice || item.price || 0) * (item.quantity || 0)
+          })),
+          total: pf.total,
+          status: pf.status,
+          createdAt: pf.createdAt
+        })));
       }
     } catch (error: any) {
       console.error('Erreur lors du chargement:', error);
@@ -170,7 +173,7 @@ export default function ProformaPage() {
 
   const handleCreateProforma = async () => {
     if (!selectedClient) {
-      toast.error("Sélectionnez un client");
+      toast.error("Sélectionnez un client ou partenaire");
       return;
     }
 
@@ -180,16 +183,20 @@ export default function ProformaPage() {
     }
 
     try {
-      // Créer une commande en statut PENDING qui servira de proforma
-      const orderItems = items.map(item => ({
+      const selectedUser = users.find(u => u.id === selectedClient);
+      const isPartner = selectedUser?.role === 'PARTENAIRE';
+      
+      const proformaItems = items.map(item => ({
         workId: item.workId,
         quantity: item.quantite,
-        price: item.prix
+        unitPrice: item.prix
       }));
 
-      await apiClient.createOrder({
-        userId: selectedClient,
-        items: orderItems
+      await apiClient.createProforma({
+        [isPartner ? 'partnerId' : 'userId']: selectedClient,
+        items: proformaItems,
+        notes: promoCode || undefined,
+        deliveryZone: commandType || undefined
       });
 
       toast.success("Proforma créé avec succès");
@@ -205,13 +212,88 @@ export default function ProformaPage() {
     }
   };
 
+  const handleDownloadPDF = async (proformaId: string) => {
+    try {
+      const response = await fetch(`/api/pdg/proforma/${proformaId}/pdf`, {
+        method: 'GET',
+      });
+
+      if (!response.ok) {
+        throw new Error('Erreur lors de la génération du PDF');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `proforma-${proformaId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast.success("PDF téléchargé avec succès");
+    } catch (error: any) {
+      console.error('Erreur lors du téléchargement du PDF:', error);
+      toast.error(error.message || "Erreur lors du téléchargement du PDF");
+    }
+  };
+
+  const handlePrint = async (proformaId: string) => {
+    try {
+      const response = await fetch(`/api/pdg/proforma/${proformaId}/pdf`, {
+        method: 'GET',
+      });
+
+      if (!response.ok) {
+        throw new Error('Erreur lors de la génération du PDF');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const printWindow = window.open(url, '_blank');
+      
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.print();
+        };
+      }
+      
+      toast.success("Ouverture de l'impression...");
+    } catch (error: any) {
+      console.error('Erreur lors de l\'impression:', error);
+      toast.error(error.message || "Erreur lors de l'impression");
+    }
+  };
+
   const total = items.reduce((sum, item) => sum + item.montant, 0);
+
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      'PENDING': 'En attente',
+      'SENT': 'Envoyé',
+      'AWAITING_RESPONSE': 'En attente de réponse',
+      'ACCEPTED': 'Accepté',
+      'REJECTED': 'Rejeté',
+      'CONVERTED': 'Converti',
+      'CANCELLED': 'Annulé'
+    };
+    return labels[status] || status;
+  };
+
+  const getStatusVariant = (status: string): "default" | "outline" | "secondary" | "destructive" => {
+    if (status === 'ACCEPTED' || status === 'CONVERTED') return 'default';
+    if (status === 'REJECTED' || status === 'CANCELLED') return 'destructive';
+    return 'outline';
+  };
 
   const filteredProformas = proformas.filter(proforma => {
     const matchesStatus = statusFilter === "all" || proforma.status === statusFilter;
+    const recipient = proforma.partner || proforma.client;
     const matchesSearch = searchTerm === "" || 
-      proforma.client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      proforma.client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (recipient?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (recipient?.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (proforma.reference || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       proforma.id.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesStatus && matchesSearch;
   });
@@ -543,22 +625,24 @@ export default function ProformaPage() {
                       </td>
                     </tr>
                   ) : (
-                    paginatedProformas.map((proforma) => (
-                      <tr key={proforma.id} className="border-b hover:bg-gray-50">
-                        <td className="py-3 px-4">{proforma.id.slice(0, 12)}</td>
+                    paginatedProformas.map((proforma) => {
+                      const recipient = proforma.partner || proforma.client;
+                      return (
+                        <tr key={proforma.id} className="border-b hover:bg-gray-50">
+                        <td className="py-3 px-4">{proforma.reference || proforma.id.slice(0, 12)}</td>
                         <td className="py-3 px-4">{proforma.items.length}</td>
                         <td className="py-3 px-4">
                           <div>
-                            <p className="font-medium">{proforma.client.name}</p>
-                            <p className="text-sm text-gray-500">{proforma.client.email}</p>
+                            <p className="font-medium">{recipient?.name || 'N/A'}</p>
+                            <p className="text-sm text-gray-500">{recipient?.email || ''}</p>
                           </div>
                         </td>
                         <td className="py-3 px-4">
                           {new Date(proforma.createdAt).toLocaleDateString('fr-FR')}
                         </td>
                         <td className="py-3 px-4">
-                          <Badge variant={proforma.status === 'VALIDATED' ? 'default' : 'outline'}>
-                            {proforma.status === 'VALIDATED' ? 'Validé' : 'En cours'}
+                          <Badge variant={getStatusVariant(proforma.status)}>
+                            {getStatusLabel(proforma.status)}
                           </Badge>
                         </td>
                         <td className="py-3 px-4 font-semibold">
@@ -566,16 +650,27 @@ export default function ProformaPage() {
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex gap-2">
-                            <Button variant="ghost" size="sm">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handlePrint(proforma.id)}
+                              title="Imprimer"
+                            >
                               <Printer className="w-4 h-4" />
                             </Button>
-                            <Button variant="ghost" size="sm">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleDownloadPDF(proforma.id)}
+                              title="Télécharger PDF"
+                            >
                               <Download className="w-4 h-4" />
                             </Button>
                           </div>
                         </td>
                       </tr>
-                    ))
+                      );
+                    })
                   )}
                 </tbody>
               </table>

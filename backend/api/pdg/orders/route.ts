@@ -180,6 +180,112 @@ export async function POST(request: NextRequest) {
         console.warn("⚠️ Error calculating royalties:", royaltyError)
         // Ne pas faire échouer la mise à jour de commande si le calcul des royalties échoue
       }
+
+      // 🔹 Créer automatiquement un Bon de Sortie et réduire le stock
+      try {
+        console.log(`📦 Creating delivery note and reducing stock for order: ${orderId}`)
+        
+        // Vérifier qu'un bon de sortie n'existe pas déjà
+        const existingDeliveryNote = await prisma.deliveryNote.findUnique({
+          where: { orderId }
+        })
+
+        if (existingDeliveryNote) {
+          console.log(`⚠️ Delivery note already exists for order ${orderId}`)
+        } else {
+          // Récupérer la commande avec ses items
+          const orderWithItems = await prisma.order.findUnique({
+            where: { id: orderId },
+            include: {
+              items: {
+                include: {
+                  work: true
+                }
+              }
+            }
+          })
+
+          if (!orderWithItems) {
+            throw new Error(`Order ${orderId} not found`)
+          }
+
+          // Utiliser une transaction pour garantir la cohérence
+          await prisma.$transaction(async (tx) => {
+            // 1. Générer une référence unique pour le bon de sortie
+            const year = new Date().getFullYear()
+            const count = await tx.deliveryNote.count({
+              where: {
+                reference: {
+                  startsWith: `BS-${year}-`
+                }
+              }
+            })
+            const reference = `BS-${year}-${String(count + 1).padStart(4, '0')}`
+
+            // 2. Créer le bon de sortie
+            const deliveryNote = await tx.deliveryNote.create({
+              data: {
+                reference,
+                orderId,
+                generatedById: user.id,
+                status: 'PENDING'
+              }
+            })
+
+            console.log(`✅ Delivery note created: ${reference}`)
+
+            // 3. Réduire le stock pour chaque item et créer des mouvements de stock
+            for (const item of orderWithItems.items) {
+              const work = item.work
+              const quantity = item.quantity
+
+              // Vérifier que le stock est suffisant
+              if (work.stock < quantity) {
+                throw new Error(
+                  `Stock insuffisant pour "${work.title}". Disponible: ${work.stock}, Demandé: ${quantity}`
+                )
+              }
+
+              // Réduire le stock
+              await tx.work.update({
+                where: { id: work.id },
+                data: {
+                  stock: {
+                    decrement: quantity
+                  },
+                  physicalStock: {
+                    decrement: quantity
+                  }
+                }
+              })
+
+              // Créer un mouvement de stock pour tracer l'historique
+              await tx.stockMovement.create({
+                data: {
+                  workId: work.id,
+                  type: 'OUTBOUND',
+                  quantity: -quantity, // Négatif car c'est une sortie
+                  reason: `Bon de sortie ${reference} - Commande ${orderId}`,
+                  reference: reference,
+                  performedBy: user.id,
+                  partnerId: orderWithItems.partnerId || null,
+                  unitPrice: item.price,
+                  totalAmount: item.price * quantity
+                }
+              })
+
+              console.log(`✅ Stock reduced for "${work.title}": -${quantity} (new stock: ${work.stock - quantity})`)
+            }
+
+            console.log(`✅ Delivery note ${reference} created and stock reduced for order ${orderId}`)
+          })
+        }
+      } catch (deliveryNoteError: any) {
+        console.error("❌ Error creating delivery note or reducing stock:", deliveryNoteError)
+        // Ne pas faire échouer la validation si la création du bon échoue
+        // Mais on log l'erreur pour investigation
+        console.warn("⚠️ Order validated but delivery note creation failed:", deliveryNoteError.message)
+      }
     }
 
     // Créer une notification pour le client

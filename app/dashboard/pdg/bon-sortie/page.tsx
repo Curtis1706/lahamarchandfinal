@@ -165,6 +165,27 @@ export default function BonSortiePage() {
     }
   };
 
+  const handleCreateMissingForOrder = async (orderId: string) => {
+    try {
+      const response = await fetch("/api/pdg/bon-sortie/create-missing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Erreur lors de la création");
+      }
+
+      const data = await response.json();
+      toast.success(data.message || "Bon de sortie créé avec succès");
+      loadDeliveryNotes();
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de la création");
+    }
+  };
+
   const handleAction = async (id: string, action: "validate" | "control" | "complete" | "cancel") => {
     try {
       const response = await fetch("/api/pdg/bon-sortie", {

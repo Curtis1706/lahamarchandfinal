@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { OrderStatus } from "@prisma/client"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
 // GET /api/orders - Liste des commandes
 export async function GET(request: NextRequest) {
@@ -144,6 +146,7 @@ export async function POST(request: NextRequest) {
 // PUT /api/orders - Mettre à jour une commande
 export async function PUT(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
     const body = await request.json()
     const { id, status, ...updateData } = body
 
@@ -181,6 +184,8 @@ export async function PUT(request: NextRequest) {
                 id: true,
                 title: true,
                 price: true,
+                stock: true,
+                physicalStock: true,
                 discipline: {
                   select: {
                     name: true
@@ -192,6 +197,125 @@ export async function PUT(request: NextRequest) {
         }
       }
     })
+
+    // 🔹 Créer automatiquement un Bon de Sortie et réduire le stock si la commande est validée
+    if (status === "VALIDATED") {
+      try {
+        console.log(`📦 [AUTO] Creating delivery note for validated order: ${id}`)
+        
+        // Vérifier qu'un bon de sortie n'existe pas déjà
+        const existingDeliveryNote = await prisma.deliveryNote.findUnique({
+          where: { orderId: id }
+        })
+
+        if (existingDeliveryNote) {
+          console.log(`⚠️ Delivery note already exists for order ${id}: ${existingDeliveryNote.reference}`)
+        } else {
+          // Récupérer l'ID de l'utilisateur (PDG ou utilisateur de la session)
+          let userId = session?.user?.id
+          if (!userId) {
+            // Si pas de session, trouver le PDG
+            const pdg = await prisma.user.findFirst({
+              where: { role: 'PDG' },
+              select: { id: true }
+            })
+            if (pdg) {
+              userId = pdg.id
+              console.log(`📌 Using PDG ID: ${userId}`)
+            } else {
+              throw new Error("Aucun utilisateur PDG trouvé pour créer le bon de sortie")
+            }
+          }
+
+          // Utiliser une transaction pour garantir la cohérence
+          await prisma.$transaction(async (tx) => {
+            // 1. Générer une référence unique pour le bon de sortie
+            const year = new Date().getFullYear()
+            const count = await tx.deliveryNote.count({
+              where: {
+                reference: {
+                  startsWith: `BS-${year}-`
+                }
+              }
+            })
+            const reference = `BS-${year}-${String(count + 1).padStart(4, '0')}`
+
+            console.log(`📝 Generating delivery note reference: ${reference}`)
+
+            // 2. Créer le bon de sortie
+            const deliveryNote = await tx.deliveryNote.create({
+              data: {
+                reference,
+                orderId: id,
+                generatedById: userId,
+                status: 'PENDING'
+              }
+            })
+
+            console.log(`✅ Delivery note created: ${reference} (ID: ${deliveryNote.id})`)
+
+            // 3. Réduire le stock pour chaque item et créer des mouvements de stock
+            for (const item of updatedOrder.items) {
+              const work = item.work
+              const quantity = item.quantity
+
+              console.log(`📦 Processing item: ${work.title} (qty: ${quantity}, stock: ${work.stock})`)
+
+              // Vérifier que le stock est suffisant
+              if (work.stock < quantity) {
+                throw new Error(
+                  `Stock insuffisant pour "${work.title}". Disponible: ${work.stock}, Demandé: ${quantity}`
+                )
+              }
+
+              // Réduire le stock
+              const updatedWork = await tx.work.update({
+                where: { id: work.id },
+                data: {
+                  stock: {
+                    decrement: quantity
+                  },
+                  physicalStock: {
+                    decrement: quantity
+                  }
+                },
+                select: {
+                  stock: true,
+                  physicalStock: true
+                }
+              })
+
+              console.log(`✅ Stock reduced for "${work.title}": ${work.stock} → ${updatedWork.stock}`)
+
+              // Créer un mouvement de stock pour tracer l'historique
+              await tx.stockMovement.create({
+                data: {
+                  workId: work.id,
+                  type: 'OUTBOUND',
+                  quantity: -quantity, // Négatif car c'est une sortie
+                  reason: `Bon de sortie ${reference} - Commande ${id}`,
+                  reference: reference,
+                  performedBy: userId,
+                  partnerId: updatedOrder.partnerId || null,
+                  unitPrice: item.price,
+                  totalAmount: item.price * quantity
+                }
+              })
+
+              console.log(`✅ Stock movement created for "${work.title}"`)
+            }
+
+            console.log(`✅✅ Delivery note ${reference} created and stock reduced for order ${id}`)
+          })
+        }
+      } catch (deliveryNoteError: any) {
+        console.error("❌❌ Error creating delivery note or reducing stock:", deliveryNoteError)
+        console.error("❌❌ Error stack:", deliveryNoteError.stack)
+        // Ne pas faire échouer la validation si la création du bon échoue
+        // Mais on log l'erreur pour investigation
+        console.warn("⚠️⚠️ Order validated but delivery note creation failed:", deliveryNoteError.message)
+      }
+    }
 
     return NextResponse.json(updatedOrder)
   } catch (error) {

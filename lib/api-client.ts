@@ -1117,6 +1117,53 @@ export class ApiClient {
     })
   }
 
+  // Proformas - PDG
+  async getPDGProformas(params?: { status?: string; page?: number; limit?: number }) {
+    const queryParams = new URLSearchParams()
+    if (params?.status) queryParams.append('status', params.status)
+    if (params?.page) queryParams.append('page', params.page.toString())
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    
+    const query = queryParams.toString()
+    return this.request(`/pdg/proforma${query ? `?${query}` : ''}`)
+  }
+
+  async createProforma(data: {
+    partnerId?: string
+    userId?: string
+    items: Array<{ workId: string; quantity: number; unitPrice?: number }>
+    discountAmount?: number
+    discountPercent?: number
+    notes?: string
+    deliveryZone?: string
+  }) {
+    return this.request('/pdg/proforma', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async updateProforma(proformaId: string, data: {
+    action?: string
+    status?: string
+    items?: Array<{ workId: string; quantity: number; unitPrice?: number }>
+    discountAmount?: number
+    discountPercent?: number
+    notes?: string
+  }) {
+    return this.request(`/pdg/proforma`, {
+      method: 'PUT',
+      body: JSON.stringify({ id: proformaId, ...data })
+    })
+  }
+
+  async deleteProforma(proformaId: string) {
+    return this.request(`/pdg/proforma`, {
+      method: 'DELETE',
+      body: JSON.stringify({ id: proformaId })
+    })
+  }
+
   // Download file helper
   downloadFile(data: Blob, filename: string) {
     const url = window.URL.createObjectURL(data)

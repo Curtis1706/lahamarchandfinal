@@ -2,74 +2,106 @@
 
 import { useState, useEffect } from "react";
 import { User, BookOpen, ShoppingCart } from "lucide-react";
-import { apiClient } from "@/lib/api-client";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { toast } from "sonner";
 
-const books = [
-  {
-    title: "COFFRET RÉUSSIR EN MATHÉMATIQUES CE1",
-    subject: "MATHÉMATIQUES, CE1",
-    price: "1700 F CFA",
-    image: "/01.png",
-  },
-  {
-    title: "RÉUSSIR EN DICTÉE ORTHOGRAPHE CE1-CE2",
-    subject: "FRANÇAIS, CE1, CE2",
-    price: "900 F CFA",
-    image: "/02.png",
-  },
-  {
-    title: "RÉUSSIR EN MATHÉMATIQUES - MANUEL DE CM2",
-    subject: "MATHÉMATIQUES, CM2",
-    price: "900 F CFA",
-    image: "/01.png",
-  },
-];
+interface DashboardStats {
+  totalUsers: number
+  totalWorks: number
+  totalOrders: number
+  totalRevenue: number
+  validatedToClients: {
+    books: number
+    amount: number
+  }
+  toCollaborators: {
+    books: number
+    amount: number
+  }
+  totalValidated: {
+    books: number
+    amount: number
+  }
+}
+
+interface Work {
+  id: string
+  title: string
+  isbn: string
+  price: number
+  discipline: string
+}
+
+interface OutOfStockWork {
+  id: string
+  title: string
+  isbn: string
+  stock: number
+  physicalStock: number
+}
 
 export default function PDGDashboard() {
   const { user } = useCurrentUser();
   const [currentBookIndex, setCurrentBookIndex] = useState(0);
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
     totalWorks: 0,
     totalOrders: 0,
-    totalRevenue: 0
+    totalRevenue: 0,
+    validatedToClients: { books: 0, amount: 0 },
+    toCollaborators: { books: 0, amount: 0 },
+    totalValidated: { books: 0, amount: 0 }
   });
-  const [works, setWorks] = useState([]);
+  const [recentWorks, setRecentWorks] = useState<Work[]>([]);
+  const [outOfStockWorks, setOutOfStockWorks] = useState<OutOfStockWork[]>([]);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentBookIndex((prev) => (prev + 1) % books.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     loadDashboardData();
   }, []);
 
+  useEffect(() => {
+    if (recentWorks.length > 0) {
+      const interval = setInterval(() => {
+        setCurrentBookIndex((prev) => (prev + 1) % recentWorks.length);
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [recentWorks]);
+
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const [usersData, worksData, ordersData] = await Promise.all([
-        apiClient.getUsers(),
-        apiClient.getWorks(),
-        apiClient.getOrders().catch(() => []) // Orders API might not exist yet
-      ]);
+      const response = await fetch('/api/pdg/dashboard');
+      
+      if (!response.ok) {
+        throw new Error('Erreur lors du chargement des données');
+      }
 
+      const data = await response.json();
+      
       setStats({
-        totalUsers: usersData.length,
-        totalWorks: worksData.length,
-        totalOrders: ordersData.length || 0,
-        totalRevenue: worksData.reduce((sum: number, work: any) => {
-          return sum + (work.sales?.reduce((salesSum: number, sale: any) => salesSum + sale.amount, 0) || 0);
-        }, 0)
+        totalUsers: data.stats.totalUsers || 0,
+        totalWorks: data.stats.totalWorks || 0,
+        totalOrders: data.stats.totalOrders || 0,
+        totalRevenue: data.stats.totalRevenue || 0,
+        validatedToClients: {
+          books: data.stats.validatedToClients?.books || 0,
+          amount: data.stats.validatedToClients?.amount || 0
+        },
+        toCollaborators: {
+          books: data.stats.toCollaborators?.books || 0,
+          amount: data.stats.toCollaborators?.amount || 0
+        },
+        totalValidated: {
+          books: data.stats.totalValidated?.books || 0,
+          amount: data.stats.totalValidated?.amount || 0
+        }
       });
 
-      setWorks(worksData.slice(0, 3)); // Show only first 3 works
-    } catch (error) {
+      setRecentWorks(data.recentWorks || []);
+      setOutOfStockWorks(data.outOfStock || []);
+    } catch (error: any) {
       console.error("Error loading dashboard data:", error);
       toast.error("Erreur lors du chargement des données");
     } finally {
@@ -77,7 +109,11 @@ export default function PDGDashboard() {
     }
   };
 
-  const currentBook = books[currentBookIndex];
+  const currentBook = recentWorks[currentBookIndex] || {
+    title: "Aucun livre disponible",
+    discipline: "",
+    price: 0
+  };
 
   if (loading) {
     return (
@@ -164,17 +200,15 @@ export default function PDGDashboard() {
               <h3 className="font-bold text-gray-800 mb-2 text-sm leading-tight">
                 {currentBook.title}
               </h3>
-              <p className="text-gray-500 text-xs mb-4">— {currentBook.subject}</p>
+              <p className="text-gray-500 text-xs mb-4">— {currentBook.discipline}</p>
               <div className="inline-block px-3 py-1 bg-indigo-600 text-white rounded-lg font-semibold text-xs">
-                {currentBook.price}
+                {currentBook.price.toLocaleString()} F CFA
               </div>
             </div>
             <div className="flex-shrink-0">
-              <img
-                src={currentBook.image}
-                alt={currentBook.title}
-                className="w-24 h-28 object-contain rounded-md"
-              />
+              <div className="w-24 h-28 bg-indigo-100 rounded-md flex items-center justify-center">
+                <BookOpen className="w-12 h-12 text-indigo-600" />
+              </div>
             </div>
           </div>
         </div>
@@ -222,9 +256,9 @@ export default function PDGDashboard() {
             <div>
               <h3 className="text-blue-600 font-semibold mb-2">Validés aux clients</h3>
               <p className="text-2xl font-bold text-blue-600">
-                5 <span className="text-base">Livre(s)</span>
+                {stats.validatedToClients.books} <span className="text-base">Livre(s)</span>
               </p>
-              <p className="text-blue-400">12500 F CFA</p>
+              <p className="text-blue-400">{stats.validatedToClients.amount.toLocaleString()} F CFA</p>
             </div>
           </div>
 
@@ -233,9 +267,9 @@ export default function PDGDashboard() {
             <div>
               <h3 className="text-purple-600 font-semibold mb-2">Aux collaborateurs</h3>
               <p className="text-2xl font-bold text-purple-600">
-                0 <span className="text-base">Livre(s)</span>
+                {stats.toCollaborators.books} <span className="text-base">Livre(s)</span>
               </p>
-              <p className="text-purple-400">0 F CFA</p>
+              <p className="text-purple-400">{stats.toCollaborators.amount.toLocaleString()} F CFA</p>
             </div>
           </div>
 
@@ -244,9 +278,9 @@ export default function PDGDashboard() {
             <div>
               <h3 className="text-red-600 font-semibold mb-2">Total validé</h3>
               <p className="text-2xl font-bold text-red-600">
-                5 <span className="text-base">Livre(s)</span>
+                {stats.totalValidated.books} <span className="text-base">Livre(s)</span>
               </p>
-              <p className="text-red-400">12500 F CFA</p>
+              <p className="text-red-400">{stats.totalValidated.amount.toLocaleString()} F CFA</p>
             </div>
           </div>
         </div>
@@ -254,27 +288,33 @@ export default function PDGDashboard() {
         {/* Stock épuisé */}
         <div className="bg-white rounded-2xl p-6 shadow-sm">
           <h3 className="text-lg font-semibold mb-4">Stock épuisé</h3>
-          <table className="w-full">
-            <thead>
-              <tr className="border-b">
-                <th className="text-left py-2">REF</th>
-                <th className="text-left py-2">QTE.RT</th>
-                <th className="text-left py-2">QTE.VC</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="py-2 flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-red-500 rounded flex items-center justify-center">
-                    <BookOpen className="w-4 h-4 text-white" />
-                  </div>
-                  <span>Philosophie Tle Bac Facile TOME 2</span>
-                </td>
-                <td>0</td>
-                <td>0</td>
-              </tr>
-            </tbody>
-          </table>
+          {outOfStockWorks.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">Aucun stock épuisé</p>
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-2">REF</th>
+                  <th className="text-left py-2">QTE.RT</th>
+                  <th className="text-left py-2">QTE.VC</th>
+                </tr>
+              </thead>
+              <tbody>
+                {outOfStockWorks.map((work) => (
+                  <tr key={work.id} className="border-b">
+                    <td className="py-2 flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-red-500 rounded flex items-center justify-center">
+                        <BookOpen className="w-4 h-4 text-white" />
+                      </div>
+                      <span>{work.title}</span>
+                    </td>
+                    <td>{work.stock}</td>
+                    <td>{work.physicalStock}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </>
