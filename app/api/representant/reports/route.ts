@@ -25,9 +25,47 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const start = new Date(startDate)
-    const end = new Date(endDate)
-    end.setHours(23, 59, 59, 999) // Fin de journée
+    // Valider et parser les dates
+    let start: Date
+    let end: Date
+    
+    try {
+      start = new Date(startDate)
+      if (isNaN(start.getTime())) {
+        return NextResponse.json(
+          { error: 'Date de début invalide' },
+          { status: 400 }
+        )
+      }
+    } catch (e) {
+      return NextResponse.json(
+        { error: 'Date de début invalide' },
+        { status: 400 }
+      )
+    }
+
+    try {
+      // Si endDate est juste "YYYY-MM", compléter avec le dernier jour du mois
+      if (endDate.match(/^\d{4}-\d{2}$/)) {
+        const [year, month] = endDate.split('-').map(Number)
+        end = new Date(year, month, 0) // Dernier jour du mois
+      } else {
+        end = new Date(endDate)
+      }
+      
+      if (isNaN(end.getTime())) {
+        return NextResponse.json(
+          { error: 'Date de fin invalide' },
+          { status: 400 }
+        )
+      }
+      end.setHours(23, 59, 59, 999) // Fin de journée
+    } catch (e) {
+      return NextResponse.json(
+        { error: 'Date de fin invalide' },
+        { status: 400 }
+      )
+    }
 
     // Récupérer les statistiques des auteurs gérés par ce représentant
     // Pour l'instant, les représentants ne gèrent pas directement les auteurs
@@ -143,15 +181,30 @@ export async function GET(request: NextRequest) {
       ordersStatusMap[stat.status as keyof typeof ordersStatusMap] = stat._count.id
     })
 
-    const formattedActivities = activities.map(activity => ({
-      id: activity.id,
-      type: activity.action,
-      description: activity.details,
-      date: activity.createdAt.toISOString(),
-      author: activity.metadata?.authorName || null,
-      work: activity.metadata?.workTitle || null,
-      order: activity.metadata?.orderTitle || null
-    }))
+    const formattedActivities = activities.map(activity => {
+      // Parser metadata si c'est une chaîne JSON
+      let metadata: any = null
+      if (activity.metadata) {
+        try {
+          metadata = typeof activity.metadata === 'string' 
+            ? JSON.parse(activity.metadata) 
+            : activity.metadata
+        } catch (e) {
+          console.warn('Failed to parse metadata:', e)
+          metadata = null
+        }
+      }
+
+      return {
+        id: activity.id,
+        type: activity.action,
+        description: activity.details || activity.action,
+        date: activity.createdAt.toISOString(),
+        author: metadata?.authorName || null,
+        work: metadata?.workTitle || null,
+        order: metadata?.orderTitle || null
+      }
+    })
 
     const reportData = {
       period: `${startDate} - ${endDate}`,
