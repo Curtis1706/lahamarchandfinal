@@ -80,59 +80,79 @@ export async function GET(request: NextRequest) {
 
     const worksByStatus = []
 
-    // Récupérer les statistiques des commandes des partenaires de ce représentant
-    const ordersStats = await prisma.order.aggregate({
+    // Récupérer d'abord les IDs des partenaires de ce représentant
+    const partnerIds = await prisma.partner.findMany({
       where: {
-        createdAt: {
-          gte: start,
-          lte: end
-        },
-        partner: {
-          representantId: session.user.id
-        }
+        representantId: session.user.id
       },
-      _count: {
+      select: {
         id: true
       }
     })
+
+    const partnerIdsList = partnerIds.map(p => p.id)
+
+    // Récupérer les statistiques des commandes des partenaires de ce représentant
+    const ordersStats = partnerIdsList.length > 0
+      ? await prisma.order.aggregate({
+          where: {
+            createdAt: {
+              gte: start,
+              lte: end
+            },
+            partnerId: {
+              in: partnerIdsList
+            }
+          },
+          _count: {
+            id: true
+          }
+        })
+      : { _count: { id: 0 } }
 
     // Calculer le montant total des commandes des partenaires
-    const ordersWithItems = await prisma.order.findMany({
-      where: {
-        createdAt: {
-          gte: start,
-          lte: end
-        },
-        partner: {
-          representantId: session.user.id
-        }
-      },
-      include: {
-        items: true
-      }
-    })
+    const ordersWithItems = partnerIdsList.length > 0
+      ? await prisma.order.findMany({
+          where: {
+            createdAt: {
+              gte: start,
+              lte: end
+            },
+            partnerId: {
+              in: partnerIdsList
+            }
+          },
+          include: {
+            items: true
+          }
+        })
+      : []
 
     const totalAmount = ordersWithItems.reduce((sum, order) => {
-      return sum + order.items.reduce((itemSum, item) => {
+      const orderTotal = order.items.reduce((itemSum, item) => {
         return itemSum + (item.price * item.quantity)
       }, 0)
+      return sum + orderTotal
     }, 0)
 
-    const ordersByStatus = await prisma.order.groupBy({
-      by: ['status'],
-      where: {
-        createdAt: {
-          gte: start,
-          lte: end
-        },
-        partner: {
-          representantId: session.user.id
-        }
-      },
-      _count: {
-        id: true
-      }
-    })
+    // Ensuite, grouper les commandes par statut
+    const ordersByStatus = partnerIdsList.length > 0
+      ? await prisma.order.groupBy({
+          by: ['status'],
+          where: {
+            createdAt: {
+              gte: start,
+              lte: end
+            },
+            partnerId: {
+              in: partnerIdsList
+            }
+          },
+          _count: {
+            id: true
+          }
+        })
+      : []
 
     // Récupérer les activités récentes
     const activities = await prisma.auditLog.findMany({
@@ -171,8 +191,9 @@ export async function GET(request: NextRequest) {
 
     const ordersStatusMap = {
       'PENDING': 0,
-      'CONFIRMED': 0,
-      'IN_PROGRESS': 0,
+      'VALIDATED': 0,
+      'PROCESSING': 0,
+      'SHIPPED': 0,
       'DELIVERED': 0,
       'CANCELLED': 0
     }
@@ -233,8 +254,12 @@ export async function GET(request: NextRequest) {
 
   } catch (error: any) {
     console.error('Erreur lors de la génération du rapport:', error)
+    console.error('Stack trace:', error.stack)
     return NextResponse.json(
-      { error: 'Erreur interne du serveur' },
+      { 
+        error: 'Erreur interne du serveur',
+        message: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     )
   }
