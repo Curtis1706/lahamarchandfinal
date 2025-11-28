@@ -347,6 +347,9 @@ export default function MesProjetsPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Nouveau Projet</DialogTitle>
+            <DialogDescription>
+              Créez un nouveau projet éducatif
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -420,6 +423,9 @@ export default function MesProjetsPage() {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Détails du projet</DialogTitle>
+            <DialogDescription>
+              Informations complètes sur le projet
+            </DialogDescription>
           </DialogHeader>
           {selectedProject && (
             <div className="space-y-4">

@@ -61,6 +61,20 @@ interface Work {
   status: string;
   createdAt: string;
   publishedAt?: string;
+  discipline?: {
+    id: string;
+    name: string;
+  };
+  author?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  concepteur?: {
+    id: string;
+    name: string;
+    email: string;
+  };
 }
 
 export default function ProjectDetailsPage() {

@@ -67,7 +67,7 @@ export async function GET(
                 email: true
               }
             },
-            conceptor: {
+            concepteur: {
               select: {
                 id: true,
                 name: true,
