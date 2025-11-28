@@ -868,11 +868,11 @@ export class ApiClient {
     if (filters?.status) params.append('status', filters.status)
     if (filters?.type) params.append('type', filters.type)
     if (filters?.search) params.append('search', filters.search)
-    return this.request(`/api/concepteur/clients?${params}`)
+    return this.request(`/concepteur/clients?${params}`)
   }
 
   async createConcepteurClient(data: { name: string; email: string; phone?: string; type?: string; address?: string; city?: string; notes?: string }) {
-    return this.request('/api/concepteur/clients', {
+    return this.request('/concepteur/clients', {
       method: 'POST',
       body: JSON.stringify(data)
     })
@@ -884,11 +884,11 @@ export class ApiClient {
     if (filters?.status) params.append('status', filters.status)
     if (filters?.startDate) params.append('startDate', filters.startDate)
     if (filters?.endDate) params.append('endDate', filters.endDate)
-    return this.request(`/api/concepteur/orders?${params}`)
+    return this.request(`/concepteur/orders?${params}`)
   }
 
   async createConcepteurOrder(data: { clientId: string; items: Array<{ workId: string; quantity: number; price: number }>; notes?: string }) {
-    return this.request('/api/concepteur/orders', {
+    return this.request('/concepteur/orders', {
       method: 'POST',
       body: JSON.stringify(data)
     })
@@ -899,7 +899,7 @@ export class ApiClient {
     const params = new URLSearchParams()
     if (filters?.status) params.append('status', filters.status)
     if (filters?.disciplineId) params.append('disciplineId', filters.disciplineId)
-    return this.request(`/api/concepteur/works?${params}`)
+    return this.request(`/concepteur/works?${params}`)
   }
 
   // Représentant - Partenaires
