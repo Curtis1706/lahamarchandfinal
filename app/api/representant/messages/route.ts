@@ -34,8 +34,6 @@ export async function GET(request: NextRequest) {
           read: true,
           readAt: true,
           createdAt: true,
-          senderId: true,
-          recipientId: true,
           sender: {
             select: {
               id: true,
@@ -101,11 +99,12 @@ export async function GET(request: NextRequest) {
 
     // Grouper les messages par correspondant pour simuler des conversations
     const conversations = messages.reduce((acc, message) => {
-      const otherUserId = message.senderId === session.user.id 
+      const isSentByUser = message.sender.id === session.user.id
+      const otherUserId = isSentByUser 
         ? message.recipient.id 
         : message.sender.id
       
-      const otherUserName = message.senderId === session.user.id 
+      const otherUserName = isSentByUser 
         ? message.recipient.name 
         : message.sender.name
 
@@ -120,7 +119,7 @@ export async function GET(request: NextRequest) {
       }
 
       acc[otherUserId].messages.push(message)
-      if (!message.read && message.recipientId === session.user.id) {
+      if (!message.read && !isSentByUser) {
         acc[otherUserId].unreadCount++
       }
 
