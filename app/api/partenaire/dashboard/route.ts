@@ -27,7 +27,14 @@ export async function GET(request: NextRequest) {
     let partner = await prisma.partner.findFirst({
       where: { userId: session.user.id },
       include: {
-        user: true
+        user: true,
+        representant: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
       }
     })
 
@@ -44,7 +51,14 @@ export async function GET(request: NextRequest) {
             contact: user.name,
           },
           include: {
-            user: true
+            user: true,
+            representant: {
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
+            }
           }
         })
         console.log("✅ Partenaire créé automatiquement pour l'utilisateur existant:", user.name)
@@ -102,12 +116,126 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // Calculer l'évolution du chiffre d'affaires (mois actuel vs mois précédent)
+    const now = new Date()
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+    const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
+
+    // Chiffre d'affaires du mois actuel
+    const currentMonthOrders = await prisma.order.findMany({
+      where: {
+        partnerId: partner.id,
+        status: 'DELIVERED',
+        createdAt: {
+          gte: currentMonthStart,
+          lte: currentMonthEnd
+        }
+      },
+      include: {
+        items: true
+      }
+    })
+
+    const currentMonthRevenue = currentMonthOrders.reduce((sum, order) => {
+      return sum + order.items.reduce((itemSum, item) => {
+        return itemSum + (item.price * item.quantity)
+      }, 0)
+    }, 0)
+
+    // Chiffre d'affaires du mois précédent
+    const previousMonthOrders = await prisma.order.findMany({
+      where: {
+        partnerId: partner.id,
+        status: 'DELIVERED',
+        createdAt: {
+          gte: previousMonthStart,
+          lte: previousMonthEnd
+        }
+      },
+      include: {
+        items: true
+      }
+    })
+
+    const previousMonthRevenue = previousMonthOrders.reduce((sum, order) => {
+      return sum + order.items.reduce((itemSum, item) => {
+        return itemSum + (item.price * item.quantity)
+      }, 0)
+    }, 0)
+
+    // Calculer le pourcentage d'évolution
+    let revenueGrowth = 0
+    if (previousMonthRevenue > 0) {
+      revenueGrowth = ((currentMonthRevenue - previousMonthRevenue) / previousMonthRevenue) * 100
+    } else if (currentMonthRevenue > 0) {
+      revenueGrowth = 100 // Si pas de revenu le mois précédent mais qu'il y en a ce mois
+    }
+
+    // Récupérer les commandes récentes (5 dernières)
+    const recentOrders = await prisma.order.findMany({
+      where: {
+        partnerId: partner.id
+      },
+      include: {
+        items: {
+          include: {
+            work: {
+              select: {
+                id: true,
+                title: true,
+                discipline: {
+                  select: {
+                    name: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      take: 5
+    })
+
+    // Formater les commandes récentes
+    const formattedRecentOrders = recentOrders.map(order => {
+      const totalAmount = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+      const totalQuantity = order.items.reduce((sum, item) => sum + item.quantity, 0)
+      const disciplines = [...new Set(order.items.map(item => item.work.discipline?.name || 'Autre'))]
+      
+      return {
+        id: order.id,
+        reference: `CMD-${order.id.slice(-8)}`,
+        quantity: totalQuantity,
+        disciplines: disciplines.join(', '),
+        status: order.status,
+        amount: totalAmount,
+        createdAt: order.createdAt
+      }
+    })
+
+    // Récupérer la dernière activité (dernière commande)
+    const lastActivity = recentOrders.length > 0 ? recentOrders[0].createdAt : partner.createdAt
+
     const stats = {
       totalOrders: ordersStats._count.id,
       pendingOrders,
       completedOrders,
       totalRevenue,
-      availableWorks
+      availableWorks,
+      revenueGrowth: Math.round(revenueGrowth),
+      partner: {
+        name: partner.name,
+        type: partner.type,
+        status: user.status,
+        representant: partner.representant?.name || null,
+        lastActivity: lastActivity.toISOString()
+      },
+      recentOrders: formattedRecentOrders
     }
 
     return NextResponse.json(stats)

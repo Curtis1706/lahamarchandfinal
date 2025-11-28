@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -24,16 +25,43 @@ interface PartnerStats {
   completedOrders: number
   totalRevenue: number
   availableWorks: number
+  revenueGrowth: number
+  partner: {
+    name: string
+    type: string
+    status: string
+    representant: string | null
+    lastActivity: string
+  }
+  recentOrders: Array<{
+    id: string
+    reference: string
+    quantity: number
+    disciplines: string
+    status: string
+    amount: number
+    createdAt: string
+  }>
 }
 
 export default function PartenaireDashboard() {
   const { user } = useCurrentUser()
+  const router = useRouter()
   const [stats, setStats] = useState<PartnerStats>({
     totalOrders: 0,
     pendingOrders: 0,
     completedOrders: 0,
     totalRevenue: 0,
-    availableWorks: 0
+    availableWorks: 0,
+    revenueGrowth: 0,
+    partner: {
+      name: '',
+      type: '',
+      status: '',
+      representant: null,
+      lastActivity: new Date().toISOString()
+    },
+    recentOrders: []
   })
   const [isLoading, setIsLoading] = useState(true)
 
@@ -48,11 +76,20 @@ export default function PartenaireDashboard() {
       const data = await apiClient.getPartenaireStats()
       
       setStats({
-        totalOrders: data.totalOrders,
-        pendingOrders: data.pendingOrders,
-        completedOrders: data.completedOrders,
-        totalRevenue: data.totalRevenue,
-        availableWorks: data.availableWorks
+        totalOrders: data.totalOrders || 0,
+        pendingOrders: data.pendingOrders || 0,
+        completedOrders: data.completedOrders || 0,
+        totalRevenue: data.totalRevenue || 0,
+        availableWorks: data.availableWorks || 0,
+        revenueGrowth: data.revenueGrowth || 0,
+        partner: data.partner || {
+          name: '',
+          type: '',
+          status: '',
+          representant: null,
+          lastActivity: new Date().toISOString()
+        },
+        recentOrders: data.recentOrders || []
       })
       
     } catch (error) {
@@ -63,11 +100,49 @@ export default function PartenaireDashboard() {
         pendingOrders: 0,
         completedOrders: 0,
         totalRevenue: 0,
-        availableWorks: 0
+        availableWorks: 0,
+        revenueGrowth: 0,
+        partner: {
+          name: '',
+          type: '',
+          status: '',
+          representant: null,
+          lastActivity: new Date().toISOString()
+        },
+        recentOrders: []
       })
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    const today = new Date()
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+    
+    if (date.toDateString() === today.toDateString()) {
+      return 'Aujourd\'hui'
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return 'Hier'
+    } else {
+      return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+    }
+  }
+
+  const getStatusBadge = (status: string) => {
+    const statusMap: { [key: string]: { label: string; className: string } } = {
+      'DELIVERED': { label: 'Livrée', className: 'bg-green-100 text-green-800' },
+      'VALIDATED': { label: 'Validée', className: 'bg-blue-100 text-blue-800' },
+      'PROCESSING': { label: 'En cours', className: 'bg-yellow-100 text-yellow-800' },
+      'SHIPPED': { label: 'Expédiée', className: 'bg-purple-100 text-purple-800' },
+      'PENDING': { label: 'En attente', className: 'bg-gray-100 text-gray-800' },
+      'CANCELLED': { label: 'Annulée', className: 'bg-red-100 text-red-800' }
+    }
+    
+    const statusInfo = statusMap[status] || { label: status, className: 'bg-gray-100 text-gray-800' }
+    return statusInfo
   }
 
   if (isLoading) {
@@ -125,8 +200,13 @@ export default function PartenaireDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalRevenue.toLocaleString()} FCFA</div>
             <p className="text-xs text-muted-foreground">
-              <TrendingUp className="inline h-3 w-3 mr-1" />
-              +12% ce mois
+              {stats.revenueGrowth !== 0 && (
+                <>
+                  <TrendingUp className={`inline h-3 w-3 mr-1 ${stats.revenueGrowth < 0 ? 'rotate-180' : ''}`} />
+                  {stats.revenueGrowth > 0 ? '+' : ''}{stats.revenueGrowth}% ce mois
+                </>
+              )}
+              {stats.revenueGrowth === 0 && 'Aucune évolution ce mois'}
             </p>
           </CardContent>
         </Card>
@@ -152,15 +232,27 @@ export default function PartenaireDashboard() {
             <CardTitle>Actions rapides</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button className="w-full justify-start" variant="outline">
+            <Button 
+              className="w-full justify-start" 
+              variant="outline"
+              onClick={() => router.push('/dashboard/partenaire/commandes?action=new')}
+            >
               <Plus className="h-4 w-4 mr-2" />
               Nouvelle commande
             </Button>
-            <Button className="w-full justify-start" variant="outline">
+            <Button 
+              className="w-full justify-start" 
+              variant="outline"
+              onClick={() => router.push('/dashboard/partenaire/catalogue')}
+            >
               <Eye className="h-4 w-4 mr-2" />
               Consulter le catalogue
             </Button>
-            <Button className="w-full justify-start" variant="outline">
+            <Button 
+              className="w-full justify-start" 
+              variant="outline"
+              onClick={() => router.push('/dashboard/partenaire/commandes')}
+            >
               <Calendar className="h-4 w-4 mr-2" />
               Voir mes commandes
             </Button>
@@ -175,19 +267,21 @@ export default function PartenaireDashboard() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Statut</span>
-                <Badge className="bg-green-100 text-green-800">Actif</Badge>
+                <Badge className={stats.partner.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
+                  {stats.partner.status === 'ACTIVE' ? 'Actif' : stats.partner.status === 'PENDING' ? 'En attente' : stats.partner.status}
+                </Badge>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Type</span>
-                <span className="text-sm text-muted-foreground">Librairie</span>
+                <span className="text-sm text-muted-foreground">{stats.partner.type || 'Non défini'}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Représentant</span>
-                <span className="text-sm text-muted-foreground">Thomas Représentant</span>
+                <span className="text-sm text-muted-foreground">{stats.partner.representant || 'Non assigné'}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Dernière activité</span>
-                <span className="text-sm text-muted-foreground">Aujourd'hui</span>
+                <span className="text-sm text-muted-foreground">{formatDate(stats.partner.lastActivity)}</span>
               </div>
             </div>
           </CardContent>
@@ -200,40 +294,34 @@ export default function PartenaireDashboard() {
           <CardTitle>Commandes récentes</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
-                <p className="font-medium">Commande #2025COM001</p>
-                <p className="text-sm text-muted-foreground">15 livres - Mathématiques CE1</p>
-              </div>
-              <div className="text-right">
-                <Badge className="bg-green-100 text-green-800">Livrée</Badge>
-                <p className="text-sm text-muted-foreground">45,000 FCFA</p>
-              </div>
+          {stats.recentOrders.length > 0 ? (
+            <div className="space-y-4">
+              {stats.recentOrders.map((order) => {
+                const statusInfo = getStatusBadge(order.status)
+                return (
+                  <div key={order.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <p className="font-medium">{order.reference}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {order.quantity} livre{order.quantity > 1 ? 's' : ''} - {order.disciplines}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <Badge className={statusInfo.className}>{statusInfo.label}</Badge>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {order.amount.toLocaleString()} FCFA
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
-            
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
-                <p className="font-medium">Commande #2025COM002</p>
-                <p className="text-sm text-muted-foreground">8 livres - Français CM2</p>
-              </div>
-              <div className="text-right">
-                <Badge className="bg-yellow-100 text-yellow-800">En cours</Badge>
-                <p className="text-sm text-muted-foreground">32,000 FCFA</p>
-              </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p>Aucune commande récente</p>
             </div>
-            
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
-                <p className="font-medium">Commande #2025COM003</p>
-                <p className="text-sm text-muted-foreground">12 livres - Sciences CE2</p>
-              </div>
-              <div className="text-right">
-                <Badge className="bg-blue-100 text-blue-800">En attente</Badge>
-                <p className="text-sm text-muted-foreground">48,000 FCFA</p>
-              </div>
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
     </div>
