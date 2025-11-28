@@ -862,37 +862,6 @@ export class ApiClient {
     return this.request(`/representant/reports/export?startDate=${startDate}&endDate=${endDate}`)
   }
 
-  // Concepteur - Clients
-  async getConcepteurClients(filters?: { status?: string; type?: string; search?: string }) {
-    const params = new URLSearchParams()
-    if (filters?.status) params.append('status', filters.status)
-    if (filters?.type) params.append('type', filters.type)
-    if (filters?.search) params.append('search', filters.search)
-    return this.request(`/concepteur/clients?${params}`)
-  }
-
-  async createConcepteurClient(data: { name: string; email: string; phone?: string; type?: string; address?: string; city?: string; notes?: string }) {
-    return this.request('/concepteur/clients', {
-      method: 'POST',
-      body: JSON.stringify(data)
-    })
-  }
-
-  // Concepteur - Commandes
-  async getConcepteurOrders(filters?: { status?: string; startDate?: string; endDate?: string }) {
-    const params = new URLSearchParams()
-    if (filters?.status) params.append('status', filters.status)
-    if (filters?.startDate) params.append('startDate', filters.startDate)
-    if (filters?.endDate) params.append('endDate', filters.endDate)
-    return this.request(`/concepteur/orders?${params}`)
-  }
-
-  async createConcepteurOrder(data: { clientId: string; items: Array<{ workId: string; quantity: number; price: number }>; notes?: string }) {
-    return this.request('/concepteur/orders', {
-      method: 'POST',
-      body: JSON.stringify(data)
-    })
-  }
 
   // Concepteur - Œuvres
   async getConcepteurWorks(filters?: { status?: string; disciplineId?: string }) {
