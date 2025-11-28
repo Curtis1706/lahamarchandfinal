@@ -38,7 +38,7 @@ interface Project {
   discipline: {
     id: string;
     name: string;
-  };
+  } | null;
   createdAt: string;
   submittedAt?: string;
   reviewedAt?: string;
@@ -82,24 +82,27 @@ export default function ConcepteurDashboard() {
     
     try {
       setIsLoading(true);
-      const projectsData = await apiClient.getConcepteurProjects(user.id);
+      const response = await apiClient.getConcepteurProjects(user.id);
       
-      if (Array.isArray(projectsData)) {
-        setProjects(projectsData);
-        
-        // Calculer les statistiques
-        const newStats = {
-          total: projectsData.length,
-          draft: projectsData.filter(p => p.status === "DRAFT").length,
-          submitted: projectsData.filter(p => p.status === "SUBMITTED").length,
-          accepted: projectsData.filter(p => p.status === "ACCEPTED").length,
-          rejected: projectsData.filter(p => p.status === "REJECTED").length,
-        };
-        setStats(newStats);
-      }
-    } catch (error) {
+      // L'API retourne { projects } ou directement un tableau
+      const projectsData = Array.isArray(response) ? response : (response.projects || []);
+      
+      setProjects(projectsData);
+      
+      // Calculer les statistiques
+      const newStats = {
+        total: projectsData.length,
+        draft: projectsData.filter((p: Project) => p.status === "DRAFT").length,
+        submitted: projectsData.filter((p: Project) => p.status === "SUBMITTED" || p.status === "UNDER_REVIEW").length,
+        accepted: projectsData.filter((p: Project) => p.status === "ACCEPTED").length,
+        rejected: projectsData.filter((p: Project) => p.status === "REJECTED").length,
+      };
+      setStats(newStats);
+    } catch (error: any) {
       console.error("Erreur lors du chargement des projets:", error);
-      toast.error("Erreur lors du chargement des projets");
+      toast.error(error.message || "Erreur lors du chargement des projets");
+      setProjects([]);
+      setStats({ total: 0, draft: 0, submitted: 0, accepted: 0, rejected: 0 });
     } finally {
       setIsLoading(false);
     }
@@ -111,19 +114,21 @@ export default function ConcepteurDashboard() {
         return <Badge variant="outline" className="text-gray-600"><Edit className="h-3 w-3 mr-1" />Brouillon</Badge>;
       case "SUBMITTED":
         return <Badge variant="secondary" className="text-blue-600"><Clock className="h-3 w-3 mr-1" />Soumis</Badge>;
+      case "UNDER_REVIEW":
+        return <Badge variant="secondary" className="text-blue-600"><Clock className="h-3 w-3 mr-1" />En révision</Badge>;
       case "ACCEPTED":
         return <Badge variant="default" className="bg-green-600 text-white"><CheckCircle className="h-3 w-3 mr-1" />Validé</Badge>;
       case "REJECTED":
         return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Refusé</Badge>;
       default:
-        return <Badge variant="outline">Inconnu</Badge>;
+        return <Badge variant="outline">{status}</Badge>;
     }
   };
 
   const filteredProjects = projects.filter(project => {
     const matchesSearch = project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          project.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         project.discipline.name.toLowerCase().includes(searchTerm.toLowerCase());
+                         project.discipline?.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || project.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -233,6 +238,7 @@ export default function ConcepteurDashboard() {
           <option value="all">Tous les statuts</option>
           <option value="DRAFT">Brouillons</option>
           <option value="SUBMITTED">Soumis</option>
+          <option value="UNDER_REVIEW">En révision</option>
           <option value="ACCEPTED">Validés</option>
           <option value="REJECTED">Refusés</option>
         </select>
@@ -247,7 +253,7 @@ export default function ConcepteurDashboard() {
                 <div className="space-y-1 flex-1">
                   <CardTitle className="text-lg">{project.title}</CardTitle>
                   <CardDescription className="text-sm">
-                    {project.discipline.name}
+                    {project.discipline?.name || "Discipline non définie"}
                   </CardDescription>
               </div>
                 {getStatusBadge(project.status)}

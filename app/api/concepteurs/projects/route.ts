@@ -180,7 +180,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Si l'utilisateur n'est pas PDG, il ne peut voir que ses propres projets
-    if (session.user.role !== "PDG") {
+    // Pour un concepteur, on utilise toujours son propre ID
+    if (session.user.role === "CONCEPTEUR") {
+      whereClause.concepteurId = session.user.id;
+    } else if (session.user.role !== "PDG") {
       whereClause.concepteurId = session.user.id;
     }
 
