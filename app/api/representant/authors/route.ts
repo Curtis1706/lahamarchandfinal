@@ -6,14 +6,12 @@ import { Role } from "@prisma/client"
 
 export const dynamic = 'force-dynamic'
 
-// GET /api/representant/authors - Récupérer les auteurs gérés par le représentant
+// GET /api/representant/authors - NON AUTORISÉ
+// Le Représentant n'a pas accès aux modules Auteurs selon le cahier des charges
 export async function GET(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session?.user || session.user.role !== 'REPRESENTANT') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
-    }
+  return NextResponse.json({ 
+    error: 'Accès refusé. Le Représentant n\'a pas accès aux modules Auteurs.' 
+  }, { status: 403 })
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
@@ -97,14 +95,12 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/representant/authors - Créer un nouvel auteur
+// POST /api/representant/authors - NON AUTORISÉ
+// Le Représentant ne peut pas créer ou gérer des auteurs
 export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session?.user || session.user.role !== 'REPRESENTANT') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
-    }
+  return NextResponse.json({ 
+    error: 'Accès refusé. Le Représentant ne peut pas créer ou gérer des auteurs.' 
+  }, { status: 403 })
 
     const body = await request.json()
     const { name, email, phone, disciplineId, password } = body

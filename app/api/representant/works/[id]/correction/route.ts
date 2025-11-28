@@ -5,17 +5,15 @@ import { prisma } from "@/lib/prisma"
 
 export const dynamic = 'force-dynamic'
 
-// PUT /api/representant/works/[id]/correction - Demander une correction à l'auteur
+// PUT /api/representant/works/[id]/correction - NON AUTORISÉ
+// Le Représentant ne peut pas gérer les œuvres selon le cahier des charges
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session?.user || session.user.role !== 'REPRESENTANT') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
-    }
+  return NextResponse.json({ 
+    error: 'Accès refusé. Le Représentant ne peut pas gérer les œuvres.' 
+  }, { status: 403 })
 
     const workId = params.id
     const body = await request.json()

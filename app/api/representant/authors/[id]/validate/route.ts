@@ -5,17 +5,15 @@ import { prisma } from "@/lib/prisma"
 
 export const dynamic = 'force-dynamic'
 
-// PUT /api/representant/authors/[id]/validate - Valider ou rejeter un auteur
+// PUT /api/representant/authors/[id]/validate - NON AUTORISÉ
+// Le Représentant ne peut pas valider des auteurs selon le cahier des charges
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session?.user || session.user.role !== 'REPRESENTANT') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
-    }
+  return NextResponse.json({ 
+    error: 'Accès refusé. Le Représentant ne peut pas valider des auteurs.' 
+  }, { status: 403 })
 
     const authorId = params.id
     const body = await request.json()

@@ -5,14 +5,13 @@ import { prisma } from "@/lib/prisma"
 
 export const dynamic = 'force-dynamic'
 
-// GET /api/representant/works - Récupérer les œuvres des auteurs gérés par le représentant
+// GET /api/representant/works - NON AUTORISÉ
+// Le Représentant n'a pas accès aux modules Œuvres selon le cahier des charges
+// (Sauf catalogue public en lecture seule si nécessaire pour la promotion)
 export async function GET(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session?.user || session.user.role !== 'REPRESENTANT') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
-    }
+  return NextResponse.json({ 
+    error: 'Accès refusé. Le Représentant n\'a pas accès aux modules Œuvres internes.' 
+  }, { status: 403 })
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
