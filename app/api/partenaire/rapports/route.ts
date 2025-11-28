@@ -21,8 +21,17 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('endDate')
     const reportType = searchParams.get('reportType') // mensuel, trimestriel, annuel
 
-    // Récupérer le partenaire associé à l'utilisateur
-    const partner = await prisma.partner.findUnique({
+    // Récupérer l'utilisateur pour obtenir ses informations
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id }
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 })
+    }
+
+    // Récupérer le partenaire associé à l'utilisateur, ou le créer s'il n'existe pas
+    let partner = await prisma.partner.findUnique({
       where: { userId: session.user.id },
       include: {
         orders: {
@@ -63,7 +72,26 @@ export async function GET(request: NextRequest) {
     })
 
     if (!partner) {
-      return NextResponse.json({ error: 'Partenaire introuvable' }, { status: 404 })
+      // Créer automatiquement un Partner pour les utilisateurs existants
+      try {
+        partner = await prisma.partner.create({
+          data: {
+            name: user.name,
+            type: 'INDEPENDANT',
+            userId: user.id,
+            email: user.email,
+            phone: user.phone || null,
+            contact: user.name,
+          },
+          include: {
+            orders: []
+          }
+        })
+        console.log("✅ Partenaire créé automatiquement pour l'utilisateur existant:", user.name)
+      } catch (partnerError: any) {
+        console.error("❌ Erreur lors de la création automatique du partenaire:", partnerError)
+        return NextResponse.json({ error: 'Erreur lors de la création du partenaire' }, { status: 500 })
+      }
     }
 
     // Calculer les statistiques

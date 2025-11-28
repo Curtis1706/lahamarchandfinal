@@ -95,6 +95,31 @@ export async function POST(request: NextRequest) {
 
     console.log("✅ Utilisateur créé avec succès:", newUser)
 
+    // Si c'est un partenaire, créer automatiquement l'entité Partner
+    if (role === 'PARTENAIRE') {
+      try {
+        await prisma.partner.create({
+          data: {
+            name: newUser.name,
+            type: 'INDEPENDANT', // Type par défaut pour les inscriptions publiques
+            userId: newUser.id,
+            email: newUser.email,
+            phone: newUser.phone || null,
+            contact: newUser.name,
+          }
+        })
+        console.log("✅ Partenaire créé automatiquement pour:", newUser.name)
+      } catch (partnerError: any) {
+        console.error("⚠️ Erreur création partenaire:", partnerError)
+        // Si l'erreur est due à un partenaire déjà existant, on continue
+        // Sinon, on peut décider de supprimer l'utilisateur ou de continuer
+        if (partnerError.code !== 'P2002') {
+          // Si ce n'est pas une erreur de contrainte unique, on log mais on continue
+          // L'utilisateur peut toujours se connecter, le partenaire pourra être créé manuellement
+        }
+      }
+    }
+
     // Créer une notification pour l'administrateur seulement si validation requise
     if (requiresValidation) {
       try {

@@ -72,10 +72,12 @@ export default function LoginPage() {
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <Input
+                    type="email"
                     value={emailValue}
                     onChange={(e) => setEmailValue(e.target.value)}
                     placeholder="Email"
                     className="pl-10 h-12 bg-gray-50 border-0 rounded-xl"
+                    autoComplete="email"
                   />
                 </div>
                 <div className="text-right mt-2">
@@ -107,6 +109,7 @@ export default function LoginPage() {
                     className="pl-10 pr-10 h-12 bg-gray-50 border-0 rounded-xl"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="current-password"
                     required
                   />
                 <button

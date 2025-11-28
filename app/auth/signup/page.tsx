@@ -108,6 +108,7 @@ export default function SignupPage() {
                   className="pl-10 h-12 bg-gray-50 border-0 rounded-xl"
                   value={formData.name}
                   onChange={(e) => handleInputChange("name", e.target.value)}
+                  autoComplete="name"
                   required
                 />
               </div>
@@ -124,6 +125,7 @@ export default function SignupPage() {
                   className="pl-10 h-12 bg-gray-50 border-0 rounded-xl"
                   value={formData.email}
                   onChange={(e) => handleInputChange("email", e.target.value)}
+                  autoComplete="email"
                   required
                 />
               </div>
@@ -142,6 +144,7 @@ export default function SignupPage() {
                   onChange={(e) => handleInputChange("phone", e.target.value)}
                   pattern="[+]?[0-9\s\-\(\)]+"
                   title="Format: +229 40 76 76 76 ou 22940767676"
+                  autoComplete="tel"
                   required
                 />
               </div>
@@ -226,6 +229,7 @@ export default function SignupPage() {
                     className="pl-10 pr-10 h-12 bg-gray-50 border-0 rounded-xl"
                     value={formData.password}
                     onChange={(e) => handleInputChange("password", e.target.value)}
+                    autoComplete="new-password"
                     required
                     minLength={6}
                   />
@@ -249,6 +253,7 @@ export default function SignupPage() {
                     className="pl-10 pr-10 h-12 bg-gray-50 border-0 rounded-xl"
                     value={formData.confirmPassword}
                     onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+                    autoComplete="new-password"
                     required
                   />
                   <button
