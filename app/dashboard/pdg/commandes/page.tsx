@@ -95,9 +95,13 @@ export default function CommandesPage() {
   
   // Filtres
   const [statusFilter, setStatusFilter] = useState("all")
+  const [typeFilter, setTypeFilter] = useState("all") // all, partner, client
   const [searchTerm, setSearchTerm] = useState("")
   const [itemsPerPage, setItemsPerPage] = useState(25)
   const [currentPage, setCurrentPage] = useState(1)
+  const [showAllocateStockDialog, setShowAllocateStockDialog] = useState(false)
+  const [selectedOrderForAllocation, setSelectedOrderForAllocation] = useState<Order | null>(null)
+  const [isAllocatingStock, setIsAllocatingStock] = useState(false)
   
   // Formulaire de création
   const [selectedUserId, setSelectedUserId] = useState("")
@@ -238,13 +242,56 @@ export default function CommandesPage() {
     return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
   }
 
+  const handleAllocateStock = async (order: Order) => {
+    if (!order.partnerId || !order.partner) {
+      toast.error("Cette commande n'est pas associée à un partenaire")
+      return
+    }
+
+    setSelectedOrderForAllocation(order)
+    setShowAllocateStockDialog(true)
+  }
+
+  const confirmAllocateStock = async () => {
+    if (!selectedOrderForAllocation) return
+
+    setIsAllocatingStock(true)
+    try {
+      // Allouer le stock pour chaque item de la commande
+      const allocations = selectedOrderForAllocation.items.map(item => ({
+        partnerId: selectedOrderForAllocation.partnerId!,
+        workId: item.workId,
+        quantity: item.quantity,
+        reason: `Allocation depuis commande ${selectedOrderForAllocation.id}`
+      }))
+
+      for (const allocation of allocations) {
+        await apiClient.allocatePartnerStock(allocation)
+      }
+
+      toast.success("Stock alloué avec succès au partenaire")
+      setShowAllocateStockDialog(false)
+      setSelectedOrderForAllocation(null)
+      loadData()
+    } catch (error: any) {
+      console.error('Erreur lors de l\'allocation:', error)
+      toast.error(error.message || "Erreur lors de l'allocation du stock")
+    } finally {
+      setIsAllocatingStock(false)
+    }
+  }
+
   const filteredOrders = orders.filter(order => {
     const matchesStatus = statusFilter === "all" || order.status === statusFilter
+    const matchesType = typeFilter === "all" || 
+      (typeFilter === "partner" && order.partnerId) ||
+      (typeFilter === "client" && !order.partnerId)
     const matchesSearch = searchTerm === "" || 
       order.user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.id.toLowerCase().includes(searchTerm.toLowerCase())
-    return matchesStatus && matchesSearch
+      order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (order.partner && order.partner.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    return matchesStatus && matchesType && matchesSearch
   })
 
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage)
@@ -445,7 +492,7 @@ export default function CommandesPage() {
             </div>
 
             {/* Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
@@ -468,6 +515,17 @@ export default function CommandesPage() {
                   <SelectItem value="SHIPPED">Expédiée</SelectItem>
                   <SelectItem value="DELIVERED">Livrée</SelectItem>
                   <SelectItem value="CANCELLED">Annulée</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Type de commande" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toutes les commandes</SelectItem>
+                  <SelectItem value="partner">Commandes partenaires</SelectItem>
+                  <SelectItem value="client">Commandes clients</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -525,10 +583,22 @@ export default function CommandesPage() {
                       <td className="p-4">{order.bookCount}</td>
                       <td className="p-4">
                         <div>
-                          <p className="font-medium">{order.user.name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{order.user.name}</p>
+                            {order.partnerId && (
+                              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                Partenaire
+                              </Badge>
+                            )}
+                          </div>
                           <p className="text-sm text-gray-500">{order.user.email}</p>
                           {order.user.phone && (
                             <p className="text-sm text-gray-500">{order.user.phone}</p>
+                          )}
+                          {order.partner && (
+                            <p className="text-sm text-blue-600 font-medium mt-1">
+                              {order.partner.name}
+                            </p>
                           )}
                         </div>
                       </td>
@@ -543,6 +613,17 @@ export default function CommandesPage() {
                       </td>
                       <td className="p-4">
                         <div className="flex items-center space-x-2">
+                          {order.partnerId && order.status === 'VALIDATED' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleAllocateStock(order)}
+                              title="Allouer le stock au partenaire"
+                              className="text-green-600 hover:text-green-700"
+                            >
+                              <Package className="w-4 h-4" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -615,6 +696,58 @@ export default function CommandesPage() {
           </div>
         </div>
       </div>
+
+      {/* Dialog d'allocation de stock */}
+      <Dialog open={showAllocateStockDialog} onOpenChange={setShowAllocateStockDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Allouer le stock au partenaire</DialogTitle>
+          </DialogHeader>
+          {selectedOrderForAllocation && (
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-gray-600 mb-2">
+                  Partenaire: <span className="font-medium">{selectedOrderForAllocation.partner?.name}</span>
+                </p>
+                <p className="text-sm text-gray-600 mb-4">
+                  Commande: <span className="font-mono">{selectedOrderForAllocation.id.slice(0, 12)}</span>
+                </p>
+              </div>
+              <div>
+                <p className="text-sm font-medium mb-2">Articles à allouer:</p>
+                <div className="border rounded-lg p-4 space-y-2 max-h-60 overflow-y-auto">
+                  {selectedOrderForAllocation.items.map((item, index) => (
+                    <div key={index} className="flex justify-between items-center py-2 border-b last:border-0">
+                      <div>
+                        <p className="font-medium text-sm">{item.work.title}</p>
+                        <p className="text-xs text-gray-500">Quantité: {item.quantity}</p>
+                      </div>
+                      <Badge variant="outline">{item.quantity} unités</Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <p className="text-sm text-yellow-800">
+                  ⚠️ Cette action allouera le stock central au partenaire. Le stock sera déduit du stock central et ajouté au stock du partenaire.
+                </p>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowAllocateStockDialog(false)}>
+                  Annuler
+                </Button>
+                <Button 
+                  onClick={confirmAllocateStock} 
+                  disabled={isAllocatingStock}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  {isAllocatingStock ? "Allocation..." : "Confirmer l'allocation"}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

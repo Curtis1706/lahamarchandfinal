@@ -295,24 +295,24 @@ export default function PartenaireDashboard() {
         </CardHeader>
         <CardContent>
           {stats.recentOrders.length > 0 ? (
-            <div className="space-y-4">
+          <div className="space-y-4">
               {stats.recentOrders.map((order) => {
                 const statusInfo = getStatusBadge(order.status)
                 return (
                   <div key={order.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
+              <div>
                       <p className="font-medium">{order.reference}</p>
                       <p className="text-sm text-muted-foreground">
                         {order.quantity} livre{order.quantity > 1 ? 's' : ''} - {order.disciplines}
                       </p>
-                    </div>
-                    <div className="text-right">
+              </div>
+              <div className="text-right">
                       <Badge className={statusInfo.className}>{statusInfo.label}</Badge>
                       <p className="text-sm text-muted-foreground mt-1">
                         {order.amount.toLocaleString()} FCFA
                       </p>
-                    </div>
-                  </div>
+              </div>
+            </div>
                 )
               })}
             </div>
