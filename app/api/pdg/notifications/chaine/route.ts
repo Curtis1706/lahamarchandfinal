@@ -99,10 +99,14 @@ export async function GET(request: NextRequest) {
         totalPages: Math.ceil(total / limit)
       }
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching notification chains:', error)
+    console.error('Stack trace:', error.stack)
     return NextResponse.json(
-      { error: 'Erreur lors de la récupération des chaînes de notifications' },
+      { 
+        error: 'Erreur lors de la récupération des chaînes de notifications',
+        message: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     )
   }
