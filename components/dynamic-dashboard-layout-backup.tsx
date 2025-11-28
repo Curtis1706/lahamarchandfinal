@@ -294,16 +294,13 @@ export default function DynamicDashboardLayout({
 
   const handleLogout = async () => {
     try {
-      await fetch("/api/auth/signout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+      await signOut({ 
+        callbackUrl: "/auth/login",
+        redirect: true 
       });
-      router.push("/auth/signin");
     } catch (error) {
       console.error("Error signing out:", error);
-      router.push("/auth/signin");
+      router.push("/auth/login");
     }
   };
 
