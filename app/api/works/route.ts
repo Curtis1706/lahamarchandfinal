@@ -342,54 +342,175 @@ export async function GET(request: NextRequest) {
       // (pour l'instant, on laisse le PDG voir tout)
     }
 
-    const [works, total] = await Promise.all([
-      prisma.work.findMany({
-        where: whereClause,
-        include: {
-          author: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              role: true
+    let works: any[] = []
+    let total = 0
+
+    try {
+      [works, total] = await Promise.all([
+        prisma.work.findMany({
+          where: whereClause,
+          include: {
+            author: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true
+              }
+            },
+            discipline: {
+              select: {
+                id: true,
+                name: true
+              }
+            },
+            project: {
+              select: {
+                id: true,
+                title: true,
+                status: true
+              }
+            },
+            concepteur: {
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
+            },
+            reviewer: {
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
             }
           },
-          discipline: {
-            select: {
-              id: true,
-              name: true
-            }
+          orderBy: {
+            createdAt: 'desc'
           },
-          project: {
-            select: {
-              id: true,
-              title: true,
-              status: true
-            }
-          },
-          concepteur: {
-            select: {
-              id: true,
-              name: true,
-              email: true
-            }
-          },
-          reviewer: {
-            select: {
-              id: true,
-              name: true,
-              email: true
-            }
+          skip,
+          take: limit
+        }),
+        prisma.work.count({ where: whereClause })
+      ])
+    } catch (findManyError: any) {
+      console.error('Error in work.findMany:', findManyError)
+      console.error('Error message:', findManyError.message)
+      console.error('Error code:', findManyError.code)
+      
+      // Si l'erreur est liée à un statut invalide (SUSPENDED), utiliser une approche alternative
+      if (findManyError.message?.includes('not found in enum') || findManyError.message?.includes('SUSPENDED')) {
+        console.warn('Statut invalide détecté, utilisation d\'une approche alternative')
+        
+        try {
+          // Utiliser une requête SQL brute pour récupérer uniquement les IDs
+          // Cela évite les problèmes d'enum Prisma
+          const validStatuses = ['DRAFT', 'PENDING', 'PUBLISHED', 'REJECTED', 'ON_SALE', 'OUT_OF_STOCK', 'DISCONTINUED', 'SUSPENDED']
+          
+          // Construire la clause WHERE en SQL
+          let sqlConditions: string[] = []
+          const sqlParams: any[] = []
+          
+          if (whereClause.status && validStatuses.includes(whereClause.status)) {
+            sqlConditions.push(`status = $${sqlParams.length + 1}`)
+            sqlParams.push(whereClause.status)
+          } else if (!whereClause.status) {
+            // Si aucun statut spécifié, filtrer uniquement les statuts valides
+            sqlConditions.push(`status IN (${validStatuses.map((_, i) => `$${sqlParams.length + i + 1}`).join(', ')})`)
+            sqlParams.push(...validStatuses)
           }
-        },
-        orderBy: {
-          createdAt: 'desc'
-        },
-        skip,
-        take: limit
-      }),
-      prisma.work.count({ where: whereClause })
-    ]);
+          
+          if (whereClause.authorId) {
+            sqlConditions.push(`"authorId" = $${sqlParams.length + 1}`)
+            sqlParams.push(whereClause.authorId)
+          }
+          
+          if (whereClause.disciplineId) {
+            sqlConditions.push(`"disciplineId" = $${sqlParams.length + 1}`)
+            sqlParams.push(whereClause.disciplineId)
+          }
+          
+          const whereSQL = sqlConditions.length > 0 ? `WHERE ${sqlConditions.join(' AND ')}` : ''
+          
+          // Récupérer les IDs avec SQL brut
+          const workIdsResult = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+            `SELECT id FROM "Work" ${whereSQL} ORDER BY "createdAt" DESC LIMIT $${sqlParams.length + 1} OFFSET $${sqlParams.length + 2}`,
+            ...sqlParams,
+            limit,
+            skip
+          )
+          
+          const ids = workIdsResult.map(w => w.id)
+          
+          // Compter le total
+          const countResult = await prisma.$queryRawUnsafe<Array<{ count: bigint }>>(
+            `SELECT COUNT(*) as count FROM "Work" ${whereSQL}`,
+            ...sqlParams
+          )
+          total = Number(countResult[0]?.count || 0)
+          
+          // Si on a des IDs, récupérer les works complets
+          if (ids.length > 0) {
+            works = await prisma.work.findMany({
+              where: {
+                id: { in: ids }
+              },
+              include: {
+                author: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    role: true
+                  }
+                },
+                discipline: {
+                  select: {
+                    id: true,
+                    name: true
+                  }
+                },
+                project: {
+                  select: {
+                    id: true,
+                    title: true,
+                    status: true
+                  }
+                },
+                concepteur: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true
+                  }
+                },
+                reviewer: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true
+                  }
+                }
+              },
+              orderBy: {
+                createdAt: 'desc'
+              }
+            })
+          } else {
+            works = []
+          }
+        } catch (sqlError: any) {
+          console.error('Error in SQL fallback:', sqlError)
+          // En dernier recours, retourner un tableau vide
+          works = []
+          total = 0
+        }
+      } else {
+        // Pour les autres erreurs, relancer l'erreur
+        throw findManyError
+      }
+    }
 
     // Calculer les statistiques globales (sans filtre de statut)
     let globalStats: any[] = []
