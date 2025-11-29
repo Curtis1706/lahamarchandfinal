@@ -484,6 +484,8 @@ export async function GET(request: NextRequest) {
       // Si aucun work n'est retourné mais que total > 0, il y a un problème
       if (works.length === 0 && total > 0) {
         console.warn(`⚠️ PROBLÈME: total=${total} mais works.length=0`);
+        console.warn(`⚠️ Skip=${skip}, Take=${limit}, Page=${page}`);
+        
         // Essayer une requête sans relations pour voir si le problème vient des relations
         try {
           const worksWithoutRelations = await prisma.work.findMany({
@@ -504,9 +506,61 @@ export async function GET(request: NextRequest) {
           if (worksWithoutRelations.length > 0) {
             console.warn(`⚠️ Le problème vient probablement des relations (author, discipline, etc.)`);
             console.log(`🔍 Works sans relations:`, worksWithoutRelations);
+            // Utiliser ces works sans relations et enrichir manuellement
+            works = worksWithoutRelations as any;
+          } else if (skip > 0) {
+            console.warn(`⚠️ Problème de pagination: skip=${skip} mais aucun work trouvé`);
+            // Essayer sans skip
+            const worksNoSkip = await prisma.work.findMany({
+              where: whereForQuery,
+              select: {
+                id: true,
+                title: true,
+                status: true,
+                authorId: true,
+                disciplineId: true,
+                createdAt: true
+              },
+              orderBy: { createdAt: 'desc' },
+              take: limit
+            });
+            console.log(`🔍 Requête sans skip: ${worksNoSkip.length} works trouvés`);
+            if (worksNoSkip.length > 0) {
+              works = worksNoSkip as any;
+            }
           }
         } catch (noRelError) {
           console.error("❌ Erreur requête sans relations:", noRelError);
+        }
+      }
+      
+      // Si toujours 0 works, essayer une requête complètement sans filtres
+      if (works.length === 0 && session.user.role === "PDG") {
+        console.warn(`⚠️ PDG: Aucun work trouvé, tentative sans aucun filtre`);
+        try {
+          const allWorksNoFilter = await prisma.work.findMany({
+            select: {
+              id: true,
+              title: true,
+              status: true,
+              authorId: true,
+              disciplineId: true,
+              createdAt: true,
+              isbn: true,
+              price: true,
+              tva: true
+            },
+            orderBy: { createdAt: 'desc' },
+            take: limit
+          });
+          console.log(`🔍 Requête PDG sans filtres: ${allWorksNoFilter.length} works trouvés`);
+          if (allWorksNoFilter.length > 0) {
+            works = allWorksNoFilter as any;
+            total = await prisma.work.count();
+            console.log(`🔍 Total mis à jour: ${total}`);
+          }
+        } catch (noFilterError) {
+          console.error("❌ Erreur requête sans filtres:", noFilterError);
         }
       }
     } catch (findManyError: any) {

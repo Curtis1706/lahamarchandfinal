@@ -106,6 +106,26 @@ export default function LivresListePage() {
     try {
       setIsLoading(true);
       console.log("🔄 Chargement des livres depuis /api/works...");
+      
+      // Diagnostic: vérifier d'abord si des works existent
+      try {
+        const debugResponse = await fetch('/api/works/debug');
+        if (debugResponse.ok) {
+          const debugData = await debugResponse.json();
+          console.log("🔍 DEBUG - Diagnostic:", {
+            totalWorksInDb: debugData.totalWorksInDb,
+            worksWithoutRelations: debugData.worksWithoutRelations?.length || 0,
+            worksWithRelationsCount: debugData.worksWithRelationsCount || 0,
+            sessionRole: debugData.session?.role
+          });
+          if (debugData.worksWithoutRelations && debugData.worksWithoutRelations.length > 0) {
+            console.log("🔍 DEBUG - Exemples de works:", debugData.worksWithoutRelations.slice(0, 3));
+          }
+        }
+      } catch (debugError) {
+        console.warn("⚠️ Erreur lors du diagnostic:", debugError);
+      }
+      
       // Pour le PDG, récupérer tous les works sans limite de pagination
       const response = await fetch('/api/works?limit=1000&page=1');
       console.log("🔍 Response status:", response.status);
