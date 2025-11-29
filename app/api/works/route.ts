@@ -349,14 +349,15 @@ export async function GET(request: NextRequest) {
     
     console.log("🔍 Where clause construite:", JSON.stringify(whereClause, null, 2));
 
+    // Pour le PDG, si la clause WHERE est vide, on récupère tous les works
+    // Sinon, on applique les filtres
+    const whereForQuery = Object.keys(whereClause).length === 0 ? undefined : whereClause;
+    console.log("🔍 Where clause pour la requête:", whereForQuery ? JSON.stringify(whereForQuery, null, 2) : "undefined (tous les works)");
+
     let works: any[] = []
     let total = 0
 
     try {
-      // Pour le PDG, si la clause WHERE est vide, on récupère tous les works
-      // Sinon, on applique les filtres
-      const whereForQuery = Object.keys(whereClause).length === 0 ? undefined : whereClause;
-      console.log("🔍 Where clause pour la requête:", whereForQuery ? JSON.stringify(whereForQuery, null, 2) : "undefined (tous les works)");
       
       // Essayer d'abord avec les relations
       try {

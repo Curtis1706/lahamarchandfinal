@@ -18,24 +18,34 @@ export async function GET(request: NextRequest) {
     }
 
     // Compter tous les works
-    const totalCount = await prisma.work.count();
+    let totalCount = 0;
+    try {
+      totalCount = await prisma.work.count();
+    } catch (countError: any) {
+      console.error("Erreur lors du comptage:", countError);
+    }
     
     // Récupérer tous les works sans relations (pour éviter les erreurs)
-    const allWorks = await prisma.work.findMany({
-      select: {
-        id: true,
-        title: true,
-        status: true,
-        authorId: true,
-        disciplineId: true,
-        createdAt: true,
-        isbn: true
-      },
-      orderBy: {
-        createdAt: 'desc'
-      },
-      take: 50
-    });
+    let allWorks: any[] = [];
+    try {
+      allWorks = await prisma.work.findMany({
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          authorId: true,
+          disciplineId: true,
+          createdAt: true,
+          isbn: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        take: 50
+      });
+    } catch (findError: any) {
+      console.error("Erreur lors de la récupération des works:", findError);
+    }
 
     // Essayer avec les relations
     let worksWithRelations: any[] = [];
