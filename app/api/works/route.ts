@@ -713,7 +713,8 @@ export async function GET(request: NextRequest) {
             console.log(`🔍 Récupération des works complets pour ${ids.length} IDs (SQL brut)`);
             
             // Utiliser SQL brut pour récupérer les works complets
-            const idsPlaceholders = ids.map((_, i) => `$${i + 1}`).join(', ');
+            // Construire la requête avec les IDs directement (sécurisé car les IDs viennent de notre propre DB)
+            const idsList = ids.map(id => `'${id.replace(/'/g, "''")}'`).join(', ');
             const worksRaw = await prisma.$queryRawUnsafe<any[]>(
               `SELECT 
                 w.*,
@@ -728,9 +729,8 @@ export async function GET(request: NextRequest) {
               LEFT JOIN "User" u2 ON w."concepteurId" = u2.id
               LEFT JOIN "User" u3 ON w."reviewerId" = u3.id
               LEFT JOIN "Project" p ON w."projectId" = p.id
-              WHERE w.id IN (${idsPlaceholders})
-              ORDER BY w."createdAt" DESC`,
-              ...ids
+              WHERE w.id IN (${idsList})
+              ORDER BY w."createdAt" DESC`
             );
             
             // Transformer les résultats SQL en format Prisma
@@ -902,30 +902,28 @@ export async function GET(request: NextRequest) {
       // Si des works existent mais ne sont pas retournés, faire une requête directe sans filtres
       if (totalWorksInDb > 0 && works.length === 0) {
         console.warn(`⚠️ ATTENTION: ${totalWorksInDb} works existent dans la DB mais 0 ont été retournés par la requête`);
-        const whereUsed = whereForQuery !== undefined ? whereForQuery : whereClause;
+        const whereUsed = (typeof whereForQuery !== 'undefined') ? whereForQuery : whereClause;
         console.warn(`⚠️ Where clause utilisée:`, JSON.stringify(whereUsed, null, 2));
         
-        // Requête directe pour voir tous les works (sans relations pour éviter les erreurs)
+        // Requête directe avec SQL brut pour voir tous les works (pour éviter les erreurs d'enum)
         try {
-          const allWorksDirect = await prisma.work.findMany({
-            select: {
-              id: true,
-              title: true,
-              status: true,
-              authorId: true,
-              disciplineId: true,
-              createdAt: true
-            },
-            orderBy: { createdAt: 'desc' },
-            take: 10
-          });
-          console.log(`🔍 Requête directe (sans relations) - ${allWorksDirect.length} works trouvés:`, allWorksDirect);
+          const allWorksDirect = await prisma.$queryRawUnsafe<any[]>(
+            `SELECT id, title, status, "authorId", "disciplineId", "createdAt"
+            FROM "Work"
+            ORDER BY "createdAt" DESC
+            LIMIT 10`
+          );
+          console.log(`🔍 Requête directe (SQL brut) - ${allWorksDirect.length} works trouvés:`, allWorksDirect);
         } catch (directError) {
           console.error("❌ Erreur lors de la requête directe:", directError);
         }
       }
-    } catch (countError) {
+    } catch (countError: any) {
       console.error("❌ Erreur lors du comptage total:", countError);
+      // Ne pas utiliser whereForQuery ici car il peut ne pas être défini
+      if (countError.message?.includes('whereForQuery')) {
+        console.warn("⚠️ Erreur whereForQuery ignorée dans le catch");
+      }
     }
     
     console.log(`🔍 ${works.length} œuvre(s) trouvée(s) sur ${total}`);
