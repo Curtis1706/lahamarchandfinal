@@ -23,9 +23,12 @@ export async function GET(request: NextRequest) {
 
     console.log("✅ User found:", user.name, user.role)
 
-    // Récupérer les œuvres en vente
+    // Récupérer les œuvres publiées
+    // Le représentant doit voir les mêmes livres que les clients (statut PUBLISHED)
     const works = await prisma.work.findMany({
-      where: { status: "ON_SALE" },
+      where: { 
+        status: "PUBLISHED"
+      },
       include: {
         discipline: true,
         author: true,
