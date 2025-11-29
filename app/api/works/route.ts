@@ -392,12 +392,73 @@ export async function GET(request: NextRequest) {
     ]);
 
     // Calculer les statistiques globales (sans filtre de statut)
-    const globalStats = await prisma.work.groupBy({
-      by: ['status'],
-      _count: {
-        status: true
+    let globalStats: any[] = []
+    try {
+      globalStats = await prisma.work.groupBy({
+        by: ['status'],
+        _count: {
+          status: true
+        }
+      })
+    } catch (groupByError: any) {
+      console.error('Error in groupBy:', groupByError)
+      console.error('Error message:', groupByError.message)
+      console.error('Error code:', groupByError.code)
+      
+      // Si l'erreur est liée à un statut invalide, récupérer les stats manuellement
+      if (groupByError.message?.includes('not found in enum') || groupByError.message?.includes('SUSPENDED')) {
+        console.warn('Statut invalide détecté dans la base, calcul manuel des statistiques')
+        try {
+          // Utiliser une requête SQL brute pour éviter les problèmes d'enum
+          const allWorks = await prisma.$queryRaw<Array<{ status: string }>>`
+            SELECT status FROM "Work"
+          `
+          
+          const statusCounts: Record<string, number> = {}
+          allWorks.forEach(work => {
+            const status = work.status as string
+            // Filtrer uniquement les statuts valides
+            const validStatuses = ['DRAFT', 'PENDING', 'PUBLISHED', 'REJECTED', 'ON_SALE', 'OUT_OF_STOCK', 'DISCONTINUED', 'SUSPENDED']
+            if (validStatuses.includes(status)) {
+              statusCounts[status] = (statusCounts[status] || 0) + 1
+            } else {
+              console.warn(`Statut invalide ignoré: ${status}`)
+            }
+          })
+          
+          globalStats = Object.entries(statusCounts).map(([status, count]) => ({
+            status,
+            _count: { status: count }
+          }))
+        } catch (manualError) {
+          console.error('Error in manual stats calculation:', manualError)
+          // En cas d'erreur, retourner des stats vides
+          globalStats = []
+        }
+      } else {
+        // Pour les autres erreurs, essayer quand même le calcul manuel
+        console.warn('Tentative de calcul manuel des statistiques')
+        try {
+          const allWorks = await prisma.work.findMany({
+            select: { status: true }
+          })
+          
+          const statusCounts: Record<string, number> = {}
+          allWorks.forEach(work => {
+            const status = work.status as string
+            statusCounts[status] = (statusCounts[status] || 0) + 1
+          })
+          
+          globalStats = Object.entries(statusCounts).map(([status, count]) => ({
+            status,
+            _count: { status: count }
+          }))
+        } catch (fallbackError) {
+          console.error('Fallback stats calculation failed:', fallbackError)
+          globalStats = []
+        }
       }
-    });
+    }
 
     const totalGlobal = await prisma.work.count();
 
@@ -406,7 +467,11 @@ export async function GET(request: NextRequest) {
       pending: globalStats.find(s => s.status === 'PENDING')?._count.status || 0,
       published: globalStats.find(s => s.status === 'PUBLISHED')?._count.status || 0,
       rejected: globalStats.find(s => s.status === 'REJECTED')?._count.status || 0,
-      draft: globalStats.find(s => s.status === 'DRAFT')?._count.status || 0
+      draft: globalStats.find(s => s.status === 'DRAFT')?._count.status || 0,
+      suspended: globalStats.find(s => s.status === 'SUSPENDED')?._count.status || 0,
+      onSale: globalStats.find(s => s.status === 'ON_SALE')?._count.status || 0,
+      outOfStock: globalStats.find(s => s.status === 'OUT_OF_STOCK')?._count.status || 0,
+      discontinued: globalStats.find(s => s.status === 'DISCONTINUED')?._count.status || 0
     };
 
     console.log(`🔍 ${works.length} œuvre(s) trouvée(s) sur ${total}`);
