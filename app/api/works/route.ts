@@ -353,9 +353,14 @@ export async function GET(request: NextRequest) {
     let total = 0
 
     try {
+      // Pour le PDG, si la clause WHERE est vide, on récupère tous les works
+      // Sinon, on applique les filtres
+      const whereForQuery = Object.keys(whereClause).length === 0 ? undefined : whereClause;
+      console.log("🔍 Where clause pour la requête:", whereForQuery ? JSON.stringify(whereForQuery, null, 2) : "undefined (tous les works)");
+      
       [works, total] = await Promise.all([
         prisma.work.findMany({
-          where: whereClause,
+          where: whereForQuery,
           include: {
             author: {
               select: {
@@ -399,16 +404,19 @@ export async function GET(request: NextRequest) {
           skip,
           take: limit
         }),
-        prisma.work.count({ where: whereClause })
+        prisma.work.count({ where: whereForQuery })
       ])
+      
+      console.log(`🔍 Requête réussie: ${works.length} works trouvés sur ${total} total`);
     } catch (findManyError: any) {
-      console.error('Error in work.findMany:', findManyError)
-      console.error('Error message:', findManyError.message)
-      console.error('Error code:', findManyError.code)
+      console.error('❌ Error in work.findMany:', findManyError)
+      console.error('❌ Error message:', findManyError.message)
+      console.error('❌ Error code:', findManyError.code)
+      console.error('❌ Stack:', findManyError.stack)
       
       // Si l'erreur est liée à un statut invalide (SUSPENDED), utiliser une approche alternative
       if (findManyError.message?.includes('not found in enum') || findManyError.message?.includes('SUSPENDED')) {
-        console.warn('Statut invalide détecté, utilisation d\'une approche alternative')
+        console.warn('⚠️ Statut invalide détecté, utilisation d\'une approche alternative')
         
         try {
           // Utiliser une requête SQL brute pour récupérer uniquement les IDs
@@ -419,14 +427,16 @@ export async function GET(request: NextRequest) {
           let sqlConditions: string[] = []
           const sqlParams: any[] = []
           
+          // Pour le PDG, si whereClause est vide, on ne filtre pas par statut
           if (whereClause.status && validStatuses.includes(whereClause.status)) {
             sqlConditions.push(`status = $${sqlParams.length + 1}`)
             sqlParams.push(whereClause.status)
-          } else if (!whereClause.status) {
-            // Si aucun statut spécifié, filtrer uniquement les statuts valides
+          } else if (whereClause.status && !validStatuses.includes(whereClause.status)) {
+            // Si le statut est invalide, on filtre uniquement les statuts valides
             sqlConditions.push(`status IN (${validStatuses.map((_, i) => `$${sqlParams.length + i + 1}`).join(', ')})`)
             sqlParams.push(...validStatuses)
           }
+          // Si pas de statut dans whereClause, on ne filtre pas (PDG voit tout)
           
           if (whereClause.authorId) {
             sqlConditions.push(`"authorId" = $${sqlParams.length + 1}`)
@@ -438,27 +448,44 @@ export async function GET(request: NextRequest) {
             sqlParams.push(whereClause.disciplineId)
           }
           
+          if (whereClause.projectId) {
+            sqlConditions.push(`"projectId" = $${sqlParams.length + 1}`)
+            sqlParams.push(whereClause.projectId)
+          }
+          
           const whereSQL = sqlConditions.length > 0 ? `WHERE ${sqlConditions.join(' AND ')}` : ''
+          console.log(`🔍 SQL fallback - WHERE clause: ${whereSQL || 'Aucune (tous les works)'}`)
           
           // Récupérer les IDs avec SQL brut
+          const limitParam = sqlParams.length + 1;
+          const offsetParam = sqlParams.length + 2;
+          const query = `SELECT id FROM "Work" ${whereSQL} ORDER BY "createdAt" DESC LIMIT $${limitParam} OFFSET $${offsetParam}`;
+          console.log(`🔍 SQL query: ${query}`);
+          console.log(`🔍 SQL params:`, [...sqlParams, limit, skip]);
+          
           const workIdsResult = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
-            `SELECT id FROM "Work" ${whereSQL} ORDER BY "createdAt" DESC LIMIT $${sqlParams.length + 1} OFFSET $${sqlParams.length + 2}`,
+            query,
             ...sqlParams,
             limit,
             skip
           )
           
           const ids = workIdsResult.map(w => w.id)
+          console.log(`🔍 IDs récupérés: ${ids.length}`, ids);
           
           // Compter le total
+          const countQuery = `SELECT COUNT(*) as count FROM "Work" ${whereSQL}`;
+          console.log(`🔍 Count query: ${countQuery}`);
           const countResult = await prisma.$queryRawUnsafe<Array<{ count: bigint }>>(
-            `SELECT COUNT(*) as count FROM "Work" ${whereSQL}`,
+            countQuery,
             ...sqlParams
           )
           total = Number(countResult[0]?.count || 0)
+          console.log(`🔍 Total works: ${total}`);
           
           // Si on a des IDs, récupérer les works complets
           if (ids.length > 0) {
+            console.log(`🔍 Récupération des works complets pour ${ids.length} IDs`);
             works = await prisma.work.findMany({
               where: {
                 id: { in: ids }
@@ -504,7 +531,9 @@ export async function GET(request: NextRequest) {
                 createdAt: 'desc'
               }
             })
+            console.log(`🔍 Works récupérés avec relations: ${works.length}`);
           } else {
+            console.log(`⚠️ Aucun ID trouvé, works = []`);
             works = []
           }
         } catch (sqlError: any) {
@@ -602,6 +631,18 @@ export async function GET(request: NextRequest) {
       discontinued: globalStats.find(s => s.status === 'DISCONTINUED')?._count.status || 0
     };
 
+    // Vérification supplémentaire : compter tous les works dans la base (pour debug)
+    try {
+      const totalWorksInDb = await prisma.work.count();
+      console.log(`🔍 Total works dans la base de données: ${totalWorksInDb}`);
+      if (totalWorksInDb > 0 && works.length === 0) {
+        console.warn(`⚠️ ATTENTION: ${totalWorksInDb} works existent dans la DB mais 0 ont été retournés par la requête`);
+        console.warn(`⚠️ Where clause utilisée:`, JSON.stringify(whereForQuery || whereClause, null, 2));
+      }
+    } catch (countError) {
+      console.error("❌ Erreur lors du comptage total:", countError);
+    }
+    
     console.log(`🔍 ${works.length} œuvre(s) trouvée(s) sur ${total}`);
     console.log("🔍 Statistiques globales calculées:", statsFormatted);
     console.log("🔍 Works récupérés:", works.map(w => ({ id: w.id, title: w.title, status: w.status })));
