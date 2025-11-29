@@ -42,15 +42,30 @@ export async function POST(request: NextRequest) {
     console.log("🔍 Données extraites:", { name, email, phone, role, disciplineId });
 
     // Validation des champs obligatoires
-    if (!name || !email || !phone || !role || !password) {
+    // Pour les comptes invités, le mot de passe peut être généré automatiquement
+    if (!name || !email || !role) {
       return NextResponse.json(
-        { error: "Tous les champs sont obligatoires" },
+        { error: "Le nom, l'email et le rôle sont obligatoires" },
+        { status: 400 }
+      );
+    }
+    
+    // Pour les comptes invités, générer un mot de passe temporaire si non fourni
+    let finalPassword = password
+    if (role === "INVITE" && !password) {
+      // Générer un mot de passe temporaire aléatoire
+      finalPassword = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12).toUpperCase() + "!@#"
+    }
+    
+    if (!finalPassword) {
+      return NextResponse.json(
+        { error: "Le mot de passe est obligatoire" },
         { status: 400 }
       );
     }
 
     // Validation du rôle - Le PDG peut créer tous les rôles
-    const validRoles = ["PDG", "AUTEUR", "CONCEPTEUR", "PARTENAIRE", "REPRESENTANT", "CLIENT", "LIVREUR"];
+    const validRoles = ["PDG", "AUTEUR", "CONCEPTEUR", "PARTENAIRE", "REPRESENTANT", "CLIENT", "LIVREUR", "INVITE"];
     if (!validRoles.includes(role)) {
       return NextResponse.json(
         { error: "Rôle invalide. Rôles valides: " + validRoles.join(", ") },
@@ -99,14 +114,15 @@ export async function POST(request: NextRequest) {
     console.log("🔍 Tentative de création avec Prisma...");
 
     // Hasher le mot de passe
-    const hashedPassword = await bcrypt.hash(password, 12);
+    const hashedPassword = await bcrypt.hash(finalPassword, 12);
 
     // Créer l'utilisateur
+    // Pour les comptes invités, le statut est ACTIVE mais avec des permissions limitées
     const user = await prisma.user.create({
       data: {
         name: name.trim(),
         email: email.trim().toLowerCase(),
-        phone: phone.trim(),
+        phone: phone?.trim() || null, // Téléphone optionnel pour les invités
         password: hashedPassword,
         role: role,
         status: "ACTIVE", // Actif directement car créé par le PDG
@@ -204,11 +220,22 @@ export async function POST(request: NextRequest) {
     // Retourner les données sans le mot de passe
     const { password: _, ...userWithoutPassword } = user;
     
-    return NextResponse.json({
+    // Préparer la réponse
+    const responseData: any = {
       success: true,
-      message: "Compte créé avec succès. Il est en attente de validation par l'administrateur.",
+      message: role === "INVITE" 
+        ? "Compte invité créé avec succès." 
+        : "Compte créé avec succès. Il est en attente de validation par l'administrateur.",
       user: userWithoutPassword
-    }, { status: 201 });
+    };
+    
+    // Pour les comptes invités créés sans mot de passe, retourner le mot de passe temporaire
+    if (role === "INVITE" && !password) {
+      responseData.temporaryPassword = finalPassword;
+      responseData.message = "Compte invité créé avec succès. Le mot de passe temporaire doit être communiqué à l'utilisateur.";
+    }
+    
+    return NextResponse.json(responseData, { status: 201 });
     
   } catch (error: any) {
     console.error("❌ Erreur création utilisateur:", error);

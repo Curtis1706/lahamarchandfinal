@@ -53,10 +53,10 @@ export class ApiClient {
   async createUser(data: { 
     name: string, 
     email: string, 
-    phone: string, 
+    phone?: string, 
     role: string, 
     disciplineId?: string, 
-    password: string 
+    password?: string 
   }) {
     return this.request('/users', {
       method: 'POST',

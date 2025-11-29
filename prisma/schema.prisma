@@ -808,6 +808,7 @@ enum Role {
   AUTEUR
   PARTENAIRE
   CLIENT
+  INVITE
 }
 
 enum UserStatus {
