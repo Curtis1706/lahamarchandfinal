@@ -323,6 +323,8 @@ export default function GestionUtilisateursPage() {
         return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">Partenaire</Badge>
       case 'CLIENT':
         return <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">Client</Badge>
+      case 'INVITE':
+        return <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100">Invité</Badge>
       case 'LIVREUR':
         return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Livreur</Badge>
       default:
