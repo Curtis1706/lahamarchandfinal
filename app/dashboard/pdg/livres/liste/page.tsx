@@ -105,13 +105,14 @@ export default function LivresListePage() {
   const loadLivres = async () => {
     try {
       setIsLoading(true);
+      console.log("🔄 Chargement des livres depuis /api/works...");
       const response = await fetch('/api/works');
       if (response.ok) {
         const data = await response.json();
-        console.log("Data reçue:", data);
+        console.log("✅ Data reçue:", data);
         // L'API retourne un objet avec works, pagination, stats
         const worksArray = data.works || [];
-        console.log("Works array:", worksArray);
+        console.log(`✅ ${worksArray.length} works trouvés dans la réponse`);
         // Transformer les données des œuvres en format livre
         const livresData = worksArray.map((work: any) => {
           // Extraire l'image de couverture et la collection depuis le champ files
@@ -156,13 +157,17 @@ export default function LivresListePage() {
             status: work.status
           };
         });
+        console.log(`✅ ${livresData.length} livres formatés et ajoutés à l'état`);
         setLivres(livresData);
       } else {
+        const errorData = await response.json().catch(() => ({ error: "Erreur inconnue" }));
+        console.error("❌ Erreur API works:", response.status, errorData);
         toast({
           title: "Erreur",
-          description: "Impossible de charger les livres",
+          description: errorData.error || "Impossible de charger les livres",
           variant: "destructive"
         });
+        setLivres([]);
       }
     } catch (error) {
       console.error("Error loading livres:", error);
@@ -182,42 +187,84 @@ export default function LivresListePage() {
       if (response.ok) {
         const data = await response.json();
         console.log("Disciplines chargées:", data);
-        setDisciplines(data);
+        // L'API peut retourner un tableau directement ou un objet avec disciplines
+        const disciplinesArray = Array.isArray(data) ? data : (data.disciplines || data || []);
+        console.log("Disciplines array:", disciplinesArray);
+        setDisciplines(disciplinesArray);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Erreur API disciplines:", response.status, errorData);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les disciplines",
+          variant: "destructive"
+        });
       }
     } catch (error) {
       console.error("Error loading disciplines:", error);
+      toast({
+        title: "Erreur",
+        description: "Erreur lors du chargement des disciplines",
+        variant: "destructive"
+      });
     }
   };
 
   const loadAuteurs = async () => {
     try {
-      const response = await fetch('/api/users?role=AUTEUR');
+      const response = await fetch('/api/users/list?role=AUTEUR');
       if (response.ok) {
         const data = await response.json();
         console.log("Auteurs chargés:", data);
         // L'API retourne un objet avec users et total
-        const auteursArray = data.users || [];
+        const auteursArray = data.users || data || [];
         console.log("Auteurs array:", auteursArray);
         setAuteurs(auteursArray);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Erreur API auteurs:", response.status, errorData);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les auteurs",
+          variant: "destructive"
+        });
       }
     } catch (error) {
       console.error("Error loading auteurs:", error);
+      toast({
+        title: "Erreur",
+        description: "Erreur lors du chargement des auteurs",
+        variant: "destructive"
+      });
     }
   };
 
   const loadConcepteurs = async () => {
     try {
-      const response = await fetch('/api/users?role=CONCEPTEUR');
+      const response = await fetch('/api/users/list?role=CONCEPTEUR');
       if (response.ok) {
         const data = await response.json();
         console.log("Concepteurs chargés:", data);
         // L'API retourne un objet avec users et total
-        const concepteursArray = data.users || [];
+        const concepteursArray = data.users || data || [];
         console.log("Concepteurs array:", concepteursArray);
         setConcepteurs(concepteursArray);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Erreur API concepteurs:", response.status, errorData);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les concepteurs",
+          variant: "destructive"
+        });
       }
     } catch (error) {
       console.error("Error loading concepteurs:", error);
+      toast({
+        title: "Erreur",
+        description: "Erreur lors du chargement des concepteurs",
+        variant: "destructive"
+      });
     }
   };
 
@@ -369,6 +416,8 @@ export default function LivresListePage() {
       });
 
       if (response.ok) {
+        const responseData = await response.json();
+        console.log("✅ Livre créé avec succès:", responseData);
         toast({
           title: "Succès",
           description: "Livre créé avec succès"
@@ -390,7 +439,11 @@ export default function LivresListePage() {
         setCoverImage(null);
         setCoverImagePreview(null);
         setShowCreateModal(false);
-        loadLivres();
+        // Recharger les livres après un court délai pour s'assurer que la base est à jour
+        setTimeout(() => {
+          console.log("🔄 Rechargement des livres après création...");
+          loadLivres();
+        }, 1000);
       } else {
         const errorData = await response.json();
         console.error("Erreur API:", errorData);
