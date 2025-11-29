@@ -32,6 +32,11 @@ export function hasAccess(role: UserRole | string | undefined, allowedRoles: Use
  */
 export const PUBLIC_ROUTES = [
   '/',
+  '/catalogue',
+  '/livre',
+  '/checkout',
+  '/dashboard/invite',
+  '/commande-confirmee',
   '/works/public',
   '/projects/public',
   '/about',
@@ -61,13 +66,29 @@ export const PROTECTED_ROUTES = [
  * Vérifie si une route est publique
  */
 export function isPublicRoute(pathname: string): boolean {
-  return PUBLIC_ROUTES.some(route => pathname.startsWith(route))
+  // Vérifier d'abord les routes exactes
+  if (PUBLIC_ROUTES.includes(pathname as any)) {
+    return true
+  }
+  // Vérifier les routes qui commencent par les routes publiques
+  return PUBLIC_ROUTES.some(route => {
+    // Pour /dashboard/invite, on veut une correspondance exacte ou qui commence par (inclut /dashboard/invite/catalogue)
+    if (route === '/dashboard/invite') {
+      return pathname === route || pathname.startsWith(route + '/')
+    }
+    // Pour les autres routes, on vérifie si elles commencent par la route publique
+    return pathname.startsWith(route)
+  })
 }
 
 /**
  * Vérifie si une route est protégée
  */
 export function isProtectedRoute(pathname: string): boolean {
+  // Exception : /dashboard/invite est publique
+  if (pathname === '/dashboard/invite' || pathname.startsWith('/dashboard/invite/')) {
+    return false
+  }
   return PROTECTED_ROUTES.some(route => pathname.startsWith(route))
 }
 
@@ -86,15 +107,15 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
   canViewDashboard: boolean
 }> = {
   GUEST: {
-    canViewWorks: true, // Seulement les œuvres publiques
+    canViewWorks: true, // Seulement les œuvres PUBLISHED
     canCreateWorks: false,
     canEditWorks: false,
     canDeleteWorks: false,
-    canViewProjects: true, // Seulement les projets publics
+    canViewProjects: false, // Les invités ne voient pas les projets
     canCreateProjects: false,
-    canViewStock: false,
+    canViewStock: false, // Les invités ne voient pas le stock interne
     canManageStock: false,
-    canViewDashboard: false
+    canViewDashboard: false // Les invités n'ont pas accès au dashboard
   },
   PDG: {
     canViewWorks: true,

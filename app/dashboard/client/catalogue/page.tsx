@@ -660,31 +660,31 @@ export default function ClientCataloguePage() {
                               </div>
                             </>
                           ) : (
-                            <div className="text-2xl font-bold text-primary">
-                              {work.price ? `${work.price.toFixed(2)} FCFA` : "Prix non défini"}
+                      <div className="text-2xl font-bold text-primary">
+                        {work.price ? `${work.price.toFixed(2)} FCFA` : "Prix non défini"}
                             </div>
                           )}
-                        </div>
-                        {workInCart ? (
-                          <Button
-                            variant="outline"
-                            onClick={() => removeFromCart(work.id)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            Retirer du panier
-                          </Button>
-                        ) : (
-                          <Button
-                            onClick={() => addToCart({
-                              ...work,
+                      </div>
+                      {workInCart ? (
+                        <Button
+                          variant="outline"
+                          onClick={() => removeFromCart(work.id)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          Retirer du panier
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => addToCart({
+                            ...work,
                               price: work.finalPrice || work.price, // Utiliser le prix avec remise
                               image: getBookImageUrl(work, work.title, discipline?.name)
-                            })}
-                            disabled={!work.price}
-                          >
-                            <ShoppingCart className="h-4 w-4 mr-2" />
-                            Ajouter au panier
-                          </Button>
+                          })}
+                          disabled={!work.price}
+                        >
+                          <ShoppingCart className="h-4 w-4 mr-2" />
+                          Ajouter au panier
+                        </Button>
                         )}
                       </div>
                       {work.discount && (

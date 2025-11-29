@@ -452,21 +452,21 @@ export default function LivresListePage() {
       }
       
       const workData = {
-        title: newLivre.titre,
-        description: description,
-        disciplineId: selectedDiscipline.id,
-        authorId: selectedAuthor.id,
+          title: newLivre.titre,
+          description: description,
+          disciplineId: selectedDiscipline.id,
+          authorId: selectedAuthor.id,
         concepteurId: newLivre.concepteurId || null,
-        category: newLivre.categorie,
-        targetAudience: newLivre.classes,
-        contentType: 'MANUAL',
+          category: newLivre.categorie,
+          targetAudience: newLivre.classes,
+          contentType: 'MANUAL',
         price: parseFloat(newLivre.prix),
         tva: parseFloat(newLivre.tva) / 100, // Convertir le pourcentage en décimal
         estimatedPrice: parseFloat(newLivre.prix),
         status: 'DRAFT', // Le PDG crée en DRAFT, puis peut publier
-        isbn: newLivre.isbn,
-        collectionId: newLivre.collectionId || null,
-        coverImage: coverImageUrl
+          isbn: newLivre.isbn,
+          collectionId: newLivre.collectionId || null,
+          coverImage: coverImageUrl
       };
       
       console.log("📤 Envoi des données de création:", workData);
@@ -480,7 +480,7 @@ export default function LivresListePage() {
       });
 
       console.log("📥 Réponse création livre:", response.status, response.statusText);
-      
+
       if (response.ok) {
         const responseData = await response.json();
         console.log("✅ Livre créé avec succès:", responseData);
@@ -508,7 +508,7 @@ export default function LivresListePage() {
         // Recharger les livres après un court délai pour s'assurer que la base est à jour
         setTimeout(() => {
           console.log("🔄 Rechargement des livres après création...");
-          loadLivres();
+        loadLivres();
         }, 1000);
       } else {
         const errorText = await response.text();
@@ -928,9 +928,9 @@ export default function LivresListePage() {
                                   {isDeleting === livre.id ? (
                                     <Loader2 className="w-4 h-4 text-red-500 animate-spin" />
                                   ) : (
-                                    <Trash2 className="w-4 h-4 text-red-500" />
+                              <Trash2 className="w-4 h-4 text-red-500" />
                                   )}
-                                </button>
+                            </button>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
@@ -1070,16 +1070,16 @@ export default function LivresListePage() {
           <div className="space-y-4 mt-2">
             {/* Section Informations générales */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label className="block text-sm font-medium mb-1">
+            <div>
+              <Label className="block text-sm font-medium mb-1">
                   Titre * :
-                </Label>
-                <Input 
-                  placeholder="Titre du livre" 
-                  value={newLivre.titre}
-                  onChange={(e) => setNewLivre({ ...newLivre, titre: e.target.value })}
-                />
-              </div>
+              </Label>
+              <Input 
+                placeholder="Titre du livre" 
+                value={newLivre.titre}
+                onChange={(e) => setNewLivre({ ...newLivre, titre: e.target.value })}
+              />
+            </div>
               <div>
                 <Label className="block text-sm font-medium mb-1">
                   Code ISBN * :
@@ -1114,21 +1114,21 @@ export default function LivresListePage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label className="block text-sm font-medium mb-1">
-                  Catégorie :
-                </Label>
-                <Select value={newLivre.categorie} onValueChange={(value) => setNewLivre({ ...newLivre, categorie: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner une catégorie" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="manuel">Manuel</SelectItem>
-                    <SelectItem value="exercice">Exercice</SelectItem>
-                    <SelectItem value="guide">Guide</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div>
+              <Label className="block text-sm font-medium mb-1">
+                Catégorie :
+              </Label>
+              <Select value={newLivre.categorie} onValueChange={(value) => setNewLivre({ ...newLivre, categorie: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner une catégorie" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manuel">Manuel</SelectItem>
+                  <SelectItem value="exercice">Exercice</SelectItem>
+                  <SelectItem value="guide">Guide</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             </div>
 
             {/* Section Auteur et Concepteur */}
@@ -1209,27 +1209,27 @@ export default function LivresListePage() {
 
             {/* Section Collection et Classes */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label className="block text-sm font-medium mb-1">
-                  Collection (optionnel) :
-                </Label>
-                <Select 
-                  value={newLivre.collectionId || "none"} 
-                  onValueChange={(value) => setNewLivre({ ...newLivre, collectionId: value === "none" ? "" : value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner une collection" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Aucune collection</SelectItem>
-                    {collections.map((collection) => (
-                      <SelectItem key={collection.id} value={collection.id}>
-                        {collection.nom}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div>
+              <Label className="block text-sm font-medium mb-1">
+                Collection (optionnel) :
+              </Label>
+              <Select 
+                value={newLivre.collectionId || "none"} 
+                onValueChange={(value) => setNewLivre({ ...newLivre, collectionId: value === "none" ? "" : value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner une collection" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Aucune collection</SelectItem>
+                  {collections.map((collection) => (
+                    <SelectItem key={collection.id} value={collection.id}>
+                      {collection.nom}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
               <div>
                 <Label className="block text-sm font-medium mb-1">
                   Classes cibles :

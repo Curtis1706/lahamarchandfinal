@@ -15,6 +15,49 @@ export const GET = allowGuest(async (request: NextRequest, context) => {
     const limit = parseInt(searchParams.get('limit') || '20')
     const skip = (page - 1) * limit
 
+    // Si un ID est fourni, retourner un seul work
+    const workId = searchParams.get('id')
+    if (workId) {
+      const work = await prisma.work.findUnique({
+        where: { id: workId, status: 'PUBLISHED' },
+        include: {
+          discipline: {
+            select: {
+              id: true,
+              name: true
+            }
+          },
+          author: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        }
+      })
+
+      if (!work) {
+        return NextResponse.json({ error: "Œuvre non trouvée" }, { status: 404 })
+      }
+
+      return NextResponse.json({
+        work: {
+          id: work.id,
+          title: work.title,
+          isbn: work.isbn,
+          price: work.price,
+          tva: work.tva || 0.18,
+          stock: work.stock || 0,
+          files: work.files,
+          description: work.description,
+          discipline: work.discipline,
+          author: work.author,
+          status: work.status,
+          createdAt: work.createdAt.toISOString()
+        }
+      })
+    }
+
     // Construire les conditions de filtre - uniquement les œuvres publiées
     const whereClause: any = {
       status: 'PUBLISHED' // Seulement les œuvres publiées apparaissent dans le catalogue
@@ -62,6 +105,10 @@ export const GET = allowGuest(async (request: NextRequest, context) => {
         title: work.title,
         isbn: work.isbn,
         price: work.price,
+        tva: work.tva || 0.18,
+        stock: work.stock || 0,
+        files: work.files,
+        description: work.description,
         discipline: work.discipline,
         author: work.author,
         status: work.status,

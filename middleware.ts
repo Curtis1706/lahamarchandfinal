@@ -46,7 +46,7 @@ export async function middleware(request: NextRequest) {
       }
       
       // Vérifier que le rôle existe et n'est pas GUEST
-      const validRoles = ['PDG', 'REPRESENTANT', 'PARTENAIRE', 'CONCEPTEUR', 'AUTEUR', 'CLIENT']
+      const validRoles = ['PDG', 'REPRESENTANT', 'PARTENAIRE', 'CONCEPTEUR', 'AUTEUR', 'CLIENT', 'INVITE']
       if (!token.role || token.role === GUEST_ROLE || !validRoles.includes(token.role as string)) {
         console.log("🔒 Middleware: Invalid role", token.role, ", redirecting to login")
         const loginUrl = new URL("/auth/login", request.url)

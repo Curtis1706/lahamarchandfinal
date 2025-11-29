@@ -49,8 +49,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validation du rôle - Le PDG peut créer tous les rôles (sauf INVITE qui est un visiteur non authentifié)
-    const validRoles = ["PDG", "AUTEUR", "CONCEPTEUR", "PARTENAIRE", "REPRESENTANT", "CLIENT", "LIVREUR"];
+    // Validation du rôle - Le PDG peut créer tous les rôles
+    const validRoles = ["PDG", "AUTEUR", "CONCEPTEUR", "PARTENAIRE", "REPRESENTANT", "CLIENT", "INVITE"];
     if (!validRoles.includes(role)) {
       return NextResponse.json(
         { error: "Rôle invalide. Rôles valides: " + validRoles.join(", ") },

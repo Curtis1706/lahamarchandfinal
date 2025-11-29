@@ -24,6 +24,10 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
+      // Récupérer le callbackUrl depuis l'URL si présent
+      const searchParams = new URLSearchParams(window.location.search)
+      const callbackUrl = searchParams.get("callbackUrl") || null
+
       const result = await signIn("credentials", {
         email: emailValue,
         password: password,
@@ -32,17 +36,53 @@ export default function LoginPage() {
 
       if (result?.error) {
         toast.error("Email ou mot de passe incorrect")
-      } else {
-        // Récupérer la session pour obtenir le rôle
-        const session = await getSession()
-        if (session?.user?.role) {
-          // Rediriger vers le dashboard approprié selon le rôle
-          const role = session.user.role.toLowerCase()
-          router.push(`/dashboard/${role}`)
-          toast.success("Connexion réussie !")
+        setIsLoading(false)
+        return
+      }
+
+      // Attendre que la session soit mise à jour (plusieurs tentatives)
+      let session = null
+      let attempts = 0
+      const maxAttempts = 10
+      
+      while (!session?.user?.role && attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 200))
+        session = await getSession()
+        attempts++
+        console.log(`🔄 Tentative ${attempts}/${maxAttempts} - Session:`, session?.user?.role || 'non disponible')
+      }
+      
+      if (session?.user?.role) {
+        const role = session.user.role.toUpperCase()
+        const validRoles = ['PDG', 'REPRESENTANT', 'PARTENAIRE', 'CONCEPTEUR', 'AUTEUR', 'CLIENT', 'INVITE']
+        
+        if (!validRoles.includes(role)) {
+          console.error(`❌ Rôle invalide: ${role}`)
+          toast.error("Rôle utilisateur invalide")
+          setIsLoading(false)
+          return
         }
+        
+        // Si un callbackUrl est fourni et valide, l'utiliser
+        if (callbackUrl && callbackUrl.startsWith('/dashboard/') && !callbackUrl.startsWith('/dashboard/invite')) {
+          console.log(`✅ Login successful, using callbackUrl: ${callbackUrl}`)
+          toast.success("Connexion réussie !")
+          router.replace(callbackUrl)
+          return
+        }
+        
+        // Rediriger vers le dashboard approprié selon le rôle
+        const dashboardPath = `/dashboard/${role.toLowerCase()}`
+        
+        console.log(`✅ Login successful, role: ${role}, redirecting to: ${dashboardPath}`)
+        toast.success("Connexion réussie !")
+        router.replace(dashboardPath)
+      } else {
+        console.error("❌ Impossible de récupérer la session après connexion")
+        toast.error("Erreur lors de la récupération de la session. Veuillez rafraîchir la page.")
       }
     } catch (error) {
+      console.error("Login error:", error)
       toast.error("Une erreur est survenue")
     } finally {
       setIsLoading(false)

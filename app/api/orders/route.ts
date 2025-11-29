@@ -182,8 +182,8 @@ export async function POST(request: NextRequest) {
           create: items.map((item: any) => {
             const work = works.find(w => w.id === item.workId)!
             return {
-              workId: item.workId,
-              quantity: item.quantity,
+            workId: item.workId,
+            quantity: item.quantity,
               price: item.price || work.price || 0
             }
           })

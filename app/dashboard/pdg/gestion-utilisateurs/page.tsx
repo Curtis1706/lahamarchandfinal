@@ -1049,7 +1049,7 @@ function EditUserForm({ user, disciplines, onSubmit, onCancel }: {
             <SelectItem value="CLIENT">Client</SelectItem>
             <SelectItem value="PARTENAIRE">Partenaire</SelectItem>
             <SelectItem value="REPRESENTANT">Représentant</SelectItem>
-            <SelectItem value="LIVREUR">Livreur</SelectItem>
+            <SelectItem value="INVITE">Invité</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -1179,7 +1179,7 @@ function CreateUserForm({ disciplines, onSubmit, onCancel }: {
             <SelectItem value="CLIENT">Client</SelectItem>
             <SelectItem value="PARTENAIRE">Partenaire</SelectItem>
             <SelectItem value="REPRESENTANT">Représentant</SelectItem>
-            <SelectItem value="LIVREUR">Livreur</SelectItem>
+            <SelectItem value="INVITE">Invité</SelectItem>
           </SelectContent>
         </Select>
       </div>

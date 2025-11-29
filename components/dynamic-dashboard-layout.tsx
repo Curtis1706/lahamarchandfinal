@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -378,6 +378,16 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
         }
       ];
 
+    case "INVITE":
+      return [
+        ...commonItems,
+        {
+          href: `${basePath}/catalogue`,
+          icon: BookOpen,
+          label: "Catalogue"
+        }
+      ];
+
     default:
       return commonItems;
   }
@@ -397,25 +407,65 @@ export default function DynamicDashboardLayout({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
-
-  // Calculer les variables (même si user n'est pas encore disponible)
-  const basePath = user ? `/dashboard/${user.role.toLowerCase()}` : '';
-  const navigation = user ? getNavigationForRole(user.role, basePath) : [];
-
-  // Vérifier l'authentification et rediriger si nécessaire
+  
+  // Références pour éviter les redirections en boucle
+  const authRedirectDone = useRef(false);
+  const routeCheckDone = useRef<string | null>(null);
+  
+  // Debug: logger les changements de user
   useEffect(() => {
+    if (user) {
+      console.log(`👤 DynamicDashboardLayout - User:`, { id: user.id, email: user.email, role: user.role })
+    } else {
+      console.log(`👤 DynamicDashboardLayout - No user`)
+    }
+  }, [user])
+
+  // Mémoriser basePath et navigation pour éviter les re-renders infinis
+  const basePath = useMemo(() => {
+    if (!user || !user.role) return '';
+    const role = user.role.toUpperCase()
+    const validRoles = ['PDG', 'REPRESENTANT', 'PARTENAIRE', 'CONCEPTEUR', 'AUTEUR', 'CLIENT']
+    if (!validRoles.includes(role)) {
+      console.warn(`⚠️ Rôle invalide dans basePath: ${role}`)
+      return ''
+    }
+    return `/dashboard/${role.toLowerCase()}`;
+  }, [user?.role]);
+
+  const navigation = useMemo(() => {
+    return user ? getNavigationForRole(user.role, basePath) : [];
+  }, [user?.role, basePath]);
+
+  // Vérifier l'authentification et rediriger si nécessaire (une seule fois)
+  // Ne pas vérifier pour les routes invitées
+  useEffect(() => {
+    // Ne pas vérifier pour /dashboard/invite
+    if (pathname.startsWith('/dashboard/invite')) {
+      return
+    }
+    
+    // Ne faire la vérification qu'une seule fois
+    if (authRedirectDone.current) return;
+    
     if (!userLoading && (!isAuthenticated || !user || !user.role)) {
+      authRedirectDone.current = true;
       console.log("🔒 DynamicDashboardLayout: User not authenticated, redirecting to login")
       router.replace("/auth/login")
       return
     }
-  }, [userLoading, isAuthenticated, user, router])
+    
+    // Si l'utilisateur est authentifié, marquer comme fait
+    if (!userLoading && isAuthenticated && user && user.role) {
+      authRedirectDone.current = true;
+    }
+  }, [userLoading, isAuthenticated, user, router, pathname])
 
-  // Restreindre l'accès aux routes non prévues pour le rôle
-  useEffect(() => {
-    if (!user || !basePath) return; // Vérifications de sécurité
-
-    const allowed: string[] = [];
+  // Mémoriser les routes autorisées
+  const allowedRoutes = useMemo(() => {
+    if (!user || !basePath) return [];
+    
+    const allowed: string[] = [basePath]; // Toujours autoriser basePath
     navigation.forEach((item) => {
       allowed.push(item.href);
       if (item.children) {
@@ -423,20 +473,72 @@ export default function DynamicDashboardLayout({
       }
     });
     allowed.push(`${basePath}/profil`);
+    return allowed;
+  }, [user, basePath, navigation]);
 
-    const isAllowed = allowed.some((p) => pathname === p || pathname.startsWith(p + "/"));
-    if (!isAllowed) {
-      router.replace(basePath);
+  // Restreindre l'accès aux routes non prévues pour le rôle
+  // Ne pas vérifier pour les routes invitées
+  useEffect(() => {
+    // Ne pas vérifier pour /dashboard/invite
+    if (pathname.startsWith('/dashboard/invite')) {
+      return
     }
-  }, [pathname, basePath, navigation, router, user]);
+    
+    if (!user || !basePath || !allowedRoutes.length) return; // Vérifications de sécurité
+    
+    // Ne pas rediriger si on est déjà sur basePath
+    if (pathname === basePath) {
+      routeCheckDone.current = pathname;
+      return;
+    }
+    
+    // Ne pas rediriger si on a déjà vérifié cette route
+    if (routeCheckDone.current === pathname) return;
+
+    const isAllowed = allowedRoutes.some((p) => pathname === p || pathname.startsWith(p + "/"));
+    if (!isAllowed) {
+      // Éviter les redirections en boucle
+      routeCheckDone.current = pathname;
+      console.log(`🚫 Route non autorisée: ${pathname}, user role: ${user.role}, basePath: ${basePath}, allowedRoutes:`, allowedRoutes);
+      
+      // Ne pas rediriger si basePath est vide ou invalide
+      if (!basePath || basePath === '/dashboard/') {
+        console.error(`❌ basePath invalide, impossible de rediriger`)
+        return
+      }
+      
+      router.replace(basePath);
+    } else {
+      routeCheckDone.current = pathname;
+    }
+  }, [pathname, basePath, allowedRoutes, router, user]);
+
+  // Ne pas bloquer les routes invitées - elles ont leur propre layout
+  if (pathname.startsWith('/dashboard/invite')) {
+    return <>{children}</>
+  }
 
   // Si l'utilisateur n'est pas authentifié, ne rien afficher (redirection en cours)
-  if (userLoading || !isAuthenticated || !user || !user.role) {
+  // Ne pas bloquer si on est en train de charger (pour éviter les conflits avec les pages)
+  if (userLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
           <p className="text-gray-500">Vérification de l'authentification...</p>
+        </div>
+      </div>
+    )
+  }
+  
+  // Seulement rediriger si on est sûr que l'utilisateur n'est pas authentifié
+  if (!isAuthenticated || !user || !user.role) {
+    // La redirection sera gérée par le useEffect
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+          <p className="text-gray-500">Redirection en cours...</p>
         </div>
       </div>
     )

@@ -362,51 +362,51 @@ export async function GET(request: NextRequest) {
       // Essayer d'abord avec les relations
       try {
         [works, total] = await Promise.all([
-          prisma.work.findMany({
+      prisma.work.findMany({
             where: whereForQuery,
-            include: {
-              author: {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                  role: true
-                }
-              },
-              discipline: {
-                select: {
-                  id: true,
-                  name: true
-                }
-              },
-              project: {
-                select: {
-                  id: true,
-                  title: true,
-                  status: true
-                }
-              },
-              concepteur: {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true
-                }
-              },
-              reviewer: {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true
-                }
-              }
-            },
-            orderBy: {
-              createdAt: 'desc'
-            },
-            skip,
-            take: limit
-          }),
+        include: {
+          author: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true
+            }
+          },
+          discipline: {
+            select: {
+              id: true,
+              name: true
+            }
+          },
+          project: {
+            select: {
+              id: true,
+              title: true,
+              status: true
+            }
+          },
+          concepteur: {
+            select: {
+              id: true,
+              name: true,
+              email: true
+            }
+          },
+          reviewer: {
+            select: {
+              id: true,
+              name: true,
+              email: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        skip,
+        take: limit
+      }),
           prisma.work.count({ where: whereForQuery })
         ])
       } catch (relationError: any) {
@@ -816,10 +816,10 @@ export async function GET(request: NextRequest) {
     let globalStats: any[] = []
     try {
       globalStats = await prisma.work.groupBy({
-        by: ['status'],
-        _count: {
-          status: true
-        }
+      by: ['status'],
+      _count: {
+        status: true
+      }
       })
     } catch (groupByError: any) {
       console.error('Error in groupBy:', groupByError)
@@ -925,7 +925,7 @@ export async function GET(request: NextRequest) {
         console.warn("⚠️ Erreur whereForQuery ignorée dans le catch");
       }
     }
-    
+
     console.log(`🔍 ${works.length} œuvre(s) trouvée(s) sur ${total}`);
     console.log("🔍 Statistiques globales calculées:", statsFormatted);
     console.log("🔍 Works récupérés:", works.map(w => ({ id: w.id, title: w.title, status: w.status })));

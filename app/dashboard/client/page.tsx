@@ -204,26 +204,25 @@ export default function ClientDashboard() {
 
   const currentBook = works.length > 0 ? works[currentBookIndex] : null;
 
+  // Ne pas utiliser DynamicDashboardLayout pendant le chargement pour éviter les conflits
   if (userLoading || isLoading) {
     return (
-      <DynamicDashboardLayout>
-        <div className="flex items-center justify-center h-96">
-          <div className="text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-            <p className="text-muted-foreground">Chargement du tableau de bord...</p>
-          </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Chargement du tableau de bord...</p>
         </div>
-      </DynamicDashboardLayout>
+      </div>
     );
   }
 
   if (!user) {
     return (
-      <DynamicDashboardLayout>
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center py-12">
           <p className="text-muted-foreground">Vous devez être connecté pour voir le tableau de bord.</p>
         </div>
-      </DynamicDashboardLayout>
+      </div>
     );
   }
 

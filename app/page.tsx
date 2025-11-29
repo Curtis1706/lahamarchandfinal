@@ -25,7 +25,7 @@ export default function HomePage() {
     
     // Vérifier strictement l'authentification
     if (status === "authenticated" && session?.user?.role) {
-      const validRoles = ['PDG', 'REPRESENTANT', 'PARTENAIRE', 'CONCEPTEUR', 'AUTEUR', 'CLIENT']
+      const validRoles = ['PDG', 'REPRESENTANT', 'PARTENAIRE', 'CONCEPTEUR', 'AUTEUR', 'CLIENT', 'INVITE']
       if (validRoles.includes(session.user.role)) {
         const role = session.user.role.toLowerCase()
         console.log("✅ Home: User authenticated, redirecting to", `/dashboard/${role}`)
