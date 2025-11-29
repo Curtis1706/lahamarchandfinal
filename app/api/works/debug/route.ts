@@ -17,10 +17,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
     }
 
-    // Compter tous les works
+    // Compter tous les works avec SQL brut (pour éviter les problèmes d'enum)
     let totalCount = 0;
     try {
-      totalCount = await prisma.work.count();
+      const countResult = await prisma.$queryRawUnsafe<Array<{ count: bigint }>>(
+        `SELECT COUNT(*) as count FROM "Work"`
+      );
+      totalCount = Number(countResult[0]?.count || 0);
     } catch (countError: any) {
       console.error("Erreur lors du comptage:", countError);
     }
@@ -43,38 +46,41 @@ export async function GET(request: NextRequest) {
         LIMIT 50`
       );
       
-      allWorks = worksRaw.map((row: any) => ({
-        id: row.id,
-        title: row.title,
-        status: row.status,
-        authorId: row.authorId,
-        disciplineId: row.disciplineId,
-        createdAt: row.createdAt,
-        isbn: row.isbn
-      }));
-      
-      // Works avec relations (premiers 10)
-      worksWithRelations = worksRaw.slice(0, 10).map((row: any) => ({
-        id: row.id,
-        title: row.title,
-        status: row.status,
-        authorId: row.authorId,
-        disciplineId: row.disciplineId,
-        createdAt: row.createdAt,
-        isbn: row.isbn,
-        author: row.author_id ? {
-          id: row.author_id,
-          name: row.author_name,
-          email: row.author_email,
-          role: row.author_role
-        } : null,
-        discipline: row.discipline_id ? {
-          id: row.discipline_id,
-          name: row.discipline_name
-        } : null
-      }));
+      if (worksRaw && Array.isArray(worksRaw)) {
+        allWorks = worksRaw.map((row: any) => ({
+          id: row.id,
+          title: row.title,
+          status: row.status,
+          authorId: row.authorId,
+          disciplineId: row.disciplineId,
+          createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
+          isbn: row.isbn
+        }));
+        
+        // Works avec relations (premiers 10)
+        worksWithRelations = worksRaw.slice(0, 10).map((row: any) => ({
+          id: row.id,
+          title: row.title,
+          status: row.status,
+          authorId: row.authorId,
+          disciplineId: row.disciplineId,
+          createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
+          isbn: row.isbn,
+          author: row.author_id ? {
+            id: row.author_id,
+            name: row.author_name,
+            email: row.author_email,
+            role: row.author_role
+          } : null,
+          discipline: row.discipline_id ? {
+            id: row.discipline_id,
+            name: row.discipline_name
+          } : null
+        }));
+      }
     } catch (findError: any) {
       console.error("Erreur lors de la récupération des works:", findError);
+      console.error("Stack:", findError.stack);
     }
 
     return NextResponse.json({
@@ -92,8 +98,12 @@ export async function GET(request: NextRequest) {
 
   } catch (error: any) {
     console.error("Erreur dans /api/works/debug:", error);
+    console.error("Stack:", error.stack);
     return NextResponse.json(
-      { error: "Erreur lors du diagnostic: " + error.message },
+      { 
+        error: "Erreur lors du diagnostic: " + (error.message || "Erreur inconnue"),
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      },
       { status: 500 }
     );
   }

@@ -107,7 +107,7 @@ export default function LivresListePage() {
       setIsLoading(true);
       console.log("🔄 Chargement des livres depuis /api/works...");
       
-      // Diagnostic: vérifier d'abord si des works existent
+      // Diagnostic: vérifier d'abord si des works existent (optionnel, ne bloque pas si erreur)
       try {
         const debugResponse = await fetch('/api/works/debug');
         if (debugResponse.ok) {
@@ -121,9 +121,13 @@ export default function LivresListePage() {
           if (debugData.worksWithoutRelations && debugData.worksWithoutRelations.length > 0) {
             console.log("🔍 DEBUG - Exemples de works:", debugData.worksWithoutRelations.slice(0, 3));
           }
+        } else {
+          const errorText = await debugResponse.text();
+          console.warn("⚠️ Debug endpoint erreur:", debugResponse.status, errorText);
         }
       } catch (debugError) {
-        console.warn("⚠️ Erreur lors du diagnostic:", debugError);
+        // Ne pas bloquer si le debug échoue
+        console.warn("⚠️ Erreur lors du diagnostic (non bloquant):", debugError);
       }
       
       // Pour le PDG, récupérer tous les works sans limite de pagination
