@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma";
 
 // POST /api/authors/works - Créer une œuvre directement (workflow Auteur)
 export async function POST(request: NextRequest) {
@@ -226,55 +224,160 @@ export async function GET(request: NextRequest) {
     }
 
     // Récupérer les œuvres de l'auteur
-    const works = await prisma.work.findMany({
-      where,
-      include: {
-        author: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true
+    let works: any[] = []
+    
+    try {
+      works = await prisma.work.findMany({
+        where,
+        include: {
+          author: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true
+            }
+          },
+          discipline: {
+            select: {
+              id: true,
+              name: true
+            }
+          },
+          project: {
+            select: {
+              id: true,
+              title: true,
+              status: true
+            }
+          },
+          _count: {
+            select: {
+              orderItems: true,
+              sales: true
+            }
           }
         },
-        discipline: {
-          select: {
-            id: true,
-            name: true
-          }
-        },
-        project: {
-          select: {
-            id: true,
-            title: true,
-            status: true
-          }
-        },
-        _count: {
-          select: {
-            orderItems: true,
-            sales: true
-          }
+        orderBy: {
+          createdAt: "desc"
         }
-      },
-      orderBy: {
-        createdAt: "desc"
+      })
+    } catch (findManyError: any) {
+      console.error('Error in findMany:', findManyError)
+      console.error('Error message:', findManyError.message)
+      
+      // Si l'erreur est liée à un statut invalide, récupérer les IDs d'abord
+      if (findManyError.message?.includes('not found in enum') || findManyError.message?.includes('SUSPENDED')) {
+        console.warn('Statut invalide détecté, récupération manuelle des œuvres')
+        try {
+          // Utiliser une requête SQL brute pour récupérer les IDs
+          const validStatuses = ['DRAFT', 'PENDING', 'PUBLISHED', 'REJECTED', 'ON_SALE', 'OUT_OF_STOCK', 'DISCONTINUED']
+          const statusFilter = validStatuses.map(s => `'${s}'`).join(',')
+          
+          const workIds = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+            `SELECT id FROM "Work" WHERE "authorId" = $1 AND status IN (${statusFilter})`,
+            authorId
+          )
+          
+          if (workIds.length > 0) {
+            const ids = workIds.map(w => w.id)
+            works = await prisma.work.findMany({
+              where: { id: { in: ids } },
+              include: {
+                author: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    role: true
+                  }
+                },
+                discipline: {
+                  select: {
+                    id: true,
+                    name: true
+                  }
+                },
+                project: {
+                  select: {
+                    id: true,
+                    title: true,
+                    status: true
+                  }
+                },
+                _count: {
+                  select: {
+                    orderItems: true,
+                    sales: true
+                  }
+                }
+              },
+              orderBy: {
+                createdAt: "desc"
+              }
+            })
+          }
+        } catch (fallbackError) {
+          console.error('Error in fallback findMany:', fallbackError)
+          works = []
+        }
+      } else {
+        throw findManyError
       }
-    });
+    }
 
-    // Calculer les statistiques
-    const stats = await prisma.work.groupBy({
-      by: ["status"],
-      where: { authorId },
-      _count: {
-        id: true
+    // Calculer les statistiques avec gestion d'erreur
+    let statusCounts: Record<string, number> = {}
+    
+    try {
+      const stats = await prisma.work.groupBy({
+        by: ["status"],
+        where: { authorId },
+        _count: {
+          id: true
+        }
+      })
+
+      statusCounts = stats.reduce((acc, stat) => {
+        acc[stat.status] = stat._count.id;
+        return acc;
+      }, {} as Record<string, number>)
+    } catch (groupByError: any) {
+      console.error('Error in groupBy:', groupByError)
+      console.error('Error message:', groupByError.message)
+      
+      // Si l'erreur est liée à un statut invalide, calculer manuellement
+      if (groupByError.message?.includes('not found in enum') || groupByError.message?.includes('SUSPENDED')) {
+        console.warn('Statut invalide détecté dans la base, calcul manuel des statistiques')
+        try {
+          // Utiliser une requête SQL brute pour éviter les problèmes d'enum
+          const allWorks = await prisma.$queryRaw<Array<{ status: string }>>`
+            SELECT status FROM "Work" WHERE "authorId" = ${authorId}
+          `
+          
+          const validStatuses = ['DRAFT', 'PENDING', 'PUBLISHED', 'REJECTED', 'ON_SALE', 'OUT_OF_STOCK', 'DISCONTINUED', 'SUSPENDED']
+          allWorks.forEach(work => {
+            const status = work.status as string
+            if (validStatuses.includes(status)) {
+              statusCounts[status] = (statusCounts[status] || 0) + 1
+            }
+          })
+        } catch (manualError) {
+          console.error('Error in manual stats calculation:', manualError)
+          // Calculer à partir des works récupérés
+          works.forEach(work => {
+            const status = work.status as string
+            statusCounts[status] = (statusCounts[status] || 0) + 1
+          })
+        }
+      } else {
+        // Pour les autres erreurs, calculer à partir des works récupérés
+        works.forEach(work => {
+          const status = work.status as string
+          statusCounts[status] = (statusCounts[status] || 0) + 1
+        })
       }
-    });
-
-    const statusCounts = stats.reduce((acc, stat) => {
-      acc[stat.status] = stat._count.id;
-      return acc;
-    }, {} as Record<string, number>);
+    }
 
     return NextResponse.json({
       works,
