@@ -62,6 +62,8 @@ model User {
   userProformas             Proforma[]          @relation("UserProformas")
   authorWithdrawals         Withdrawal[]        @relation("AuthorWithdrawals")
   validatedWithdrawals      Withdrawal[]        @relation("ValidatedWithdrawals")
+  representantWithdrawals   RepresentantWithdrawal[] @relation("RepresentantWithdrawals")
+  validatedRepresentantWithdrawals RepresentantWithdrawal[] @relation("ValidatedRepresentantWithdrawals")
 }
 
 model Account {
@@ -478,6 +480,33 @@ enum WithdrawalStatus {
   REJECTED  // Rejeté par le PDG
   PAID      // Payé
   CANCELLED // Annulé par l'auteur
+}
+
+// Retraits des représentants (RepresentantWithdrawals)
+model RepresentantWithdrawal {
+  id              String            @id @default(cuid())
+  userId          String            // ID du représentant
+  amount          Float             // Montant demandé
+  method          WithdrawalMethod  // Méthode de paiement
+  momoNumber      String?           // Numéro Mobile Money (si method = MOMO)
+  bankName        String?           // Nom de la banque (si method = BANK)
+  bankAccount     String?           // Numéro de compte bancaire (si method = BANK)
+  bankAccountName String?           // Nom du titulaire du compte
+  status          WithdrawalStatus @default(PENDING)
+  requestedAt     DateTime          @default(now())
+  validatedById   String?           // ID du PDG qui a validé
+  validatedBy     User?             @relation("ValidatedRepresentantWithdrawals", fields: [validatedById], references: [id])
+  validatedAt     DateTime?
+  paidAt          DateTime?
+  rejectionReason String?           // Raison du rejet (si status = REJECTED)
+  notes           String?           // Notes internes
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  user            User              @relation("RepresentantWithdrawals", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([requestedAt])
 }
 
 // Ristournes Partenaires
