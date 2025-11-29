@@ -173,17 +173,7 @@ export default function GestionUtilisateursPage() {
       setUsers(prev => Array.isArray(prev) ? [newUser, ...prev] : [newUser])
       setIsCreateDialogOpen(false)
       
-      // Si c'est un compte invité avec mot de passe temporaire, l'afficher
-      if (userData.role === 'INVITE' && response.temporaryPassword) {
-        toast.success(
-          `Compte invité créé avec succès ! Mot de passe temporaire: ${response.temporaryPassword}`,
-          { duration: 10000 }
-        )
-        // Afficher aussi dans une alerte pour que l'utilisateur puisse copier
-        alert(`Compte invité créé avec succès !\n\nEmail: ${newUser.email}\nMot de passe temporaire: ${response.temporaryPassword}\n\nVeuillez communiquer ces informations à l'utilisateur.`)
-      } else {
-        toast.success("Utilisateur créé avec succès")
-      }
+      toast.success("Utilisateur créé avec succès")
     } catch (error: any) {
       toast.error(error.message || "Erreur lors de la création")
     }
@@ -1152,36 +1142,28 @@ function CreateUserForm({ disciplines, onSubmit, onCancel }: {
       </div>
 
       <div>
-        <label className="text-sm font-medium">Téléphone {formData.role !== 'INVITE' && '*'}</label>
+        <label className="text-sm font-medium">Téléphone *</label>
         <Input
           value={formData.phone}
           onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
           placeholder="+229 40 76 76 76"
           pattern="[+]?[0-9\s\-\(\)]+"
           title="Format: +229 40 76 76 76 ou 22940767676"
-          required={formData.role !== 'INVITE'}
+          required
         />
-        {formData.role === 'INVITE' && (
-          <p className="text-xs text-muted-foreground mt-1">Optionnel pour les comptes invités</p>
-        )}
       </div>
       
       <div>
         <label className="text-sm font-medium">
-          Mot de passe {formData.role !== 'INVITE' && '*'}
+          Mot de passe *
         </label>
         <Input
           type="password"
           value={formData.password}
           onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-          placeholder={formData.role === 'INVITE' ? "Laisser vide pour générer automatiquement" : "Mot de passe"}
-          required={formData.role !== 'INVITE'}
+          placeholder="Mot de passe"
+          required
         />
-        {formData.role === 'INVITE' && (
-          <p className="text-xs text-muted-foreground mt-1">
-            Si laissé vide, un mot de passe temporaire sera généré automatiquement
-          </p>
-        )}
       </div>
       
       <div>
@@ -1198,7 +1180,6 @@ function CreateUserForm({ disciplines, onSubmit, onCancel }: {
             <SelectItem value="PARTENAIRE">Partenaire</SelectItem>
             <SelectItem value="REPRESENTANT">Représentant</SelectItem>
             <SelectItem value="LIVREUR">Livreur</SelectItem>
-            <SelectItem value="INVITE">Invité</SelectItem>
           </SelectContent>
         </Select>
       </div>

@@ -42,30 +42,15 @@ export async function POST(request: NextRequest) {
     console.log("🔍 Données extraites:", { name, email, phone, role, disciplineId });
 
     // Validation des champs obligatoires
-    // Pour les comptes invités, le mot de passe peut être généré automatiquement
-    if (!name || !email || !role) {
+    if (!name || !email || !role || !password) {
       return NextResponse.json(
-        { error: "Le nom, l'email et le rôle sont obligatoires" },
-        { status: 400 }
-      );
-    }
-    
-    // Pour les comptes invités, générer un mot de passe temporaire si non fourni
-    let finalPassword = password
-    if (role === "INVITE" && !password) {
-      // Générer un mot de passe temporaire aléatoire
-      finalPassword = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12).toUpperCase() + "!@#"
-    }
-    
-    if (!finalPassword) {
-      return NextResponse.json(
-        { error: "Le mot de passe est obligatoire" },
+        { error: "Le nom, l'email, le rôle et le mot de passe sont obligatoires" },
         { status: 400 }
       );
     }
 
-    // Validation du rôle - Le PDG peut créer tous les rôles
-    const validRoles = ["PDG", "AUTEUR", "CONCEPTEUR", "PARTENAIRE", "REPRESENTANT", "CLIENT", "LIVREUR", "INVITE"];
+    // Validation du rôle - Le PDG peut créer tous les rôles (sauf INVITE qui est un visiteur non authentifié)
+    const validRoles = ["PDG", "AUTEUR", "CONCEPTEUR", "PARTENAIRE", "REPRESENTANT", "CLIENT", "LIVREUR"];
     if (!validRoles.includes(role)) {
       return NextResponse.json(
         { error: "Rôle invalide. Rôles valides: " + validRoles.join(", ") },
@@ -85,16 +70,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Vérifier que le téléphone n'existe pas déjà
-    const existingPhone = await prisma.user.findFirst({
-      where: { phone }
-    });
+    // Vérifier que le téléphone n'existe pas déjà (si fourni)
+    if (phone) {
+      const existingPhone = await prisma.user.findFirst({
+        where: { phone }
+      });
 
-    if (existingPhone) {
-      return NextResponse.json(
-        { error: "Un utilisateur avec ce numéro de téléphone existe déjà" },
-        { status: 400 }
-      );
+      if (existingPhone) {
+        return NextResponse.json(
+          { error: "Un utilisateur avec ce numéro de téléphone existe déjà" },
+          { status: 400 }
+        );
+      }
     }
 
     // Vérifier que la discipline existe si fournie
@@ -114,7 +101,7 @@ export async function POST(request: NextRequest) {
     console.log("🔍 Tentative de création avec Prisma...");
 
     // Hasher le mot de passe
-    const hashedPassword = await bcrypt.hash(finalPassword, 12);
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     // Créer l'utilisateur
     // Pour les comptes invités, le statut est ACTIVE mais avec des permissions limitées
@@ -223,17 +210,9 @@ export async function POST(request: NextRequest) {
     // Préparer la réponse
     const responseData: any = {
       success: true,
-      message: role === "INVITE" 
-        ? "Compte invité créé avec succès." 
-        : "Compte créé avec succès. Il est en attente de validation par l'administrateur.",
+      message: "Compte créé avec succès. Il est en attente de validation par l'administrateur.",
       user: userWithoutPassword
     };
-    
-    // Pour les comptes invités créés sans mot de passe, retourner le mot de passe temporaire
-    if (role === "INVITE" && !password) {
-      responseData.temporaryPassword = finalPassword;
-      responseData.message = "Compte invité créé avec succès. Le mot de passe temporaire doit être communiqué à l'utilisateur.";
-    }
     
     return NextResponse.json(responseData, { status: 201 });
     
