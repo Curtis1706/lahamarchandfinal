@@ -33,8 +33,8 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       where.OR = [
-        { reference: { contains: search, mode: 'insensitive' } },
-        { order: { id: { contains: search, mode: 'insensitive' } } }
+        { reference: { contains: search, mode: 'insensitive' } }
+        // La recherche dans order sera faite côté client ou via une requête séparée si nécessaire
       ]
     }
 
@@ -48,72 +48,90 @@ export async function GET(request: NextRequest) {
       // Pour l'instant, on peut filtrer par statut de commande
     }
 
-    const [deliveryNotes, total] = await Promise.all([
-      prisma.deliveryNote.findMany({
-        where,
-        include: {
-          order: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true
-                }
-              },
-              partner: {
-                select: {
-                  id: true,
-                  name: true
-                }
-              },
-              items: {
-                include: {
-                  work: {
-                    select: {
-                      id: true,
-                      title: true,
-                      isbn: true
+    let deliveryNotes: any[] = []
+    let total = 0
+
+    try {
+      [deliveryNotes, total] = await Promise.all([
+        prisma.deliveryNote.findMany({
+          where,
+          include: {
+            order: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true
+                  }
+                },
+                partner: {
+                  select: {
+                    id: true,
+                    name: true
+                  }
+                },
+                items: {
+                  include: {
+                    work: {
+                      select: {
+                        id: true,
+                        title: true,
+                        isbn: true
+                      }
                     }
                   }
                 }
               }
+            },
+            generatedBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
+            },
+            validatedBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
+            },
+            controlledBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
             }
           },
-          generatedBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true
-            }
-          },
-          validatedBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true
-            }
-          },
-          controlledBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true
-            }
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+          skip: skip
+        }),
+        prisma.deliveryNote.count({ where })
+      ])
+    } catch (dbError: any) {
+      console.error('Database error in bon-sortie GET:', dbError)
+      console.error('Error message:', dbError.message)
+      console.error('Error code:', dbError.code)
+      
+      // Si c'est une erreur de relation manquante, retourner un tableau vide
+      if (dbError.code === 'P2025' || dbError.message?.includes('Record to update not found')) {
+        return NextResponse.json({
+          deliveryNotes: [],
+          pagination: {
+            total: 0,
+            page,
+            limit,
+            totalPages: 0
           }
-        },
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-        skip: skip
-      }).catch((error) => {
-        console.error('Error in deliveryNote.findMany:', error)
-        throw error
-      }),
-      prisma.deliveryNote.count({ where }).catch((error) => {
-        console.error('Error in deliveryNote.count:', error)
-        return 0
-      })
-    ])
+        })
+      }
+      
+      throw dbError
+    }
 
     return NextResponse.json({
       deliveryNotes: deliveryNotes.map(note => {
