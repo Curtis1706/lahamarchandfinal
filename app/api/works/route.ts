@@ -293,6 +293,8 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
+    console.log("🔍 GET /api/works - Session:", session?.user ? { id: session.user.id, role: session.user.role, email: session.user.email } : "Non authentifié");
+    
     if (!session?.user) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
@@ -305,6 +307,8 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
     const skip = (page - 1) * limit;
+
+    console.log("🔍 Paramètres de requête:", { authorId, status, disciplineId, projectId, page, limit, skip });
 
     // Construire les conditions de filtre
     let whereClause: any = {};
@@ -340,7 +344,10 @@ export async function GET(request: NextRequest) {
       // Le PDG peut voir tous les statuts, mais si aucun filtre n'est spécifié,
       // on peut optionnellement filtrer par défaut
       // (pour l'instant, on laisse le PDG voir tout)
+      console.log("🔍 PDG - Pas de restriction, récupération de tous les works");
     }
+    
+    console.log("🔍 Where clause construite:", JSON.stringify(whereClause, null, 2));
 
     let works: any[] = []
     let total = 0
@@ -597,8 +604,9 @@ export async function GET(request: NextRequest) {
 
     console.log(`🔍 ${works.length} œuvre(s) trouvée(s) sur ${total}`);
     console.log("🔍 Statistiques globales calculées:", statsFormatted);
+    console.log("🔍 Works récupérés:", works.map(w => ({ id: w.id, title: w.title, status: w.status })));
 
-    return NextResponse.json({
+    const response = {
       works,
       pagination: {
         page,
@@ -607,7 +615,15 @@ export async function GET(request: NextRequest) {
         totalPages: Math.ceil(total / limit)
       },
       stats: statsFormatted
-    }, { status: 200 });
+    };
+    
+    console.log("🔍 Réponse finale:", {
+      worksCount: response.works.length,
+      total: response.pagination.total,
+      hasStats: !!response.stats
+    });
+
+    return NextResponse.json(response, { status: 200 });
 
   } catch (error: any) {
     console.error("❌ Erreur lors de la récupération des œuvres:", error);

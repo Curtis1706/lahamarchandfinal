@@ -106,10 +106,18 @@ export default function LivresListePage() {
     try {
       setIsLoading(true);
       console.log("🔄 Chargement des livres depuis /api/works...");
-      const response = await fetch('/api/works');
+      const response = await fetch('/api/works?limit=1000');
+      console.log("🔍 Response status:", response.status);
       if (response.ok) {
         const data = await response.json();
         console.log("✅ Data reçue:", data);
+        console.log("🔍 Structure de la réponse:", {
+          hasWorks: !!data.works,
+          worksType: Array.isArray(data.works) ? 'array' : typeof data.works,
+          worksLength: data.works?.length,
+          hasPagination: !!data.pagination,
+          hasStats: !!data.stats
+        });
         // L'API retourne un objet avec works, pagination, stats
         const worksArray = data.works || [];
         console.log(`✅ ${worksArray.length} works trouvés dans la réponse`);
@@ -160,11 +168,18 @@ export default function LivresListePage() {
         console.log(`✅ ${livresData.length} livres formatés et ajoutés à l'état`);
         setLivres(livresData);
       } else {
-        const errorData = await response.json().catch(() => ({ error: "Erreur inconnue" }));
-        console.error("❌ Erreur API works:", response.status, errorData);
+        const errorText = await response.text();
+        console.error("❌ Erreur API works:", response.status, errorText);
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText || "Erreur inconnue" };
+        }
+        console.error("❌ Détails de l'erreur:", errorData);
         toast({
           title: "Erreur",
-          description: errorData.error || "Impossible de charger les livres",
+          description: errorData.error || `Erreur ${response.status}: Impossible de charger les livres`,
           variant: "destructive"
         });
         setLivres([]);
@@ -387,34 +402,50 @@ export default function LivresListePage() {
 
       // 2. Créer le livre
       // Utiliser la courte description si fournie, sinon générer une description par défaut
-      const description = newLivre.courteDescription.trim() 
-        ? newLivre.courteDescription.trim()
-        : `Livre de ${newLivre.matiere} pour ${newLivre.classes}`;
+      // La description est obligatoire dans l'API
+      let description = newLivre.courteDescription.trim();
+      if (!description) {
+        // Générer une description par défaut basée sur les informations disponibles
+        const disciplineName = selectedDiscipline?.name || newLivre.matiere || "la discipline";
+        const classes = newLivre.classes || "tous niveaux";
+        description = `Livre de ${disciplineName} pour ${classes}`;
+      }
+      
+      // S'assurer que la description n'est pas vide
+      if (!description || description.trim().length === 0) {
+        description = `Livre "${newLivre.titre}" - ${selectedDiscipline?.name || "Discipline non spécifiée"}`;
+      }
+      
+      const workData = {
+        title: newLivre.titre,
+        description: description,
+        disciplineId: selectedDiscipline.id,
+        authorId: selectedAuthor.id,
+        concepteurId: newLivre.concepteurId || null,
+        category: newLivre.categorie,
+        targetAudience: newLivre.classes,
+        contentType: 'MANUAL',
+        price: parseFloat(newLivre.prix),
+        tva: parseFloat(newLivre.tva) / 100, // Convertir le pourcentage en décimal
+        estimatedPrice: parseFloat(newLivre.prix),
+        status: 'DRAFT', // Le PDG crée en DRAFT, puis peut publier
+        isbn: newLivre.isbn,
+        collectionId: newLivre.collectionId || null,
+        coverImage: coverImageUrl
+      };
+      
+      console.log("📤 Envoi des données de création:", workData);
       
       const response = await fetch('/api/works', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          title: newLivre.titre,
-          description: description,
-          disciplineId: selectedDiscipline.id,
-          authorId: selectedAuthor.id,
-          concepteurId: newLivre.concepteurId || null,
-          category: newLivre.categorie,
-          targetAudience: newLivre.classes,
-          contentType: 'MANUAL',
-          price: parseFloat(newLivre.prix),
-          tva: parseFloat(newLivre.tva) / 100, // Convertir le pourcentage en décimal
-          estimatedPrice: parseFloat(newLivre.prix),
-          status: 'DRAFT', // Le PDG crée en DRAFT, puis peut publier
-          isbn: newLivre.isbn,
-          collectionId: newLivre.collectionId || null,
-          coverImage: coverImageUrl
-        }),
+        body: JSON.stringify(workData),
       });
 
+      console.log("📥 Réponse création livre:", response.status, response.statusText);
+      
       if (response.ok) {
         const responseData = await response.json();
         console.log("✅ Livre créé avec succès:", responseData);
@@ -445,11 +476,18 @@ export default function LivresListePage() {
           loadLivres();
         }, 1000);
       } else {
-        const errorData = await response.json();
-        console.error("Erreur API:", errorData);
+        const errorText = await response.text();
+        console.error("❌ Erreur API création:", response.status, errorText);
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText || "Erreur inconnue" };
+        }
+        console.error("❌ Détails de l'erreur:", errorData);
         toast({
           title: "Erreur",
-          description: errorData.error || "Impossible de créer le livre",
+          description: errorData.error || `Erreur ${response.status}: Impossible de créer le livre`,
           variant: "destructive"
         });
       }
