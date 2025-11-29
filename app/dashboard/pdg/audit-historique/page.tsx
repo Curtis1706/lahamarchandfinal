@@ -66,20 +66,39 @@ export default function AuditHistoriquePage() {
         const data = await response.json()
         
         // Formater les données si nécessaire
-        const formattedLogs = data.map((log: any) => ({
-          id: log.id,
-          action: log.action,
-          description: log.details || log.action,
-          user: {
-            id: log.userId || 'system',
-            name: log.performedBy || 'Système',
-            role: 'PDG'
-          },
-          target: log.metadata ? JSON.parse(log.metadata) : undefined,
-          timestamp: log.createdAt,
-          level: 'info',
-          category: 'system'
-        }))
+        const formattedLogs = data.map((log: any) => {
+          // Vérifier que la date est valide
+          let timestamp = log.createdAt;
+          if (timestamp) {
+            const date = new Date(timestamp);
+            if (isNaN(date.getTime())) {
+              timestamp = new Date().toISOString(); // Utiliser la date actuelle si invalide
+            }
+          } else {
+            timestamp = new Date().toISOString(); // Utiliser la date actuelle si manquante
+          }
+          
+          return {
+            id: log.id || `log-${Date.now()}-${Math.random()}`,
+            action: log.action || 'Action inconnue',
+            description: log.details || log.action || 'Aucune description',
+            user: {
+              id: log.userId || 'system',
+              name: log.performedBy || 'Système',
+              role: 'PDG'
+            },
+            target: log.metadata ? (() => {
+              try {
+                return JSON.parse(log.metadata);
+              } catch {
+                return undefined;
+              }
+            })() : undefined,
+            timestamp: timestamp,
+            level: 'info',
+            category: 'system'
+          };
+        })
         
         setAuditLogs(formattedLogs)
       } catch (error) {
@@ -328,10 +347,13 @@ export default function AuditHistoriquePage() {
                         <div className="flex items-center space-x-1">
                           <Clock className="h-4 w-4" />
                           <span>
-                            {formatDistanceToNow(new Date(log.timestamp), { 
-                              addSuffix: true, 
-                              locale: fr 
-                            })}
+                            {log.timestamp && !isNaN(new Date(log.timestamp).getTime()) 
+                              ? formatDistanceToNow(new Date(log.timestamp), { 
+                                  addSuffix: true, 
+                                  locale: fr 
+                                })
+                              : 'Date invalide'
+                            }
                           </span>
                         </div>
                       </div>
