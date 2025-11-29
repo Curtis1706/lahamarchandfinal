@@ -65,6 +65,15 @@ export default function CheckoutPage() {
   // Méthode de paiement
   const [paymentMethod, setPaymentMethod] = useState("")
   
+  // Code promo
+  const [promoCode, setPromoCode] = useState("")
+  const [appliedPromo, setAppliedPromo] = useState<{
+    code: string
+    discountAmount: number
+    libelle: string
+  } | null>(null)
+  const [isValidatingPromo, setIsValidatingPromo] = useState(false)
+  
   // Charger les items du panier avec quantités initiales
   useEffect(() => {
     if (cart.length > 0) {
@@ -146,8 +155,72 @@ export default function CheckoutPage() {
     }, 0)
   }
   
+  const getDiscount = () => {
+    if (appliedPromo) {
+      return appliedPromo.discountAmount
+    }
+    return 0
+  }
+  
   const getTotal = () => {
-    return getSubtotal() + getTotalTVA()
+    const subtotal = getSubtotal()
+    const tva = getTotalTVA()
+    const discount = getDiscount()
+    return Math.max(0, subtotal + tva - discount)
+  }
+  
+  // Valider le code promo
+  const handleValidatePromo = async () => {
+    if (!promoCode.trim()) {
+      toast.error("Veuillez saisir un code promo")
+      return
+    }
+    
+    setIsValidatingPromo(true)
+    
+    try {
+      const response = await fetch('/api/promo/validate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          code: promoCode.trim(),
+          items: cartItems.map(item => ({
+            id: item.id,
+            quantity: item.quantity,
+            price: item.price
+          }))
+        })
+      })
+      
+      const data = await response.json()
+      
+      if (data.valid && data.promotion) {
+        setAppliedPromo({
+          code: data.promotion.code,
+          discountAmount: data.promotion.discountAmount,
+          libelle: data.promotion.libelle
+        })
+        toast.success(`Code promo "${data.promotion.code}" appliqué !`)
+      } else {
+        setAppliedPromo(null)
+        toast.error(data.error || "Code promo invalide")
+      }
+    } catch (error: any) {
+      console.error("Erreur lors de la validation du code promo:", error)
+      toast.error("Erreur lors de la validation du code promo")
+      setAppliedPromo(null)
+    } finally {
+      setIsValidatingPromo(false)
+    }
+  }
+  
+  // Retirer le code promo
+  const handleRemovePromo = () => {
+    setAppliedPromo(null)
+    setPromoCode("")
+    toast.success("Code promo retiré")
   }
   
   const getTotalItems = () => {
@@ -223,10 +296,12 @@ export default function CheckoutPage() {
         price: item.price
       }))
       
-      // Créer la commande
+      // Créer la commande avec le code promo si appliqué
       const order = await apiClient.createOrder({
         userId: user.id,
-        items: orderItems
+        items: orderItems,
+        promoCode: appliedPromo?.code || null,
+        discountAmount: appliedPromo?.discountAmount || 0
       })
       
       // Vider le panier
@@ -509,6 +584,69 @@ export default function CheckoutPage() {
                 </Select>
               </CardContent>
             </Card>
+            
+            {/* Code promo */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Ticket className="h-5 w-5" />
+                  Code promo
+                </CardTitle>
+                <CardDescription>
+                  Entrez un code promo pour bénéficier d'une réduction
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {appliedPromo ? (
+                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="font-semibold text-green-800">Code appliqué : {appliedPromo.code}</p>
+                        <p className="text-sm text-green-600">{appliedPromo.libelle}</p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleRemovePromo}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        Retirer
+                      </Button>
+                    </div>
+                    <p className="text-lg font-bold text-green-800">
+                      Réduction : -{appliedPromo.discountAmount.toLocaleString()} F CFA
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Entrez votre code promo"
+                      value={promoCode}
+                      onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          handleValidatePromo()
+                        }
+                      }}
+                      disabled={isValidatingPromo}
+                    />
+                    <Button
+                      onClick={handleValidatePromo}
+                      disabled={isValidatingPromo || !promoCode.trim()}
+                    >
+                      {isValidatingPromo ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Validation...
+                        </>
+                      ) : (
+                        "Appliquer"
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
           
           {/* Colonne latérale - Récapitulatif */}
@@ -528,6 +666,12 @@ export default function CheckoutPage() {
                     <span className="text-muted-foreground">TVA (18%)</span>
                     <span className="font-medium">{getTotalTVA().toLocaleString()} F CFA</span>
                   </div>
+                  {appliedPromo && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Réduction ({appliedPromo.code})</span>
+                      <span className="font-medium">-{getDiscount().toLocaleString()} F CFA</span>
+                    </div>
+                  )}
                   <Separator />
                   <div className="flex justify-between text-lg font-bold">
                     <span>Total</span>

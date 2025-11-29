@@ -123,7 +123,12 @@ export class ApiClient {
     return this.request(`/orders${queryString ? `?${queryString}` : ''}`)
   }
 
-  async createOrder(data: { userId: string, items: Array<{ workId: string, quantity: number, price: number }> }) {
+  async createOrder(data: { 
+    userId: string, 
+    items: Array<{ workId: string, quantity: number, price: number }>,
+    promoCode?: string | null,
+    discountAmount?: number
+  }) {
     return this.request('/orders', {
       method: 'POST',
       body: JSON.stringify(data),

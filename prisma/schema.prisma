@@ -266,6 +266,8 @@ model Order {
   paymentReference   String? // Référence de transaction
   subtotal           Float               @default(0)
   tax                Float               @default(0)
+  discount           Float               @default(0) // Réduction appliquée (code promo)
+  promoCode          String? // Code promo utilisé
   total              Float               @default(0)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @default(now()) @updatedAt
@@ -279,6 +281,8 @@ model Order {
   proforma           Proforma?           @relation("ProformaOrder")
   royalties          Royalty[]           @relation("OrderRoyalties")
   partnerRebates     PartnerRebate[]     @relation("OrderPartnerRebates")
+  
+  @@index([promoCode])
 }
 
 model OrderItem {

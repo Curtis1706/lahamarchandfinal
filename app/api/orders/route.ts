@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { userId, partnerId, items } = body
+    const { userId, partnerId, items, promoCode, discountAmount } = body
 
     // Utiliser l'ID de la session si userId n'est pas fourni
     const finalUserId = userId || session.user.id
@@ -162,7 +162,8 @@ export async function POST(request: NextRequest) {
     }
     
     const tax = subtotal * 0.18 // TVA à 18%
-    const total = subtotal + tax
+    const discount = discountAmount || 0
+    const total = Math.max(0, subtotal + tax - discount)
 
     console.log(`📦 Création de commande pour l'utilisateur ${finalUserId}`)
     console.log(`📦 Items: ${items.length}, Subtotal: ${subtotal}, Tax: ${tax}, Total: ${total}`)
@@ -174,6 +175,8 @@ export async function POST(request: NextRequest) {
         subtotal,
         tax,
         total,
+        discount: discount || 0,
+        promoCode: promoCode || null,
         status: "PENDING",
         items: {
           create: items.map((item: any) => {
