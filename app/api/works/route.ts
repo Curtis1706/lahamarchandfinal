@@ -535,33 +535,102 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      // Si toujours 0 works, essayer une requête complètement sans filtres
+      // Si toujours 0 works, essayer une requête complètement sans filtres avec SQL brut
       if (works.length === 0 && session.user.role === "PDG") {
-        console.warn(`⚠️ PDG: Aucun work trouvé, tentative sans aucun filtre`);
+        console.warn(`⚠️ PDG: Aucun work trouvé, tentative avec SQL brut sans filtres`);
         try {
-          const allWorksNoFilter = await prisma.work.findMany({
-            select: {
-              id: true,
-              title: true,
-              status: true,
-              authorId: true,
-              disciplineId: true,
-              createdAt: true,
-              isbn: true,
-              price: true,
-              tva: true
-            },
-            orderBy: { createdAt: 'desc' },
-            take: limit
-          });
-          console.log(`🔍 Requête PDG sans filtres: ${allWorksNoFilter.length} works trouvés`);
-          if (allWorksNoFilter.length > 0) {
-            works = allWorksNoFilter as any;
-            total = await prisma.work.count();
+          // Utiliser SQL brut pour éviter les problèmes d'enum
+          const allWorksRaw = await prisma.$queryRawUnsafe<any[]>(
+            `SELECT 
+              w.*,
+              u1.id as "author_id", u1.name as "author_name", u1.email as "author_email", u1.role as "author_role",
+              d.id as "discipline_id", d.name as "discipline_name",
+              u2.id as "concepteur_id", u2.name as "concepteur_name", u2.email as "concepteur_email",
+              u3.id as "reviewer_id", u3.name as "reviewer_name", u3.email as "reviewer_email",
+              p.id as "project_id", p.title as "project_title", p.status as "project_status"
+            FROM "Work" w
+            LEFT JOIN "User" u1 ON w."authorId" = u1.id
+            LEFT JOIN "Discipline" d ON w."disciplineId" = d.id
+            LEFT JOIN "User" u2 ON w."concepteurId" = u2.id
+            LEFT JOIN "User" u3 ON w."reviewerId" = u3.id
+            LEFT JOIN "Project" p ON w."projectId" = p.id
+            ORDER BY w."createdAt" DESC
+            LIMIT $1`,
+            limit
+          );
+          
+          // Transformer les résultats SQL en format Prisma
+          works = allWorksRaw.map((row: any) => ({
+            id: row.id,
+            title: row.title,
+            description: row.description,
+            isbn: row.isbn,
+            internalCode: row.internalCode,
+            price: row.price,
+            tva: row.tva,
+            discountRate: row.discountRate,
+            stock: row.stock,
+            minStock: row.minStock,
+            maxStock: row.maxStock,
+            physicalStock: row.physicalStock,
+            category: row.category,
+            targetAudience: row.targetAudience,
+            educationalObjectives: row.educationalObjectives,
+            contentType: row.contentType,
+            keywords: row.keywords,
+            files: row.files,
+            validationComment: row.validationComment,
+            rejectionReason: row.rejectionReason,
+            disciplineId: row.disciplineId,
+            status: row.status,
+            publishedAt: row.publishedAt,
+            publicationDate: row.publicationDate,
+            version: row.version,
+            submittedAt: row.submittedAt,
+            reviewedAt: row.reviewedAt,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
+            authorId: row.authorId,
+            reviewerId: row.reviewerId,
+            concepteurId: row.concepteurId,
+            projectId: row.projectId,
+            author: row.author_id ? {
+              id: row.author_id,
+              name: row.author_name,
+              email: row.author_email,
+              role: row.author_role
+            } : null,
+            discipline: row.discipline_id ? {
+              id: row.discipline_id,
+              name: row.discipline_name
+            } : null,
+            concepteur: row.concepteur_id ? {
+              id: row.concepteur_id,
+              name: row.concepteur_name,
+              email: row.concepteur_email
+            } : null,
+            reviewer: row.reviewer_id ? {
+              id: row.reviewer_id,
+              name: row.reviewer_name,
+              email: row.reviewer_email
+            } : null,
+            project: row.project_id ? {
+              id: row.project_id,
+              title: row.project_title,
+              status: row.project_status
+            } : null
+          }));
+          
+          console.log(`🔍 Requête PDG SQL brut: ${works.length} works trouvés`);
+          if (works.length > 0) {
+            const countResult = await prisma.$queryRawUnsafe<Array<{ count: bigint }>>(
+              `SELECT COUNT(*) as count FROM "Work"`
+            );
+            total = Number(countResult[0]?.count || 0);
             console.log(`🔍 Total mis à jour: ${total}`);
           }
         } catch (noFilterError) {
-          console.error("❌ Erreur requête sans filtres:", noFilterError);
+          console.error("❌ Erreur requête SQL brut sans filtres:", noFilterError);
         }
       }
     } catch (findManyError: any) {
@@ -639,55 +708,94 @@ export async function GET(request: NextRequest) {
           total = Number(countResult[0]?.count || 0)
           console.log(`🔍 Total works: ${total}`);
           
-          // Si on a des IDs, récupérer les works complets
+          // Si on a des IDs, récupérer les works complets avec SQL brut pour éviter les problèmes d'enum
           if (ids.length > 0) {
-            console.log(`🔍 Récupération des works complets pour ${ids.length} IDs`);
-            works = await prisma.work.findMany({
-              where: {
-                id: { in: ids }
-              },
-              include: {
-                author: {
-                  select: {
-                    id: true,
-                    name: true,
-                    email: true,
-                    role: true
-                  }
-                },
-                discipline: {
-                  select: {
-                    id: true,
-                    name: true
-                  }
-                },
-                project: {
-                  select: {
-                    id: true,
-                    title: true,
-                    status: true
-                  }
-                },
-                concepteur: {
-                  select: {
-                    id: true,
-                    name: true,
-                    email: true
-                  }
-                },
-                reviewer: {
-                  select: {
-                    id: true,
-                    name: true,
-                    email: true
-                  }
-                }
-              },
-              orderBy: {
-                createdAt: 'desc'
-              }
-            })
-            console.log(`🔍 Works récupérés avec relations: ${works.length}`);
+            console.log(`🔍 Récupération des works complets pour ${ids.length} IDs (SQL brut)`);
+            
+            // Utiliser SQL brut pour récupérer les works complets
+            const idsPlaceholders = ids.map((_, i) => `$${i + 1}`).join(', ');
+            const worksRaw = await prisma.$queryRawUnsafe<any[]>(
+              `SELECT 
+                w.*,
+                u1.id as "author_id", u1.name as "author_name", u1.email as "author_email", u1.role as "author_role",
+                d.id as "discipline_id", d.name as "discipline_name",
+                u2.id as "concepteur_id", u2.name as "concepteur_name", u2.email as "concepteur_email",
+                u3.id as "reviewer_id", u3.name as "reviewer_name", u3.email as "reviewer_email",
+                p.id as "project_id", p.title as "project_title", p.status as "project_status"
+              FROM "Work" w
+              LEFT JOIN "User" u1 ON w."authorId" = u1.id
+              LEFT JOIN "Discipline" d ON w."disciplineId" = d.id
+              LEFT JOIN "User" u2 ON w."concepteurId" = u2.id
+              LEFT JOIN "User" u3 ON w."reviewerId" = u3.id
+              LEFT JOIN "Project" p ON w."projectId" = p.id
+              WHERE w.id IN (${idsPlaceholders})
+              ORDER BY w."createdAt" DESC`,
+              ...ids
+            );
+            
+            // Transformer les résultats SQL en format Prisma
+            works = worksRaw.map((row: any) => ({
+              id: row.id,
+              title: row.title,
+              description: row.description,
+              isbn: row.isbn,
+              internalCode: row.internalCode,
+              price: row.price,
+              tva: row.tva,
+              discountRate: row.discountRate,
+              stock: row.stock,
+              minStock: row.minStock,
+              maxStock: row.maxStock,
+              physicalStock: row.physicalStock,
+              category: row.category,
+              targetAudience: row.targetAudience,
+              educationalObjectives: row.educationalObjectives,
+              contentType: row.contentType,
+              keywords: row.keywords,
+              files: row.files,
+              validationComment: row.validationComment,
+              rejectionReason: row.rejectionReason,
+              disciplineId: row.disciplineId,
+              status: row.status,
+              publishedAt: row.publishedAt,
+              publicationDate: row.publicationDate,
+              version: row.version,
+              submittedAt: row.submittedAt,
+              reviewedAt: row.reviewedAt,
+              createdAt: row.createdAt,
+              updatedAt: row.updatedAt,
+              authorId: row.authorId,
+              reviewerId: row.reviewerId,
+              concepteurId: row.concepteurId,
+              projectId: row.projectId,
+              author: row.author_id ? {
+                id: row.author_id,
+                name: row.author_name,
+                email: row.author_email,
+                role: row.author_role
+              } : null,
+              discipline: row.discipline_id ? {
+                id: row.discipline_id,
+                name: row.discipline_name
+              } : null,
+              concepteur: row.concepteur_id ? {
+                id: row.concepteur_id,
+                name: row.concepteur_name,
+                email: row.concepteur_email
+              } : null,
+              reviewer: row.reviewer_id ? {
+                id: row.reviewer_id,
+                name: row.reviewer_name,
+                email: row.reviewer_email
+              } : null,
+              project: row.project_id ? {
+                id: row.project_id,
+                title: row.project_title,
+                status: row.project_status
+              } : null
+            }));
+            
+            console.log(`🔍 Works récupérés avec SQL brut: ${works.length}`);
           } else {
             console.log(`⚠️ Aucun ID trouvé, works = []`);
             works = []
@@ -749,17 +857,16 @@ export async function GET(request: NextRequest) {
           globalStats = []
         }
       } else {
-        // Pour les autres erreurs, essayer quand même le calcul manuel
-        console.warn('Tentative de calcul manuel des statistiques')
+        // Pour les autres erreurs, essayer quand même le calcul manuel avec SQL brut
+        console.warn('Tentative de calcul manuel des statistiques avec SQL brut')
         try {
-          const allWorks = await prisma.work.findMany({
-            select: { status: true }
-          })
+          const statusCountsRaw = await prisma.$queryRawUnsafe<Array<{ status: string, count: bigint }>>(
+            `SELECT status, COUNT(*) as count FROM "Work" GROUP BY status`
+          )
           
           const statusCounts: Record<string, number> = {}
-          allWorks.forEach(work => {
-            const status = work.status as string
-            statusCounts[status] = (statusCounts[status] || 0) + 1
+          statusCountsRaw.forEach(row => {
+            statusCounts[row.status] = Number(row.count)
           })
           
           globalStats = Object.entries(statusCounts).map(([status, count]) => ({
@@ -795,7 +902,8 @@ export async function GET(request: NextRequest) {
       // Si des works existent mais ne sont pas retournés, faire une requête directe sans filtres
       if (totalWorksInDb > 0 && works.length === 0) {
         console.warn(`⚠️ ATTENTION: ${totalWorksInDb} works existent dans la DB mais 0 ont été retournés par la requête`);
-        console.warn(`⚠️ Where clause utilisée:`, JSON.stringify(whereForQuery || whereClause, null, 2));
+        const whereUsed = whereForQuery !== undefined ? whereForQuery : whereClause;
+        console.warn(`⚠️ Where clause utilisée:`, JSON.stringify(whereUsed, null, 2));
         
         // Requête directe pour voir tous les works (sans relations pour éviter les erreurs)
         try {
