@@ -302,6 +302,11 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           label: "Mes Commissions"
         },
         {
+          href: `${basePath}/clients`,
+          icon: Users,
+          label: "Mes Clients"
+        },
+        {
           href: `${basePath}/rapports`,
           icon: FileText,
           label: "Rapports"

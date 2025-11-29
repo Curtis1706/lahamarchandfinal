@@ -22,27 +22,16 @@ import {
   Building2,
   FileText,
   Download,
-  Printer
+  Printer,
+  Plus
 } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 interface PartnerOrder {
   id: string
-  reference: string
   status: string
   total: number
   itemCount: number
-  partner: {
-    id: string
-    name: string
-    type: string
-    contact: string
-  }
-  client: {
-    id: string
-    name: string
-    email: string
-    phone: string
-  }
   items: Array<{
     id: string
     work: {
@@ -60,30 +49,28 @@ interface PartnerOrder {
 }
 
 export default function RepresentantCommandesPage() {
+  const router = useRouter()
   const { toast } = useToast()
   const [orders, setOrders] = useState<PartnerOrder[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [partnerFilter, setPartnerFilter] = useState("all")
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
 
-  // Charger les commandes
+  // Charger les commandes créées par le représentant
   useEffect(() => {
     loadOrders()
-  }, [statusFilter, partnerFilter, startDate, endDate])
+  }, [statusFilter, startDate, endDate])
 
   const loadOrders = async () => {
     try {
       setIsLoading(true)
-      const data = await apiClient.getRepresentantPartnerOrders({
-        status: statusFilter !== 'all' ? statusFilter : undefined,
-        partnerId: partnerFilter !== 'all' ? partnerFilter : undefined,
-        startDate: startDate || undefined,
-        endDate: endDate || undefined
-      })
-      setOrders(data)
+      const response = await fetch('/api/representant/orders')
+      if (!response.ok) throw new Error('Erreur lors du chargement')
+      
+      const data = await response.json()
+      setOrders(data.orders || [])
     } catch (error: any) {
       toast({
         title: "Erreur",
@@ -118,24 +105,37 @@ export default function RepresentantCommandesPage() {
     }
   }
 
-  const filteredOrders = orders.filter(order =>
-    order.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.partner.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.client.email.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredOrders = orders.filter(order => {
+    const searchLower = searchTerm.toLowerCase()
+    return (
+      order.id.toLowerCase().includes(searchLower) ||
+      order.items.some(item => 
+        item.work.title.toLowerCase().includes(searchLower) ||
+        item.work.isbn.toLowerCase().includes(searchLower)
+      )
+    )
+  }).filter(order => {
+    if (statusFilter !== 'all') {
+      return order.status === statusFilter
+    }
+    return true
+  })
 
   return (
     <div className="p-6">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Commandes des Partenaires</h1>
-          <p className="text-gray-600">Suivez les commandes passées par vos partenaires</p>
+          <h1 className="text-2xl font-bold text-gray-900">Mes Commandes</h1>
+          <p className="text-gray-600">Gérez les commandes que vous avez créées pour vos clients</p>
         </div>
-        <div className="text-sm text-gray-500">
-          Les commandes sont créées par les partenaires
-        </div>
+        <Button 
+          onClick={() => router.push('/dashboard/representant/commandes/creer')}
+          className="bg-blue-600 hover:bg-blue-700"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Créer une commande
+        </Button>
       </div>
 
       {/* Filtres */}
@@ -204,8 +204,6 @@ export default function RepresentantCommandesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Référence</TableHead>
-                  <TableHead>Partenaire</TableHead>
-                  <TableHead>Client</TableHead>
                   <TableHead>Nb. livres</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Statut</TableHead>
@@ -214,70 +212,53 @@ export default function RepresentantCommandesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredOrders.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <span className="font-mono text-sm">{order.reference}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                          <Building2 className="h-4 w-4 text-blue-600" />
-                        </div>
-                        <div>
-                          <div className="font-medium">{order.partner.name}</div>
-                          <div className="text-sm text-gray-500">{order.partner.type}</div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                          <User className="h-4 w-4 text-green-600" />
-                        </div>
-                        <div>
-                          <div className="font-medium">{order.client.name}</div>
-                          <div className="text-sm text-gray-500">{order.client.email}</div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center text-sm">
-                        <Package className="h-4 w-4 mr-1" />
-                        {order.itemCount}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Calendar className="h-3 w-3 mr-1" />
-                        {new Date(order.createdAt).toLocaleDateString('fr-FR')}
-                      </div>
-                    </TableCell>
-                    <TableCell>{getStatusBadge(order.status)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center text-sm font-medium text-green-600">
-                        <DollarSign className="h-3 w-3 mr-1" />
-                        {order.total.toLocaleString()} FCFA
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Button variant="ghost" size="sm">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <FileText className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </div>
+                {filteredOrders.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                      Aucune commande trouvée
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  filteredOrders.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell>
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span className="font-mono text-sm">{order.id.slice(0, 8)}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center text-sm">
+                          <Package className="h-4 w-4 mr-1" />
+                          {order.itemCount}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center text-sm text-gray-600">
+                          <Calendar className="h-3 w-3 mr-1" />
+                          {new Date(order.createdAt).toLocaleDateString('fr-FR')}
+                        </div>
+                      </TableCell>
+                      <TableCell>{getStatusBadge(order.status)}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center text-sm font-medium text-green-600">
+                          <DollarSign className="h-3 w-3 mr-1" />
+                          {order.total.toLocaleString()} FCFA
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center space-x-2">
+                          <Button variant="ghost" size="sm" title="Voir les détails">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" title="Télécharger">
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           )}

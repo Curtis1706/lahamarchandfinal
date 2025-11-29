@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
+import { useCurrentUser } from "@/hooks/use-current-user"
 import { apiClient } from "@/lib/api-client"
 import { Search, BookOpen, Package, DollarSign, Filter, Eye } from "lucide-react"
 import Image from "next/image"
@@ -35,6 +36,13 @@ interface Work {
     email: string
   } | null
   totalValue: number
+  discount?: {
+    id: string
+    type: string
+    reduction: number
+    quantiteMin: number
+  } | null
+  finalPrice?: number
 }
 
 interface CatalogSummary {
@@ -48,9 +56,11 @@ interface CatalogSummary {
 
 export default function OeuvresPage() {
   const { toast } = useToast()
+  const { user } = useCurrentUser()
   const [works, setWorks] = useState<Work[]>([])
   const [summary, setSummary] = useState<CatalogSummary | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [loadingDiscounts, setLoadingDiscounts] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [disciplineFilter, setDisciplineFilter] = useState("all")
   const [disciplines, setDisciplines] = useState<string[]>([])
@@ -66,12 +76,64 @@ export default function OeuvresPage() {
       if (!response.ok) throw new Error('Erreur lors du chargement')
       
       const data = await response.json()
-      setWorks(data.works || [])
+      const worksData = data.works || []
+      
+      // Charger les remises pour chaque livre
+      setLoadingDiscounts(true)
+      const worksWithDiscounts = await Promise.all(
+        worksData.map(async (work: Work) => {
+          try {
+            // Le type de client est "Représentant" pour les représentants
+            const clientType = 'Représentant'
+            
+            const discountResponse = await fetch(
+              `/api/discounts/applicable?workId=${work.id}&workTitle=${encodeURIComponent(work.title)}&clientType=${clientType}&quantity=1`
+            )
+            
+            if (discountResponse.ok) {
+              const discountData = await discountResponse.json()
+              const discount = discountData.applicable
+              
+              // Calculer le prix final avec remise
+              let finalPrice = work.price || 0
+              if (discount && work.price) {
+                if (discount.type === 'Pourcentage') {
+                  finalPrice = work.price * (1 - discount.reduction / 100)
+                } else if (discount.type === 'Montant') {
+                  finalPrice = Math.max(0, work.price - discount.reduction)
+                }
+              }
+              
+              return {
+                ...work,
+                discount: discount,
+                finalPrice: finalPrice
+              }
+            }
+            
+            return {
+              ...work,
+              discount: null,
+              finalPrice: work.price || 0
+            }
+          } catch (error) {
+            console.error(`Error loading discount for work ${work.id}:`, error)
+            return {
+              ...work,
+              discount: null,
+              finalPrice: work.price || 0
+            }
+          }
+        })
+      )
+      
+      setWorks(worksWithDiscounts)
       setSummary(data.summary || null)
       
       // Extraire les disciplines uniques
-      const uniqueDisciplines = [...new Set(data.works?.map((w: Work) => w.discipline.name) || [])]
+      const uniqueDisciplines = [...new Set(worksWithDiscounts.map((w: Work) => w.discipline.name))]
       setDisciplines(uniqueDisciplines)
+      setLoadingDiscounts(false)
     } catch (error: any) {
       console.error("Error loading catalog:", error)
       toast({
@@ -231,6 +293,15 @@ export default function OeuvresPage() {
                     <Badge variant="secondary" className="absolute top-2 right-2 bg-white/90">
                       {work.discipline.name}
                     </Badge>
+                    {work.discount && (
+                      <div className="absolute top-2 left-2">
+                        <Badge className="bg-red-500 text-white">
+                          -{work.discount.type === 'Pourcentage' 
+                            ? `${work.discount.reduction}%` 
+                            : `${work.discount.reduction} F CFA`}
+                        </Badge>
+                      </div>
+                    )}
                   </div>
                   
                   {/* Informations */}
@@ -240,14 +311,36 @@ export default function OeuvresPage() {
                     <p className="text-xs text-gray-500">ISBN: {work.isbn}</p>
                     
                     {/* Prix et stock */}
-                    <div className="flex justify-between items-center pt-2">
-                      <span className="text-lg font-bold text-green-600">
-                        {work.price.toLocaleString()} F CFA
-                      </span>
-                      <div className="flex items-center text-sm text-gray-500">
-                        <Package className="h-3 w-3 mr-1" />
-                        {work.stock} disponible{work.stock > 1 ? 's' : ''}
+                    <div className="flex flex-col pt-2 space-y-1">
+                      <div className="flex justify-between items-center">
+                        {work.discount && work.price ? (
+                          <>
+                            <div className="flex flex-col">
+                              <div className="text-sm text-gray-500 line-through">
+                                {work.price.toLocaleString()} F CFA
+                              </div>
+                              <div className="text-lg font-bold text-green-600">
+                                {work.finalPrice?.toLocaleString()} F CFA
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <span className="text-lg font-bold text-green-600">
+                            {work.price ? `${work.price.toLocaleString()} F CFA` : 'Prix non défini'}
+                          </span>
+                        )}
+                        <div className="flex items-center text-sm text-gray-500">
+                          <Package className="h-3 w-3 mr-1" />
+                          {work.stock} disponible{work.stock > 1 ? 's' : ''}
+                        </div>
                       </div>
+                      {work.discount && (
+                        <p className="text-xs text-green-600">
+                          Remise: {work.discount.type === 'Pourcentage' 
+                            ? `${work.discount.reduction}%` 
+                            : `${work.discount.reduction} F CFA`}
+                        </p>
+                      )}
                     </div>
                     
                     {/* TVA */}
