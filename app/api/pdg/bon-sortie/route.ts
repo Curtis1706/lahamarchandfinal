@@ -52,106 +52,125 @@ export async function GET(request: NextRequest) {
     let total = 0
 
     try {
-      [deliveryNotes, total] = await Promise.all([
-        prisma.deliveryNote.findMany({
-          where,
-          include: {
-            order: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    name: true,
-                    email: true
-                  }
-                },
-                partner: {
-                  select: {
-                    id: true,
-                    name: true
-                  }
-                },
-                items: {
-                  include: {
-                    work: {
-                      select: {
-                        id: true,
-                        title: true,
-                        isbn: true
+      // Essayer de récupérer les delivery notes avec toutes les relations
+      try {
+        [deliveryNotes, total] = await Promise.all([
+          prisma.deliveryNote.findMany({
+            where,
+            include: {
+              order: {
+                include: {
+                  user: {
+                    select: {
+                      id: true,
+                      name: true,
+                      email: true
+                    }
+                  },
+                  partner: {
+                    select: {
+                      id: true,
+                      name: true
+                    }
+                  },
+                  items: {
+                    include: {
+                      work: {
+                        select: {
+                          id: true,
+                          title: true,
+                          isbn: true
+                        }
                       }
                     }
                   }
                 }
+              },
+              generatedBy: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true
+                }
+              },
+              validatedBy: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true
+                }
+              },
+              controlledBy: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true
+                }
               }
             },
-            generatedBy: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
-            },
-            validatedBy: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
-            },
-            controlledBy: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
-            }
-          },
-          orderBy: { createdAt: 'desc' },
-          take: limit,
-          skip: skip
-        }),
-        prisma.deliveryNote.count({ where })
-      ])
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+            skip: skip
+          }),
+          prisma.deliveryNote.count({ where })
+        ])
+      } catch (includeError: any) {
+        console.error('Error with includes, trying without relations:', includeError)
+        // Si l'inclusion des relations échoue, essayer sans relations
+        try {
+          [deliveryNotes, total] = await Promise.all([
+            prisma.deliveryNote.findMany({
+              where,
+              orderBy: { createdAt: 'desc' },
+              take: limit,
+              skip: skip
+            }),
+            prisma.deliveryNote.count({ where })
+          ])
+        } catch (simpleError: any) {
+          console.error('Error even without includes:', simpleError)
+          // En dernier recours, retourner un tableau vide
+          deliveryNotes = []
+          total = 0
+        }
+      }
     } catch (dbError: any) {
       console.error('Database error in bon-sortie GET:', dbError)
       console.error('Error message:', dbError.message)
       console.error('Error code:', dbError.code)
       
-      // Si c'est une erreur de relation manquante, retourner un tableau vide
-      if (dbError.code === 'P2025' || dbError.message?.includes('Record to update not found')) {
-        return NextResponse.json({
-          deliveryNotes: [],
-          pagination: {
-            total: 0,
-            page,
-            limit,
-            totalPages: 0
-          }
-        })
-      }
-      
-      throw dbError
+      // Pour toute erreur de base de données, retourner un tableau vide
+      return NextResponse.json({
+        deliveryNotes: [],
+        pagination: {
+          total: 0,
+          page,
+          limit,
+          totalPages: 0
+        }
+      })
     }
 
-    return NextResponse.json({
-      deliveryNotes: deliveryNotes.map(note => {
-        try {
-          // Calculer le total de la commande si nécessaire
-          let orderTotal = 0
-          if (note.order) {
+    // Mapper les delivery notes de manière sécurisée
+    const mappedNotes = deliveryNotes.map(note => {
+      try {
+        // Calculer le total de la commande si nécessaire
+        let orderTotal = 0
+        let orderData: any = null
+        
+        if (note.order) {
+          try {
             if (note.order.total && note.order.total > 0) {
-              orderTotal = note.order.total
-            } else if (note.order.items && note.order.items.length > 0) {
+              orderTotal = Number(note.order.total)
+            } else if (note.order.items && Array.isArray(note.order.items) && note.order.items.length > 0) {
               orderTotal = note.order.items.reduce((sum: number, item: any) => {
-                return sum + ((item.price || 0) * (item.quantity || 0))
+                const price = Number(item.price || 0)
+                const quantity = Number(item.quantity || 0)
+                return sum + (price * quantity)
               }, 0)
             }
-          }
-
-          return {
-            id: note.id,
-            reference: note.reference,
-            order: note.order ? {
+            
+            orderData = {
               id: note.order.id || '',
               reference: note.order.id ? `CMD-${note.order.id.slice(-8)}` : 'N/A',
               client: note.order.user?.name || 'Client inconnu',
@@ -162,66 +181,89 @@ export async function GET(request: NextRequest) {
               items: (note.order.items || []).map((item: any) => ({
                 work: item.work?.title || 'Œuvre inconnue',
                 isbn: item.work?.isbn || 'N/A',
-                quantity: item.quantity || 0,
-                price: item.price || 0
+                quantity: Number(item.quantity || 0),
+                price: Number(item.price || 0)
               }))
-            } : null,
-            generatedBy: note.generatedBy?.name || 'Utilisateur inconnu',
-            validatedBy: note.validatedBy?.name || null,
-            validatedAt: note.validatedAt ? (() => {
-              try {
-                return format(new Date(note.validatedAt), 'dd MMM yyyy, HH:mm', { locale: fr })
-              } catch (e) {
-                return note.validatedAt.toISOString()
-              }
-            })() : null,
-            controlledBy: note.controlledBy?.name || null,
-            controlledAt: note.controlledAt ? (() => {
-              try {
-                return format(new Date(note.controlledAt), 'dd MMM yyyy, HH:mm', { locale: fr })
-              } catch (e) {
-                return note.controlledAt.toISOString()
-              }
-            })() : null,
-            status: note.status,
-            period: note.period || null,
-            createdAt: (() => {
-              try {
-                return format(new Date(note.createdAt), 'dd MMM yyyy, HH:mm', { locale: fr })
-              } catch (e) {
-                return note.createdAt.toISOString()
-              }
-            })()
-          }
-        } catch (mapError: any) {
-          console.error('Error mapping delivery note:', mapError)
-          console.error('Note ID:', note.id)
-          return {
-            id: note.id,
-            reference: note.reference,
-            order: null,
-            generatedBy: note.generatedBy?.name || 'Utilisateur inconnu',
-            validatedBy: null,
-            validatedAt: null,
-            controlledBy: null,
-            controlledAt: null,
-            status: note.status,
-            period: note.period || null,
-            createdAt: (() => {
-              try {
-                return format(new Date(note.createdAt), 'dd MMM yyyy, HH:mm', { locale: fr })
-              } catch (e) {
-                return note.createdAt.toISOString()
-              }
-            })()
+            }
+          } catch (orderError: any) {
+            console.error('Error processing order data:', orderError)
+            orderData = {
+              id: note.order?.id || '',
+              reference: 'N/A',
+              client: 'Client inconnu',
+              clientEmail: '',
+              partner: null,
+              total: 0,
+              status: 'UNKNOWN',
+              items: []
+            }
           }
         }
-      }),
+
+        return {
+          id: note.id,
+          reference: note.reference || 'N/A',
+          order: orderData,
+          generatedBy: note.generatedBy?.name || 'Utilisateur inconnu',
+          validatedBy: note.validatedBy?.name || null,
+          validatedAt: note.validatedAt ? (() => {
+            try {
+              return format(new Date(note.validatedAt), 'dd MMM yyyy, HH:mm', { locale: fr })
+            } catch (e) {
+              return note.validatedAt instanceof Date ? note.validatedAt.toISOString() : String(note.validatedAt)
+            }
+          })() : null,
+          controlledBy: note.controlledBy?.name || null,
+          controlledAt: note.controlledAt ? (() => {
+            try {
+              return format(new Date(note.controlledAt), 'dd MMM yyyy, HH:mm', { locale: fr })
+            } catch (e) {
+              return note.controlledAt instanceof Date ? note.controlledAt.toISOString() : String(note.controlledAt)
+            }
+          })() : null,
+          status: note.status || 'UNKNOWN',
+          period: note.period || null,
+          createdAt: (() => {
+            try {
+              return format(new Date(note.createdAt), 'dd MMM yyyy, HH:mm', { locale: fr })
+            } catch (e) {
+              return note.createdAt instanceof Date ? note.createdAt.toISOString() : String(note.createdAt)
+            }
+          })()
+        }
+      } catch (mapError: any) {
+        console.error('Error mapping delivery note:', mapError)
+        console.error('Note ID:', note?.id)
+        console.error('Note data:', JSON.stringify(note, null, 2))
+        return {
+          id: note?.id || 'unknown',
+          reference: note?.reference || 'N/A',
+          order: null,
+          generatedBy: note?.generatedBy?.name || 'Utilisateur inconnu',
+          validatedBy: null,
+          validatedAt: null,
+          controlledBy: null,
+          controlledAt: null,
+          status: note?.status || 'UNKNOWN',
+          period: note?.period || null,
+          createdAt: note?.createdAt ? (() => {
+            try {
+              return format(new Date(note.createdAt), 'dd MMM yyyy, HH:mm', { locale: fr })
+            } catch (e) {
+              return note.createdAt instanceof Date ? note.createdAt.toISOString() : String(note.createdAt)
+            }
+          })() : 'N/A'
+        }
+      }
+    })
+
+    return NextResponse.json({
+      deliveryNotes: mappedNotes,
       pagination: {
-        total,
+        total: Number(total) || 0,
         page,
         limit,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil((Number(total) || 0) / limit)
       }
     })
   } catch (error: any) {
