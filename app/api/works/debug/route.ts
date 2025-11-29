@@ -25,55 +25,56 @@ export async function GET(request: NextRequest) {
       console.error("Erreur lors du comptage:", countError);
     }
     
-    // Récupérer tous les works sans relations (pour éviter les erreurs)
+    // Récupérer tous les works avec SQL brut (pour éviter les problèmes d'enum)
     let allWorks: any[] = [];
+    let worksWithRelations: any[] = [];
+    
     try {
-      allWorks = await prisma.work.findMany({
-        select: {
-          id: true,
-          title: true,
-          status: true,
-          authorId: true,
-          disciplineId: true,
-          createdAt: true,
-          isbn: true
-        },
-        orderBy: {
-          createdAt: 'desc'
-        },
-        take: 50
-      });
+      // Utiliser SQL brut pour éviter les problèmes d'enum SUSPENDED
+      const worksRaw = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT 
+          w.id, w.title, w.status, w."authorId", w."disciplineId", w."createdAt", w.isbn,
+          u1.id as "author_id", u1.name as "author_name", u1.email as "author_email", u1.role as "author_role",
+          d.id as "discipline_id", d.name as "discipline_name"
+        FROM "Work" w
+        LEFT JOIN "User" u1 ON w."authorId" = u1.id
+        LEFT JOIN "Discipline" d ON w."disciplineId" = d.id
+        ORDER BY w."createdAt" DESC
+        LIMIT 50`
+      );
+      
+      allWorks = worksRaw.map((row: any) => ({
+        id: row.id,
+        title: row.title,
+        status: row.status,
+        authorId: row.authorId,
+        disciplineId: row.disciplineId,
+        createdAt: row.createdAt,
+        isbn: row.isbn
+      }));
+      
+      // Works avec relations (premiers 10)
+      worksWithRelations = worksRaw.slice(0, 10).map((row: any) => ({
+        id: row.id,
+        title: row.title,
+        status: row.status,
+        authorId: row.authorId,
+        disciplineId: row.disciplineId,
+        createdAt: row.createdAt,
+        isbn: row.isbn,
+        author: row.author_id ? {
+          id: row.author_id,
+          name: row.author_name,
+          email: row.author_email,
+          role: row.author_role
+        } : null,
+        discipline: row.discipline_id ? {
+          id: row.discipline_id,
+          name: row.discipline_name
+        } : null
+      }));
     } catch (findError: any) {
       console.error("Erreur lors de la récupération des works:", findError);
-    }
-
-    // Essayer avec les relations
-    let worksWithRelations: any[] = [];
-    try {
-      worksWithRelations = await prisma.work.findMany({
-        include: {
-          author: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              role: true
-            }
-          },
-          discipline: {
-            select: {
-              id: true,
-              name: true
-            }
-          }
-        },
-        orderBy: {
-          createdAt: 'desc'
-        },
-        take: 10
-      });
-    } catch (relationError: any) {
-      console.error("Erreur avec relations:", relationError);
     }
 
     return NextResponse.json({
