@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
-// GET /api/pdg/reductions - Récupérer les réductions
+// GET /api/pdg/remises - Récupérer les remises
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden - PDG role required" }, { status: 403 })
     }
 
-    // Récupérer les réductions depuis la base de données
+    // Récupérer les remises depuis la base de données
     const discounts = await prisma.discount.findMany({
       orderBy: { createdAt: 'desc' }
     })
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       client: discount.client,
       livre: discount.livre,
       quantiteMin: discount.quantiteMin,
-      reduction: discount.reduction,
+      remise: discount.reduction,
       statut: discount.statut === 'ACTIF' ? 'Actif' : 'Inactif',
       creeLe: discount.createdAt.toLocaleDateString('fr-FR', {
         weekday: 'short',
@@ -45,12 +45,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(formattedDiscounts)
 
   } catch (error) {
-    console.error("Error fetching reductions:", error)
+    console.error("Error fetching remises:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
 
-// POST /api/pdg/reductions - Créer une réduction
+// POST /api/pdg/remises - Créer une remise
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -62,20 +62,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden - PDG role required" }, { status: 403 })
     }
 
-    const { client, livre, quantiteMin, reduction, statut, description, type, image } = await request.json()
+    const { client, livre, quantiteMin, remise, statut, description, type, image } = await request.json()
 
     // Validation des données
-    if (!client || !livre || !reduction) {
+    if (!client || !livre || !remise) {
       return NextResponse.json({ error: "Client, livre et montant requis" }, { status: 400 })
     }
 
-    // Créer la réduction dans la base de données
+    // Créer la remise dans la base de données
     const newDiscount = await prisma.discount.create({
       data: {
         client,
         livre,
         quantiteMin: parseInt(quantiteMin) || 1,
-        reduction: parseFloat(reduction),
+        reduction: parseFloat(remise),
         statut: statut === "Inactif" ? "INACTIF" : "ACTIF",
         description: description || "",
         type: type || "Montant",
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
       client: newDiscount.client,
       livre: newDiscount.livre,
       quantiteMin: newDiscount.quantiteMin,
-      reduction: newDiscount.reduction,
+      remise: newDiscount.reduction,
       statut: newDiscount.statut === 'ACTIF' ? 'Actif' : 'Inactif',
       creeLe: newDiscount.createdAt.toLocaleDateString('fr-FR', {
         weekday: 'short',
@@ -109,12 +109,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(formattedDiscount, { status: 201 })
 
   } catch (error) {
-    console.error("Error creating reduction:", error)
+    console.error("Error creating remise:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
 
-// PUT /api/pdg/reductions - Modifier une réduction
+// PUT /api/pdg/remises - Modifier une remise
 export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -126,20 +126,20 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden - PDG role required" }, { status: 403 })
     }
 
-    const { id, client, livre, quantiteMin, reduction, statut, description, type, image } = await request.json()
+    const { id, client, livre, quantiteMin, remise, statut, description, type, image } = await request.json()
 
     if (!id) {
       return NextResponse.json({ error: "ID requis" }, { status: 400 })
     }
 
-    // Mettre à jour la réduction dans la base de données
+    // Mettre à jour la remise dans la base de données
     const updatedDiscount = await prisma.discount.update({
       where: { id },
       data: {
         client,
         livre,
         quantiteMin: parseInt(quantiteMin) || 1,
-        reduction: parseFloat(reduction),
+        reduction: parseFloat(remise),
         statut: statut === "Inactif" ? "INACTIF" : "ACTIF",
         description: description || "",
         type: type || "Montant",
@@ -153,7 +153,7 @@ export async function PUT(request: NextRequest) {
       client: updatedDiscount.client,
       livre: updatedDiscount.livre,
       quantiteMin: updatedDiscount.quantiteMin,
-      reduction: updatedDiscount.reduction,
+      remise: updatedDiscount.reduction,
       statut: updatedDiscount.statut === 'ACTIF' ? 'Actif' : 'Inactif',
       creeLe: updatedDiscount.createdAt.toLocaleDateString('fr-FR', {
         weekday: 'short',
@@ -180,12 +180,12 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(formattedDiscount)
 
   } catch (error) {
-    console.error("Error updating reduction:", error)
+    console.error("Error updating remise:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
 
-// DELETE /api/pdg/reductions - Supprimer une réduction
+// DELETE /api/pdg/remises - Supprimer une remise
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -204,15 +204,15 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "ID required" }, { status: 400 })
     }
 
-    // Supprimer la réduction de la base de données
+    // Supprimer la remise de la base de données
     await prisma.discount.delete({
       where: { id }
     })
 
-    return NextResponse.json({ success: true, message: "Réduction supprimée" })
+    return NextResponse.json({ success: true, message: "Remise supprimée" })
 
   } catch (error) {
-    console.error("Error deleting reduction:", error)
+    console.error("Error deleting remise:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }

@@ -133,12 +133,20 @@ export const useOrders = (): UseOrdersResult => {
       // Créer la commande via l'API
       const apiOrderData = {
         userId: user.id,
-        items: orderData.items.map(item => ({
-          workId: item.id, // Assumer que item.id est l'ID de l'œuvre
-          quantity: item.quantity,
-          price: item.price
-        }))
+        items: orderData.items.map(item => {
+          // item.id devrait être l'ID de l'œuvre (Work)
+          if (!item.id) {
+            throw new Error(`ID manquant pour l'article: ${item.title}`)
+          }
+          return {
+            workId: item.id, // ID de l'œuvre (Work)
+            quantity: item.quantity || 1,
+            price: item.price || 0
+          }
+        })
       }
+
+      console.log('📦 Données de commande envoyées:', apiOrderData)
 
       const createdOrder = await apiClient.createOrder(apiOrderData)
       

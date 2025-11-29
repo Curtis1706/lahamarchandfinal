@@ -463,14 +463,14 @@ export default function DashboardLayout({
                   Effectifs
                 </Link>
                 <Link
-                  href="/dashboard/pdg/parametres/reductions"
+                  href="/dashboard/pdg/parametres/remises"
                   className={`block px-3 py-1 text-sm rounded ${
-                    isActivePath("/dashboard/pdg/parametres/reductions")
+                    isActivePath("/dashboard/pdg/parametres/remises")
                       ? "bg-blue-50 text-blue-600"
                       : "hover:bg-gray-100"
                   }`}
                 >
-                  Réductions
+                  Remises
                 </Link>
                 <Link
                   href="/dashboard/pdg/parametres/logs"

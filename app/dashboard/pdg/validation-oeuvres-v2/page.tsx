@@ -105,6 +105,8 @@ export default function ValidationOeuvresV2Page() {
   const [validationComment, setValidationComment] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedAuthorId, setSelectedAuthorId] = useState<string>("");
+  const [authors, setAuthors] = useState<any[]>([]);
   
   // Filtres
   const [statusFilter, setStatusFilter] = useState("PENDING");
@@ -160,8 +162,21 @@ export default function ValidationOeuvresV2Page() {
       return;
     } else if (user) {
       fetchWorks();
+      loadAuthors();
     }
   }, [user, userLoading, fetchWorks]);
+
+  const loadAuthors = async () => {
+    try {
+      const response = await fetch('/api/users/list?role=AUTEUR');
+      if (response.ok) {
+        const data = await response.json();
+        setAuthors(data || []);
+      }
+    } catch (error) {
+      console.error("Error loading authors:", error);
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     const variants = {
@@ -204,6 +219,7 @@ export default function ValidationOeuvresV2Page() {
     setValidationAction(action);
     setValidationComment("");
     setRejectionReason("");
+    setSelectedAuthorId(work.author?.id || ""); // Pré-remplir avec l'auteur actuel
     setShowDetailsModal(false);
     setShowValidationModal(true);
   };
@@ -219,23 +235,35 @@ export default function ValidationOeuvresV2Page() {
     setIsSubmitting(true);
     
     try {
-      const updateData = {
-        workId: selectedWork.id,
-        status: validationAction === 'approve' ? 'PUBLISHED' : 'REJECTED',
-        validationComment: validationComment.trim() || null,
-        rejectionReason: validationAction === 'reject' ? rejectionReason.trim() : null
-      };
+      // Utiliser la nouvelle API de publication
+      const response = await fetch('/api/works/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workId: selectedWork.id,
+          action: validationAction === 'approve' ? 'publish' : 'reject',
+          authorId: validationAction === 'approve' ? selectedAuthorId : undefined,
+          rejectionReason: validationAction === 'reject' ? rejectionReason.trim() : undefined
+        })
+      });
 
-      await apiClient.updateWork(selectedWork.id, updateData);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erreur lors de la validation');
+      }
+
+      const result = await response.json();
       
       toast.success(
         validationAction === 'approve' 
-          ? "Œuvre validée et publiée avec succès !" 
-          : "Œuvre refusée. Le concepteur/auteur a été notifié."
+          ? "Livre publié avec succès. Il est maintenant visible dans le catalogue." 
+          : "Livre refusé. L'auteur a été notifié."
       );
       
       setShowValidationModal(false);
       setSelectedWork(null);
+      setValidationComment("");
+      setRejectionReason("");
       fetchWorks(); // Recharger la liste
       
     } catch (error: any) {
@@ -663,16 +691,36 @@ export default function ValidationOeuvresV2Page() {
           
           <div className="space-y-4">
             {validationAction === 'approve' && (
-              <div>
-                <Label htmlFor="validation-comment">Commentaire de validation (optionnel)</Label>
-                <Textarea
-                  id="validation-comment"
-                  placeholder="Ajoutez un commentaire positif ou des suggestions..."
-                  value={validationComment}
-                  onChange={(e) => setValidationComment(e.target.value)}
-                  rows={3}
-                />
-              </div>
+              <>
+                <div>
+                  <Label htmlFor="author-select">Auteur du livre *</Label>
+                  <Select value={selectedAuthorId} onValueChange={setSelectedAuthorId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner un auteur" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {authors.map((author: any) => (
+                        <SelectItem key={author.id} value={author.id}>
+                          {author.name} ({author.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    L'auteur sélectionné recevra les notifications et pourra voir ses droits d'auteur
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="validation-comment">Commentaire de validation (optionnel)</Label>
+                  <Textarea
+                    id="validation-comment"
+                    placeholder="Ajoutez un commentaire positif ou des suggestions..."
+                    value={validationComment}
+                    onChange={(e) => setValidationComment(e.target.value)}
+                    rows={3}
+                  />
+                </div>
+              </>
             )}
             
             {validationAction === 'reject' && (
@@ -720,7 +768,7 @@ export default function ValidationOeuvresV2Page() {
             </Button>
             <Button
               onClick={submitValidation}
-              disabled={isSubmitting || (validationAction === 'reject' && !rejectionReason.trim())}
+              disabled={isSubmitting || (validationAction === 'reject' && !rejectionReason.trim()) || (validationAction === 'approve' && !selectedAuthorId)}
               className={validationAction === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
             >
               {isSubmitting ? (

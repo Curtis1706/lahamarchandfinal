@@ -20,7 +20,8 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Upload, Edit, Trash2, Image as ImageIcon, X } from "lucide-react";
+import { Plus, Upload, Edit, Trash2, Image as ImageIcon, X, CheckCircle, Loader2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 
 interface Livre {
@@ -34,14 +35,25 @@ interface Livre {
   classes: string
   matiere: string
   code: string
+  prix: number
+  tva: number
+  auteur: string
+  concepteur: string
+  disciplineId: string
+  authorId?: string
+  status?: string // Statut brut (DRAFT, PUBLISHED, etc.)
 }
 
 export default function LivresListePage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingLivre, setEditingLivre] = useState<Livre | null>(null);
   const [livres, setLivres] = useState<Livre[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [isPublishing, setIsPublishing] = useState<string | null>(null);
   const [newLivre, setNewLivre] = useState({
     titre: "",
     categorie: "",
@@ -49,13 +61,19 @@ export default function LivresListePage() {
     classes: "",
     matiere: "",
     isbn: "",
-    courteDescription: ""
+    courteDescription: "",
+    prix: "",
+    tva: "18",
+    auteurId: "",
+    concepteurId: "",
+    disciplineId: ""
   });
   const [collections, setCollections] = useState<any[]>([]);
   const [coverImage, setCoverImage] = useState<File | null>(null);
   const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null);
   const [disciplines, setDisciplines] = useState<any[]>([]);
   const [auteurs, setAuteurs] = useState<any[]>([]);
+  const [concepteurs, setConcepteurs] = useState<any[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
   const { toast } = useToast();
 
@@ -64,6 +82,7 @@ export default function LivresListePage() {
     loadLivres();
     loadDisciplines();
     loadAuteurs();
+    loadConcepteurs();
     loadCollections();
   }, []);
 
@@ -72,6 +91,7 @@ export default function LivresListePage() {
     console.log("🔍 Vérification des données:", {
       disciplines: disciplines.length,
       auteurs: auteurs.length,
+      concepteurs: concepteurs.length,
       dataLoaded
     });
     if (disciplines.length > 0 && auteurs.length > 0) {
@@ -80,7 +100,7 @@ export default function LivresListePage() {
     } else {
       console.log("⏳ En attente de données...");
     }
-  }, [disciplines, auteurs]);
+  }, [disciplines, auteurs, concepteurs]);
 
   const loadLivres = async () => {
     try {
@@ -122,11 +142,18 @@ export default function LivresListePage() {
             libelle: work.title,
             categorie: work.discipline?.name || "Non définie",
             collection: collectionName,
-            statut: work.status === 'PUBLISHED' ? 'Disponible' : 'En attente',
+            statut: work.status === 'PUBLISHED' ? 'Disponible' : work.status === 'PENDING' ? 'En attente' : work.status === 'DRAFT' ? 'Brouillon' : work.status === 'REJECTED' ? 'Refusé' : work.status,
             ajouteLe: new Date(work.createdAt).toLocaleDateString('fr-FR'),
             classes: work.targetAudience || "-",
             matiere: work.discipline?.name || "Non définie",
-            code: work.isbn || "-"
+            code: work.isbn || "-",
+            prix: work.price || 0,
+            tva: work.tva ? (work.tva * 100) : 18, // Convertir en pourcentage
+            auteur: work.author?.name || "Non assigné",
+            concepteur: work.concepteur?.name || "-",
+            disciplineId: work.disciplineId || "",
+            authorId: work.authorId || "",
+            status: work.status
           };
         });
         setLivres(livresData);
@@ -175,6 +202,22 @@ export default function LivresListePage() {
       }
     } catch (error) {
       console.error("Error loading auteurs:", error);
+    }
+  };
+
+  const loadConcepteurs = async () => {
+    try {
+      const response = await fetch('/api/users?role=CONCEPTEUR');
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Concepteurs chargés:", data);
+        // L'API retourne un objet avec users et total
+        const concepteursArray = data.users || [];
+        console.log("Concepteurs array:", concepteursArray);
+        setConcepteurs(concepteursArray);
+      }
+    } catch (error) {
+      console.error("Error loading concepteurs:", error);
     }
   };
 
@@ -240,25 +283,28 @@ export default function LivresListePage() {
       return;
     }
 
-    if (disciplines.length === 0 || auteurs.length === 0) {
+    if (!newLivre.disciplineId || !newLivre.auteurId) {
       toast({
         title: "Erreur",
-        description: "Aucune discipline ou auteur disponible. Veuillez réessayer.",
+        description: "La discipline et l'auteur sont obligatoires",
         variant: "destructive"
       });
       return;
     }
 
-    const selectedDiscipline = disciplines[0];
-    const selectedAuthor = auteurs[0];
+    if (!newLivre.prix || parseFloat(newLivre.prix) <= 0) {
+      toast({
+        title: "Erreur",
+        description: "Le prix doit être supérieur à 0",
+        variant: "destructive"
+      });
+      return;
+    }
 
-    console.log("Disciplines:", disciplines);
-    console.log("Auteurs:", auteurs);
-    console.log("Selected discipline:", selectedDiscipline);
-    console.log("Selected author:", selectedAuthor);
+    const selectedDiscipline = disciplines.find((d: any) => d.id === newLivre.disciplineId);
+    const selectedAuthor = auteurs.find((a: any) => a.id === newLivre.auteurId);
 
-    if (!selectedDiscipline?.id || !selectedAuthor?.id) {
-      console.error("Discipline ou auteur invalide:", { selectedDiscipline, selectedAuthor });
+    if (!selectedDiscipline || !selectedAuthor) {
       toast({
         title: "Erreur",
         description: "Discipline ou auteur invalide. Veuillez réessayer.",
@@ -308,11 +354,14 @@ export default function LivresListePage() {
           description: description,
           disciplineId: selectedDiscipline.id,
           authorId: selectedAuthor.id,
+          concepteurId: newLivre.concepteurId || null,
           category: newLivre.categorie,
           targetAudience: newLivre.classes,
           contentType: 'MANUAL',
-          estimatedPrice: 0,
-          status: 'PENDING',
+          price: parseFloat(newLivre.prix),
+          tva: parseFloat(newLivre.tva) / 100, // Convertir le pourcentage en décimal
+          estimatedPrice: parseFloat(newLivre.prix),
+          status: 'DRAFT', // Le PDG crée en DRAFT, puis peut publier
           isbn: newLivre.isbn,
           collectionId: newLivre.collectionId || null,
           coverImage: coverImageUrl
@@ -331,7 +380,12 @@ export default function LivresListePage() {
           classes: "",
           matiere: "",
           isbn: "",
-          courteDescription: ""
+          courteDescription: "",
+          prix: "",
+          tva: "18",
+          auteurId: "",
+          concepteurId: "",
+          disciplineId: ""
         });
         setCoverImage(null);
         setCoverImagePreview(null);
@@ -355,6 +409,209 @@ export default function LivresListePage() {
       });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleEdit = async (livre: Livre) => {
+    try {
+      // Récupérer le work complet depuis l'API
+      const response = await fetch('/api/works');
+      if (!response.ok) {
+        throw new Error('Erreur lors du chargement des livres');
+      }
+      const data = await response.json();
+      const worksArray = data.works || [];
+      const work = worksArray.find((w: any) => w.id === livre.id);
+      
+      if (work) {
+        setEditingLivre(livre);
+        
+        // Extraire collectionId depuis files si présent
+        let collectionId = "";
+        if (work.files) {
+          try {
+            const filesData = typeof work.files === 'string' ? JSON.parse(work.files) : work.files;
+            collectionId = filesData.collectionId || "";
+          } catch (e) {
+            console.error("Erreur parsing files:", e);
+          }
+        }
+        
+        setNewLivre({
+          titre: work.title || livre.libelle,
+          categorie: work.category || "",
+          collectionId: collectionId,
+          classes: work.targetAudience || livre.classes,
+          matiere: work.discipline?.name || livre.matiere,
+          isbn: work.isbn || livre.code,
+          courteDescription: work.description || "",
+          prix: String(work.price || livre.prix || 0),
+          tva: String(work.tva ? (work.tva * 100) : livre.tva),
+          auteurId: work.authorId || "",
+          concepteurId: work.concepteurId || "",
+          disciplineId: work.disciplineId || livre.disciplineId
+        });
+        setShowEditModal(true);
+      } else {
+        toast({
+          title: "Erreur",
+          description: "Livre introuvable",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error loading work:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les détails du livre",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!editingLivre) return;
+
+    if (!newLivre.titre.trim() || !newLivre.isbn.trim()) {
+      toast({
+        title: "Erreur",
+        description: "Le titre et l'ISBN sont obligatoires",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!newLivre.disciplineId || !newLivre.auteurId) {
+      toast({
+        title: "Erreur",
+        description: "La discipline et l'auteur sont obligatoires",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      
+      const response = await fetch(`/api/works?id=${editingLivre.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: newLivre.titre,
+          description: newLivre.courteDescription || "",
+          disciplineId: newLivre.disciplineId,
+          authorId: newLivre.auteurId,
+          concepteurId: newLivre.concepteurId || null,
+          category: newLivre.categorie,
+          targetAudience: newLivre.classes,
+          price: parseFloat(newLivre.prix),
+          tva: parseFloat(newLivre.tva) / 100,
+          isbn: newLivre.isbn,
+          collectionId: newLivre.collectionId || null
+        }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Succès",
+          description: "Livre modifié avec succès"
+        });
+        setShowEditModal(false);
+        setEditingLivre(null);
+        loadLivres();
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Erreur",
+          description: errorData.error || "Impossible de modifier le livre",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error updating livre:", error);
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de la modification du livre",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (livreId: string) => {
+    try {
+      setIsDeleting(livreId);
+      const response = await fetch(`/api/works?id=${livreId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Succès",
+          description: "Livre supprimé avec succès"
+        });
+        loadLivres();
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Erreur",
+          description: errorData.error || "Impossible de supprimer le livre",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error deleting livre:", error);
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de la suppression du livre",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDeleting(null);
+    }
+  };
+
+  const handlePublish = async (livreId: string, authorId: string) => {
+    try {
+      setIsPublishing(livreId);
+      const response = await fetch('/api/works/publish', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          workId: livreId,
+          action: 'publish',
+          authorId: authorId // Utiliser l'auteur existant
+        }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Succès",
+          description: "Livre publié avec succès. Il est maintenant visible dans le catalogue."
+        });
+        loadLivres();
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Erreur",
+          description: errorData.error || "Impossible de publier le livre",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error publishing livre:", error);
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de la publication du livre",
+        variant: "destructive"
+      });
+    } finally {
+      setIsPublishing(null);
     }
   };
 
@@ -426,31 +683,33 @@ export default function LivresListePage() {
 
             {/* Table */}
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1200px]">
+              <table className="w-full min-w-[1400px]">
                 <thead>
                   <tr className="border-b">
                     <th className="text-left py-3 px-2">Libellé</th>
-                    <th className="text-left py-3 px-2">Catégorie</th>
+                    <th className="text-left py-3 px-2">ISBN/Code</th>
+                    <th className="text-left py-3 px-2">Auteur</th>
+                    <th className="text-left py-3 px-2">Concepteur</th>
+                    <th className="text-left py-3 px-2">Discipline</th>
+                    <th className="text-left py-3 px-2">Prix (F CFA)</th>
+                    <th className="text-left py-3 px-2">TVA (%)</th>
                     <th className="text-left py-3 px-2">Statut</th>
                     <th className="text-left py-3 px-2">Collection</th>
-                    <th className="text-left py-3 px-2">Courte description</th>
-                    <th className="text-left py-3 px-2">Ajouté le</th>
                     <th className="text-left py-3 px-2">Classe(s)</th>
-                    <th className="text-left py-3 px-2">Matière</th>
-                    <th className="text-left py-3 px-2">Code</th>
+                    <th className="text-left py-3 px-2">Ajouté le</th>
                     <th className="text-left py-3 px-2">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {isLoading ? (
                     <tr>
-                      <td colSpan={10} className="py-8 text-center text-gray-500">
+                      <td colSpan={12} className="py-8 text-center text-gray-500">
                         Chargement des livres...
                       </td>
                     </tr>
                   ) : livres.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="py-8 text-center text-gray-500">
+                      <td colSpan={12} className="py-8 text-center text-gray-500">
                         Aucun livre trouvé
                       </td>
                     </tr>
@@ -467,8 +726,23 @@ export default function LivresListePage() {
                             <span className="font-medium">{livre.libelle}</span>
                           </div>
                         </td>
+                        <td className="py-3 px-2 text-sm text-gray-600 font-mono">
+                          {livre.code}
+                        </td>
+                        <td className="py-3 px-2 text-sm text-gray-600">
+                          {livre.auteur}
+                        </td>
+                        <td className="py-3 px-2 text-sm text-gray-600">
+                          {livre.concepteur}
+                        </td>
                         <td className="py-3 px-2 text-sm text-gray-600">
                           {livre.categorie}
+                        </td>
+                        <td className="py-3 px-2 text-sm font-semibold text-gray-900">
+                          {livre.prix > 0 ? `${livre.prix.toLocaleString('fr-FR')} F CFA` : "Non défini"}
+                        </td>
+                        <td className="py-3 px-2 text-sm text-gray-600">
+                          {livre.tva.toFixed(1)}%
                         </td>
                         <td className="py-3 px-2">
                           <Badge
@@ -476,7 +750,11 @@ export default function LivresListePage() {
                             className={
                               livre.statut === "Disponible"
                                 ? "bg-green-100 text-green-800"
-                                : "bg-yellow-100 text-yellow-800"
+                                : livre.statut === "En attente"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : livre.statut === "Brouillon"
+                                ? "bg-gray-100 text-gray-800"
+                                : "bg-red-100 text-red-800"
                             }
                           >
                             {livre.statut}
@@ -485,27 +763,68 @@ export default function LivresListePage() {
                         <td className="py-3 px-2 text-sm text-gray-600">
                           {livre.collection}
                         </td>
-                        <td className="py-3 px-2 text-sm text-gray-600">-</td>
-                        <td className="py-3 px-2 text-sm text-gray-600">
-                          {livre.ajouteLe}
-                        </td>
                         <td className="py-3 px-2 text-sm text-gray-600">
                           {livre.classes}
                         </td>
                         <td className="py-3 px-2 text-sm text-gray-600">
-                          {livre.matiere}
-                        </td>
-                        <td className="py-3 px-2 text-sm text-gray-600">
-                          {livre.code}
+                          {livre.ajouteLe}
                         </td>
                         <td className="py-3 px-2">
                           <div className="flex items-center gap-2">
-                            <button className="p-1 hover:bg-gray-100 rounded">
+                            <button 
+                              className="p-1 hover:bg-gray-100 rounded"
+                              onClick={() => handleEdit(livre)}
+                              title="Modifier"
+                            >
                               <Edit className="w-4 h-4 text-orange-500" />
                             </button>
-                            <button className="p-1 hover:bg-gray-100 rounded">
-                              <Trash2 className="w-4 h-4 text-red-500" />
-                            </button>
+                            {livre.status === 'DRAFT' && (
+                              <button 
+                                className="p-1 hover:bg-gray-100 rounded"
+                                onClick={() => livre.authorId && handlePublish(livre.id, livre.authorId)}
+                                disabled={isPublishing === livre.id || !livre.authorId}
+                                title="Publier"
+                              >
+                                {isPublishing === livre.id ? (
+                                  <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
+                                ) : (
+                                  <CheckCircle className="w-4 h-4 text-blue-500" />
+                                )}
+                              </button>
+                            )}
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <button 
+                                  className="p-1 hover:bg-gray-100 rounded"
+                                  disabled={isDeleting === livre.id}
+                                  title="Supprimer"
+                                >
+                                  {isDeleting === livre.id ? (
+                                    <Loader2 className="w-4 h-4 text-red-500 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-4 h-4 text-red-500" />
+                                  )}
+                                </button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Êtes-vous sûr de vouloir supprimer le livre "{livre.libelle}" ? 
+                                    Cette action est irréversible.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                  <AlertDialogAction 
+                                    onClick={() => handleDelete(livre.id)}
+                                    className="bg-red-600 hover:bg-red-700"
+                                  >
+                                    Supprimer
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </div>
                         </td>
                       </tr>
@@ -590,62 +909,214 @@ export default function LivresListePage() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal Création */}
-      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
-        <DialogContent className="max-w-lg">
+      {/* Modal Création/Édition */}
+      <Dialog open={showCreateModal || showEditModal} onOpenChange={(open) => {
+        if (!open) {
+          setShowCreateModal(false);
+          setShowEditModal(false);
+          setEditingLivre(null);
+          // Réinitialiser le formulaire
+          setNewLivre({
+            titre: "",
+            categorie: "",
+            collectionId: "",
+            classes: "",
+            matiere: "",
+            isbn: "",
+            courteDescription: "",
+            prix: "",
+            tva: "18",
+            auteurId: "",
+            concepteurId: "",
+            disciplineId: ""
+          });
+          setCoverImage(null);
+          setCoverImagePreview(null);
+        }
+      }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold">
-              Ajouter un livre
+              {showEditModal ? "Modifier un livre" : "Ajouter un livre"}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 mt-2">
-            <div>
-              <Label className="block text-sm font-medium mb-1">
-                Titre :
-              </Label>
-              <Input 
-                placeholder="Titre du livre" 
-                value={newLivre.titre}
-                onChange={(e) => setNewLivre({ ...newLivre, titre: e.target.value })}
-              />
+            {/* Section Informations générales */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="block text-sm font-medium mb-1">
+                  Titre * :
+                </Label>
+                <Input 
+                  placeholder="Titre du livre" 
+                  value={newLivre.titre}
+                  onChange={(e) => setNewLivre({ ...newLivre, titre: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label className="block text-sm font-medium mb-1">
+                  Code ISBN * :
+                </Label>
+                <Input 
+                  placeholder="ISBN du livre" 
+                  value={newLivre.isbn}
+                  onChange={(e) => setNewLivre({ ...newLivre, isbn: e.target.value })}
+                />
+              </div>
             </div>
-            <div>
-              <Label className="block text-sm font-medium mb-1">
-                Catégorie :
-              </Label>
-              <Select value={newLivre.categorie} onValueChange={(value) => setNewLivre({ ...newLivre, categorie: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner une catégorie" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="manuel">Manuel</SelectItem>
-                  <SelectItem value="exercice">Exercice</SelectItem>
-                  <SelectItem value="guide">Guide</SelectItem>
-                </SelectContent>
-              </Select>
+
+            {/* Section Discipline et Catégorie */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="block text-sm font-medium mb-1">
+                  Discipline * :
+                </Label>
+                <Select 
+                  value={newLivre.disciplineId} 
+                  onValueChange={(value) => setNewLivre({ ...newLivre, disciplineId: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner une discipline" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {disciplines.map((discipline: any) => (
+                      <SelectItem key={discipline.id} value={discipline.id}>
+                        {discipline.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="block text-sm font-medium mb-1">
+                  Catégorie :
+                </Label>
+                <Select value={newLivre.categorie} onValueChange={(value) => setNewLivre({ ...newLivre, categorie: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner une catégorie" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="manuel">Manuel</SelectItem>
+                    <SelectItem value="exercice">Exercice</SelectItem>
+                    <SelectItem value="guide">Guide</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div>
-              <Label className="block text-sm font-medium mb-1">
-                Collection (optionnel) :
-              </Label>
-              <Select 
-                value={newLivre.collectionId || "none"} 
-                onValueChange={(value) => setNewLivre({ ...newLivre, collectionId: value === "none" ? "" : value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner une collection" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Aucune collection</SelectItem>
-                  {collections.map((collection) => (
-                    <SelectItem key={collection.id} value={collection.id}>
-                      {collection.nom}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+            {/* Section Auteur et Concepteur */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="block text-sm font-medium mb-1">
+                  Auteur * :
+                </Label>
+                <Select 
+                  value={newLivre.auteurId} 
+                  onValueChange={(value) => setNewLivre({ ...newLivre, auteurId: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner un auteur" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {auteurs.map((auteur: any) => (
+                      <SelectItem key={auteur.id} value={auteur.id}>
+                        {auteur.name} ({auteur.email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="block text-sm font-medium mb-1">
+                  Concepteur (optionnel) :
+                </Label>
+                <Select 
+                  value={newLivre.concepteurId || "none"} 
+                  onValueChange={(value) => setNewLivre({ ...newLivre, concepteurId: value === "none" ? "" : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner un concepteur" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Aucun concepteur</SelectItem>
+                    {concepteurs.map((concepteur: any) => (
+                      <SelectItem key={concepteur.id} value={concepteur.id}>
+                        {concepteur.name} ({concepteur.email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
+            {/* Section Prix et TVA */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="block text-sm font-medium mb-1">
+                  Prix public (F CFA) * :
+                </Label>
+                <Input 
+                  type="number"
+                  placeholder="0" 
+                  value={newLivre.prix}
+                  onChange={(e) => setNewLivre({ ...newLivre, prix: e.target.value })}
+                  min="0"
+                  step="100"
+                />
+              </div>
+              <div>
+                <Label className="block text-sm font-medium mb-1">
+                  TVA (%) * :
+                </Label>
+                <Input 
+                  type="number"
+                  placeholder="18" 
+                  value={newLivre.tva}
+                  onChange={(e) => setNewLivre({ ...newLivre, tva: e.target.value })}
+                  min="0"
+                  max="100"
+                  step="0.01"
+                />
+              </div>
+            </div>
+
+            {/* Section Collection et Classes */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="block text-sm font-medium mb-1">
+                  Collection (optionnel) :
+                </Label>
+                <Select 
+                  value={newLivre.collectionId || "none"} 
+                  onValueChange={(value) => setNewLivre({ ...newLivre, collectionId: value === "none" ? "" : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner une collection" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Aucune collection</SelectItem>
+                    {collections.map((collection) => (
+                      <SelectItem key={collection.id} value={collection.id}>
+                        {collection.nom}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="block text-sm font-medium mb-1">
+                  Classes cibles :
+                </Label>
+                <Input 
+                  placeholder="Ex: 6ème, 5ème" 
+                  value={newLivre.classes}
+                  onChange={(e) => setNewLivre({ ...newLivre, classes: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {/* Photo de couverture */}
             <div>
               <Label className="block text-sm font-medium mb-1">
                 Photo de couverture (optionnel) :
@@ -682,41 +1153,8 @@ export default function LivresListePage() {
                 </div>
               )}
             </div>
-            <div>
-              <Label className="block text-sm font-medium mb-1">
-                Classes cibles :
-              </Label>
-              <Input 
-                placeholder="Ex: 6ème, 5ème" 
-                value={newLivre.classes}
-                onChange={(e) => setNewLivre({ ...newLivre, classes: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label className="block text-sm font-medium mb-1">
-                Matière :
-              </Label>
-              <Select value={newLivre.matiere} onValueChange={(value) => setNewLivre({ ...newLivre, matiere: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner une matière" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="francais">Français</SelectItem>
-                  <SelectItem value="maths">Mathématiques</SelectItem>
-                  <SelectItem value="anglais">Anglais</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="block text-sm font-medium mb-1">
-                Code ISBN :
-              </Label>
-              <Input 
-                placeholder="ISBN du livre" 
-                value={newLivre.isbn}
-                onChange={(e) => setNewLivre({ ...newLivre, isbn: e.target.value })}
-              />
-            </div>
+
+            {/* Description */}
             <div>
               <Label className="block text-sm font-medium mb-1">
                 Courte description (optionnel) :
@@ -739,10 +1177,10 @@ export default function LivresListePage() {
             </Button>
             <Button 
               className="bg-indigo-600 hover:bg-indigo-700"
-              onClick={handleCreateLivre}
-              disabled={isSaving || !newLivre.titre.trim() || !newLivre.isbn.trim() || !dataLoaded}
+              onClick={showEditModal ? handleUpdate : handleCreateLivre}
+              disabled={isSaving || !newLivre.titre.trim() || !newLivre.isbn.trim() || !newLivre.disciplineId || !newLivre.auteurId || !newLivre.prix || !dataLoaded}
             >
-              {isSaving ? "Enregistrement..." : dataLoaded ? "Enregistrer" : "Chargement..."}
+              {isSaving ? (showEditModal ? "Modification..." : "Enregistrement...") : dataLoaded ? (showEditModal ? "Modifier" : "Enregistrer") : "Chargement..."}
             </Button>
           </div>
         </DialogContent>

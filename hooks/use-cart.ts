@@ -20,27 +20,39 @@ interface Discipline {
 
 interface WorkWithDiscipline extends Work {
   discipline?: Discipline
+  quantity?: number
+}
+
+interface CartItem extends WorkWithDiscipline {
+  quantity: number
 }
 
 interface UseCartResult {
-  cart: WorkWithDiscipline[]
-  addToCart: (work: WorkWithDiscipline) => void
+  cart: CartItem[]
+  addToCart: (work: WorkWithDiscipline, quantity?: number) => void
   removeFromCart: (workId: string) => void
-  clearCart: () => void
+  updateQuantity: (workId: string, quantity: number) => void
+  clearCart: (showMessage?: boolean) => void
   getTotalPrice: () => number
   getTotalItems: () => number
   isInCart: (workId: string) => boolean
 }
 
 export const useCart = (): UseCartResult => {
-  const [cart, setCart] = useState<WorkWithDiscipline[]>([])
+  const [cart, setCart] = useState<CartItem[]>([])
 
   // Charger le panier depuis localStorage au montage
   useEffect(() => {
     const savedCart = localStorage.getItem("laha-cart")
     if (savedCart) {
       try {
-        setCart(JSON.parse(savedCart))
+        const parsedCart = JSON.parse(savedCart)
+        // Migrer les anciens paniers sans quantité
+        const migratedCart = parsedCart.map((item: any) => ({
+          ...item,
+          quantity: item.quantity || 1
+        }))
+        setCart(migratedCart)
       } catch (error) {
         console.error("Error loading cart from localStorage:", error)
       }
@@ -52,13 +64,41 @@ export const useCart = (): UseCartResult => {
     localStorage.setItem("laha-cart", JSON.stringify(cart))
   }, [cart])
 
-  const addToCart = (work: WorkWithDiscipline) => {
-    if (!cart.find(item => item.id === work.id)) {
-      setCart([...cart, work])
-      toast.success(`"${work.title}" ajouté au panier`)
+  const addToCart = (work: WorkWithDiscipline, quantity: number = 1) => {
+    const existingItem = cart.find(item => item.id === work.id)
+    
+    if (existingItem) {
+      // Si l'article existe déjà, augmenter la quantité
+      setCart(cart.map(item => 
+        item.id === work.id 
+          ? { ...item, quantity: item.quantity + quantity }
+          : item
+      ))
+      toast.success(`Quantité mise à jour pour "${work.title}"`)
     } else {
-      toast.info("Ce livre est déjà dans votre panier")
+      // Ajouter un nouvel article avec quantité
+      setCart([...cart, { ...work, quantity }])
+      toast.success(`"${work.title}" ajouté au panier`)
     }
+  }
+
+  const updateQuantity = (workId: string, quantity: number) => {
+    if (quantity <= 0) {
+      removeFromCart(workId)
+      return
+    }
+    
+    const item = cart.find(item => item.id === workId)
+    if (item && item.stock && quantity > item.stock) {
+      toast.error(`Stock disponible : ${item.stock} exemplaires`)
+      return
+    }
+    
+    setCart(cart.map(item => 
+      item.id === workId 
+        ? { ...item, quantity }
+        : item
+    ))
   }
 
   const removeFromCart = (workId: string) => {
@@ -77,11 +117,11 @@ export const useCart = (): UseCartResult => {
   }
 
   const getTotalPrice = () => {
-    return cart.reduce((total, item) => total + (item.price || 0), 0)
+    return cart.reduce((total, item) => total + ((item.price || 0) * (item.quantity || 1)), 0)
   }
 
   const getTotalItems = () => {
-    return cart.length
+    return cart.reduce((total, item) => total + (item.quantity || 1), 0)
   }
 
   const isInCart = (workId: string) => {
@@ -92,6 +132,7 @@ export const useCart = (): UseCartResult => {
     cart,
     addToCart,
     removeFromCart,
+    updateQuantity,
     clearCart,
     getTotalPrice,
     getTotalItems,

@@ -15,7 +15,7 @@ const pdgPages = [
   'app/dashboard/pdg/ristournes/partenaire/page.tsx',
   'app/dashboard/pdg/parametres/zones/page.tsx',
   'app/dashboard/pdg/parametres/utilisateurs/page.tsx',
-  'app/dashboard/pdg/parametres/reductions/page.tsx',
+  'app/dashboard/pdg/parametres/remises/page.tsx',
   'app/dashboard/pdg/parametres/logs/page.tsx',
   'app/dashboard/pdg/parametres/effectifs/page.tsx',
   'app/dashboard/pdg/parametres/departements/page.tsx',

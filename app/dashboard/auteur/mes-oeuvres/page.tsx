@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { BookOpen, Search, Filter, Plus, Edit, Trash2, Eye, BarChart3, AlertTriangle, Clock, CheckCircle, XCircle, FileText, Image } from "lucide-react";
+import { BookOpen, Search, Filter, Plus, Edit, Trash2, Eye, BarChart3, AlertTriangle, Clock, CheckCircle, XCircle, FileText, Image, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -107,6 +107,33 @@ export default function MesOeuvresPage() {
 
   const canEditWork = (work: any) => {
     return work.status === 'DRAFT' || work.status === 'REJECTED';
+  };
+
+  const canSubmitForPublication = (work: any) => {
+    return work.status === 'DRAFT' || work.status === 'REJECTED';
+  };
+
+  const handleSubmitForPublication = async (workId: string) => {
+    try {
+      const response = await fetch('/api/works/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ workId }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erreur lors de la soumission');
+      }
+
+      toast.success('Livre soumis pour publication avec succès. Le PDG va examiner votre demande.');
+      loadWorks();
+    } catch (error: any) {
+      console.error('Error submitting work:', error);
+      toast.error(error.message || 'Erreur lors de la soumission du livre');
+    }
   };
 
   const canDeleteWork = (work: any) => {
@@ -411,9 +438,40 @@ export default function MesOeuvresPage() {
                             variant="ghost" 
                             size="sm"
                             onClick={() => router.push(`/dashboard/auteur/creer-oeuvre?edit=${work.id}`)}
+                            title="Modifier"
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
+                        )}
+
+                        {canSubmitForPublication(work) && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="text-blue-600 hover:text-blue-700"
+                                title="Soumettre pour publication"
+                              >
+                                <Send className="w-4 h-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Soumettre pour publication</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Êtes-vous sûr de vouloir soumettre le livre "{work.title}" pour publication ? 
+                                  Le PDG examinera votre demande et pourra publier ou refuser votre livre.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleSubmitForPublication(work.id)}>
+                                  Soumettre
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         )}
 
                         {canDeleteWork(work) && (

@@ -94,8 +94,15 @@ export default function ClientDashboard() {
           apiClient.getDisciplines()
         ]);
         
+        // L'API retourne un objet avec works, pagination, stats
+        // ou directement un tableau selon le contexte
+        const worksArray = Array.isArray(worksData) ? worksData : (worksData.works || [])
+        
+        // Filtrer uniquement les livres PUBLISHED (sécurité supplémentaire)
+        const publishedWorks = worksArray.filter((work: any) => work.status === 'PUBLISHED')
+        
         // Enrichir les works avec les disciplines et images
-        const enrichedWorks = worksData.map(work => ({
+        const enrichedWorks = publishedWorks.map(work => ({
           ...work,
           discipline: disciplinesData.find(d => d.id === work.disciplineId),
           image: getBookImageUrl(work.title, disciplinesData.find(d => d.id === work.disciplineId)?.name)

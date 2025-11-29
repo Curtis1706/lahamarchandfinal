@@ -326,11 +326,20 @@ export async function GET(request: NextRequest) {
       whereClause.projectId = projectId;
     }
 
-    // Si l'utilisateur n'est pas PDG, il ne peut voir que ses propres œuvres
+    // Si l'utilisateur n'est pas PDG, appliquer des restrictions
     if (session.user.role !== "PDG") {
       if (session.user.role === "AUTEUR") {
+        // Les auteurs voient leurs propres œuvres (tous statuts)
         whereClause.authorId = session.user.id;
+      } else {
+        // Pour les autres rôles (CLIENT, PARTENAIRE, REPRESENTANT, etc.), 
+        // ne montrer QUE les livres PUBLISHED
+        whereClause.status = "PUBLISHED";
       }
+    } else {
+      // Le PDG peut voir tous les statuts, mais si aucun filtre n'est spécifié,
+      // on peut optionnellement filtrer par défaut
+      // (pour l'instant, on laisse le PDG voir tout)
     }
 
     const [works, total] = await Promise.all([

@@ -15,9 +15,9 @@ export const GET = allowGuest(async (request: NextRequest, context) => {
     const limit = parseInt(searchParams.get('limit') || '20')
     const skip = (page - 1) * limit
 
-    // Construire les conditions de filtre - uniquement les œuvres publiques
+    // Construire les conditions de filtre - uniquement les œuvres publiées
     const whereClause: any = {
-      status: 'ON_SALE' // Seulement les œuvres en vente sont publiques
+      status: 'PUBLISHED' // Seulement les œuvres publiées apparaissent dans le catalogue
     }
 
     if (disciplineId) {

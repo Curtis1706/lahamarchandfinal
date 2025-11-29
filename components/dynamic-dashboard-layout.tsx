@@ -201,7 +201,7 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
             { href: `${basePath}/parametres/departements`, label: "Départements" },
             { href: `${basePath}/parametres/zones`, label: "Zones" },
             { href: `${basePath}/parametres/effectifs`, label: "Effectifs" },
-            { href: `${basePath}/parametres/reductions`, label: "Réductions" },
+            { href: `${basePath}/parametres/remises`, label: "Remises" },
             { href: `${basePath}/parametres/logs`, label: "Logs" },
             { href: `${basePath}/parametres/avance`, label: "Avancé" }
           ]

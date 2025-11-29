@@ -83,40 +83,107 @@ export async function GET(request: NextRequest) {
 // POST /api/orders - Créer une commande
 export async function POST(request: NextRequest) {
   try {
+    // Vérifier l'authentification
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
+    }
+
     const body = await request.json()
     const { userId, partnerId, items } = body
 
-    if (!userId || !items || items.length === 0) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    // Utiliser l'ID de la session si userId n'est pas fourni
+    const finalUserId = userId || session.user.id
+
+    if (!finalUserId) {
+      return NextResponse.json({ error: "User ID requis" }, { status: 400 })
+    }
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return NextResponse.json({ error: "Au moins un article est requis" }, { status: 400 })
+    }
+
+    // Vérifier que tous les items ont les champs requis
+    for (const item of items) {
+      if (!item.workId) {
+        return NextResponse.json({ 
+          error: `workId manquant pour l'article: ${JSON.stringify(item)}` 
+        }, { status: 400 })
+      }
+      if (!item.quantity || item.quantity < 1) {
+        return NextResponse.json({ 
+          error: `Quantité invalide pour l'article ${item.workId}` 
+        }, { status: 400 })
+      }
+    }
+
+    // Vérifier que tous les œuvres existent et sont disponibles
+    const workIds = items.map((item: any) => item.workId)
+    const works = await prisma.work.findMany({
+      where: {
+        id: { in: workIds }
+      },
+      select: {
+        id: true,
+        title: true,
+        price: true,
+        status: true,
+        stock: true
+      }
+    })
+
+    if (works.length !== workIds.length) {
+      const foundIds = works.map(w => w.id)
+      const missingIds = workIds.filter(id => !foundIds.includes(id))
+      return NextResponse.json({ 
+        error: `Œuvres introuvables: ${missingIds.join(', ')}` 
+      }, { status: 400 })
+    }
+
+    // Vérifier que les œuvres sont en vente
+    const unavailableWorks = works.filter(w => w.status !== 'ON_SALE' && w.status !== 'PUBLISHED')
+    if (unavailableWorks.length > 0) {
+      return NextResponse.json({ 
+        error: `Certaines œuvres ne sont pas disponibles: ${unavailableWorks.map(w => w.title).join(', ')}` 
+      }, { status: 400 })
     }
 
     // Calculer le total de la commande
     let subtotal = 0
     for (const item of items) {
-      const work = await prisma.work.findUnique({
-        where: { id: item.workId },
-        select: { price: true }
-      })
-      const itemPrice = item.price || work?.price || 0
+      const work = works.find(w => w.id === item.workId)
+      if (!work) {
+        return NextResponse.json({ 
+          error: `Œuvre ${item.workId} introuvable` 
+        }, { status: 400 })
+      }
+      const itemPrice = item.price || work.price || 0
       subtotal += itemPrice * item.quantity
     }
     
     const tax = subtotal * 0.18 // TVA à 18%
     const total = subtotal + tax
 
+    console.log(`📦 Création de commande pour l'utilisateur ${finalUserId}`)
+    console.log(`📦 Items: ${items.length}, Subtotal: ${subtotal}, Tax: ${tax}, Total: ${total}`)
+
     const newOrder = await prisma.order.create({
       data: {
-        userId,
+        userId: finalUserId,
         partnerId: partnerId || null,
         subtotal,
         tax,
         total,
+        status: "PENDING",
         items: {
-          create: items.map((item: any) => ({
-            workId: item.workId,
-            quantity: item.quantity,
-            price: item.price || 0
-          }))
+          create: items.map((item: any) => {
+            const work = works.find(w => w.id === item.workId)!
+            return {
+              workId: item.workId,
+              quantity: item.quantity,
+              price: item.price || work.price || 0
+            }
+          })
         }
       },
       include: {
@@ -154,10 +221,20 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    console.log(`✅ Commande créée avec succès: ${newOrder.id}`)
+
     return NextResponse.json(newOrder, { status: 201 })
-  } catch (error) {
-    console.error("Error creating order:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+  } catch (error: any) {
+    console.error("❌ Error creating order:", error)
+    console.error("❌ Error details:", {
+      message: error.message,
+      code: error.code,
+      meta: error.meta
+    })
+    return NextResponse.json({ 
+      error: error.message || "Erreur lors de la création de la commande",
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    }, { status: 500 })
   }
 }
 

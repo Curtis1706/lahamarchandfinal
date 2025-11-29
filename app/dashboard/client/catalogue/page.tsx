@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Search, Book, ShoppingCart, Filter, Image as ImageIcon, X, Trash2 } from "lucide-react"
+import { Loader2, Search, Book, ShoppingCart, Filter, Image as ImageIcon, X, Trash2, Plus, Minus } from "lucide-react"
 import Image from "next/image"
 import { toast } from "sonner"
 import Link from "next/link"
@@ -52,11 +52,31 @@ interface Discipline {
 interface WorkWithDiscipline extends Work {
   discipline?: Discipline
   image?: string
+  files?: string
+  discount?: {
+    id: string
+    type: string
+    reduction: number
+    quantiteMin: number
+  } | null
+  finalPrice?: number
 }
 
-// Fonction pour générer une image de livre basée sur le titre
-const getBookImageUrl = (title: string, discipline?: string): string => {
-  // Images disponibles dans le dossier public
+// Fonction pour extraire l'image de couverture depuis le champ files
+const getBookImageUrl = (work: WorkWithDiscipline, title: string, discipline?: string): string => {
+  // D'abord, essayer d'extraire l'image depuis le champ files
+  if (work.files) {
+    try {
+      const filesData = typeof work.files === 'string' ? JSON.parse(work.files) : work.files
+      if (filesData.coverImage) {
+        return filesData.coverImage
+      }
+    } catch (e) {
+      console.error("Erreur lors du parsing des fichiers:", e)
+    }
+  }
+  
+  // Si pas d'image dans files, utiliser les images par défaut
   const availableImages = [
     '/01.png',
     '/02.png', 
@@ -67,55 +87,30 @@ const getBookImageUrl = (title: string, discipline?: string): string => {
     '/10013.png'
   ]
   
-  // Mapping des disciplines vers les images spécifiques
   const disciplineImages: { [key: string]: string[] } = {
-    'Mathématiques': ['/10001.png'], // S'exercer en Mathématiques CP
-    'Français': ['/01.png', '/02.png'], // S'exercer en Dictée
-    'Sciences': ['/10002.png', '/10011.png', '/10012.png', '/10013.png'], // S'exercer en SVT
+    'Mathématiques': ['/10001.png'],
+    'Français': ['/01.png', '/02.png'],
+    'Sciences': ['/10002.png', '/10011.png', '/10012.png', '/10013.png'],
     'Histoire': ['/communication-book.jpg'],
     'Géographie': ['/communication-book.jpg'],
     'Anglais': ['/french-textbook-coffret-ce2.jpg']
   }
   
-  // Cherche une correspondance par discipline
   if (discipline) {
     const disciplineImageList = disciplineImages[discipline]
     if (disciplineImageList && disciplineImageList.length > 0) {
-      // Retourne une image aléatoire de la discipline
       const randomIndex = Math.floor(Math.random() * disciplineImageList.length)
       return disciplineImageList[randomIndex]
     }
   }
   
-  // Images par défaut basées sur des mots-clés du titre
-  if (title.toLowerCase().includes('math') || title.toLowerCase().includes('mathématiques')) {
-    return '/10001.png' // S'exercer en Mathématiques CP
-  }
-  if (title.toLowerCase().includes('français') || title.toLowerCase().includes('french') || title.toLowerCase().includes('dictée')) {
-    // Retourne aléatoirement entre les deux images de dictée
-    return Math.random() > 0.5 ? '/01.png' : '/02.png'
-  }
-  if (title.toLowerCase().includes('svt') || title.toLowerCase().includes('sciences')) {
-    // Retourne aléatoirement entre les images SVT
-    const svtImages = ['/10002.png', '/10011.png', '/10012.png', '/10013.png']
-    const randomIndex = Math.floor(Math.random() * svtImages.length)
-    return svtImages[randomIndex]
-  }
-  if (title.toLowerCase().includes('histoire') || title.toLowerCase().includes('history')) {
-    return '/communication-book.jpg'
-  }
-  if (title.toLowerCase().includes('anglais') || title.toLowerCase().includes('english')) {
-    return '/french-textbook-coffret-ce2.jpg'
-  }
-  
-  // Retourne une image aléatoire des images disponibles
   const randomIndex = Math.floor(Math.random() * availableImages.length)
   return availableImages[randomIndex]
 }
 
 export default function ClientCataloguePage() {
   const { user, isLoading: userLoading } = useCurrentUser()
-  const { cart, addToCart, removeFromCart, getTotalPrice, isInCart, clearCart } = useCart()
+  const { cart, addToCart, removeFromCart, updateQuantity, getTotalPrice, getTotalItems, isInCart, clearCart } = useCart()
   const { addOrder } = useOrders()
   const router = useRouter()
   const [works, setWorks] = useState<WorkWithDiscipline[]>([])
@@ -124,6 +119,8 @@ export default function ClientCataloguePage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedDiscipline, setSelectedDiscipline] = useState<string>("all")
   const [isProcessingOrder, setIsProcessingOrder] = useState(false)
+  const [loadingDiscounts, setLoadingDiscounts] = useState(false)
+  const [cartDiscounts, setCartDiscounts] = useState<Record<string, any>>({})
 
   useEffect(() => {
     const fetchData = async () => {
@@ -133,8 +130,67 @@ export default function ClientCataloguePage() {
           apiClient.getWorks(),
           apiClient.getDisciplines()
         ])
-        setWorks(worksData)
+        
+        // L'API retourne un objet avec works, pagination, stats
+        // ou directement un tableau selon le contexte
+        const worksArray = Array.isArray(worksData) ? worksData : (worksData.works || [])
+        
+        // Filtrer uniquement les livres PUBLISHED (sécurité supplémentaire)
+        const publishedWorks = worksArray.filter((work: any) => work.status === 'PUBLISHED')
+        
+        // Charger les remises pour chaque livre
+        setLoadingDiscounts(true)
+        const worksWithDiscounts = await Promise.all(
+          publishedWorks.map(async (work: any) => {
+            try {
+              // Déterminer le type de client (CLIENT par défaut)
+              const clientType = user?.role === 'PARTENAIRE' ? 'Partenaire' : 
+                                user?.role === 'REPRESENTANT' ? 'Représentant' : 'Client'
+              
+              const discountResponse = await fetch(
+                `/api/discounts/applicable?workId=${work.id}&workTitle=${encodeURIComponent(work.title)}&clientType=${clientType}&quantity=1`
+              )
+              
+              if (discountResponse.ok) {
+                const discountData = await discountResponse.json()
+                const discount = discountData.applicable
+                
+                // Calculer le prix final avec remise
+                let finalPrice = work.price || 0
+                if (discount && work.price) {
+                  if (discount.type === 'Pourcentage') {
+                    finalPrice = work.price * (1 - discount.reduction / 100)
+                  } else if (discount.type === 'Montant') {
+                    finalPrice = Math.max(0, work.price - discount.reduction)
+                  }
+                }
+                
+                return {
+                  ...work,
+                  discount: discount,
+                  finalPrice: finalPrice
+                }
+              }
+              
+              return {
+                ...work,
+                discount: null,
+                finalPrice: work.price || 0
+              }
+            } catch (error) {
+              console.error(`Error loading discount for work ${work.id}:`, error)
+              return {
+                ...work,
+                discount: null,
+                finalPrice: work.price || 0
+              }
+            }
+          })
+        )
+        
+        setWorks(worksWithDiscounts)
         setDisciplines(disciplinesData)
+        setLoadingDiscounts(false)
       } catch (error: any) {
         console.error("Error fetching data:", error)
         toast.error("Erreur lors du chargement du catalogue")
@@ -146,7 +202,42 @@ export default function ClientCataloguePage() {
     fetchData()
   }, [])
 
+  // Fonction pour mettre à jour la remise d'un article dans le panier
+  const updateItemDiscount = async (workId: string, workTitle: string, quantity: number) => {
+    try {
+      const clientType = user?.role === 'PARTENAIRE' ? 'Partenaire' : 
+                        user?.role === 'REPRESENTANT' ? 'Représentant' : 'Client'
+      
+      const discountResponse = await fetch(
+        `/api/discounts/applicable?workId=${workId}&workTitle=${encodeURIComponent(workTitle)}&clientType=${clientType}&quantity=${quantity}`
+      )
+      
+      if (discountResponse.ok) {
+        const discountData = await discountResponse.json()
+        setCartDiscounts(prev => ({
+          ...prev,
+          [workId]: discountData.applicable
+        }))
+      }
+    } catch (error) {
+      console.error(`Error updating discount for work ${workId}:`, error)
+    }
+  }
+
+  // Charger les remises pour les articles du panier au chargement
+  useEffect(() => {
+    if (cart.length > 0 && user) {
+      cart.forEach(item => {
+        updateItemDiscount(item.id, item.title, item.quantity || 1)
+      })
+    }
+  }, [cart.length, user]) // Seulement quand le panier change de taille ou l'utilisateur change
+
   const filteredWorks = works.filter(work => {
+    // Filtrer uniquement les livres PUBLISHED (sécurité supplémentaire côté client)
+    if (work.status !== 'PUBLISHED') {
+      return false
+    }
     const matchesSearch = work.title.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesDiscipline = selectedDiscipline === "all" || work.disciplineId === selectedDiscipline
     return matchesSearch && matchesDiscipline
@@ -173,7 +264,7 @@ export default function ClientCataloguePage() {
         title: item.title,
         isbn: item.isbn,
         price: item.price || 0,
-        quantity: 1,
+        quantity: item.quantity || 1,
         image: item.image || "/placeholder.jpg"
       }))
 
@@ -254,7 +345,7 @@ export default function ClientCataloguePage() {
                       variant="destructive" 
                       className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs"
                     >
-                      {cart.length}
+                      {getTotalItems()}
                     </Badge>
                   )}
                 </Button>
@@ -263,7 +354,7 @@ export default function ClientCataloguePage() {
                 <DialogHeader>
                   <DialogTitle className="flex items-center space-x-2">
                     <ShoppingCart className="h-5 w-5" />
-                    <span>Mon Panier ({cart.length} article{cart.length > 1 ? 's' : ''})</span>
+                    <span>Mon Panier ({getTotalItems()} article{getTotalItems() > 1 ? 's' : ''})</span>
                   </DialogTitle>
                   <DialogDescription>
                     Gérez les articles de votre panier
@@ -284,19 +375,90 @@ export default function ClientCataloguePage() {
                       <div key={item.id} className="flex items-center space-x-4 p-4 border rounded-lg">
                         <div className="relative w-16 h-20 bg-gray-100 rounded">
                           <Image
-                            src={getBookImageUrl(item.title, item.discipline?.name)}
+                            src={getBookImageUrl(item, item.title, item.discipline?.name)}
                             alt={item.title}
                             fill
                             className="object-cover rounded"
                             sizes="64px"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement
+                              target.src = '/placeholder.jpg'
+                            }}
                           />
                         </div>
                         <div className="flex-1 min-w-0">
                           <h4 className="font-medium text-sm line-clamp-2">{item.title}</h4>
                           <p className="text-xs text-muted-foreground">ISBN: {item.isbn}</p>
                           <p className="text-sm font-semibold text-blue-600">
-                            {item.price?.toFixed(2)} FCFA
+                            {item.price?.toFixed(2)} FCFA / unité
                           </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Stock disponible: {item.stock || 0} exemplaires
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-center space-y-2">
+                          <div className="flex items-center space-x-2 border rounded-lg">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={async () => {
+                                const newQuantity = (item.quantity || 1) - 1
+                                updateQuantity(item.id, newQuantity)
+                                // Recalculer la remise pour la nouvelle quantité
+                                if (newQuantity > 0) {
+                                  await updateItemDiscount(item.id, item.title, newQuantity)
+                                }
+                              }}
+                              disabled={(item.quantity || 1) <= 1}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="w-12 text-center font-medium">
+                              {item.quantity || 1}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={async () => {
+                                const newQuantity = (item.quantity || 1) + 1
+                                updateQuantity(item.id, newQuantity)
+                                // Recalculer la remise pour la nouvelle quantité
+                                await updateItemDiscount(item.id, item.title, newQuantity)
+                              }}
+                              disabled={item.stock !== undefined && (item.quantity || 1) >= item.stock}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          {(() => {
+                            const discount = cartDiscounts[item.id]
+                            const itemPrice = item.price || 0
+                            const quantity = item.quantity || 1
+                            let finalPrice = itemPrice * quantity
+                            
+                            if (discount) {
+                              if (discount.type === 'Pourcentage') {
+                                finalPrice = itemPrice * quantity * (1 - discount.reduction / 100)
+                              } else if (discount.type === 'Montant') {
+                                finalPrice = Math.max(0, (itemPrice * quantity) - discount.reduction)
+                              }
+                            }
+                            
+                            return (
+                              <div className="text-center">
+                                {discount && (
+                                  <p className="text-xs text-gray-500 line-through">
+                                    {(itemPrice * quantity).toFixed(2)} FCFA
+                                  </p>
+                                )}
+                                <p className="text-xs font-semibold text-gray-700">
+                                  {finalPrice.toFixed(2)} FCFA
+                                </p>
+                              </div>
+                            )
+                          })()}
                         </div>
                         <Button
                           variant="ghost"
@@ -313,7 +475,44 @@ export default function ClientCataloguePage() {
                     
                     <div className="flex items-center justify-between">
                       <div className="text-lg font-semibold">
-                        Total: {getTotalPrice().toFixed(2)} FCFA
+                        {(() => {
+                          // Calculer le total avec remises
+                          const totalWithoutDiscount = cart.reduce((sum, item) => 
+                            sum + ((item.price || 0) * (item.quantity || 1)), 0
+                          )
+                          
+                          const totalDiscount = cart.reduce((sum, item) => {
+                            const discount = cartDiscounts[item.id]
+                            if (!discount) return sum
+                            
+                            const itemTotal = (item.price || 0) * (item.quantity || 1)
+                            if (discount.type === 'Pourcentage') {
+                              return sum + (itemTotal * discount.reduction / 100)
+                            } else {
+                              return sum + discount.reduction
+                            }
+                          }, 0)
+                          
+                          const finalTotal = Math.max(0, totalWithoutDiscount - totalDiscount)
+                          
+                          return (
+                            <div className="flex flex-col">
+                              {totalDiscount > 0 && (
+                                <div className="text-sm text-gray-500 line-through">
+                                  {totalWithoutDiscount.toFixed(2)} FCFA
+                                </div>
+                              )}
+                              <div>
+                                Total: {finalTotal.toFixed(2)} FCFA
+                                {totalDiscount > 0 && (
+                                  <span className="text-sm text-green-600 ml-2">
+                                    (-{totalDiscount.toFixed(2)} FCFA)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })()}
                       </div>
                       <div className="flex space-x-2">
                         <Button variant="outline" onClick={() => clearCart()}>
@@ -392,11 +591,16 @@ export default function ClientCataloguePage() {
                   {/* Image de couverture */}
                   <div className="relative h-48 w-full bg-gradient-to-br from-blue-50 to-indigo-100">
                     <Image
-                      src={getBookImageUrl(work.title, discipline?.name)}
+                      src={getBookImageUrl(work, work.title, discipline?.name)}
                       alt={work.title}
                       fill
                       className="object-cover"
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      onError={(e) => {
+                        // Fallback vers une image par défaut en cas d'erreur
+                        const target = e.target as HTMLImageElement
+                        target.src = '/placeholder.jpg'
+                      }}
                     />
                     <div className="absolute top-2 right-2">
                       {discipline && (
@@ -405,6 +609,15 @@ export default function ClientCataloguePage() {
                         </Badge>
                       )}
                     </div>
+                    {work.discount && (
+                      <div className="absolute top-2 left-2">
+                        <Badge className="bg-red-500 text-white">
+                          -{work.discount.type === 'Pourcentage' 
+                            ? `${work.discount.reduction}%` 
+                            : `${work.discount.reduction} F CFA`}
+                        </Badge>
+                      </div>
+                    )}
                   </div>
                   
                   <CardHeader>
@@ -434,29 +647,53 @@ export default function ClientCataloguePage() {
                   </CardContent>
                   
                   <CardFooter className="pt-4">
-                    <div className="flex items-center justify-between w-full">
-                      <div className="text-2xl font-bold text-primary">
-                        {work.price ? `${work.price.toFixed(2)} FCFA` : "Prix non défini"}
+                    <div className="flex flex-col space-y-2 w-full">
+                      <div className="flex items-center justify-between">
+                        <div className="flex flex-col">
+                          {work.discount && work.price ? (
+                            <>
+                              <div className="text-sm text-gray-500 line-through">
+                                {work.price.toFixed(2)} FCFA
+                              </div>
+                              <div className="text-2xl font-bold text-primary">
+                                {work.finalPrice?.toFixed(2)} FCFA
+                              </div>
+                            </>
+                          ) : (
+                            <div className="text-2xl font-bold text-primary">
+                              {work.price ? `${work.price.toFixed(2)} FCFA` : "Prix non défini"}
+                            </div>
+                          )}
+                        </div>
+                        {workInCart ? (
+                          <Button
+                            variant="outline"
+                            onClick={() => removeFromCart(work.id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            Retirer du panier
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={() => addToCart({
+                              ...work,
+                              price: work.finalPrice || work.price, // Utiliser le prix avec remise
+                              image: getBookImageUrl(work, work.title, discipline?.name)
+                            })}
+                            disabled={!work.price}
+                          >
+                            <ShoppingCart className="h-4 w-4 mr-2" />
+                            Ajouter au panier
+                          </Button>
+                        )}
                       </div>
-                      {workInCart ? (
-                        <Button
-                          variant="outline"
-                          onClick={() => removeFromCart(work.id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          Retirer du panier
-                        </Button>
-                      ) : (
-                        <Button
-                          onClick={() => addToCart({
-                            ...work,
-                            image: getBookImageUrl(work.title, discipline?.name)
-                          })}
-                          disabled={!work.price}
-                        >
-                          <ShoppingCart className="h-4 w-4 mr-2" />
-                          Ajouter au panier
-                        </Button>
+                      {work.discount && (
+                        <div className="text-xs text-green-600 font-medium">
+                          Remise appliquée : {work.discount.type === 'Pourcentage' 
+                            ? `${work.discount.reduction}%` 
+                            : `${work.discount.reduction} F CFA`} 
+                          {work.discount.quantiteMin > 1 && ` (min. ${work.discount.quantiteMin} exemplaires)`}
+                        </div>
                       )}
                     </div>
                   </CardFooter>
