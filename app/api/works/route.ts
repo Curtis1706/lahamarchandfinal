@@ -358,56 +358,157 @@ export async function GET(request: NextRequest) {
       const whereForQuery = Object.keys(whereClause).length === 0 ? undefined : whereClause;
       console.log("🔍 Where clause pour la requête:", whereForQuery ? JSON.stringify(whereForQuery, null, 2) : "undefined (tous les works)");
       
-      [works, total] = await Promise.all([
-        prisma.work.findMany({
-          where: whereForQuery,
-          include: {
-            author: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                role: true
+      // Essayer d'abord avec les relations
+      try {
+        [works, total] = await Promise.all([
+          prisma.work.findMany({
+            where: whereForQuery,
+            include: {
+              author: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  role: true
+                }
+              },
+              discipline: {
+                select: {
+                  id: true,
+                  name: true
+                }
+              },
+              project: {
+                select: {
+                  id: true,
+                  title: true,
+                  status: true
+                }
+              },
+              concepteur: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true
+                }
+              },
+              reviewer: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true
+                }
               }
             },
-            discipline: {
-              select: {
-                id: true,
-                name: true
-              }
+            orderBy: {
+              createdAt: 'desc'
             },
-            project: {
+            skip,
+            take: limit
+          }),
+          prisma.work.count({ where: whereForQuery })
+        ])
+      } catch (relationError: any) {
+        console.error('❌ Erreur avec les relations:', relationError);
+        console.error('❌ Message:', relationError.message);
+        // Si l'erreur vient des relations, essayer sans relations
+        if (relationError.message?.includes('Record to update not found') || 
+            relationError.message?.includes('Foreign key constraint') ||
+            relationError.code === 'P2025') {
+          console.warn('⚠️ Problème de relation détecté, tentative sans relations');
+          [works, total] = await Promise.all([
+            prisma.work.findMany({
+              where: whereForQuery,
               select: {
                 id: true,
                 title: true,
-                status: true
+                description: true,
+                isbn: true,
+                price: true,
+                tva: true,
+                stock: true,
+                status: true,
+                category: true,
+                targetAudience: true,
+                files: true,
+                createdAt: true,
+                updatedAt: true,
+                authorId: true,
+                disciplineId: true,
+                concepteurId: true,
+                projectId: true
+              },
+              orderBy: {
+                createdAt: 'desc'
+              },
+              skip,
+              take: limit
+            }),
+            prisma.work.count({ where: whereForQuery })
+          ]);
+          // Enrichir avec les relations manuellement si possible
+          for (const work of works) {
+            try {
+              if (work.authorId) {
+                const author = await prisma.user.findUnique({
+                  where: { id: work.authorId },
+                  select: { id: true, name: true, email: true, role: true }
+                });
+                (work as any).author = author;
               }
-            },
-            concepteur: {
-              select: {
-                id: true,
-                name: true,
-                email: true
+              if (work.disciplineId) {
+                const discipline = await prisma.discipline.findUnique({
+                  where: { id: work.disciplineId },
+                  select: { id: true, name: true }
+                });
+                (work as any).discipline = discipline;
               }
-            },
-            reviewer: {
-              select: {
-                id: true,
-                name: true,
-                email: true
+              if (work.concepteurId) {
+                const concepteur = await prisma.user.findUnique({
+                  where: { id: work.concepteurId },
+                  select: { id: true, name: true, email: true }
+                });
+                (work as any).concepteur = concepteur;
               }
+            } catch (enrichError) {
+              console.warn(`⚠️ Erreur lors de l'enrichissement du work ${work.id}:`, enrichError);
             }
-          },
-          orderBy: {
-            createdAt: 'desc'
-          },
-          skip,
-          take: limit
-        }),
-        prisma.work.count({ where: whereForQuery })
-      ])
+          }
+        } else {
+          throw relationError;
+        }
+      }
       
       console.log(`🔍 Requête réussie: ${works.length} works trouvés sur ${total} total`);
+      
+      // Si aucun work n'est retourné mais que total > 0, il y a un problème
+      if (works.length === 0 && total > 0) {
+        console.warn(`⚠️ PROBLÈME: total=${total} mais works.length=0`);
+        // Essayer une requête sans relations pour voir si le problème vient des relations
+        try {
+          const worksWithoutRelations = await prisma.work.findMany({
+            where: whereForQuery,
+            select: {
+              id: true,
+              title: true,
+              status: true,
+              authorId: true,
+              disciplineId: true,
+              createdAt: true
+            },
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: limit
+          });
+          console.log(`🔍 Requête sans relations: ${worksWithoutRelations.length} works trouvés`);
+          if (worksWithoutRelations.length > 0) {
+            console.warn(`⚠️ Le problème vient probablement des relations (author, discipline, etc.)`);
+            console.log(`🔍 Works sans relations:`, worksWithoutRelations);
+          }
+        } catch (noRelError) {
+          console.error("❌ Erreur requête sans relations:", noRelError);
+        }
+      }
     } catch (findManyError: any) {
       console.error('❌ Error in work.findMany:', findManyError)
       console.error('❌ Error message:', findManyError.message)
@@ -635,9 +736,30 @@ export async function GET(request: NextRequest) {
     try {
       const totalWorksInDb = await prisma.work.count();
       console.log(`🔍 Total works dans la base de données: ${totalWorksInDb}`);
+      
+      // Si des works existent mais ne sont pas retournés, faire une requête directe sans filtres
       if (totalWorksInDb > 0 && works.length === 0) {
         console.warn(`⚠️ ATTENTION: ${totalWorksInDb} works existent dans la DB mais 0 ont été retournés par la requête`);
         console.warn(`⚠️ Where clause utilisée:`, JSON.stringify(whereForQuery || whereClause, null, 2));
+        
+        // Requête directe pour voir tous les works (sans relations pour éviter les erreurs)
+        try {
+          const allWorksDirect = await prisma.work.findMany({
+            select: {
+              id: true,
+              title: true,
+              status: true,
+              authorId: true,
+              disciplineId: true,
+              createdAt: true
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 10
+          });
+          console.log(`🔍 Requête directe (sans relations) - ${allWorksDirect.length} works trouvés:`, allWorksDirect);
+        } catch (directError) {
+          console.error("❌ Erreur lors de la requête directe:", directError);
+        }
       }
     } catch (countError) {
       console.error("❌ Erreur lors du comptage total:", countError);

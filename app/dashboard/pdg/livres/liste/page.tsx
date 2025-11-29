@@ -106,7 +106,8 @@ export default function LivresListePage() {
     try {
       setIsLoading(true);
       console.log("🔄 Chargement des livres depuis /api/works...");
-      const response = await fetch('/api/works?limit=1000');
+      // Pour le PDG, récupérer tous les works sans limite de pagination
+      const response = await fetch('/api/works?limit=1000&page=1');
       console.log("🔍 Response status:", response.status);
       if (response.ok) {
         const data = await response.json();
@@ -116,8 +117,18 @@ export default function LivresListePage() {
           worksType: Array.isArray(data.works) ? 'array' : typeof data.works,
           worksLength: data.works?.length,
           hasPagination: !!data.pagination,
-          hasStats: !!data.stats
+          hasStats: !!data.stats,
+          paginationTotal: data.pagination?.total,
+          paginationPage: data.pagination?.page,
+          paginationLimit: data.pagination?.limit
         });
+        
+        // Log détaillé pour debug
+        if (data.pagination?.total > 0 && data.works?.length === 0) {
+          console.error("❌ INCOHÉRENCE: total > 0 mais works.length = 0");
+          console.error("❌ Pagination:", data.pagination);
+          console.error("❌ Stats:", data.stats);
+        }
         // L'API retourne un objet avec works, pagination, stats
         const worksArray = data.works || [];
         console.log(`✅ ${worksArray.length} works trouvés dans la réponse`);
