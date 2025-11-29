@@ -325,12 +325,22 @@ export default function CreerCommandePage() {
               <CardContent className="space-y-4">
                 <div>
                   <Label>Client existant</Label>
-                  <Select value={selectedClientId} onValueChange={handleSelectClient}>
+                  <Select value={selectedClientId || "new"} onValueChange={(value) => {
+                    if (value === "new") {
+                      setSelectedClientId("")
+                      setClientName("")
+                      setClientEmail("")
+                      setClientPhone("")
+                      setClientAddress("")
+                    } else {
+                      handleSelectClient(value)
+                    }
+                  }}>
                     <SelectTrigger>
                       <SelectValue placeholder="Sélectionner un client" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Nouveau client</SelectItem>
+                      <SelectItem value="new">Nouveau client</SelectItem>
                       {clients.map(client => (
                         <SelectItem key={client.id} value={client.id}>
                           {client.name} ({client.type})
