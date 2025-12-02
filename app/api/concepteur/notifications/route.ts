@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from "next/server"
 import { getCurrentUser } from "@/lib/get-current-user"
 import { prisma } from "@/lib/prisma"
@@ -68,7 +70,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 2. Notifications d'œuvres en attente de validation
-    const submittedWorks = works.filter(w => w.status === WorkStatus.SUBMITTED)
+    const submittedWorks = works.filter(w => w.status === WorkStatus.PENDING)
     if (submittedWorks.length > 0) {
       notifications.push({
         id: "pending-validation",

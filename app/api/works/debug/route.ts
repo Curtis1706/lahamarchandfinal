@@ -1,111 +1,109 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+export const dynamic = 'force-dynamic'
 
-// GET /api/works/debug - Endpoint de diagnostic pour vérifier les works
+import { NextRequest, NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+
+// GET /api/works/debug - Debug endpoint for works
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    
+    const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Vérifier que c'est le PDG
     if (session.user.role !== "PDG") {
-      return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden - PDG role required" }, { status: 403 })
     }
 
-    // Compter tous les works avec SQL brut (pour éviter les problèmes d'enum)
-    let totalCount = 0;
-    try {
-      const countResult = await prisma.$queryRawUnsafe<Array<{ count: bigint }>>(
-        `SELECT COUNT(*) as count FROM "Work"`
-      );
-      totalCount = Number(countResult[0]?.count || 0);
-    } catch (countError: any) {
-      console.error("Erreur lors du comptage:", countError);
-    }
-    
-    // Récupérer tous les works avec SQL brut (pour éviter les problèmes d'enum)
-    let allWorks: any[] = [];
-    let worksWithRelations: any[] = [];
-    
-    try {
-      // Utiliser SQL brut pour éviter les problèmes d'enum SUSPENDED
-      const worksRaw = await prisma.$queryRawUnsafe<any[]>(
-        `SELECT 
-          w.id, w.title, w.status, w."authorId", w."disciplineId", w."createdAt", w.isbn,
-          u1.id as "author_id", u1.name as "author_name", u1.email as "author_email", u1.role as "author_role",
-          d.id as "discipline_id", d.name as "discipline_name"
-        FROM "Work" w
-        LEFT JOIN "User" u1 ON w."authorId" = u1.id
-        LEFT JOIN "Discipline" d ON w."disciplineId" = d.id
-        ORDER BY w."createdAt" DESC
-        LIMIT 50`
-      );
-      
-      if (worksRaw && Array.isArray(worksRaw)) {
-        allWorks = worksRaw.map((row: any) => ({
-          id: row.id,
-          title: row.title,
-          status: row.status,
-          authorId: row.authorId,
-          disciplineId: row.disciplineId,
-          createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
-          isbn: row.isbn
-        }));
-        
-        // Works avec relations (premiers 10)
-        worksWithRelations = worksRaw.slice(0, 10).map((row: any) => ({
-          id: row.id,
-          title: row.title,
-          status: row.status,
-          authorId: row.authorId,
-          disciplineId: row.disciplineId,
-          createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
-          isbn: row.isbn,
-          author: row.author_id ? {
-            id: row.author_id,
-            name: row.author_name,
-            email: row.author_email,
-            role: row.author_role
-          } : null,
-          discipline: row.discipline_id ? {
-            id: row.discipline_id,
-            name: row.discipline_name
-          } : null
-        }));
+    const { searchParams } = new URL(request.url)
+    const limit = parseInt(searchParams.get('limit') || '10')
+    const offset = parseInt(searchParams.get('offset') || '0')
+
+    // Récupérer les œuvres avec leurs statistiques
+    const works = await prisma.work.findMany({
+      take: limit,
+      skip: offset,
+      include: {
+        discipline: true,
+        author: true,
+        concepteur: true,
+        orderItems: {
+          include: {
+            order: {
+              select: {
+                status: true,
+                createdAt: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    // Calculer les statistiques pour chaque œuvre
+    const worksWithStats = works.map(work => {
+      const totalSales = work.orderItems.reduce((sum, item) => {
+        return sum + (item.order?.status !== "CANCELLED" ? item.quantity : 0)
+      }, 0)
+
+      const totalRevenue = work.orderItems.reduce((sum, item) => {
+        return sum + (item.order?.status !== "CANCELLED" ? item.price * item.quantity : 0)
+      }, 0)
+
+      const recentSales = work.orderItems.filter(item => {
+        if (!item.order?.createdAt) return false
+        const orderDate = new Date(item.order.createdAt)
+        const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+        return orderDate > oneWeekAgo && item.order.status !== "CANCELLED"
+      }).reduce((sum, item) => sum + item.quantity, 0)
+
+      return {
+        id: work.id,
+        title: work.title,
+        status: work.status,
+        price: work.price,
+        isbn: work.isbn,
+        createdAt: work.createdAt,
+        discipline: work.discipline?.name || 'N/A',
+        author: work.author?.name || 'N/A',
+        concepteur: work.concepteur?.name || 'N/A',
+        totalSales,
+        totalRevenue,
+        recentSales,
+        orderCount: work.orderItems.length
       }
-    } catch (findError: any) {
-      console.error("Erreur lors de la récupération des works:", findError);
-      console.error("Stack:", findError.stack);
+    })
+
+    // Statistiques globales
+    const globalStats = {
+      totalWorks: worksWithStats.length,
+      totalSales: worksWithStats.reduce((sum, work) => sum + work.totalSales, 0),
+      totalRevenue: worksWithStats.reduce((sum, work) => sum + work.totalRevenue, 0),
+      averagePrice: worksWithStats.length > 0 ? worksWithStats.reduce((sum, work) => sum + work.price, 0) / worksWithStats.length : 0,
+      worksByStatus: worksWithStats.reduce((acc, work) => {
+        acc[work.status] = (acc[work.status] || 0) + 1
+        return acc
+      }, {} as Record<string, number>)
     }
 
     return NextResponse.json({
-      session: {
-        id: session.user.id,
-        role: session.user.role,
-        email: session.user.email
-      },
-      totalWorksInDb: totalCount,
-      worksWithoutRelations: allWorks,
-      worksWithRelationsCount: worksWithRelations.length,
-      worksWithRelations: worksWithRelations,
-      message: "Diagnostic complet"
-    }, { status: 200 });
+      works: worksWithStats,
+      stats: globalStats,
+      pagination: {
+        limit,
+        offset,
+        hasMore: works.length === limit
+      }
+    })
 
   } catch (error: any) {
-    console.error("Erreur dans /api/works/debug:", error);
-    console.error("Stack:", error.stack);
+    console.error("Error fetching works debug:", error)
     return NextResponse.json(
-      { 
-        error: "Erreur lors du diagnostic: " + (error.message || "Erreur inconnue"),
-        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      },
+      { error: "Erreur lors de la récupération des œuvres de debug" },
       { status: 500 }
-    );
+    )
   }
 }
-
