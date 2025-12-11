@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,6 +43,7 @@ interface Notification {
 
 export function NotificationBell() {
   const { user } = useCurrentUser();
+  const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -219,7 +221,13 @@ export function NotificationBell() {
         {notifications.length > 0 && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="justify-center">
+            <DropdownMenuItem 
+              className="justify-center cursor-pointer"
+              onClick={() => {
+                const role = user?.role?.toLowerCase() || 'auteur';
+                router.push(`/dashboard/${role}/notifications`);
+              }}
+            >
               Voir toutes les notifications
             </DropdownMenuItem>
           </>

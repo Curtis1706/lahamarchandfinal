@@ -98,27 +98,39 @@ export async function GET(request: NextRequest) {
           }
         })
 
-        // Créer des alertes pour les livres avec stock = 0 qui n'ont pas encore d'alerte
-        for (const work of worksWithZeroStock) {
-          const existingAlert = await prisma.stockAlert.findFirst({
-            where: {
-              workId: work.id,
-              type: 'STOCK_OUT',
-              isResolved: false
-            }
-          })
+        // Optimisation: Créer les alertes en batch pour éviter les N+1 queries
+        const workIds = worksWithZeroStock.map(w => w.id)
+        
+        // Récupérer toutes les alertes existantes en une seule requête
+        const existingAlerts = await prisma.stockAlert.findMany({
+          where: {
+            workId: { in: workIds },
+            type: 'STOCK_OUT',
+            isResolved: false
+          },
+          select: { workId: true }
+        })
 
-          if (!existingAlert) {
-            await prisma.stockAlert.create({
-              data: {
-                workId: work.id,
-                type: 'STOCK_OUT',
-                severity: 'ERROR',
-                title: `Stock épuisé - ${work.title}`,
-                message: `Stock épuisé pour "${work.title}"`
-              }
-            })
-          }
+        const existingWorkIds = new Set(existingAlerts.map(a => a.workId))
+
+        // Créer toutes les nouvelles alertes en une seule opération
+        const newAlerts = worksWithZeroStock
+          .filter(w => !existingWorkIds.has(w.id))
+          .map(work => ({
+            workId: work.id,
+            type: 'STOCK_OUT' as const,
+            severity: 'ERROR' as const,
+            title: `Stock épuisé - ${work.title}`,
+            message: `Stock épuisé pour "${work.title}"`,
+            isRead: false,
+            isResolved: false
+          }))
+
+        if (newAlerts.length > 0) {
+          await prisma.stockAlert.createMany({
+            data: newAlerts,
+            skipDuplicates: true
+          })
         }
 
         // Récupérer les alertes

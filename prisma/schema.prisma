@@ -169,6 +169,11 @@ model Work {
   versions              WorkVersion[]
   workViews             WorkView[]
   stockRequestItems     StockRequestItem[]
+
+  @@index([status, disciplineId])
+  @@index([authorId, status])
+  @@index([stock])
+  @@index([createdAt])
 }
 
 model StockMovement {
@@ -301,6 +306,9 @@ model Order {
   @@index([paymentType])
   @@index([paymentStatus])
   @@index([deliveryStatus])
+  @@index([userId, status, createdAt])
+  @@index([partnerId, status])
+  @@index([status, createdAt])
 }
 
 model OrderItem {
@@ -473,6 +481,8 @@ model Royalty {
   @@index([paid])
   @@index([approved])
   @@index([createdAt])
+  @@index([userId, paid, approved])
+  @@index([workId, orderId])
 }
 
 // Retraits des auteurs (Withdrawals)
@@ -639,6 +649,8 @@ model Notification {
 
   @@index([userId])
   @@index([createdAt])
+  @@index([userId, read, createdAt])
+  @@index([type, createdAt])
 }
 
 model NotificationChain {
@@ -673,6 +685,12 @@ model AuditLog {
   details     String
   metadata    String?
   createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt, userId])
+  @@index([createdAt, action])
 }
 
 model AdvancedSetting {

@@ -70,36 +70,19 @@ export default function AuditHistoriquePage() {
         
         const data = await response.json()
         
-        // Formater les données si nécessaire
-        const formattedLogs = data.map((log: any) => {
-          // Vérifier que la date est valide
-          let timestamp = log.createdAt;
-          if (timestamp) {
-            const date = new Date(timestamp);
-            if (isNaN(date.getTime())) {
-              timestamp = new Date().toISOString(); // Utiliser la date actuelle si invalide
-            }
-          } else {
-            timestamp = new Date().toISOString(); // Utiliser la date actuelle si manquante
-          }
-          
-          return {
-            id: log.id || `log-${Date.now()}-${Math.random()}`,
-            action: log.action || 'Action inconnue',
-            description: log.description || log.details || log.action || 'Aucune description',
-            user: log.user || {
-              id: log.userId || 'system',
-              name: log.performedBy || 'Système',
-              role: 'PDG'
-            },
-            target: log.target,
-            timestamp: timestamp,
-            level: log.level || 'info',
-            category: log.category || 'system',
-            details: log.details,
-            metadata: log.metadata
-          };
-        })
+        // Les données sont déjà formatées par l'API, utiliser directement
+        const formattedLogs = data.map((log: any) => ({
+          id: log.id,
+          action: log.action,
+          description: log.description,
+          user: log.user,
+          target: log.target,
+          timestamp: log.timestamp, // L'API retourne déjà timestamp, pas createdAt
+          level: log.level,
+          category: log.category,
+          details: log.details,
+          metadata: log.metadata
+        }))
         
         setAuditLogs(formattedLogs)
       } catch (error) {
@@ -355,9 +338,10 @@ export default function AuditHistoriquePage() {
                           <Clock className="h-4 w-4" />
                           <span>
                             {log.timestamp && !isNaN(new Date(log.timestamp).getTime()) 
-                              ? formatDistanceToNow(new Date(log.timestamp), { 
-                                  addSuffix: true, 
-                                  locale: fr 
+                              ? new Date(log.timestamp).toLocaleDateString('fr-FR', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric'
                                 })
                               : 'Date invalide'
                             }
@@ -464,26 +448,17 @@ export default function AuditHistoriquePage() {
 
                 {/* Timestamp */}
                 <div className="border-t pt-4">
-                  <h3 className="font-semibold mb-2">Date et heure</h3>
+                  <h3 className="font-semibold mb-2">Date</h3>
                   <div className="space-y-1 text-sm">
                     <p>
                       {selectedLog.timestamp && !isNaN(new Date(selectedLog.timestamp).getTime()) 
-                        ? new Date(selectedLog.timestamp).toLocaleString('fr-FR', {
+                        ? new Date(selectedLog.timestamp).toLocaleDateString('fr-FR', {
                             year: 'numeric',
                             month: 'long',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit'
+                            day: 'numeric'
                           })
                         : 'Date invalide'
                       }
-                    </p>
-                    <p className="text-muted-foreground">
-                      ({formatDistanceToNow(new Date(selectedLog.timestamp), { 
-                        addSuffix: true, 
-                        locale: fr 
-                      })})
                     </p>
                   </div>
                 </div>

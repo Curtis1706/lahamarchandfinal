@@ -605,8 +605,6 @@ export default function GestionStockPage() {
             { id: 'inventory', label: 'Inventaire', icon: Package },
             { id: 'movements', label: 'Mouvements', icon: Activity },
             { id: 'alerts', label: 'Alertes', icon: AlertTriangle },
-            { id: 'pending', label: 'En attente', icon: Eye },
-            { id: 'versions', label: 'Versions', icon: GitBranch },
             { id: 'statistics', label: 'Statistiques', icon: BarChart3 }
           ].map((tab) => {
             const Icon = tab.icon
@@ -625,11 +623,6 @@ export default function GestionStockPage() {
                 {tab.id === 'alerts' && stockAlerts.length > 0 && (
                   <Badge variant="destructive" className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
                     {stockAlerts.length}
-                  </Badge>
-                )}
-                {tab.id === 'pending' && pendingOperations.length > 0 && (
-                  <Badge variant="secondary" className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
-                    {pendingOperations.length}
                   </Badge>
                 )}
               </button>
@@ -1248,86 +1241,6 @@ export default function GestionStockPage() {
           </div>
         )}
 
-        {/* Opérations en attente de validation */}
-        {activeTab === 'pending' && (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Eye className="h-5 w-5 mr-2 text-blue-500" />
-                  Opérations en Attente de Validation ({pendingOperations.length})
-                </CardTitle>
-                <CardDescription>
-                  Validez ou rejetez les demandes d'opérations importantes sur le stock
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {pendingOperations.length === 0 ? (
-                  <div className="text-center py-8">
-                    <CheckCircle className="h-12 w-12 mx-auto text-green-500 mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">Aucune opération en attente</h3>
-                    <p className="text-gray-600">Toutes les demandes ont été traitées.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {pendingOperations.map((operation) => (
-                      <div key={operation.id} className="border rounded-lg p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-start space-x-3">
-                            <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
-                              operation.type === 'RESTOCK' ? 'bg-green-100' :
-                              operation.type === 'TRANSFER' ? 'bg-blue-100' : 'bg-orange-100'
-                            }`}>
-                              {operation.type === 'RESTOCK' ? <Plus className="h-5 w-5 text-green-600" /> :
-                               operation.type === 'TRANSFER' ? <Warehouse className="h-5 w-5 text-blue-600" /> :
-                               <Edit className="h-5 w-5 text-orange-600" />}
-                            </div>
-                            <div>
-                              <h4 className="font-medium text-gray-900">{operation.work.title}</h4>
-                              <p className="text-sm text-gray-600 mt-1">{operation.reason}</p>
-                              <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
-                                <span>Quantité: <strong>{operation.quantity}</strong></span>
-                                <span>Demandé par: <strong>{operation.requestedBy.name}</strong></span>
-                                <span>{new Date(operation.requestedAt).toLocaleDateString('fr-FR')}</span>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex flex-col items-end space-y-2">
-                            {getPriorityBadge(operation.priority)}
-                            <div className="flex space-x-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-green-600 border-green-200 hover:bg-green-50"
-                                onClick={() => {
-                                  setSelectedOperation(operation)
-                                  setIsValidationOpen(true)
-                                }}
-                              >
-                                <CheckCircle className="h-4 w-4 mr-1" />
-                                Approuver
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-red-600 border-red-200 hover:bg-red-50"
-                                onClick={() => handleValidateOperation(operation.id, false)}
-                              >
-                                <XCircle className="h-4 w-4 mr-1" />
-                                Rejeter
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
         {/* Modal de détails d'un livre */}
         <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
           <DialogContent className="max-w-2xl">
@@ -1463,8 +1376,8 @@ export default function GestionStockPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Gestion des versions */}
-        {activeTab === 'versions' && (
+        {/* Gestion des versions - SUPPRIMÉ */}
+        {false && activeTab === 'versions' && (
           <div className="space-y-6">
             <Card>
               <CardHeader>

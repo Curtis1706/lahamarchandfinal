@@ -301,46 +301,58 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(stats)
 
       case 'pending':
-        // Pour cet exemple, on retourne des données mockées
-        // Dans un vrai système, cela viendrait d'une table de demandes
-        
-        // Récupérer quelques livres pour créer des opérations mockées
-        const pendingWorks = await prisma.work.findMany({
-          select: {
-            id: true,
-            title: true,
-            isbn: true,
-            price: true,
-            stock: true,
-            minStock: true,
-            maxStock: true
+        // Récupérer les vraies demandes de stock depuis la base de données
+        const stockRequests = await prisma.stockRequest.findMany({
+          where: {
+            status: 'PENDING'
           },
-          take: 2
+          include: {
+            requestedBy: {
+              select: {
+                name: true,
+                email: true
+              }
+            },
+            items: {
+              include: {
+                work: {
+                  select: {
+                    id: true,
+                    title: true,
+                    isbn: true,
+                    price: true,
+                    stock: true,
+                    minStock: true,
+                    maxStock: true
+                  }
+                }
+              }
+            }
+          },
+          orderBy: [
+            {
+              createdAt: 'asc' // Plus anciennes en premier
+            }
+          ]
         })
 
-        const pendingOperations = pendingWorks.length > 0 ? [
-          {
-            id: 'pending_1',
-            type: 'RESTOCK',
-            work: {
-              id: pendingWorks[0].id,
-              title: pendingWorks[0].title,
-              isbn: pendingWorks[0].isbn,
-              price: pendingWorks[0].price,
-              stock: pendingWorks[0].stock,
-              minStock: pendingWorks[0].minStock,
-              maxStock: pendingWorks[0].maxStock
-            },
-            quantity: 100,
-            reason: 'Réapprovisionnement urgent - stock critique',
+        const pendingOperations = stockRequests.flatMap(request => 
+          request.items.map(item => ({
+            id: `${request.id}-${item.id}`,
+            requestId: request.id,
+            type: request.type,
+            work: item.work,
+            quantity: item.quantity,
+            reason: request.notes || `Demande de stock - ${request.type}`,
             requestedBy: {
-              name: 'Responsable Stock',
-              email: 'stock@lahamarchand.com'
+              name: request.requestedBy.name,
+              email: request.requestedBy.email
             },
-            requestedAt: new Date().toISOString(),
-            priority: 'HIGH'
-          }
-        ] : []
+            requestedAt: request.createdAt.toISOString(),
+            priority: 'MEDIUM', // Par défaut, le modèle existant n'a pas de priorité
+            notes: request.notes
+          }))
+        )
 
         return NextResponse.json(pendingOperations)
 

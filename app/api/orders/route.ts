@@ -66,11 +66,24 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Calculer le total pour chaque commande
+    // Calculer le total pour chaque commande et inclure les nouveaux champs
     const ordersWithTotal = orders.map(order => ({
       ...order,
       total: order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-      bookCount: order.items.reduce((sum, item) => sum + item.quantity, 0)
+      bookCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
+      // S'assurer que les champs de paiement et livraison sont inclus
+      paymentType: order.paymentType || 'CASH',
+      paymentStatus: order.paymentStatus || 'UNPAID',
+      paymentMethod: order.paymentMethod,
+      amountPaid: order.amountPaid || 0,
+      remainingAmount: order.remainingAmount || 0,
+      depositAmount: order.depositAmount,
+      depositDate: order.depositDate,
+      fullPaymentDate: order.fullPaymentDate,
+      deliveryDate: order.deliveryDate,
+      deliveryStatus: order.deliveryStatus || 'PENDING',
+      receivedAt: order.receivedAt,
+      receivedBy: order.receivedBy
     }))
 
     return NextResponse.json(ordersWithTotal)
@@ -178,6 +191,13 @@ export async function POST(request: NextRequest) {
         discount: discount || 0,
         promoCode: promoCode || null,
         status: "PENDING",
+        // Initialiser les champs de paiement
+        paymentType: "CASH", // Par défaut: paiement comptant
+        paymentStatus: "UNPAID",
+        amountPaid: 0,
+        remainingAmount: total,
+        // Initialiser les champs de livraison
+        deliveryStatus: "PENDING",
         items: {
           create: items.map((item: any) => {
             const work = works.find(w => w.id === item.workId)!
