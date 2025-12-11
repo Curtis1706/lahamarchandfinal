@@ -83,6 +83,44 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(rules)
 
       case 'alerts':
+        // Vérifier et créer des alertes pour les livres avec stock = 0
+        const worksWithZeroStock = await prisma.work.findMany({
+          where: {
+            stock: 0,
+            status: 'PUBLISHED'
+          },
+          select: {
+            id: true,
+            title: true,
+            isbn: true,
+            stock: true,
+            minStock: true
+          }
+        })
+
+        // Créer des alertes pour les livres avec stock = 0 qui n'ont pas encore d'alerte
+        for (const work of worksWithZeroStock) {
+          const existingAlert = await prisma.stockAlert.findFirst({
+            where: {
+              workId: work.id,
+              type: 'STOCK_OUT',
+              isResolved: false
+            }
+          })
+
+          if (!existingAlert) {
+            await prisma.stockAlert.create({
+              data: {
+                workId: work.id,
+                type: 'STOCK_OUT',
+                severity: 'ERROR',
+                title: `Stock épuisé - ${work.title}`,
+                message: `Stock épuisé pour "${work.title}"`
+              }
+            })
+          }
+        }
+
         // Récupérer les alertes
         const whereClause: any = {}
         
@@ -127,7 +165,16 @@ export async function GET(request: NextRequest) {
           take: limit
         })
 
-        return NextResponse.json(alerts)
+        // Formater les alertes pour la compatibilité avec le frontend
+        const formattedAlerts = alerts.map(alert => ({
+          id: alert.id,
+          work: alert.work,
+          type: alert.type === 'STOCK_OUT' ? 'OUT_OF_STOCK' : alert.type === 'STOCK_LOW' ? 'LOW_STOCK' : 'EXCESS_STOCK',
+          message: alert.message,
+          severity: alert.severity === 'ERROR' || alert.severity === 'CRITICAL' ? 'HIGH' : alert.severity === 'WARNING' ? 'MEDIUM' : 'LOW'
+        }))
+
+        return NextResponse.json(formattedAlerts)
 
       case 'unread':
         // Récupérer les alertes non lues

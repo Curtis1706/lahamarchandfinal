@@ -270,6 +270,44 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Créer une alerte automatique si le stock est à 0
+    if (work.stock === 0) {
+      // Vérifier s'il n'y a pas déjà une alerte non résolue pour ce livre
+      const existingAlert = await prisma.stockAlert.findFirst({
+        where: {
+          workId: work.id,
+          type: 'STOCK_OUT',
+          isResolved: false
+        }
+      })
+
+      if (!existingAlert) {
+        await prisma.stockAlert.create({
+          data: {
+            workId: work.id,
+            type: 'STOCK_OUT',
+            severity: 'ERROR',
+            title: `Stock épuisé - ${work.title}`,
+            message: `Le stock est épuisé pour "${work.title}" (ISBN: ${work.isbn})`
+          }
+        })
+      }
+    } else {
+      // Résoudre les alertes de stock épuisé si le stock est maintenant > 0
+      await prisma.stockAlert.updateMany({
+        where: {
+          workId: work.id,
+          type: 'STOCK_OUT',
+          isResolved: false
+        },
+        data: {
+          isResolved: true,
+          resolvedBy: session.user.id,
+          resolvedAt: new Date()
+        }
+      })
+    }
+
     return NextResponse.json({
       success: true,
       work: {

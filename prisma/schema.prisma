@@ -8,62 +8,63 @@ datasource db {
 }
 
 model User {
-  id                        String              @id @default(cuid())
-  name                      String
-  email                     String              @unique
-  phone                     String?
-  emailVerified             DateTime?
-  image                     String?
-  password                  String
-  role                      Role
-  status                    UserStatus          @default(PENDING)
-  disciplineId              String?
-  representantId            String? // Représentant assigné (pour auteurs)
-  lastLoginAt               DateTime? // Dernière connexion
-  createdAt                 DateTime            @default(now())
-  updatedAt                 DateTime            @updatedAt
-  accounts                  Account[]
-  receivedMessages          Message[]           @relation("ReceivedMessages")
-  sentMessages              Message[]           @relation("SentMessages")
-  notifications             Notification[]
-  orders                    Order[]
-  partnerClients            Partner[]           @relation("PartnerRepresentant")
-  partner                   Partner?
-  conceivedProjects         Project[]           @relation("ConceptorProjects")
-  reviewedProjects          Project[]           @relation("ReviewedProjects")
-  royalties                 Royalty[]
-  sessions                  Session[]
-  resolvedAlerts            StockAlert[]
-  createdAlertRules         StockAlertRule[]
-  createdIntegrations       StockIntegration[]
-  performedStockMovements   StockMovement[]     @relation("StockMovements")
-  createdReports            StockReport[]
-  validatedPartnerRebates   PartnerRebate[]     @relation("ValidatedPartnerRebates")
-  createdRebateRates        RebateRate[]        @relation("CreatedRebateRates")
-  authorRebateRates         RebateRate[]        @relation("AuthorRebateRates")
-  discipline                Discipline?         @relation(fields: [disciplineId], references: [id])
-  representant              User?               @relation("RepresentantAuthors", fields: [representantId], references: [id], onDelete: SetNull)
-  managedAuthors            User[]              @relation("RepresentantAuthors")
-  authoredWorks             Work[]              @relation("AuthorWorks")
-  conceivedWorks            Work[]              @relation("ConceptorWorks")
-  reviewedWorks             Work[]              @relation("ReviewedWorks")
-  workSales                 WorkSale[]
-  createdWorkVersions       WorkVersion[]
-  workViews                 WorkView[]
-  generatedDeliveryNotes    DeliveryNote[]      @relation("GeneratedDeliveryNotes")
-  validatedDeliveryNotes    DeliveryNote[]      @relation("ValidatedDeliveryNotes")
-  controlledDeliveryNotes   DeliveryNote[]      @relation("ControlledDeliveryNotes")
-  stockRequests             StockRequest[]      @relation("StockRequests")
-  approvedStockRequests     StockRequest[]      @relation("ApprovedStockRequests")
-  notificationChains        NotificationChain[] @relation("NotificationChains")
-  createdNotificationChains NotificationChain[] @relation("CreatedNotificationChains")
-  updatedAdvancedSettings   AdvancedSetting[]   @relation("UpdatedAdvancedSettings")
-  createdProformas          Proforma[]          @relation("CreatedProformas")
-  userProformas             Proforma[]          @relation("UserProformas")
-  authorWithdrawals         Withdrawal[]        @relation("AuthorWithdrawals")
-  validatedWithdrawals      Withdrawal[]        @relation("ValidatedWithdrawals")
-  representantWithdrawals   RepresentantWithdrawal[] @relation("RepresentantWithdrawals")
+  id                               String                   @id @default(cuid())
+  name                             String
+  email                            String                   @unique
+  phone                            String?
+  emailVerified                    DateTime?
+  image                            String?
+  password                         String
+  role                             Role
+  status                           UserStatus               @default(PENDING)
+  disciplineId                     String?
+  representantId                   String? // Représentant assigné (pour auteurs)
+  lastLoginAt                      DateTime? // Dernière connexion
+  createdAt                        DateTime                 @default(now())
+  updatedAt                        DateTime                 @updatedAt
+  accounts                         Account[]
+  receivedMessages                 Message[]                @relation("ReceivedMessages")
+  sentMessages                     Message[]                @relation("SentMessages")
+  notifications                    Notification[]
+  orders                           Order[]
+  partnerClients                   Partner[]                @relation("PartnerRepresentant")
+  partner                          Partner?
+  conceivedProjects                Project[]                @relation("ConceptorProjects")
+  reviewedProjects                 Project[]                @relation("ReviewedProjects")
+  royalties                        Royalty[]
+  sessions                         Session[]
+  resolvedAlerts                   StockAlert[]
+  createdAlertRules                StockAlertRule[]
+  createdIntegrations              StockIntegration[]
+  performedStockMovements          StockMovement[]          @relation("StockMovements")
+  createdReports                   StockReport[]
+  validatedPartnerRebates          PartnerRebate[]          @relation("ValidatedPartnerRebates")
+  createdRebateRates               RebateRate[]             @relation("CreatedRebateRates")
+  authorRebateRates                RebateRate[]             @relation("AuthorRebateRates")
+  discipline                       Discipline?              @relation(fields: [disciplineId], references: [id])
+  representant                     User?                    @relation("RepresentantAuthors", fields: [representantId], references: [id], onDelete: SetNull)
+  managedAuthors                   User[]                   @relation("RepresentantAuthors")
+  authoredWorks                    Work[]                   @relation("AuthorWorks")
+  conceivedWorks                   Work[]                   @relation("ConceptorWorks")
+  reviewedWorks                    Work[]                   @relation("ReviewedWorks")
+  workSales                        WorkSale[]
+  createdWorkVersions              WorkVersion[]
+  workViews                        WorkView[]
+  generatedDeliveryNotes           DeliveryNote[]           @relation("GeneratedDeliveryNotes")
+  validatedDeliveryNotes           DeliveryNote[]           @relation("ValidatedDeliveryNotes")
+  controlledDeliveryNotes          DeliveryNote[]           @relation("ControlledDeliveryNotes")
+  stockRequests                    StockRequest[]           @relation("StockRequests")
+  approvedStockRequests            StockRequest[]           @relation("ApprovedStockRequests")
+  notificationChains               NotificationChain[]      @relation("NotificationChains")
+  createdNotificationChains        NotificationChain[]      @relation("CreatedNotificationChains")
+  updatedAdvancedSettings          AdvancedSetting[]        @relation("UpdatedAdvancedSettings")
+  createdProformas                 Proforma[]               @relation("CreatedProformas")
+  userProformas                    Proforma[]               @relation("UserProformas")
+  authorWithdrawals                Withdrawal[]             @relation("AuthorWithdrawals")
+  validatedWithdrawals             Withdrawal[]             @relation("ValidatedWithdrawals")
+  representantWithdrawals          RepresentantWithdrawal[] @relation("RepresentantWithdrawals")
   validatedRepresentantWithdrawals RepresentantWithdrawal[] @relation("ValidatedRepresentantWithdrawals")
+  recordedPayments                 Payment[]                @relation("RecordedPayments")
 }
 
 model Account {
@@ -156,8 +157,8 @@ model Work {
   sales                 Sale[]
   stockAlerts           StockAlert[]
   stockMovements        StockMovement[]
-  partnerRebates        PartnerRebate[]      @relation("WorkPartnerRebates")
-  rebateRates           RebateRate[]         @relation("WorkRebateRates")
+  partnerRebates        PartnerRebate[]    @relation("WorkPartnerRebates")
+  rebateRates           RebateRate[]       @relation("WorkRebateRates")
   author                User               @relation("AuthorWorks", fields: [authorId], references: [id])
   concepteur            User?              @relation("ConceptorWorks", fields: [concepteurId], references: [id])
   discipline            Discipline         @relation(fields: [disciplineId], references: [id])
@@ -266,6 +267,17 @@ model Order {
   partnerId          String?
   paymentMethod      String? // Mobile Money, Virement, Espèces, Carte Bancaire
   paymentReference   String? // Référence de transaction
+  paymentType        PaymentType         @default(CASH) // Type: Comptant, Dépôt, Crédit
+  amountPaid         Float               @default(0) // Montant versé/payé
+  remainingAmount    Float               @default(0) // Reste à payer
+  depositAmount      Float? // Montant du dépôt initial (si paymentType = DEPOSIT)
+  depositDate        DateTime? // Date du versement du dépôt
+  fullPaymentDate    DateTime? // Date du paiement complet
+  paymentStatus      PaymentStatus       @default(UNPAID) // État du paiement
+  deliveryDate       DateTime? // Date de livraison prévue/effective
+  deliveryStatus     DeliveryStatus      @default(PENDING) // État de livraison
+  receivedAt         DateTime? // Date de réception par le client
+  receivedBy         String? // Nom de la personne ayant réceptionné
   subtotal           Float               @default(0)
   tax                Float               @default(0)
   discount           Float               @default(0) // Réduction appliquée (code promo)
@@ -283,8 +295,12 @@ model Order {
   proforma           Proforma?           @relation("ProformaOrder")
   royalties          Royalty[]           @relation("OrderRoyalties")
   partnerRebates     PartnerRebate[]     @relation("OrderPartnerRebates")
-  
+  payments           Payment[]           @relation("OrderPayments")
+
   @@index([promoCode])
+  @@index([paymentType])
+  @@index([paymentStatus])
+  @@index([deliveryStatus])
 }
 
 model OrderItem {
@@ -295,6 +311,24 @@ model OrderItem {
   price    Float
   order    Order  @relation(fields: [orderId], references: [id])
   work     Work   @relation(fields: [workId], references: [id])
+}
+
+model Payment {
+  id               String   @id @default(cuid())
+  orderId          String
+  amount           Float // Montant du paiement
+  paymentMethod    String // Mobile Money, Virement, Espèces, etc.
+  paymentReference String? // Référence de transaction
+  paymentDate      DateTime @default(now())
+  notes            String? // Notes sur le paiement
+  recordedById     String // ID de l'utilisateur qui a enregistré le paiement
+  recordedBy       User     @relation("RecordedPayments", fields: [recordedById], references: [id])
+  order            Order    @relation("OrderPayments", fields: [orderId], references: [id])
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([paymentDate])
 }
 
 model DeliveryNote {
@@ -323,33 +357,33 @@ model DeliveryNote {
 }
 
 model Proforma {
-  id              String          @id @default(cuid())
-  reference       String          @unique // Référence unique (ex: PF-2025-00045)
-  partnerId       String? // ID du partenaire destinataire
-  partner         Partner?        @relation("PartnerProformas", fields: [partnerId], references: [id])
-  userId          String? // ID du client (si ce n'est pas un partenaire)
-  user            User?           @relation("UserProformas", fields: [userId], references: [id])
-  createdById     String // ID du PDG qui a créé le proforma
-  createdBy       User            @relation("CreatedProformas", fields: [createdById], references: [id])
-  subtotal        Float           @default(0)
-  discount        Float           @default(0) // Remise appliquée
-  discountPercent Float? // Pourcentage de remise
-  tax             Float           @default(0)
-  total           Float           @default(0)
-  status          ProformaStatus  @default(PENDING)
-  notes           String? // Notes additionnelles
-  deliveryZone    String? // Zone de livraison
-  sentAt          DateTime? // Date d'envoi au partenaire
-  respondedAt     DateTime? // Date de réponse du partenaire
-  convertedToOrderId String? @unique // ID de la commande si converti
-  convertedToOrder Order?         @relation("ProformaOrder", fields: [convertedToOrderId], references: [id])
-  version         Int             @default(1) // Version du proforma (si modifié)
-  parentProformaId String? // ID du proforma parent (si c'est une version modifiée)
-  parentProforma  Proforma?       @relation("ProformaVersions", fields: [parentProformaId], references: [id])
-  versions        Proforma[]      @relation("ProformaVersions")
-  items           ProformaItem[]
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  id                 String         @id @default(cuid())
+  reference          String         @unique // Référence unique (ex: PF-2025-00045)
+  partnerId          String? // ID du partenaire destinataire
+  partner            Partner?       @relation("PartnerProformas", fields: [partnerId], references: [id])
+  userId             String? // ID du client (si ce n'est pas un partenaire)
+  user               User?          @relation("UserProformas", fields: [userId], references: [id])
+  createdById        String // ID du PDG qui a créé le proforma
+  createdBy          User           @relation("CreatedProformas", fields: [createdById], references: [id])
+  subtotal           Float          @default(0)
+  discount           Float          @default(0) // Remise appliquée
+  discountPercent    Float? // Pourcentage de remise
+  tax                Float          @default(0)
+  total              Float          @default(0)
+  status             ProformaStatus @default(PENDING)
+  notes              String? // Notes additionnelles
+  deliveryZone       String? // Zone de livraison
+  sentAt             DateTime? // Date d'envoi au partenaire
+  respondedAt        DateTime? // Date de réponse du partenaire
+  convertedToOrderId String?        @unique // ID de la commande si converti
+  convertedToOrder   Order?         @relation("ProformaOrder", fields: [convertedToOrderId], references: [id])
+  version            Int            @default(1) // Version du proforma (si modifié)
+  parentProformaId   String? // ID du proforma parent (si c'est une version modifiée)
+  parentProforma     Proforma?      @relation("ProformaVersions", fields: [parentProformaId], references: [id])
+  versions           Proforma[]     @relation("ProformaVersions")
+  items              ProformaItem[]
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
 
   @@index([partnerId])
   @@index([userId])
@@ -423,11 +457,11 @@ model Royalty {
   amount     Float
   approved   Boolean   @default(false) // Royalties approuvées par le PDG (prêtes à être retirées)
   approvedAt DateTime? // Date d'approbation par le PDG
-  paid       Boolean   @default(false)  // Royalties déjà payées à l'auteur
+  paid       Boolean   @default(false) // Royalties déjà payées à l'auteur
   paidAt     DateTime?
-  orderId    String?   // ID de la commande qui a généré cette royalty
-  saleId     String?   // ID de la vente directe (si applicable)
-  rate       Float?    // Taux utilisé pour le calcul (en %)
+  orderId    String? // ID de la commande qui a généré cette royalty
+  saleId     String? // ID de la vente directe (si applicable)
+  rate       Float? // Taux utilisé pour le calcul (en %)
   createdAt  DateTime  @default(now())
   user       User      @relation(fields: [userId], references: [id])
   work       Work      @relation(fields: [workId], references: [id])
@@ -443,25 +477,25 @@ model Royalty {
 
 // Retraits des auteurs (Withdrawals)
 model Withdrawal {
-  id              String            @id @default(cuid())
-  userId          String            // ID de l'auteur
-  amount          Float             // Montant demandé
-  method          WithdrawalMethod  // Méthode de paiement
-  momoNumber      String?           // Numéro Mobile Money (si method = MOMO)
-  bankName        String?           // Nom de la banque (si method = BANK)
-  bankAccount     String?           // Numéro de compte bancaire (si method = BANK)
-  bankAccountName String?           // Nom du titulaire du compte
+  id              String           @id @default(cuid())
+  userId          String // ID de l'auteur
+  amount          Float // Montant demandé
+  method          WithdrawalMethod // Méthode de paiement
+  momoNumber      String? // Numéro Mobile Money (si method = MOMO)
+  bankName        String? // Nom de la banque (si method = BANK)
+  bankAccount     String? // Numéro de compte bancaire (si method = BANK)
+  bankAccountName String? // Nom du titulaire du compte
   status          WithdrawalStatus @default(PENDING)
-  requestedAt     DateTime          @default(now())
-  validatedById   String?           // ID du PDG qui a validé
-  validatedBy     User?             @relation("ValidatedWithdrawals", fields: [validatedById], references: [id])
+  requestedAt     DateTime         @default(now())
+  validatedById   String? // ID du PDG qui a validé
+  validatedBy     User?            @relation("ValidatedWithdrawals", fields: [validatedById], references: [id])
   validatedAt     DateTime?
   paidAt          DateTime?
-  rejectionReason String?           // Raison du rejet (si status = REJECTED)
-  notes           String?           // Notes internes
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  user            User              @relation("AuthorWithdrawals", fields: [userId], references: [id])
+  rejectionReason String? // Raison du rejet (si status = REJECTED)
+  notes           String? // Notes internes
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  user            User             @relation("AuthorWithdrawals", fields: [userId], references: [id])
 
   @@index([userId])
   @@index([status])
@@ -469,40 +503,40 @@ model Withdrawal {
 }
 
 enum WithdrawalMethod {
-  MOMO      // Mobile Money (MTN/Moov)
-  BANK      // Virement bancaire
-  CASH      // Espèces
+  MOMO // Mobile Money (MTN/Moov)
+  BANK // Virement bancaire
+  CASH // Espèces
 }
 
 enum WithdrawalStatus {
-  PENDING   // En attente de validation
-  APPROVED  // Approuvé par le PDG
-  REJECTED  // Rejeté par le PDG
-  PAID      // Payé
+  PENDING // En attente de validation
+  APPROVED // Approuvé par le PDG
+  REJECTED // Rejeté par le PDG
+  PAID // Payé
   CANCELLED // Annulé par l'auteur
 }
 
 // Retraits des représentants (RepresentantWithdrawals)
 model RepresentantWithdrawal {
-  id              String            @id @default(cuid())
-  userId          String            // ID du représentant
-  amount          Float             // Montant demandé
-  method          WithdrawalMethod  // Méthode de paiement
-  momoNumber      String?           // Numéro Mobile Money (si method = MOMO)
-  bankName        String?           // Nom de la banque (si method = BANK)
-  bankAccount     String?           // Numéro de compte bancaire (si method = BANK)
-  bankAccountName String?           // Nom du titulaire du compte
+  id              String           @id @default(cuid())
+  userId          String // ID du représentant
+  amount          Float // Montant demandé
+  method          WithdrawalMethod // Méthode de paiement
+  momoNumber      String? // Numéro Mobile Money (si method = MOMO)
+  bankName        String? // Nom de la banque (si method = BANK)
+  bankAccount     String? // Numéro de compte bancaire (si method = BANK)
+  bankAccountName String? // Nom du titulaire du compte
   status          WithdrawalStatus @default(PENDING)
-  requestedAt     DateTime          @default(now())
-  validatedById   String?           // ID du PDG qui a validé
-  validatedBy     User?             @relation("ValidatedRepresentantWithdrawals", fields: [validatedById], references: [id])
+  requestedAt     DateTime         @default(now())
+  validatedById   String? // ID du PDG qui a validé
+  validatedBy     User?            @relation("ValidatedRepresentantWithdrawals", fields: [validatedById], references: [id])
   validatedAt     DateTime?
   paidAt          DateTime?
-  rejectionReason String?           // Raison du rejet (si status = REJECTED)
-  notes           String?           // Notes internes
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  user            User              @relation("RepresentantWithdrawals", fields: [userId], references: [id])
+  rejectionReason String? // Raison du rejet (si status = REJECTED)
+  notes           String? // Notes internes
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  user            User             @relation("RepresentantWithdrawals", fields: [userId], references: [id])
 
   @@index([userId])
   @@index([status])
@@ -511,24 +545,24 @@ model RepresentantWithdrawal {
 
 // Ristournes Partenaires
 model PartnerRebate {
-  id              String            @id @default(cuid())
-  partnerId       String
-  orderId         String?           // ID de la commande (si applicable)
-  saleId          String?           // ID de la vente directe (si applicable)
-  workId          String?           // ID de l'œuvre (si calculé par œuvre)
-  amount          Float             // Montant de la ristourne
-  rate            Float             // Taux utilisé (en %)
-  status          RebateStatus      @default(PENDING)
-  validatedById   String?           // ID du PDG qui a validé
-  validatedBy     User?             @relation("ValidatedPartnerRebates", fields: [validatedById], references: [id])
-  validatedAt     DateTime?
-  paidAt          DateTime?
-  notes           String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  partner         Partner           @relation(fields: [partnerId], references: [id])
-  order           Order?            @relation("OrderPartnerRebates", fields: [orderId], references: [id])
-  work            Work?             @relation("WorkPartnerRebates", fields: [workId], references: [id])
+  id            String       @id @default(cuid())
+  partnerId     String
+  orderId       String? // ID de la commande (si applicable)
+  saleId        String? // ID de la vente directe (si applicable)
+  workId        String? // ID de l'œuvre (si calculé par œuvre)
+  amount        Float // Montant de la ristourne
+  rate          Float // Taux utilisé (en %)
+  status        RebateStatus @default(PENDING)
+  validatedById String? // ID du PDG qui a validé
+  validatedBy   User?        @relation("ValidatedPartnerRebates", fields: [validatedById], references: [id])
+  validatedAt   DateTime?
+  paidAt        DateTime?
+  notes         String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  partner       Partner      @relation(fields: [partnerId], references: [id])
+  order         Order?       @relation("OrderPartnerRebates", fields: [orderId], references: [id])
+  work          Work?        @relation("WorkPartnerRebates", fields: [workId], references: [id])
 
   @@index([partnerId])
   @@index([orderId])
@@ -538,22 +572,22 @@ model PartnerRebate {
 
 // Taux de ristourne configurables
 model RebateRate {
-  id          String        @id @default(cuid())
+  id          String         @id @default(cuid())
   type        RebateRateType // GLOBAL, PARTNER, AUTHOR, WORK
-  partnerId   String?       // Si type = PARTNER
-  userId      String?       // Si type = AUTHOR
-  workId      String?       // Si type = WORK
-  rate        Float         // Taux en pourcentage (ex: 15.5 pour 15.5%)
-  isActive    Boolean       @default(true)
-  startDate   DateTime?     // Date de début d'application
-  endDate     DateTime?     // Date de fin d'application
-  createdById String        // ID du PDG qui a créé
-  createdBy   User          @relation("CreatedRebateRates", fields: [createdById], references: [id])
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  partner     Partner?      @relation(fields: [partnerId], references: [id])
-  user        User?         @relation("AuthorRebateRates", fields: [userId], references: [id])
-  work        Work?         @relation("WorkRebateRates", fields: [workId], references: [id])
+  partnerId   String? // Si type = PARTNER
+  userId      String? // Si type = AUTHOR
+  workId      String? // Si type = WORK
+  rate        Float // Taux en pourcentage (ex: 15.5 pour 15.5%)
+  isActive    Boolean        @default(true)
+  startDate   DateTime? // Date de début d'application
+  endDate     DateTime? // Date de fin d'application
+  createdById String // ID du PDG qui a créé
+  createdBy   User           @relation("CreatedRebateRates", fields: [createdById], references: [id])
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  partner     Partner?       @relation(fields: [partnerId], references: [id])
+  user        User?          @relation("AuthorRebateRates", fields: [userId], references: [id])
+  work        Work?          @relation("WorkRebateRates", fields: [workId], references: [id])
 
   @@unique([type, partnerId, userId, workId])
   @@index([type])
@@ -564,17 +598,17 @@ model RebateRate {
 }
 
 enum RebateStatus {
-  PENDING      // En attente de validation
-  VALIDATED    // Validé par le PDG
-  PAID         // Payé
-  CANCELLED    // Annulé
+  PENDING // En attente de validation
+  VALIDATED // Validé par le PDG
+  PAID // Payé
+  CANCELLED // Annulé
 }
 
 enum RebateRateType {
-  GLOBAL       // Taux global pour tous
-  PARTNER      // Taux spécifique à un partenaire
-  AUTHOR       // Taux spécifique à un auteur
-  WORK         // Taux spécifique à une œuvre
+  GLOBAL // Taux global pour tous
+  PARTNER // Taux spécifique à un partenaire
+  AUTHOR // Taux spécifique à un auteur
+  WORK // Taux spécifique à une œuvre
 }
 
 model Message {
@@ -877,6 +911,30 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum PaymentType {
+  CASH // Achat comptant (paiement complet immédiat)
+  DEPOSIT // Dépôt (acompte + solde)
+  CREDIT // Crédit (paiement différé/échelonné)
+}
+
+enum PaymentStatus {
+  UNPAID // Non payé
+  PARTIAL // Partiellement payé (dépôt versé)
+  PAID // Entièrement payé
+  OVERDUE // En retard de paiement
+  CANCELLED // Annulé
+}
+
+enum DeliveryStatus {
+  PENDING // En attente
+  PREPARING // En préparation
+  READY // Prêt pour livraison
+  IN_TRANSIT // En cours de livraison
+  DELIVERED // Livré
+  RECEIVED // Réceptionné par le client
+  FAILED // Échec de livraison
+}
+
 enum DeliveryNoteStatus {
   PENDING
   VALIDATED
@@ -886,13 +944,13 @@ enum DeliveryNoteStatus {
 }
 
 enum ProformaStatus {
-  PENDING          // En attente d'envoi
-  SENT             // Envoyé au partenaire
+  PENDING // En attente d'envoi
+  SENT // Envoyé au partenaire
   AWAITING_RESPONSE // En attente de décision
-  ACCEPTED         // Accepté par le partenaire
-  REJECTED         // Rejeté par le partenaire
-  CONVERTED        // Converti en commande
-  CANCELLED        // Annulé
+  ACCEPTED // Accepté par le partenaire
+  REJECTED // Rejeté par le partenaire
+  CONVERTED // Converti en commande
+  CANCELLED // Annulé
 }
 
 enum StockRequestStatus {

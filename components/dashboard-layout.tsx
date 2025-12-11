@@ -113,8 +113,15 @@ export default function DashboardLayout({
                   src="/images/laha-logo.png"
                   alt="LAHA Marchand"
                   className="w-20 h-20 object-contain p-1"
-                  /* ajuste w-20 h-20 → w-24 h-24 si tu veux encore plus grand */
                 />
+              </div>
+              <div className="flex flex-col items-center space-y-1">
+                <img
+                  src="/gabon-flag.webp"
+                  alt="Drapeau du Gabon"
+                  className="w-5 h-4 object-contain"
+                />
+                <span className="text-sm font-medium text-gray-700">Gabon</span>
               </div>
             </div>
             <button

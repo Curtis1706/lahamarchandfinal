@@ -53,7 +53,8 @@ import {
   Users,
   BookOpen,
   Settings,
-  FileText
+  FileText,
+  Trash2
 } from "lucide-react"
 import { toast } from "sonner"
 import { apiClient } from '@/lib/api-client'
@@ -202,6 +203,8 @@ interface StockAlert {
 interface StockStats {
   totalWorks: number
   totalStock: number
+  totalPhysicalStock?: number
+  totalDepot?: number
   lowStockItems: number
   outOfStockItems: number
   excessStockItems: number
@@ -256,6 +259,20 @@ export default function GestionStockPage() {
   const [isValidationOpen, setIsValidationOpen] = useState(false)
   const [isVersionModalOpen, setIsVersionModalOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'overview' | 'inventory' | 'movements' | 'alerts' | 'pending' | 'versions' | 'statistics' | 'automation'>('overview')
+  
+  // États pour les règles d'alerte
+  const [alertRules, setAlertRules] = useState<any[]>([])
+  const [isAlertRuleModalOpen, setIsAlertRuleModalOpen] = useState(false)
+  const [selectedRule, setSelectedRule] = useState<any | null>(null)
+  const [alertRuleForm, setAlertRuleForm] = useState({
+    name: '',
+    description: '',
+    type: 'STOCK_LOW' as string,
+    minStock: '',
+    maxStock: '',
+    priority: 'MEDIUM' as string,
+    isActive: true
+  })
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
@@ -436,10 +453,93 @@ export default function GestionStockPage() {
       setStockStats(statsData)
       setPendingOperations(pendingData)
       setDisciplines(disciplinesData || [])
+      
+      // Charger les règles d'alerte
+      await loadAlertRules()
     } catch (error: any) {
       toast.error(error.message || "Erreur lors du chargement des données")
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const loadAlertRules = async () => {
+    try {
+      const rules = await apiClient.getStockAlerts('rules')
+      setAlertRules(rules)
+    } catch (error: any) {
+      console.error("Erreur lors du chargement des règles d'alerte:", error)
+      toast.error(error.message || "Erreur lors du chargement des règles d'alerte")
+    }
+  }
+
+  const handleCreateAlertRule = async () => {
+    try {
+      if (!alertRuleForm.name || !alertRuleForm.minStock) {
+        toast.error("Veuillez remplir tous les champs requis")
+        return
+      }
+
+      const conditions = {
+        minStock: parseInt(alertRuleForm.minStock),
+        maxStock: alertRuleForm.maxStock ? parseInt(alertRuleForm.maxStock) : null
+      }
+
+      const actions = {
+        notify: true,
+        email: false
+      }
+
+      await apiClient.createAlertRule({
+        name: alertRuleForm.name,
+        description: alertRuleForm.description,
+        type: alertRuleForm.type,
+        conditions,
+        actions,
+        priority: alertRuleForm.priority
+      })
+
+      toast.success("Règle d'alerte créée avec succès")
+      setIsAlertRuleModalOpen(false)
+      setAlertRuleForm({
+        name: '',
+        description: '',
+        type: 'STOCK_LOW',
+        minStock: '',
+        maxStock: '',
+        priority: 'MEDIUM',
+        isActive: true
+      })
+      await loadAlertRules()
+      await loadData()
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de la création de la règle")
+    }
+  }
+
+  const handleDeleteAlertRule = async (ruleId: string) => {
+    if (!confirm("Êtes-vous sûr de vouloir supprimer cette règle d'alerte ?")) {
+      return
+    }
+
+    try {
+      await apiClient.deleteAlertRule(ruleId)
+      toast.success("Règle d'alerte supprimée avec succès")
+      await loadAlertRules()
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de la suppression")
+    }
+  }
+
+  const handleToggleRuleStatus = async (ruleId: string, isActive: boolean) => {
+    try {
+      await apiClient.updateAlertRule(ruleId, {
+        isActive: !isActive
+      })
+      toast.success(`Règle ${!isActive ? 'activée' : 'désactivée'} avec succès`)
+      await loadAlertRules()
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de la mise à jour")
     }
   }
 
@@ -540,17 +640,59 @@ export default function GestionStockPage() {
         {/* Vue d'ensemble - Tableau de bord */}
         {activeTab === 'overview' && stockStats && (
           <div className="space-y-6">
-            {/* Cartes de statistiques */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Cartes de statistiques principales */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Stock Total</CardTitle>
+                  <CardTitle className="text-sm font-medium">En stock</CardTitle>
                   <Package className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{stockStats.totalStock.toLocaleString()}</div>
                   <p className="text-xs text-muted-foreground">
-                    {stockStats.totalWorks} références
+                    Dans l'entrepôt principal
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">En dépôt</CardTitle>
+                  <Warehouse className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{(stockStats.totalDepot || 0).toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Chez les partenaires
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total</CardTitle>
+                  <Activity className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{(stockStats.totalPhysicalStock || stockStats.totalStock).toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">
+                    En stock + En dépôt
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Cartes de statistiques secondaires */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Références</CardTitle>
+                  <BookOpen className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stockStats.totalWorks}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Nombre de références
                   </p>
                 </CardContent>
               </Card>
@@ -963,6 +1105,99 @@ export default function GestionStockPage() {
         {/* Alertes */}
         {activeTab === 'alerts' && (
           <div className="space-y-6">
+            {/* Règles d'alerte */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center">
+                    <Settings className="h-5 w-5 mr-2 text-blue-500" />
+                    Seuils d'Alerte ({alertRules.length})
+                  </CardTitle>
+                  <Button onClick={() => setIsAlertRuleModalOpen(true)} size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Créer un seuil
+                  </Button>
+                </div>
+                <CardDescription>
+                  Configurez les seuils d'alerte pour être notifié lorsque les stocks atteignent certains niveaux
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {alertRules.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Settings className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Aucune règle d'alerte</h3>
+                    <p className="text-gray-600 mb-4">Créez votre première règle d'alerte pour surveiller vos stocks.</p>
+                    <Button onClick={() => setIsAlertRuleModalOpen(true)}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Créer une règle
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {alertRules.map((rule) => {
+                      const conditions = typeof rule.conditions === 'string' ? JSON.parse(rule.conditions) : rule.conditions
+                      return (
+                        <div key={rule.id} className="border rounded-lg p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2 mb-2">
+                                <h4 className="font-medium text-gray-900">{rule.name}</h4>
+                                <Badge variant={rule.isActive ? 'default' : 'secondary'}>
+                                  {rule.isActive ? 'Actif' : 'Inactif'}
+                                </Badge>
+                                <Badge variant={
+                                  rule.priority === 'HIGH' ? 'destructive' : 
+                                  rule.priority === 'MEDIUM' ? 'default' : 'secondary'
+                                }>
+                                  {rule.priority === 'HIGH' ? 'Haute' : rule.priority === 'MEDIUM' ? 'Moyenne' : 'Basse'}
+                                </Badge>
+                              </div>
+                              {rule.description && (
+                                <p className="text-sm text-gray-600 mb-2">{rule.description}</p>
+                              )}
+                              <div className="flex items-center space-x-4 text-sm text-gray-500">
+                                <span>Type: <strong>{rule.type === 'STOCK_LOW' ? 'Stock faible' : rule.type === 'STOCK_OUT' ? 'Stock épuisé' : rule.type}</strong></span>
+                                {conditions.minStock && (
+                                  <span>Seuil minimum: <strong>{conditions.minStock}</strong></span>
+                                )}
+                                {conditions.maxStock && (
+                                  <span>Seuil maximum: <strong>{conditions.maxStock}</strong></span>
+                                )}
+                                {rule._count && (
+                                  <span>Alertes déclenchées: <strong>{rule._count.triggeredAlerts}</strong></span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2 ml-4">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleToggleRuleStatus(rule.id, rule.isActive)}
+                                title={rule.isActive ? 'Désactiver' : 'Activer'}
+                              >
+                                {rule.isActive ? <XCircle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteAlertRule(rule.id)}
+                                className="text-red-600 hover:text-red-700"
+                                title="Supprimer"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Alertes actives */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
@@ -1687,6 +1922,120 @@ export default function GestionStockPage() {
             </Card>
           </div>
         )}
+
+        {/* Modal de création de seuil d'alerte */}
+        <Dialog open={isAlertRuleModalOpen} onOpenChange={setIsAlertRuleModalOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Créer un seuil d'alerte</DialogTitle>
+              <DialogDescription>
+                Configurez une règle d'alerte pour être notifié lorsque les stocks atteignent certains niveaux
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <Label htmlFor="rule-name">Nom de la règle *</Label>
+                <Input
+                  id="rule-name"
+                  value={alertRuleForm.name}
+                  onChange={(e) => setAlertRuleForm({ ...alertRuleForm, name: e.target.value })}
+                  placeholder="Ex: Stock faible - Mathématiques"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="rule-description">Description</Label>
+                <Textarea
+                  id="rule-description"
+                  value={alertRuleForm.description}
+                  onChange={(e) => setAlertRuleForm({ ...alertRuleForm, description: e.target.value })}
+                  placeholder="Description de la règle d'alerte"
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="rule-type">Type d'alerte *</Label>
+                <Select
+                  value={alertRuleForm.type}
+                  onValueChange={(value) => setAlertRuleForm({ ...alertRuleForm, type: value })}
+                >
+                  <SelectTrigger id="rule-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="STOCK_LOW">Stock faible</SelectItem>
+                    <SelectItem value="STOCK_OUT">Stock épuisé</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="min-stock">Seuil minimum *</Label>
+                  <Input
+                    id="min-stock"
+                    type="number"
+                    min="0"
+                    value={alertRuleForm.minStock}
+                    onChange={(e) => setAlertRuleForm({ ...alertRuleForm, minStock: e.target.value })}
+                    placeholder="Ex: 10"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Alerte déclenchée lorsque le stock est inférieur ou égal à ce nombre</p>
+                </div>
+
+                <div>
+                  <Label htmlFor="max-stock">Seuil maximum (optionnel)</Label>
+                  <Input
+                    id="max-stock"
+                    type="number"
+                    min="0"
+                    value={alertRuleForm.maxStock}
+                    onChange={(e) => setAlertRuleForm({ ...alertRuleForm, maxStock: e.target.value })}
+                    placeholder="Ex: 1000"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Alerte déclenchée lorsque le stock dépasse ce nombre</p>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="rule-priority">Priorité</Label>
+                <Select
+                  value={alertRuleForm.priority}
+                  onValueChange={(value) => setAlertRuleForm({ ...alertRuleForm, priority: value })}
+                >
+                  <SelectTrigger id="rule-priority">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="LOW">Basse</SelectItem>
+                    <SelectItem value="MEDIUM">Moyenne</SelectItem>
+                    <SelectItem value="HIGH">Haute</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                setIsAlertRuleModalOpen(false)
+                setAlertRuleForm({
+                  name: '',
+                  description: '',
+                  type: 'STOCK_LOW',
+                  minStock: '',
+                  maxStock: '',
+                  priority: 'MEDIUM',
+                  isActive: true
+                })
+              }}>
+                Annuler
+              </Button>
+              <Button onClick={handleCreateAlertRule}>
+                Créer la règle
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
       </div>
   )

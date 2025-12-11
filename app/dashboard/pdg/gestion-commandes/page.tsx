@@ -55,6 +55,18 @@ interface Order {
   userId: string
   partnerId?: string
   status: 'PENDING' | 'VALIDATED' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED'
+  paymentType?: 'CASH' | 'DEPOSIT' | 'CREDIT'
+  paymentStatus?: 'UNPAID' | 'PARTIAL' | 'PAID' | 'OVERDUE' | 'CANCELLED'
+  paymentMethod?: string
+  amountPaid?: number
+  remainingAmount?: number
+  depositAmount?: number
+  depositDate?: string
+  fullPaymentDate?: string
+  deliveryDate?: string
+  deliveryStatus?: 'PENDING' | 'PREPARING' | 'READY' | 'IN_TRANSIT' | 'DELIVERED' | 'RECEIVED' | 'FAILED'
+  receivedAt?: string
+  receivedBy?: string
   createdAt: string
   updatedAt: string
   user: {
@@ -99,6 +111,9 @@ export default function GestionCommandesPage() {
   })
   const [statusFilter, setStatusFilter] = useState("all")
   const [typeFilter, setTypeFilter] = useState("all")
+  const [paymentTypeFilter, setPaymentTypeFilter] = useState("all")
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("all")
+  const [deliveryStatusFilter, setDeliveryStatusFilter] = useState("all")
   const [methodFilter, setMethodFilter] = useState("all")
   const [categoryFilter, setCategoryFilter] = useState("all")
   
@@ -177,8 +192,11 @@ export default function GestionCommandesPage() {
                          clientName.toLowerCase().includes(searchTerm.toLowerCase())
     
     const matchesStatus = statusFilter === "all" || order.status === statusFilter.toUpperCase()
+    const matchesPaymentType = paymentTypeFilter === "all" || order.paymentType === paymentTypeFilter
+    const matchesPaymentStatus = paymentStatusFilter === "all" || order.paymentStatus === paymentStatusFilter
+    const matchesDeliveryStatus = deliveryStatusFilter === "all" || order.deliveryStatus === deliveryStatusFilter
     
-    return matchesSearch && matchesStatus
+    return matchesSearch && matchesStatus && matchesPaymentType && matchesPaymentStatus && matchesDeliveryStatus
   })
 
   // Actions sur les commandes
@@ -212,6 +230,13 @@ export default function GestionCommandesPage() {
   }
 
   const handleDeleteOrder = async (orderId: string) => {
+    // Vérifier si la commande est livrée
+    const order = orders.find(o => o.id === orderId)
+    if (order?.status === 'DELIVERED') {
+      toast.error("Impossible de supprimer une commande livrée")
+      return
+    }
+    
     if (!confirm("Êtes-vous sûr de vouloir supprimer cette commande ? Cette action est irréversible.")) {
       return
     }
@@ -305,6 +330,45 @@ export default function GestionCommandesPage() {
       SHIPPED: { label: 'Expédiée', className: 'bg-orange-100 text-orange-800' },
       DELIVERED: { label: 'Livrée', className: 'bg-green-100 text-green-800' },
       CANCELLED: { label: 'Annulée', className: 'bg-red-100 text-red-800' }
+    }
+    
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.PENDING
+    return <Badge className={config.className}>{config.label}</Badge>
+  }
+
+  const getPaymentTypeBadge = (type?: string) => {
+    const typeConfig = {
+      CASH: { label: 'Comptant', className: 'bg-green-100 text-green-800' },
+      DEPOSIT: { label: 'Dépôt', className: 'bg-blue-100 text-blue-800' },
+      CREDIT: { label: 'Crédit', className: 'bg-orange-100 text-orange-800' }
+    }
+    
+    const config = typeConfig[type as keyof typeof typeConfig] || typeConfig.CASH
+    return <Badge className={config.className}>{config.label}</Badge>
+  }
+
+  const getPaymentStatusBadge = (status?: string) => {
+    const statusConfig = {
+      UNPAID: { label: 'Non payé', className: 'bg-red-100 text-red-800' },
+      PARTIAL: { label: 'Partiel', className: 'bg-yellow-100 text-yellow-800' },
+      PAID: { label: 'Payé', className: 'bg-green-100 text-green-800' },
+      OVERDUE: { label: 'En retard', className: 'bg-red-100 text-red-800' },
+      CANCELLED: { label: 'Annulé', className: 'bg-gray-100 text-gray-800' }
+    }
+    
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.UNPAID
+    return <Badge className={config.className}>{config.label}</Badge>
+  }
+
+  const getDeliveryStatusBadge = (status?: string) => {
+    const statusConfig = {
+      PENDING: { label: 'En attente', className: 'bg-yellow-100 text-yellow-800' },
+      PREPARING: { label: 'Préparation', className: 'bg-blue-100 text-blue-800' },
+      READY: { label: 'Prêt', className: 'bg-purple-100 text-purple-800' },
+      IN_TRANSIT: { label: 'En transit', className: 'bg-orange-100 text-orange-800' },
+      DELIVERED: { label: 'Livré', className: 'bg-green-100 text-green-800' },
+      RECEIVED: { label: 'Réceptionné', className: 'bg-teal-100 text-teal-800' },
+      FAILED: { label: 'Échec', className: 'bg-red-100 text-red-800' }
     }
     
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.PENDING
@@ -463,6 +527,51 @@ export default function GestionCommandesPage() {
           </div>
 
           {/* Deuxième ligne de filtres */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Filtre type de paiement */}
+            <Select value={paymentTypeFilter} onValueChange={setPaymentTypeFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Tous les types de paiement" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les types</SelectItem>
+                <SelectItem value="CASH">Comptant</SelectItem>
+                <SelectItem value="DEPOSIT">Dépôt (Acompte)</SelectItem>
+                <SelectItem value="CREDIT">Crédit</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Filtre statut de paiement */}
+            <Select value={paymentStatusFilter} onValueChange={setPaymentStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Tous les statuts de paiement" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les statuts</SelectItem>
+                <SelectItem value="UNPAID">Non payé</SelectItem>
+                <SelectItem value="PARTIAL">Partiellement payé</SelectItem>
+                <SelectItem value="PAID">Payé</SelectItem>
+                <SelectItem value="OVERDUE">En retard</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Filtre statut de livraison */}
+            <Select value={deliveryStatusFilter} onValueChange={setDeliveryStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Tous les statuts de livraison" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les statuts</SelectItem>
+                <SelectItem value="PENDING">En attente</SelectItem>
+                <SelectItem value="PREPARING">En préparation</SelectItem>
+                <SelectItem value="IN_TRANSIT">En transit</SelectItem>
+                <SelectItem value="DELIVERED">Livré</SelectItem>
+                <SelectItem value="RECEIVED">Réceptionné</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Troisième ligne de filtres */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Filtre méthode */}
             <Select value={methodFilter} onValueChange={setMethodFilter}>
@@ -471,9 +580,10 @@ export default function GestionCommandesPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Toutes les méthodes</SelectItem>
-                <SelectItem value="Livraison standard">Livraison standard</SelectItem>
-                <SelectItem value="Livraison express">Livraison express</SelectItem>
-                <SelectItem value="Retrait en magasin">Retrait en magasin</SelectItem>
+                <SelectItem value="Espèces">Espèces</SelectItem>
+                <SelectItem value="Mobile Money">Mobile Money</SelectItem>
+                <SelectItem value="Virement">Virement bancaire</SelectItem>
+                <SelectItem value="Carte">Carte bancaire</SelectItem>
               </SelectContent>
             </Select>
 
@@ -536,7 +646,8 @@ export default function GestionCommandesPage() {
                 <TableHead className="font-semibold">Statut</TableHead>
                 <TableHead className="font-semibold">Livraison</TableHead>
                 <TableHead className="font-semibold">État Réception</TableHead>
-                <TableHead className="font-semibold">Paiement</TableHead>
+                <TableHead className="font-semibold">Type Paiement</TableHead>
+                <TableHead className="font-semibold">Statut Paiement</TableHead>
                 <TableHead className="font-semibold">Méthode</TableHead>
                 <TableHead className="font-semibold">Actions</TableHead>
               </TableRow>
@@ -558,27 +669,47 @@ export default function GestionCommandesPage() {
                     <TableCell>{order.bookCount}</TableCell>
                     <TableCell>{order.user?.name || order.partner?.name || 'Client inconnu'}</TableCell>
                     <TableCell>{formatDate(order.createdAt)}</TableCell>
-                    <TableCell>{formatDate(order.updatedAt)}</TableCell>
+                    <TableCell>
+                      {order.deliveryDate ? formatDate(order.deliveryDate) : '-'}
+                    </TableCell>
                     <TableCell>
                       {order.items[0]?.work?.discipline?.name || 'Divers'}
                     </TableCell>
                     <TableCell>{getStatusBadge(order.status)}</TableCell>
                     <TableCell>
-                      <Badge variant={order.status === 'DELIVERED' ? 'default' : 'secondary'}>
-                        {order.status === 'DELIVERED' ? 'Livré' : 'En cours'}
-                      </Badge>
+                      {getDeliveryStatusBadge(order.deliveryStatus)}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={order.status === 'DELIVERED' ? 'default' : 'secondary'}>
-                        {order.status === 'DELIVERED' ? 'Reçu' : 'En attente'}
-                      </Badge>
+                      {order.receivedBy ? (
+                        <div className="text-xs">
+                          <div className="font-medium">Réceptionné</div>
+                          <div className="text-gray-500">Par: {order.receivedBy}</div>
+                        </div>
+                      ) : (
+                        <Badge variant="secondary">En attente</Badge>
+                      )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={order.status !== 'PENDING' ? 'default' : 'destructive'}>
-                        {order.status !== 'PENDING' ? 'Payé' : 'En attente'}
-                      </Badge>
+                      {getPaymentTypeBadge(order.paymentType)}
                     </TableCell>
-                    <TableCell>Livraison standard</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col space-y-1">
+                        {getPaymentStatusBadge(order.paymentStatus)}
+                        {order.paymentType === 'DEPOSIT' && order.depositAmount && (
+                          <span className="text-xs text-gray-500">
+                            Acompte: {order.depositAmount.toFixed(0)} FCFA
+                          </span>
+                        )}
+                        {order.remainingAmount && order.remainingAmount > 0 && (
+                          <span className="text-xs text-red-600">
+                            Reste: {order.remainingAmount.toFixed(0)} FCFA
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-xs">{order.paymentMethod || 'Non défini'}</span>
+                    </TableCell>
                     <TableCell>
                       <div className="flex space-x-1">
                         <Button 
@@ -650,15 +781,17 @@ export default function GestionCommandesPage() {
                           </Button>
                         )}
                         
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleDeleteOrder(order.id)}
-                          className="text-red-600 hover:text-red-700"
-                          title="Supprimer la commande"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {order.status !== 'DELIVERED' && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleDeleteOrder(order.id)}
+                            className="text-red-600 hover:text-red-700"
+                            title="Supprimer la commande"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -758,6 +891,88 @@ export default function GestionCommandesPage() {
                     <p className="text-sm text-gray-600">Créée le: {formatDate(selectedOrder.createdAt)}</p>
                     <p className="text-sm text-gray-600">Mise à jour: {formatDate(selectedOrder.updatedAt)}</p>
                   </div>
+                </div>
+
+                {/* Informations de paiement */}
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-3">Informations de paiement</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-600">Type de paiement</p>
+                      {getPaymentTypeBadge(selectedOrder.paymentType)}
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-600">Statut de paiement</p>
+                      {getPaymentStatusBadge(selectedOrder.paymentStatus)}
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-600">Méthode</p>
+                      <p className="font-medium">{selectedOrder.paymentMethod || 'Non défini'}</p>
+                    </div>
+                  </div>
+                  
+                  {selectedOrder.paymentType === 'DEPOSIT' && (
+                    <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <p className="text-sm text-gray-600">Acompte versé</p>
+                          <p className="text-lg font-semibold text-blue-600">
+                            {selectedOrder.depositAmount?.toFixed(2) || '0.00'} FCFA
+                          </p>
+                          {selectedOrder.depositDate && (
+                            <p className="text-xs text-gray-500">Le {formatDate(selectedOrder.depositDate)}</p>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">Montant payé</p>
+                          <p className="text-lg font-semibold">
+                            {selectedOrder.amountPaid?.toFixed(2) || '0.00'} FCFA
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">Reste à payer</p>
+                          <p className="text-lg font-semibold text-red-600">
+                            {selectedOrder.remainingAmount?.toFixed(2) || '0.00'} FCFA
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedOrder.paymentStatus === 'PAID' && selectedOrder.fullPaymentDate && (
+                    <div className="mt-2 text-sm text-green-600">
+                      ✓ Paiement complet effectué le {formatDate(selectedOrder.fullPaymentDate)}
+                    </div>
+                  )}
+                </div>
+
+                {/* Informations de livraison */}
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-3">Informations de livraison</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-600">Statut de livraison</p>
+                      {getDeliveryStatusBadge(selectedOrder.deliveryStatus)}
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-600">Date de livraison prévue</p>
+                      <p className="font-medium">
+                        {selectedOrder.deliveryDate ? formatDate(selectedOrder.deliveryDate) : 'Non définie'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {selectedOrder.receivedBy && (
+                    <div className="mt-4 p-4 bg-green-50 rounded-lg">
+                      <p className="text-sm text-green-800 font-medium">✓ Commande réceptionnée</p>
+                      <p className="text-sm text-gray-600 mt-1">Par: {selectedOrder.receivedBy}</p>
+                      {selectedOrder.receivedAt && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Le {formatDate(selectedOrder.receivedAt)}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Articles commandés */}

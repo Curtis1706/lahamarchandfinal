@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(movements)
 
       case 'alerts':
-        // Générer les alertes de stock
+        // Générer et créer les alertes de stock persistantes
         const worksForAlerts = await prisma.work.findMany({
           select: {
             id: true,
@@ -117,42 +117,120 @@ export async function GET(request: NextRequest) {
           }
         })
 
-        const alerts = worksForAlerts
-          .map(work => {
-            if (work.stock === 0) {
-              return {
-                id: `alert_${work.id}_out`,
-                work,
-                type: 'OUT_OF_STOCK' as const,
-                message: `Stock épuisé pour "${work.title}"`,
-                severity: 'HIGH' as const
+        // Créer ou mettre à jour les alertes dans la base de données
+        for (const work of worksForAlerts) {
+          if (work.stock === 0) {
+            // Vérifier s'il n'y a pas déjà une alerte non résolue pour ce livre
+            const existingAlert = await prisma.stockAlert.findFirst({
+              where: {
+                workId: work.id,
+                type: 'STOCK_OUT',
+                isResolved: false
               }
-            } else if (work.stock <= work.minStock) {
-              return {
-                id: `alert_${work.id}_low`,
-                work,
-                type: 'LOW_STOCK' as const,
-                message: `Stock faible pour "${work.title}" (${work.stock} restant, minimum: ${work.minStock})`,
-                severity: work.stock <= work.minStock / 2 ? 'HIGH' as const : 'MEDIUM' as const
+            })
+
+            if (!existingAlert) {
+              // Créer une nouvelle alerte
+              await prisma.stockAlert.create({
+                data: {
+                  workId: work.id,
+                  type: 'STOCK_OUT',
+                  severity: 'ERROR',
+                  title: `Stock épuisé - ${work.title}`,
+                  message: `Stock épuisé pour "${work.title}"`
+                }
+              })
+            }
+          } else {
+            // Résoudre les alertes de stock épuisé si le stock est maintenant > 0
+            await prisma.stockAlert.updateMany({
+              where: {
+                workId: work.id,
+                type: 'STOCK_OUT',
+                isResolved: false
+              },
+              data: {
+                isResolved: true,
+                resolvedAt: new Date()
               }
-            } else if (work.maxStock && work.stock >= work.maxStock) {
-              return {
-                id: `alert_${work.id}_excess`,
-                work,
-                type: 'EXCESS_STOCK' as const,
-                message: `Stock excédentaire pour "${work.title}" (${work.stock} en stock, maximum: ${work.maxStock})`,
-                severity: 'LOW' as const
+            })
+
+            // Gérer les alertes de stock faible
+            if (work.stock <= work.minStock) {
+              const existingLowAlert = await prisma.stockAlert.findFirst({
+                where: {
+                  workId: work.id,
+                  type: 'STOCK_LOW',
+                  isResolved: false
+                }
+              })
+
+              if (!existingLowAlert) {
+                await prisma.stockAlert.create({
+                  data: {
+                    workId: work.id,
+                    type: 'STOCK_LOW',
+                    severity: work.stock <= work.minStock / 2 ? 'ERROR' : 'WARNING',
+                    title: `Stock faible - ${work.title}`,
+                    message: `Stock faible pour "${work.title}" (${work.stock} restant, minimum: ${work.minStock})`
+                  }
+                })
+              }
+            } else {
+              // Résoudre les alertes de stock faible si le stock est maintenant au-dessus du minimum
+              await prisma.stockAlert.updateMany({
+                where: {
+                  workId: work.id,
+                  type: 'STOCK_LOW',
+                  isResolved: false
+                },
+                data: {
+                  isResolved: true,
+                  resolvedAt: new Date()
+                }
+              })
+            }
+          }
+        }
+
+        // Récupérer toutes les alertes non résolues pour les retourner
+        const activeAlerts = await prisma.stockAlert.findMany({
+          where: {
+            isResolved: false
+          },
+          include: {
+            work: {
+              select: {
+                id: true,
+                title: true,
+                isbn: true,
+                stock: true,
+                minStock: true,
+                discipline: {
+                  select: {
+                    id: true,
+                    name: true
+                  }
+                }
               }
             }
-            return null
-          })
-          .filter(Boolean)
-          .sort((a, b) => {
-            const severityOrder = { 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1 }
-            return severityOrder[b!.severity] - severityOrder[a!.severity]
-          })
+          },
+          orderBy: [
+            { severity: 'desc' },
+            { createdAt: 'desc' }
+          ]
+        })
 
-        return NextResponse.json(alerts)
+        // Formater les alertes pour la compatibilité avec le frontend
+        const formattedAlerts = activeAlerts.map(alert => ({
+          id: alert.id,
+          work: alert.work,
+          type: alert.type === 'STOCK_OUT' ? 'OUT_OF_STOCK' : alert.type === 'STOCK_LOW' ? 'LOW_STOCK' : 'EXCESS_STOCK',
+          message: alert.message,
+          severity: alert.severity === 'ERROR' ? 'HIGH' : alert.severity === 'WARNING' ? 'MEDIUM' : 'LOW'
+        }))
+
+        return NextResponse.json(formattedAlerts)
 
       case 'stats':
         // Calculer les statistiques de stock
@@ -161,13 +239,28 @@ export async function GET(request: NextRequest) {
             id: true,
             price: true,
             stock: true,
+            physicalStock: true,
             minStock: true,
             maxStock: true
           }
         })
 
+        // Calculer le stock en dépôt
+        // Stock en dépôt = livres confiés aux partenaires/libraires/représentants
+        // qui n'ont pas encore été vendus (dépôt-vente)
+        // C'est le stock qui a quitté l'entrepôt principal mais appartient toujours à LahaMarchand
+        const partnerStocks = await prisma.partnerStock.findMany({
+          select: {
+            availableQuantity: true
+          }
+        })
+        const totalDepot = partnerStocks.reduce((sum, ps) => sum + ps.availableQuantity, 0)
+
         const totalWorks = allWorks.length
+        // En stock = livres dans l'entrepôt principal (disponibles pour vente immédiate)
         const totalStock = allWorks.reduce((sum, work) => sum + work.stock, 0)
+        // Total = En stock (entrepôt) + En dépôt (partenaires)
+        const totalPhysicalStock = totalStock + totalDepot
         const totalValue = allWorks.reduce((sum, work) => sum + (work.stock * work.price), 0)
         const lowStockItems = allWorks.filter(work => work.stock > 0 && work.stock <= work.minStock).length
         const outOfStockItems = allWorks.filter(work => work.stock === 0).length
@@ -195,6 +288,8 @@ export async function GET(request: NextRequest) {
         const stats = {
           totalWorks,
           totalStock,
+          totalPhysicalStock,
+          totalDepot,
           totalValue,
           lowStockItems,
           outOfStockItems,

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { 
   History, 
   Search, 
@@ -43,6 +44,8 @@ interface AuditLog {
   timestamp: string
   level: 'info' | 'success' | 'warning' | 'error'
   category: 'user' | 'order' | 'work' | 'discipline' | 'system' | 'financial'
+  details?: any
+  metadata?: any
 }
 
 export default function AuditHistoriquePage() {
@@ -53,6 +56,8 @@ export default function AuditHistoriquePage() {
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [levelFilter, setLevelFilter] = useState("all")
   const [userFilter, setUserFilter] = useState("all")
+  const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null)
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
   // Charger les données d'audit
   useEffect(() => {
@@ -81,22 +86,18 @@ export default function AuditHistoriquePage() {
           return {
             id: log.id || `log-${Date.now()}-${Math.random()}`,
             action: log.action || 'Action inconnue',
-            description: log.details || log.action || 'Aucune description',
-            user: {
+            description: log.description || log.details || log.action || 'Aucune description',
+            user: log.user || {
               id: log.userId || 'system',
               name: log.performedBy || 'Système',
               role: 'PDG'
             },
-            target: log.metadata ? (() => {
-              try {
-                return JSON.parse(log.metadata);
-              } catch {
-                return undefined;
-              }
-            })() : undefined,
+            target: log.target,
             timestamp: timestamp,
-            level: 'info',
-            category: 'system'
+            level: log.level || 'info',
+            category: log.category || 'system',
+            details: log.details,
+            metadata: log.metadata
           };
         })
         
@@ -325,7 +326,7 @@ export default function AuditHistoriquePage() {
                       </div>
                       
                       <div className="space-y-2 text-sm text-muted-foreground">
-                        <div className="flex items-center space-x-4">
+                        <div className="flex items-center space-x-4 flex-wrap">
                           <div className="flex items-center space-x-1">
                             <User className="h-4 w-4" />
                             <span>Par: {log.user.name} ({log.user.role})</span>
@@ -333,7 +334,13 @@ export default function AuditHistoriquePage() {
                           
                           <div className="flex items-center space-x-1">
                             {getCategoryIcon(log.category)}
-                            <span>Catégorie: {log.category}</span>
+                            <span>Catégorie: {
+                              log.category === 'user' ? 'Utilisateurs' :
+                              log.category === 'order' ? 'Commandes' :
+                              log.category === 'work' ? 'Œuvres' :
+                              log.category === 'discipline' ? 'Disciplines' :
+                              log.category === 'financial' ? 'Financier' : 'Système'
+                            }</span>
                           </div>
                         </div>
                         
@@ -360,7 +367,14 @@ export default function AuditHistoriquePage() {
                     </div>
                     
                     <div className="flex-shrink-0">
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          setSelectedLog(log)
+                          setIsDetailsOpen(true)
+                        }}
+                      >
                         <Eye className="h-4 w-4 mr-2" />
                         Détails
                       </Button>
@@ -371,6 +385,112 @@ export default function AuditHistoriquePage() {
             ))}
           </div>
         )}
+
+        {/* Modal des détails */}
+        <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Détails de l'événement</DialogTitle>
+              <DialogDescription>
+                Informations complètes sur cet événement d'audit
+              </DialogDescription>
+            </DialogHeader>
+            
+            {selectedLog && (
+              <div className="space-y-4">
+                {/* Action et description */}
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <h3 className="font-semibold">Action:</h3>
+                    <Badge>{selectedLog.action}</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{selectedLog.description}</p>
+                </div>
+
+                {/* Utilisateur */}
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-2">Effectué par</h3>
+                  <div className="space-y-1 text-sm">
+                    <p><strong>Nom:</strong> {selectedLog.user.name}</p>
+                    <p><strong>Rôle:</strong> {selectedLog.user.role}</p>
+                    {selectedLog.user.id && <p><strong>ID:</strong> {selectedLog.user.id}</p>}
+                  </div>
+                </div>
+
+                {/* Catégorie et niveau */}
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-2">Classification</h3>
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-2">
+                      {getCategoryIcon(selectedLog.category)}
+                      <span className="text-sm">
+                        {selectedLog.category === 'user' ? 'Utilisateurs' :
+                         selectedLog.category === 'order' ? 'Commandes' :
+                         selectedLog.category === 'work' ? 'Œuvres' :
+                         selectedLog.category === 'discipline' ? 'Disciplines' :
+                         selectedLog.category === 'financial' ? 'Financier' : 'Système'}
+                      </span>
+                    </div>
+                    {getLevelBadge(selectedLog.level)}
+                  </div>
+                </div>
+
+                {/* Métadonnées */}
+                {selectedLog.metadata && Object.keys(selectedLog.metadata).length > 0 && (
+                  <div className="border-t pt-4">
+                    <h3 className="font-semibold mb-2">Informations détaillées</h3>
+                    <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                      {Object.entries(selectedLog.metadata).map(([key, value]) => (
+                        <div key={key} className="text-sm">
+                          <strong className="text-gray-700">{key}:</strong>{' '}
+                          <span className="text-gray-600">{String(value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Cible */}
+                {selectedLog.target && (
+                  <div className="border-t pt-4">
+                    <h3 className="font-semibold mb-2">Élément ciblé</h3>
+                    <div className="space-y-1 text-sm">
+                      <p><strong>Type:</strong> {selectedLog.target.type}</p>
+                      <p><strong>Nom:</strong> {selectedLog.target.name}</p>
+                      {selectedLog.target.id && <p><strong>ID:</strong> {selectedLog.target.id}</p>}
+                    </div>
+                  </div>
+                )}
+
+                {/* Timestamp */}
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-2">Date et heure</h3>
+                  <div className="space-y-1 text-sm">
+                    <p>
+                      {selectedLog.timestamp && !isNaN(new Date(selectedLog.timestamp).getTime()) 
+                        ? new Date(selectedLog.timestamp).toLocaleString('fr-FR', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                          })
+                        : 'Date invalide'
+                      }
+                    </p>
+                    <p className="text-muted-foreground">
+                      ({formatDistanceToNow(new Date(selectedLog.timestamp), { 
+                        addSuffix: true, 
+                        locale: fr 
+                      })})
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
   )
 }

@@ -612,6 +612,14 @@ export default function DynamicDashboardLayout({
                     className="w-20 h-20 object-contain p-1"
                   />
                 </div>
+                <div className="flex flex-col items-center space-y-1">
+                  <img
+                    src="/gabon-flag.webp"
+                    alt="Drapeau du Gabon"
+                    className="w-5 h-4 object-contain"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Gabon</span>
+                </div>
               </div>
               <button
                 onClick={() => setSidebarOpen(false)}
@@ -764,14 +772,14 @@ export default function DynamicDashboardLayout({
                   </button>
 
                   {showUserMenu && (
-                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border py-2 z-50">
-                      <div className="px-4 py-2 border-b">
-                        <p className="text-sm font-medium">{user?.name}</p>
-                        <p className="text-xs text-gray-500">{user?.email}</p>
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50 backdrop-blur-sm">
+                      <div className="px-4 py-2 border-b border-gray-200 bg-white">
+                        <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                        <p className="text-xs text-gray-600">{user?.email}</p>
                       </div>
                       <Link
                         href={`${basePath}/profil`}
-                        className="block px-4 py-2 text-sm hover:bg-gray-100"
+                        className="block px-4 py-2 text-sm text-gray-900 hover:bg-gray-100 bg-white transition-colors"
                         onClick={() => setShowUserMenu(false)}
                       >
                         Mon profil
@@ -781,7 +789,7 @@ export default function DynamicDashboardLayout({
                           setShowUserMenu(false);
                           handleLogout();
                         }}
-                        className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-900 hover:bg-gray-100 bg-white transition-colors"
                       >
                         Déconnexion
                       </button>
