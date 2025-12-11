@@ -360,14 +360,14 @@ export default function DynamicDashboardLayout({
                     className="w-20 h-20 object-contain p-1"
                   />
                 </div>
-                <div className="flex flex-col items-center space-y-1">
-                  <img
-                    src="/gabon-flag.webp"
-                    alt="Drapeau du Gabon"
-                    className="w-5 h-4 object-contain"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Gabon</span>
-                </div>
+              <div className="flex flex-col items-center space-y-3 ml-5">
+                <img
+                  src="/gabon-flag.webp"
+                  alt="Drapeau du Gabon"
+                  className="w-7 h-5 object-contain"
+                />
+                <span className="text-xs font-medium text-gray-700">Gabon</span>
+              </div>
               </div>
               <button
                 onClick={() => setSidebarOpen(false)}
