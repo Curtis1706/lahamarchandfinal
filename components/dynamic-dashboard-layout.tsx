@@ -155,11 +155,6 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           label: "Gestion Écoles"
         },
         {
-          href: `${basePath}/clients`,
-          icon: Users,
-          label: "Clients"
-        },
-        {
           href: `${basePath}/ventes-retours`,
           icon: Camera,
           label: "Ventes & retours"
@@ -240,6 +235,11 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           href: `${basePath}/historique`,
           icon: History,
           label: "Historique"
+        },
+        {
+          href: `${basePath}/messagerie`,
+          icon: MessageSquare,
+          label: "Messages"
         },
         {
           href: `${basePath}/notifications`,
@@ -350,6 +350,11 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           href: `${basePath}/rapports`,
           icon: FileText,
           label: "Rapports"
+        },
+        {
+          href: `${basePath}/messagerie`,
+          icon: MessageSquare,
+          label: "Messages"
         },
         {
           href: `${basePath}/notifications/liste`,
