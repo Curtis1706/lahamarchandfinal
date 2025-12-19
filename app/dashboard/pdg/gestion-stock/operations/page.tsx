@@ -357,7 +357,6 @@ export default function StockOperationsPage() {
         })
         
         setShowEditDialog(true)
-      }
     } catch (error) {
       console.error('Error loading movement:', error)
       toast({
