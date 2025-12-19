@@ -14,7 +14,14 @@ import {
   User,
   Mail,
   Plus,
+  GraduationCap,
+  Building2,
+  Users,
+  BookOpen,
+  UserCheck,
 } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { toast } from "sonner"
 import { apiClient } from "@/lib/api-client"
 
@@ -62,7 +69,8 @@ export default function PDGMessageriePage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [newMessage, setNewMessage] = useState("")
   const [showNewMessageModal, setShowNewMessageModal] = useState(false)
-  const [recipients, setRecipients] = useState<Array<{ id: string; name: string; email: string; role: string }>>([])
+  const [recipients, setRecipients] = useState<Array<{ id: string; name: string; email: string; role: string; category?: string }>>([])
+  const [recipientsByCategory, setRecipientsByCategory] = useState<any>({})
   const [newMessageData, setNewMessageData] = useState({
     recipientId: "",
     subject: "",
@@ -135,10 +143,50 @@ export default function PDGMessageriePage() {
       if (!response.ok) throw new Error('Erreur lors du chargement')
       const data = await response.json()
       setRecipients(data.recipients || [])
+      setRecipientsByCategory(data.recipientsByCategory || {})
     } catch (error: any) {
       console.error("Erreur lors du chargement des destinataires:", error)
       toast.error("Erreur lors du chargement des destinataires")
     }
+  }
+
+  const getRoleLabel = (role: string, category?: string) => {
+    if (category === 'ECOLE') return 'École'
+    if (role === 'REPRESENTANT') return 'Représentant'
+    if (role === 'PARTENAIRE') return 'Partenaire'
+    if (role === 'AUTEUR') return 'Auteur'
+    if (role === 'CONCEPTEUR') return 'Concepteur'
+    if (role === 'CLIENT') return 'Client'
+    return role
+  }
+
+  const getRoleBadge = (role: string, category?: string) => {
+    const label = getRoleLabel(role, category)
+    if (category === 'ECOLE' || role === 'CLIENT') {
+      return <Badge className="bg-green-100 text-green-800">{label}</Badge>
+    }
+    if (role === 'REPRESENTANT') {
+      return <Badge className="bg-blue-100 text-blue-800">{label}</Badge>
+    }
+    if (role === 'PARTENAIRE') {
+      return <Badge className="bg-purple-100 text-purple-800">{label}</Badge>
+    }
+    if (role === 'AUTEUR') {
+      return <Badge className="bg-orange-100 text-orange-800">{label}</Badge>
+    }
+    if (role === 'CONCEPTEUR') {
+      return <Badge className="bg-indigo-100 text-indigo-800">{label}</Badge>
+    }
+    return <Badge variant="secondary">{label}</Badge>
+  }
+
+  const getRoleIcon = (role: string, category?: string) => {
+    if (category === 'ECOLE') return <GraduationCap className="h-4 w-4" />
+    if (role === 'REPRESENTANT') return <UserCheck className="h-4 w-4" />
+    if (role === 'PARTENAIRE') return <Building2 className="h-4 w-4" />
+    if (role === 'AUTEUR') return <BookOpen className="h-4 w-4" />
+    if (role === 'CONCEPTEUR') return <Users className="h-4 w-4" />
+    return <User className="h-4 w-4" />
   }
 
   const handleSendMessage = async () => {
@@ -305,9 +353,10 @@ export default function PDGMessageriePage() {
                               </Badge>
                             )}
                           </div>
-                          <p className="text-xs text-gray-500 truncate">
-                            {conversation.participant.role}
-                          </p>
+                          <div className="flex items-center space-x-2 mt-1">
+                            {getRoleIcon(conversation.participant.role, (conversation.participant as any).category)}
+                            {getRoleBadge(conversation.participant.role, (conversation.participant as any).category)}
+                          </div>
                           <p className="text-sm text-gray-700 truncate mt-1">
                             {conversation.lastMessage.subject}
                           </p>
@@ -411,29 +460,123 @@ export default function PDGMessageriePage() {
       </div>
 
       {/* New Message Modal */}
-      {showNewMessageModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <CardTitle>Nouveau Message</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="recipient">Destinataire *</Label>
-                <select
-                  id="recipient"
-                  value={newMessageData.recipientId}
-                  onChange={(e) => setNewMessageData(prev => ({ ...prev, recipientId: e.target.value }))}
-                  className="w-full p-2 border rounded-md"
-                >
-                  <option value="">Sélectionner un destinataire</option>
-                  {recipients.map((recipient) => (
-                    <option key={recipient.id} value={recipient.id}>
-                      {recipient.name} ({recipient.email}) - {recipient.role}
-                    </option>
-                  ))}
-                </select>
-              </div>
+      <Dialog open={showNewMessageModal} onOpenChange={setShowNewMessageModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Nouveau Message</DialogTitle>
+            <DialogDescription>
+              Envoyer un message à un représentant, une école, un partenaire, un auteur ou un concepteur
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="recipient">Destinataire *</Label>
+              <Select
+                value={newMessageData.recipientId}
+                onValueChange={(value) => setNewMessageData(prev => ({ ...prev, recipientId: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner un destinataire" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[400px]">
+                  {/* Représentants */}
+                  {recipientsByCategory.REPRESENTANT && recipientsByCategory.REPRESENTANT.length > 0 && (
+                    <>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50">Représentants</div>
+                      {recipientsByCategory.REPRESENTANT.map((recipient: any) => (
+                        <SelectItem key={recipient.id} value={recipient.id}>
+                          <div className="flex items-center space-x-2">
+                            <UserCheck className="h-4 w-4 text-blue-500" />
+                            <span>{recipient.name}</span>
+                            <span className="text-xs text-gray-500">({recipient.email})</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+
+                  {/* Écoles */}
+                  {recipientsByCategory.ECOLE && recipientsByCategory.ECOLE.length > 0 && (
+                    <>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50">Écoles</div>
+                      {recipientsByCategory.ECOLE.map((recipient: any) => (
+                        <SelectItem key={recipient.id} value={recipient.id}>
+                          <div className="flex items-center space-x-2">
+                            <GraduationCap className="h-4 w-4 text-green-500" />
+                            <span>{recipient.name}</span>
+                            <span className="text-xs text-gray-500">({recipient.email})</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+
+                  {/* Partenaires */}
+                  {recipientsByCategory.PARTENAIRE && recipientsByCategory.PARTENAIRE.length > 0 && (
+                    <>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50">Partenaires</div>
+                      {recipientsByCategory.PARTENAIRE.map((recipient: any) => (
+                        <SelectItem key={recipient.id} value={recipient.id}>
+                          <div className="flex items-center space-x-2">
+                            <Building2 className="h-4 w-4 text-purple-500" />
+                            <span>{recipient.name}</span>
+                            <span className="text-xs text-gray-500">({recipient.email})</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+
+                  {/* Auteurs */}
+                  {recipientsByCategory.AUTEUR && recipientsByCategory.AUTEUR.length > 0 && (
+                    <>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50">Auteurs</div>
+                      {recipientsByCategory.AUTEUR.map((recipient: any) => (
+                        <SelectItem key={recipient.id} value={recipient.id}>
+                          <div className="flex items-center space-x-2">
+                            <BookOpen className="h-4 w-4 text-orange-500" />
+                            <span>{recipient.name}</span>
+                            <span className="text-xs text-gray-500">({recipient.email})</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+
+                  {/* Concepteurs */}
+                  {recipientsByCategory.CONCEPTEUR && recipientsByCategory.CONCEPTEUR.length > 0 && (
+                    <>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50">Concepteurs</div>
+                      {recipientsByCategory.CONCEPTEUR.map((recipient: any) => (
+                        <SelectItem key={recipient.id} value={recipient.id}>
+                          <div className="flex items-center space-x-2">
+                            <Users className="h-4 w-4 text-indigo-500" />
+                            <span>{recipient.name}</span>
+                            <span className="text-xs text-gray-500">({recipient.email})</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+
+                  {/* Autres clients */}
+                  {recipientsByCategory.CLIENT && recipientsByCategory.CLIENT.length > 0 && (
+                    <>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50">Autres clients</div>
+                      {recipientsByCategory.CLIENT.map((recipient: any) => (
+                        <SelectItem key={recipient.id} value={recipient.id}>
+                          <div className="flex items-center space-x-2">
+                            <User className="h-4 w-4 text-gray-500" />
+                            <span>{recipient.name}</span>
+                            <span className="text-xs text-gray-500">({recipient.email})</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
               <div>
                 <Label htmlFor="subject">Sujet *</Label>
                 <Input
@@ -443,41 +586,44 @@ export default function PDGMessageriePage() {
                   placeholder="Sujet du message"
                 />
               </div>
-              <div>
-                <Label htmlFor="priority">Priorité</Label>
-                <select
-                  id="priority"
-                  value={newMessageData.priority}
-                  onChange={(e) => setNewMessageData(prev => ({ ...prev, priority: e.target.value as any }))}
-                  className="w-full p-2 border rounded-md"
-                >
-                  <option value="LOW">Faible</option>
-                  <option value="NORMAL">Normal</option>
-                  <option value="HIGH">Urgent</option>
-                </select>
-              </div>
-              <div>
-                <Label htmlFor="content">Message *</Label>
-                <Textarea
-                  id="content"
-                  value={newMessageData.content}
-                  onChange={(e) => setNewMessageData(prev => ({ ...prev, content: e.target.value }))}
-                  placeholder="Contenu du message"
-                  rows={4}
-                />
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setShowNewMessageModal(false)}>
-                  Annuler
-                </Button>
-                <Button onClick={handleSendNewMessage}>
-                  Envoyer
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            <div>
+              <Label htmlFor="priority">Priorité</Label>
+              <Select
+                value={newMessageData.priority}
+                onValueChange={(value: any) => setNewMessageData(prev => ({ ...prev, priority: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Priorité" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="LOW">Faible</SelectItem>
+                  <SelectItem value="NORMAL">Normal</SelectItem>
+                  <SelectItem value="HIGH">Urgent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="content">Message *</Label>
+              <Textarea
+                id="content"
+                value={newMessageData.content}
+                onChange={(e) => setNewMessageData(prev => ({ ...prev, content: e.target.value }))}
+                placeholder="Contenu du message"
+                rows={6}
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setShowNewMessageModal(false)}>
+                Annuler
+              </Button>
+              <Button onClick={handleSendNewMessage}>
+                <Send className="h-4 w-4 mr-2" />
+                Envoyer
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
