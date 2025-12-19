@@ -445,6 +445,12 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user || session.user.role !== 'PDG') {
+      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
@@ -479,9 +485,24 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Supprimer le partenaire (cela supprimera aussi l'utilisateur associé via la relation)
-    await prisma.partner.delete({
-      where: { id }
+    // Supprimer le partenaire et l'utilisateur associé dans une transaction
+    await prisma.$transaction(async (tx) => {
+      // Supprimer d'abord le partenaire
+      await tx.partner.delete({
+        where: { id }
+      });
+
+      // Supprimer l'utilisateur associé (si c'est une école/client, on peut supprimer)
+      // Vérifier qu'il n'y a pas d'orders directement liées à cet utilisateur
+      const userOrders = await tx.order.count({
+        where: { userId: existingPartner.userId }
+      });
+
+      if (userOrders === 0) {
+        await tx.user.delete({
+          where: { id: existingPartner.userId }
+        });
+      }
     });
 
     // Créer un log d'audit
@@ -489,7 +510,7 @@ export async function DELETE(request: NextRequest) {
       data: {
         action: "PARTNER_DELETE",
         userId: existingPartner.userId,
-        performedBy: "PDG", // En production, récupérer l'ID du PDG connecté
+        performedBy: session.user.id,
         details: JSON.stringify({
           partnerId: id,
           partnerName: existingPartner.name,

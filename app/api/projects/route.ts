@@ -111,6 +111,11 @@ export async function POST(request: NextRequest) {
   console.log("🔍 API POST /projects - Début de la requête");
   
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+    }
+
     const body = await request.json();
     console.log("🔍 Body reçu:", body);
     
@@ -119,6 +124,10 @@ export async function POST(request: NextRequest) {
       disciplineId, 
       concepteurId, 
       description,
+      objectives,
+      expectedDeliverables,
+      requiredResources,
+      timeline,
       status = "DRAFT" 
     } = body;
     
@@ -128,6 +137,34 @@ export async function POST(request: NextRequest) {
     if (!title || !disciplineId || !concepteurId) {
       return NextResponse.json(
         { error: "Le titre, la discipline et le concepteur sont obligatoires" },
+        { status: 400 }
+      );
+    }
+
+    // Vérifier que l'utilisateur est un concepteur ou un PDG
+    // Si c'est un concepteur, vérifier que concepteurId correspond à l'utilisateur connecté
+    if (session.user.role !== "PDG" && session.user.id !== concepteurId) {
+      return NextResponse.json(
+        { error: "Vous ne pouvez créer un projet que pour vous-même" },
+        { status: 403 }
+      );
+    }
+
+    // Vérifier que le concepteur existe et est bien un concepteur
+    const concepteur = await prisma.user.findUnique({
+      where: { id: concepteurId }
+    });
+
+    if (!concepteur) {
+      return NextResponse.json(
+        { error: "Concepteur non trouvé" },
+        { status: 404 }
+      );
+    }
+
+    if (concepteur.role !== "CONCEPTEUR") {
+      return NextResponse.json(
+        { error: "L'utilisateur sélectionné n'est pas un concepteur" },
         { status: 400 }
       );
     }

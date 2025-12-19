@@ -451,20 +451,25 @@ export async function DELETE(
     const userRole = session.user.role;
     const userId = session.user.id;
 
-    // Seul le concepteur peut supprimer son projet (et seulement si DRAFT)
-    if (existingProject.concepteurId !== userId) {
-      return NextResponse.json(
-        { error: "Seul le concepteur peut supprimer ce projet" },
-        { status: 403 }
-      );
+    // Le concepteur peut supprimer son projet (seulement si DRAFT), le PDG peut supprimer n'importe quel projet
+    if (userRole !== "PDG") {
+      if (existingProject.concepteurId !== userId) {
+        return NextResponse.json(
+          { error: "Seul le concepteur peut supprimer ce projet" },
+          { status: 403 }
+        );
+      }
+
+      if (existingProject.status !== "DRAFT") {
+        return NextResponse.json(
+          { error: "Ce projet ne peut pas être supprimé car il a été soumis" },
+          { status: 400 }
+        );
+      }
     }
 
-    if (existingProject.status !== "DRAFT") {
-      return NextResponse.json(
-        { error: "Ce projet ne peut pas être supprimé car il a été soumis" },
-        { status: 400 }
-      );
-    }
+    // Pour le PDG, on vérifie quand même qu'il n'y a pas d'œuvres associées
+    // (même si le PDG peut supprimer des projets soumis)
 
     if (associatedWorks.length > 0) {
       return NextResponse.json(

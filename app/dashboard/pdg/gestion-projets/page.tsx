@@ -100,6 +100,16 @@ export default function GestionProjetsPage() {
   const [validationAction, setValidationAction] = useState<"accept" | "reject">("accept");
   const [rejectionReason, setRejectionReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAddProjectDialogOpen, setIsAddProjectDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [concepteurs, setConcepteurs] = useState<any[]>([]);
+  const [newProject, setNewProject] = useState({
+    title: "",
+    description: "",
+    disciplineId: "",
+    concepteurId: ""
+  });
 
   useEffect(() => {
     if (user && user.role === "PDG") {
@@ -111,15 +121,17 @@ export default function GestionProjetsPage() {
     try {
       setIsLoading(true);
       
-      const [projectsData, disciplinesData] = await Promise.all([
+      const [projectsData, disciplinesData, usersData] = await Promise.all([
         apiClient.getProjects(), // Récupère tous les projets
-        apiClient.getDisciplines()
+        apiClient.getDisciplines(),
+        fetch('/api/users?role=CONCEPTEUR').then(res => res.json())
       ]);
 
-      console.log("🔍 Données reçues:", { projectsData, disciplinesData });
+      console.log("🔍 Données reçues:", { projectsData, disciplinesData, usersData });
 
       setProjects(Array.isArray(projectsData) ? projectsData : []);
       setDisciplines(Array.isArray(disciplinesData) ? disciplinesData : []);
+      setConcepteurs(usersData?.users || []);
     } catch (error) {
       console.error("❌ Erreur lors du chargement des données:", error);
       toast.error("Erreur lors du chargement des données");
@@ -131,6 +143,76 @@ export default function GestionProjetsPage() {
   const handleViewDetails = (project: Project) => {
     setSelectedProject(project);
     setIsDetailsDialogOpen(true);
+  };
+
+  const handleCreateProject = async () => {
+    if (!newProject.title || !newProject.disciplineId || !newProject.concepteurId) {
+      toast.error("Veuillez remplir tous les champs obligatoires");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const response = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newProject.title,
+          description: newProject.description || '',
+          disciplineId: newProject.disciplineId,
+          concepteurId: newProject.concepteurId,
+          status: 'DRAFT'
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success("Projet créé avec succès");
+        setIsAddProjectDialogOpen(false);
+        setNewProject({
+          title: "",
+          description: "",
+          disciplineId: "",
+          concepteurId: ""
+        });
+        fetchData();
+      } else {
+        toast.error(data.error || "Erreur lors de la création du projet");
+      }
+    } catch (error: any) {
+      console.error('Error creating project:', error);
+      toast.error("Erreur lors de la création du projet");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteProject = async () => {
+    if (!projectToDelete) return;
+
+    try {
+      setIsSubmitting(true);
+      const response = await fetch(`/api/projects/${projectToDelete.id}`, {
+        method: 'DELETE'
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success("Projet supprimé avec succès");
+        setIsDeleteDialogOpen(false);
+        setProjectToDelete(null);
+        fetchData();
+      } else {
+        toast.error(data.error || "Erreur lors de la suppression du projet");
+      }
+    } catch (error: any) {
+      console.error('Error deleting project:', error);
+      toast.error("Erreur lors de la suppression du projet");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleValidateProject = (project: Project, action: "accept" | "reject") => {
@@ -476,6 +558,7 @@ export default function GestionProjetsPage() {
                             variant="outline" 
                             size="sm"
                             onClick={() => handleViewDetails(project)}
+                            title="Voir les détails"
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
@@ -486,6 +569,7 @@ export default function GestionProjetsPage() {
                                 size="sm" 
                                 onClick={() => handleValidateProject(project, "accept")}
                                 className="bg-green-600 hover:bg-green-700"
+                                title="Accepter"
                               >
                                 <CheckCircle className="h-4 w-4" />
                               </Button>
@@ -493,11 +577,25 @@ export default function GestionProjetsPage() {
                                 variant="destructive" 
                                 size="sm"
                                 onClick={() => handleValidateProject(project, "reject")}
+                                title="Refuser"
                               >
                                 <XCircle className="h-4 w-4" />
                               </Button>
                             </>
                           )}
+                          
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setProjectToDelete(project);
+                              setIsDeleteDialogOpen(true);
+                            }}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            title="Supprimer"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -670,6 +768,126 @@ export default function GestionProjetsPage() {
                     ? "Accepter" 
                     : "Refuser"
                 }
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Dialog d'ajout de projet */}
+        <Dialog open={isAddProjectDialogOpen} onOpenChange={setIsAddProjectDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Ajouter un nouveau projet</DialogTitle>
+              <DialogDescription>
+                Créer un nouveau projet pour un concepteur
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="project-title">Titre du projet *</Label>
+                <Input
+                  id="project-title"
+                  value={newProject.title}
+                  onChange={(e) => setNewProject({...newProject, title: e.target.value})}
+                  placeholder="Ex: Nouveau manuel de français"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="project-description">Description</Label>
+                <Textarea
+                  id="project-description"
+                  value={newProject.description}
+                  onChange={(e) => setNewProject({...newProject, description: e.target.value})}
+                  placeholder="Description du projet (optionnel)"
+                  rows={4}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="project-discipline">Discipline *</Label>
+                  <Select value={newProject.disciplineId} onValueChange={(value) => setNewProject({...newProject, disciplineId: value})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner une discipline" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {disciplines.map((discipline) => (
+                        <SelectItem key={discipline.id} value={discipline.id}>
+                          {discipline.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="project-concepteur">Concepteur *</Label>
+                  <Select value={newProject.concepteurId} onValueChange={(value) => setNewProject({...newProject, concepteurId: value})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner un concepteur" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {concepteurs.map((concepteur) => (
+                        <SelectItem key={concepteur.id} value={concepteur.id}>
+                          {concepteur.name} ({concepteur.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setIsAddProjectDialogOpen(false);
+                    setNewProject({
+                      title: "",
+                      description: "",
+                      disciplineId: "",
+                      concepteurId: ""
+                    });
+                  }}
+                  disabled={isSubmitting}
+                >
+                  Annuler
+                </Button>
+                <Button 
+                  onClick={handleCreateProject}
+                  disabled={isSubmitting}
+                  className="bg-black hover:bg-gray-800"
+                >
+                  {isSubmitting ? "Création..." : "Créer le projet"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog de suppression */}
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Supprimer le projet</AlertDialogTitle>
+              <AlertDialogDescription>
+                Êtes-vous sûr de vouloir supprimer le projet "{projectToDelete?.title}" ?
+                Cette action est irréversible. {projectToDelete?.works && projectToDelete.works.length > 0 && (
+                  <span className="text-red-600 font-semibold">
+                    Attention : Ce projet a {projectToDelete.works.length} œuvre(s) associée(s) et ne pourra pas être supprimé.
+                  </span>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isSubmitting}>Annuler</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleDeleteProject}
+                disabled={isSubmitting || (projectToDelete?.works && projectToDelete.works.length > 0)}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {isSubmitting ? "Suppression..." : "Supprimer"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

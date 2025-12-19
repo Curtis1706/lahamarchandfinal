@@ -30,7 +30,8 @@ import {
   FileText,
   TrendingUp,
   Building2,
-  Plus
+  Plus,
+  Trash2
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -533,6 +534,7 @@ export default function GestionEcolesPage() {
                                     setSelectedSchool(school);
                                     setIsDetailsOpen(true);
                                   }}
+                                  title="Voir les détails"
                                 >
                                   <Eye className="h-4 w-4" />
                                 </Button>
@@ -545,8 +547,21 @@ export default function GestionEcolesPage() {
                                     setNewRepresentantId(school.representant?.id || "");
                                     setIsStatusDialogOpen(true);
                                   }}
+                                  title="Modifier le statut"
                                 >
                                   <CheckCircle className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSchoolToDelete(school);
+                                    setIsDeleteDialogOpen(true);
+                                  }}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  title="Supprimer l'école"
+                                >
+                                  <Trash2 className="h-4 w-4" />
                                 </Button>
                               </div>
                             </TableCell>
