@@ -26,7 +26,9 @@ import {
   Truck,
   XCircle,
   RotateCcw,
-  Loader2
+  Loader2,
+  Edit,
+  Trash2
 } from "lucide-react"
 
 interface Work {
@@ -77,6 +79,10 @@ export default function StockOperationsPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isExecuting, setIsExecuting] = useState(false)
   const [showOperationDialog, setShowOperationDialog] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [editingMovement, setEditingMovement] = useState<StockOperation | null>(null)
+  const [deletingMovement, setDeletingMovement] = useState<StockOperation | null>(null)
   const [selectedOperation, setSelectedOperation] = useState<string>('')
   const [selectedSubType, setSelectedSubType] = useState<string>('')
   
@@ -311,6 +317,148 @@ export default function StockOperationsPage() {
       case 'DAMAGED': return <Badge className="bg-red-100 text-red-800">Perte/Casse</Badge>
       case 'TRANSFER': return <Badge className="bg-indigo-100 text-indigo-800">Transfert</Badge>
       default: return <Badge className="bg-gray-100 text-gray-800">{type}</Badge>
+    }
+  }
+
+  const handleEdit = async (operation: StockOperation) => {
+    try {
+      const data = await apiClient.getStockMovement(operation.id)
+      setEditingMovement(data.movement)
+        
+        // Déterminer le type d'opération et sous-type pour pré-remplir
+        if (data.movement.quantity > 0) {
+          setSelectedOperation('ENTRY')
+        } else {
+          setSelectedOperation('EXIT')
+        }
+        
+        // Mapper le type au sous-type
+        const typeMap: Record<string, string> = {
+          'INBOUND': 'APPROVISIONNEMENT',
+          'PARTNER_RETURN': 'RETOUR_PARTENAIRE',
+          'CORRECTION': 'CORRECTION',
+          'DIRECT_SALE': 'VENTE_DIRECTE',
+          'PARTNER_ALLOCATION': 'DEPOT_PARTENAIRE',
+          'DAMAGED': 'PERTE',
+          'TRANSFER': 'TRANSFERT'
+        }
+        setSelectedSubType(typeMap[data.movement.type] || '')
+        
+        setFormData({
+          workId: data.movement.workId,
+          quantity: Math.abs(data.movement.quantity).toString(),
+          source: data.movement.source || '',
+          destination: data.movement.destination || '',
+          partnerId: data.movement.partner?.id || '',
+          reason: data.movement.reason || '',
+          notes: data.movement.correctionReason || '',
+          unitPrice: data.movement.unitPrice?.toString() || '',
+          transferDestinationId: ''
+        })
+        
+        setShowEditDialog(true)
+      }
+    } catch (error) {
+      console.error('Error loading movement:', error)
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les détails du mouvement",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleUpdate = async () => {
+    if (!editingMovement) return
+
+    try {
+      setIsExecuting(true)
+      
+      const qty = parseInt(formData.quantity)
+      if (isNaN(qty) || qty <= 0) {
+        toast({
+          title: "Erreur",
+          description: "La quantité doit être un nombre positif",
+          variant: "destructive"
+        })
+        setIsExecuting(false)
+        return
+      }
+      
+      const finalQuantity = selectedOperation === 'EXIT' ? -qty : qty
+
+      // Mapper le sous-type au type StockMovementType
+      const typeMap: Record<string, string> = {
+        'APPROVISIONNEMENT': 'INBOUND',
+        'RETOUR_PARTENAIRE': 'PARTNER_RETURN',
+        'CORRECTION': 'CORRECTION',
+        'VENTE_DIRECTE': 'DIRECT_SALE',
+        'DEPOT_PARTENAIRE': 'PARTNER_ALLOCATION',
+        'PERTE': 'DAMAGED',
+        'TRANSFERT': 'TRANSFER'
+      }
+      
+      const movementType = typeMap[selectedSubType] || editingMovement.type
+
+      const response = await apiClient.updateStockMovement(editingMovement.id, {
+        workId: formData.workId,
+        type: movementType,
+        quantity: finalQuantity,
+        reason: formData.reason || null,
+        source: formData.source || null,
+        destination: formData.destination || null,
+        partnerId: formData.partnerId || null,
+        unitPrice: formData.unitPrice ? parseFloat(formData.unitPrice) : null
+      })
+
+      toast({
+        title: "Succès",
+        description: "Opération modifiée avec succès",
+      })
+      setShowEditDialog(false)
+      setEditingMovement(null)
+      loadData()
+    } catch (error: any) {
+      console.error('Error updating movement:', error)
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de la modification",
+        variant: "destructive"
+      })
+    } finally {
+      setIsExecuting(false)
+    }
+  }
+
+  const handleDelete = async (operation: StockOperation) => {
+    setDeletingMovement(operation)
+    setShowDeleteDialog(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!deletingMovement) return
+
+    try {
+      setIsExecuting(true)
+      
+      await apiClient.deleteStockMovement(deletingMovement.id)
+      
+      toast({
+        title: "Succès",
+        description: "Opération supprimée avec succès",
+      })
+      setShowDeleteDialog(false)
+      setDeletingMovement(null)
+      loadData()
+    } catch (error: any) {
+      console.error('Error deleting movement:', error)
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de la suppression",
+        variant: "destructive"
+      })
+    } finally {
+      setIsExecuting(false)
     }
   }
 
@@ -658,7 +806,7 @@ export default function StockOperationsPage() {
                       
                       <div className="flex items-center space-x-4">
                         {getOperationBadge(operation.type)}
-                        <div className="text-right">
+                        <div className="text-right mr-4">
                           <div className={`font-bold text-lg ${operation.quantity > 0 ? 'text-green-600' : 'text-red-600'}`}>
                             {operation.quantity > 0 ? '+' : ''}{operation.quantity}
                           </div>
@@ -668,6 +816,24 @@ export default function StockOperationsPage() {
                             </div>
                           )}
                         </div>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEdit(operation)}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDelete(operation)}
+                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -676,6 +842,234 @@ export default function StockOperationsPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Dialog de modification */}
+        <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Modifier l'opération de stock</DialogTitle>
+              <DialogDescription>
+                Modifier les détails de cette opération de stock
+              </DialogDescription>
+            </DialogHeader>
+            
+            {editingMovement && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-operationType">Type d'opération</Label>
+                    <Select value={selectedOperation} onValueChange={setSelectedOperation}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionner le type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ENTRY">Entrée de stock</SelectItem>
+                        <SelectItem value="EXIT">Sortie de stock</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="edit-subType">Sous-type</Label>
+                    <Select value={selectedSubType} onValueChange={setSelectedSubType}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionner le sous-type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {selectedOperation === 'ENTRY' && (
+                          <>
+                            <SelectItem value="APPROVISIONNEMENT">Approvisionnement</SelectItem>
+                            <SelectItem value="RETOUR_PARTENAIRE">Retour partenaire</SelectItem>
+                            <SelectItem value="CORRECTION">Correction manuelle</SelectItem>
+                          </>
+                        )}
+                        {selectedOperation === 'EXIT' && (
+                          <>
+                            <SelectItem value="VENTE_DIRECTE">Vente directe</SelectItem>
+                            <SelectItem value="DEPOT_PARTENAIRE">Dépôt partenaire</SelectItem>
+                            <SelectItem value="PERTE">Perte/Casse</SelectItem>
+                            <SelectItem value="TRANSFERT">Transfert interne</SelectItem>
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="edit-workId">Œuvre *</Label>
+                  <Select value={formData.workId} onValueChange={(value) => setFormData({...formData, workId: value})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner une œuvre" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {works.map((work) => (
+                        <SelectItem key={work.id} value={work.id}>
+                          {work.title} - Stock: {work.stock}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-quantity">Quantité *</Label>
+                    <Input
+                      id="edit-quantity"
+                      type="number"
+                      value={formData.quantity}
+                      onChange={(e) => setFormData({...formData, quantity: e.target.value})}
+                      placeholder="Quantité"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="edit-unitPrice">Prix unitaire (optionnel)</Label>
+                    <Input
+                      id="edit-unitPrice"
+                      type="number"
+                      value={formData.unitPrice}
+                      onChange={(e) => setFormData({...formData, unitPrice: e.target.value})}
+                      placeholder="Prix unitaire"
+                    />
+                  </div>
+                </div>
+
+                {(selectedSubType === 'DEPOT_PARTENAIRE' || selectedSubType === 'RETOUR_PARTENAIRE') && (
+                  <div>
+                    <Label htmlFor="edit-partnerId">Partenaire</Label>
+                    <Select value={formData.partnerId} onValueChange={(value) => setFormData({...formData, partnerId: value})}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionner un partenaire" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {partners.map((partner) => (
+                          <SelectItem key={partner.id} value={partner.id}>
+                            {partner.name} ({partner.type})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-source">Source</Label>
+                    <Input
+                      id="edit-source"
+                      value={formData.source}
+                      onChange={(e) => setFormData({...formData, source: e.target.value})}
+                      placeholder="Ex: Imprimerie Centrale"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="edit-destination">Destination</Label>
+                    <Input
+                      id="edit-destination"
+                      value={formData.destination}
+                      onChange={(e) => setFormData({...formData, destination: e.target.value})}
+                      placeholder="Ex: Client final"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="edit-reason">Raison</Label>
+                  <Input
+                    id="edit-reason"
+                    value={formData.reason}
+                    onChange={(e) => setFormData({...formData, reason: e.target.value})}
+                    placeholder="Raison de l'opération"
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setShowEditDialog(false)
+                      setEditingMovement(null)
+                    }}
+                    disabled={isExecuting}
+                  >
+                    Annuler
+                  </Button>
+                  <Button 
+                    onClick={handleUpdate}
+                    disabled={isExecuting}
+                    className="bg-black hover:bg-gray-800"
+                  >
+                    {isExecuting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Modification...
+                      </>
+                    ) : (
+                      "Modifier"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog de confirmation de suppression */}
+        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirmer la suppression</DialogTitle>
+              <DialogDescription>
+                Êtes-vous sûr de vouloir supprimer cette opération de stock ?
+                Cette action annulera l'effet de l'opération sur le stock.
+              </DialogDescription>
+            </DialogHeader>
+            
+            {deletingMovement && (
+              <div className="space-y-4">
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <p className="font-medium">{deletingMovement.work.title}</p>
+                  <p className="text-sm text-gray-600">
+                    Quantité: {deletingMovement.quantity > 0 ? '+' : ''}{deletingMovement.quantity}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Date: {new Date(deletingMovement.createdAt).toLocaleString()}
+                  </p>
+                </div>
+                
+                <div className="flex justify-end space-x-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setShowDeleteDialog(false)
+                      setDeletingMovement(null)
+                    }}
+                    disabled={isExecuting}
+                  >
+                    Annuler
+                  </Button>
+                  <Button 
+                    onClick={confirmDelete}
+                    disabled={isExecuting}
+                    variant="destructive"
+                  >
+                    {isExecuting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Suppression...
+                      </>
+                    ) : (
+                      "Supprimer"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )

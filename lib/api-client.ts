@@ -1086,6 +1086,23 @@ export class ApiClient {
     })
   }
 
+  async updateStockMovement(movementId: string, data: any) {
+    return this.request('/pdg/stock/movements', {
+      method: 'PUT',
+      body: JSON.stringify({ movementId, ...data })
+    })
+  }
+
+  async deleteStockMovement(movementId: string) {
+    return this.request(`/pdg/stock/movements?id=${movementId}`, {
+      method: 'DELETE'
+    })
+  }
+
+  async getStockMovement(movementId: string) {
+    return this.request(`/pdg/stock/movements/${movementId}`)
+  }
+
   async getStockWorkflowStats(filters?: { startDate?: string; endDate?: string }) {
     const params = new URLSearchParams()
     if (filters?.startDate) params.append('startDate', filters.startDate)

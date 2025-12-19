@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
-import { Wallet, CheckCircle, XCircle, Clock, DollarSign, Search, Filter, RefreshCw } from "lucide-react"
+import { Wallet, CheckCircle, XCircle, Clock, DollarSign, Search, Filter, RefreshCw, Loader2, CreditCard } from "lucide-react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 
@@ -53,9 +53,10 @@ export default function RetraitsAuteursPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedWithdrawal, setSelectedWithdrawal] = useState<Withdrawal | null>(null)
   const [isActionDialogOpen, setIsActionDialogOpen] = useState(false)
-  const [actionType, setActionType] = useState<'APPROVE' | 'REJECT' | 'MARK_PAID'>('APPROVE')
+  const [actionType, setActionType] = useState<'APPROVE' | 'REJECT' | 'MARK_PAID' | 'PAY_VIA_MONEROO'>('APPROVE')
   const [rejectionReason, setRejectionReason] = useState('')
   const [notes, setNotes] = useState('')
+  const [isProcessingPayout, setIsProcessingPayout] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -96,8 +97,57 @@ export default function RetraitsAuteursPage() {
     }
   }
 
+  const handlePayViaMoneroo = async () => {
+    if (!selectedWithdrawal) return
+    
+    setIsProcessingPayout(true)
+    
+    try {
+      const response = await fetch('/api/moneroo/payout/initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          withdrawalId: selectedWithdrawal.id,
+          withdrawalType: 'author'
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        toast({
+          title: "Succès",
+          description: `Paiement initié via Moneroo. ID: ${data.payout_id}`,
+        })
+        setIsActionDialogOpen(false)
+        setSelectedWithdrawal(null)
+        loadWithdrawals()
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Erreur",
+          description: error.message || error.error || "Erreur lors de l'initiation du paiement",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error("Error initiating payout:", error)
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de l'initiation du paiement via Moneroo",
+        variant: "destructive"
+      })
+    } finally {
+      setIsProcessingPayout(false)
+    }
+  }
+
   const handleAction = async () => {
     if (!selectedWithdrawal) return
+
+    if (actionType === 'PAY_VIA_MONEROO') {
+      await handlePayViaMoneroo()
+      return
+    }
 
     if (actionType === 'REJECT' && !rejectionReason.trim()) {
       toast({
@@ -148,7 +198,7 @@ export default function RetraitsAuteursPage() {
     }
   }
 
-  const openActionDialog = (withdrawal: Withdrawal, action: 'APPROVE' | 'REJECT' | 'MARK_PAID') => {
+  const openActionDialog = (withdrawal: Withdrawal, action: 'APPROVE' | 'REJECT' | 'MARK_PAID' | 'PAY_VIA_MONEROO') => {
     setSelectedWithdrawal(withdrawal)
     setActionType(action)
     setRejectionReason('')
@@ -391,14 +441,24 @@ export default function RetraitsAuteursPage() {
                             </>
                           )}
                           {withdrawal.status === 'APPROVED' && (
+                            <>
+                              <Button
+                                size="sm"
+                                onClick={() => openActionDialog(withdrawal, 'PAY_VIA_MONEROO')}
+                                className="bg-purple-600 hover:bg-purple-700"
+                              >
+                                <CreditCard className="w-4 h-4 mr-2" />
+                                Payer via Moneroo
+                              </Button>
                             <Button
                               size="sm"
+                                variant="outline"
                               onClick={() => openActionDialog(withdrawal, 'MARK_PAID')}
-                              className="bg-blue-600 hover:bg-blue-700"
                             >
                               <CheckCircle className="w-4 h-4 mr-2" />
                               Marquer comme payé
                             </Button>
+                            </>
                           )}
                         </div>
                       </div>
@@ -418,6 +478,7 @@ export default function RetraitsAuteursPage() {
                 {actionType === 'APPROVE' && 'Approuver le retrait'}
                 {actionType === 'REJECT' && 'Rejeter le retrait'}
                 {actionType === 'MARK_PAID' && 'Marquer comme payé'}
+                {actionType === 'PAY_VIA_MONEROO' && 'Payer via Moneroo'}
               </DialogTitle>
               <DialogDescription>
                 {selectedWithdrawal && (
@@ -430,6 +491,22 @@ export default function RetraitsAuteursPage() {
             
             {selectedWithdrawal && (
               <div className="space-y-4">
+                {actionType === 'PAY_VIA_MONEROO' && (
+                  <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                    <h4 className="font-semibold text-purple-900 mb-2">Informations du paiement</h4>
+                    <div className="space-y-1 text-sm text-purple-800">
+                      <p><strong>Montant:</strong> {formatCurrency(selectedWithdrawal.amount)}</p>
+                      <p><strong>Bénéficiaire:</strong> {selectedWithdrawal.author.name}</p>
+                      <p><strong>Méthode:</strong> {getMethodLabel(selectedWithdrawal.method)}</p>
+                      {selectedWithdrawal.momoNumber && <p><strong>N° Mobile Money:</strong> {selectedWithdrawal.momoNumber}</p>}
+                      {selectedWithdrawal.bankAccount && <p><strong>Compte bancaire:</strong> {selectedWithdrawal.bankAccount}</p>}
+                    </div>
+                    <p className="mt-3 text-xs text-purple-700">
+                      🔒 Le paiement sera traité via Moneroo. Vous recevrez une notification de confirmation.
+                    </p>
+                  </div>
+                )}
+                
                 {actionType === 'REJECT' && (
                   <div>
                     <Label htmlFor="rejectionReason">Raison du rejet *</Label>
@@ -443,6 +520,7 @@ export default function RetraitsAuteursPage() {
                   </div>
                 )}
                 
+                {actionType !== 'PAY_VIA_MONEROO' && (
                 <div>
                   <Label htmlFor="notes">Notes (optionnel)</Label>
                   <Textarea
@@ -452,18 +530,40 @@ export default function RetraitsAuteursPage() {
                     placeholder="Notes internes..."
                   />
                 </div>
+                )}
 
                 <div className="flex justify-end space-x-2">
-                  <Button variant="outline" onClick={() => setIsActionDialogOpen(false)}>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsActionDialogOpen(false)}
+                    disabled={isProcessingPayout}
+                  >
                     Annuler
                   </Button>
                   <Button
                     onClick={handleAction}
-                    className={actionType === 'REJECT' ? 'bg-red-600 hover:bg-red-700' : ''}
+                    disabled={isProcessingPayout}
+                    className={
+                      actionType === 'REJECT' 
+                        ? 'bg-red-600 hover:bg-red-700' 
+                        : actionType === 'PAY_VIA_MONEROO'
+                        ? 'bg-purple-600 hover:bg-purple-700'
+                        : ''
+                    }
                   >
+                    {isProcessingPayout ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Traitement...
+                      </>
+                    ) : (
+                      <>
                     {actionType === 'APPROVE' && 'Approuver'}
                     {actionType === 'REJECT' && 'Rejeter'}
                     {actionType === 'MARK_PAID' && 'Marquer comme payé'}
+                        {actionType === 'PAY_VIA_MONEROO' && 'Confirmer et payer'}
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>

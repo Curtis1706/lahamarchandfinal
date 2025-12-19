@@ -267,9 +267,54 @@ export default function GuestCheckoutPage() {
 
       if (orderResponse.ok) {
         const orderData = await orderResponse.json()
-        clearCart(false)
-        toast.success("Commande passée avec succès !")
-        router.push(`/commande-confirmee?id=${orderData.order.id}`)
+        
+        // Si paiement en ligne (Mobile Money ou Carte), rediriger vers Moneroo
+        if (paymentMethod === "MOBILE_MONEY" || paymentMethod === "CARTE_BANCAIRE") {
+          try {
+            const paymentResponse = await fetch('/api/moneroo/payment/initiate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                orderId: orderData.order.id,
+                customerEmail: deliveryInfo.email || null,
+                customerName: deliveryInfo.fullName,
+                customerPhone: deliveryInfo.phone,
+              })
+            })
+            
+            if (paymentResponse.ok) {
+              const paymentData = await paymentResponse.json()
+              
+              if (paymentData.success && paymentData.payment_url) {
+                // Sauvegarder l'ID de la commande pour la retrouver après le paiement
+                localStorage.setItem('pendingOrderId', orderData.order.id)
+                
+                // Rediriger vers la page de paiement Moneroo
+                window.location.href = paymentData.payment_url
+                return
+              } else {
+                toast.error("Erreur lors de l'initiation du paiement")
+                // Rediriger quand même vers la confirmation avec statut non payé
+                clearCart(false)
+                router.push(`/commande-confirmee?id=${orderData.order.id}&payment=failed`)
+              }
+            } else {
+              toast.error("Erreur lors de l'initiation du paiement")
+              clearCart(false)
+              router.push(`/commande-confirmee?id=${orderData.order.id}&payment=failed`)
+            }
+          } catch (error) {
+            console.error("Error initiating payment:", error)
+            toast.error("Erreur lors de l'initiation du paiement")
+            clearCart(false)
+            router.push(`/commande-confirmee?id=${orderData.order.id}&payment=failed`)
+          }
+        } else {
+          // Pour les paiements à la livraison (espèces, virement)
+          clearCart(false)
+          toast.success("Commande passée avec succès !")
+          router.push(`/commande-confirmee?id=${orderData.order.id}`)
+        }
       } else {
         const errorData = await orderResponse.json()
         toast.error(errorData.error || "Erreur lors de la création de la commande")
@@ -517,18 +562,32 @@ export default function GuestCheckoutPage() {
                     Méthode de paiement
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
                   <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                     <SelectTrigger>
                       <SelectValue placeholder="Sélectionner une méthode" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="MOBILE_MONEY">Mobile Money</SelectItem>
-                      <SelectItem value="VIREMENT">Virement bancaire</SelectItem>
-                      <SelectItem value="ESPECES">Espèces (à la livraison)</SelectItem>
-                      <SelectItem value="CARTE_BANCAIRE">Carte bancaire</SelectItem>
+                      <SelectItem value="MOBILE_MONEY">
+                        Mobile Money (Paiement immédiat)
+                      </SelectItem>
+                      <SelectItem value="CARTE_BANCAIRE">
+                        Carte bancaire (Paiement immédiat)
+                      </SelectItem>
+                      <SelectItem value="ESPECES">
+                        Espèces (à la livraison)
+                      </SelectItem>
+                      <SelectItem value="VIREMENT">
+                        Virement bancaire (différé)
+                      </SelectItem>
                     </SelectContent>
                   </Select>
+                  
+                  {(paymentMethod === "MOBILE_MONEY" || paymentMethod === "CARTE_BANCAIRE") && (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-700">
+                      🔒 Paiement sécurisé via Moneroo. Vous serez redirigé vers la plateforme de paiement.
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
