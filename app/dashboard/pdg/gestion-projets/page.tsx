@@ -368,10 +368,16 @@ export default function GestionProjetsPage() {
               Consultez, validez et suivez les projets soumis par les concepteurs
             </p>
           </div>
-          <Button onClick={fetchData} variant="outline">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Actualiser
-          </Button>
+          <div className="flex items-center space-x-2">
+            <Button onClick={() => setIsAddProjectDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Ajouter un projet
+            </Button>
+            <Button onClick={fetchData} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Actualiser
+            </Button>
+          </div>
         </div>
 
         {/* Statistiques */}
