@@ -29,7 +29,8 @@ import {
   BarChart3,
   FileText,
   TrendingUp,
-  Building2
+  Building2,
+  Plus
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -97,6 +98,23 @@ export default function GestionEcolesPage() {
   const [newRepresentantId, setNewRepresentantId] = useState("");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [schoolToDelete, setSchoolToDelete] = useState<School | null>(null);
+  const [showAddSchoolModal, setShowAddSchoolModal] = useState(false);
+  const [newSchoolData, setNewSchoolData] = useState({
+    name: "",
+    contact: "",
+    email: "",
+    phone: "",
+    address: "",
+    website: "",
+    description: "",
+    representantId: "",
+    userData: {
+      name: "",
+      email: "",
+      phone: "",
+      password: ""
+    }
+  });
 
   // Charger les données
   useEffect(() => {
@@ -240,6 +258,84 @@ export default function GestionEcolesPage() {
     }
   };
 
+  const handleCreateSchool = async () => {
+    // Validation
+    if (!newSchoolData.name || !newSchoolData.contact || !newSchoolData.userData.name || 
+        !newSchoolData.userData.email || !newSchoolData.userData.password) {
+      toast.error("Veuillez remplir tous les champs obligatoires");
+      return;
+    }
+
+    // Validation email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newSchoolData.userData.email)) {
+      toast.error("Email invalide");
+      return;
+    }
+
+    // Validation mot de passe (minimum 6 caractères)
+    if (newSchoolData.userData.password.length < 6) {
+      toast.error("Le mot de passe doit contenir au moins 6 caractères");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/partners", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          name: newSchoolData.name,
+          type: "école", // Type fixe pour les écoles
+          contact: newSchoolData.contact,
+          email: newSchoolData.email || newSchoolData.userData.email,
+          phone: newSchoolData.phone || newSchoolData.userData.phone || '',
+          address: newSchoolData.address || '',
+          website: newSchoolData.website || '',
+          description: newSchoolData.description || '',
+          representantId: newSchoolData.representantId && newSchoolData.representantId !== "none" ? newSchoolData.representantId : null,
+          userData: {
+            name: newSchoolData.userData.name,
+            email: newSchoolData.userData.email,
+            phone: newSchoolData.userData.phone || newSchoolData.phone || '',
+            password: newSchoolData.userData.password
+          }
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success("École créée avec succès");
+        setShowAddSchoolModal(false);
+        // Réinitialiser le formulaire
+        setNewSchoolData({
+          name: "",
+          contact: "",
+          email: "",
+          phone: "",
+          address: "",
+          website: "",
+          description: "",
+          representantId: "",
+          userData: {
+            name: "",
+            email: "",
+            phone: "",
+            password: ""
+          }
+        });
+        fetchSchools();
+      } else {
+        toast.error(data.error || "Erreur lors de la création de l'école");
+      }
+    } catch (error) {
+      console.error("Error creating school:", error);
+      toast.error("Erreur lors de la création de l'école");
+    }
+  };
+
   return (
     <div className="space-y-6">
         {/* Statistiques */}
@@ -317,10 +413,16 @@ export default function GestionEcolesPage() {
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span>Filtres et Recherche</span>
-                  <Button onClick={fetchSchools} variant="outline" size="sm">
-                    <BarChart3 className="h-4 w-4 mr-2" />
-                    Actualiser
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button onClick={() => setShowAddSchoolModal(true)} size="sm" className="bg-black hover:bg-gray-800">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Ajouter une école
+                    </Button>
+                    <Button onClick={fetchSchools} variant="outline" size="sm">
+                      <BarChart3 className="h-4 w-4 mr-2" />
+                      Actualiser
+                    </Button>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -748,6 +850,194 @@ export default function GestionEcolesPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Dialog d'ajout d'école */}
+        <Dialog open={showAddSchoolModal} onOpenChange={setShowAddSchoolModal}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Ajouter une nouvelle école</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {/* Informations de l'école */}
+              <div className="space-y-2">
+                <h3 className="font-semibold text-lg">Informations de l'école</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="school-name">Nom de l'école *</Label>
+                    <Input
+                      id="school-name"
+                      value={newSchoolData.name}
+                      onChange={(e) => setNewSchoolData({...newSchoolData, name: e.target.value})}
+                      placeholder="Ex: École Primaire ABC"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="school-contact">Personne de contact *</Label>
+                    <Input
+                      id="school-contact"
+                      value={newSchoolData.contact}
+                      onChange={(e) => setNewSchoolData({...newSchoolData, contact: e.target.value})}
+                      placeholder="Nom du directeur ou responsable"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="school-email">Email de l'école</Label>
+                    <Input
+                      id="school-email"
+                      type="email"
+                      value={newSchoolData.email}
+                      onChange={(e) => setNewSchoolData({...newSchoolData, email: e.target.value})}
+                      placeholder="contact@ecole.com"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="school-phone">Téléphone</Label>
+                    <Input
+                      id="school-phone"
+                      value={newSchoolData.phone}
+                      onChange={(e) => setNewSchoolData({...newSchoolData, phone: e.target.value})}
+                      placeholder="+241 XX XX XX XX"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label htmlFor="school-address">Adresse</Label>
+                    <Input
+                      id="school-address"
+                      value={newSchoolData.address}
+                      onChange={(e) => setNewSchoolData({...newSchoolData, address: e.target.value})}
+                      placeholder="Adresse complète de l'école"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="school-website">Site web</Label>
+                    <Input
+                      id="school-website"
+                      value={newSchoolData.website}
+                      onChange={(e) => setNewSchoolData({...newSchoolData, website: e.target.value})}
+                      placeholder="https://www.ecole.com"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="school-representant">Représentant assigné</Label>
+                    <Select 
+                      value={newSchoolData.representantId} 
+                      onValueChange={(value) => setNewSchoolData({...newSchoolData, representantId: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionner un représentant" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Aucun représentant</SelectItem>
+                        {representants.map((rep) => (
+                          <SelectItem key={rep.id} value={rep.id}>
+                            {rep.name} ({rep.email})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label htmlFor="school-description">Description</Label>
+                    <Input
+                      id="school-description"
+                      value={newSchoolData.description}
+                      onChange={(e) => setNewSchoolData({...newSchoolData, description: e.target.value})}
+                      placeholder="Informations complémentaires (optionnel)"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Informations de connexion */}
+              <div className="space-y-2 border-t pt-4">
+                <h3 className="font-semibold text-lg">Compte de connexion</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="user-name">Nom d'utilisateur *</Label>
+                    <Input
+                      id="user-name"
+                      value={newSchoolData.userData.name}
+                      onChange={(e) => setNewSchoolData({
+                        ...newSchoolData, 
+                        userData: {...newSchoolData.userData, name: e.target.value}
+                      })}
+                      placeholder="Nom pour le compte de connexion"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="user-email">Email de connexion *</Label>
+                    <Input
+                      id="user-email"
+                      type="email"
+                      value={newSchoolData.userData.email}
+                      onChange={(e) => setNewSchoolData({
+                        ...newSchoolData, 
+                        userData: {...newSchoolData.userData, email: e.target.value}
+                      })}
+                      placeholder="email@exemple.com"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="user-phone">Téléphone</Label>
+                    <Input
+                      id="user-phone"
+                      value={newSchoolData.userData.phone}
+                      onChange={(e) => setNewSchoolData({
+                        ...newSchoolData, 
+                        userData: {...newSchoolData.userData, phone: e.target.value}
+                      })}
+                      placeholder="+241 XX XX XX XX"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="user-password">Mot de passe *</Label>
+                    <Input
+                      id="user-password"
+                      type="password"
+                      value={newSchoolData.userData.password}
+                      onChange={(e) => setNewSchoolData({
+                        ...newSchoolData, 
+                        userData: {...newSchoolData.userData, password: e.target.value}
+                      })}
+                      placeholder="Minimum 6 caractères"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowAddSchoolModal(false);
+                    setNewSchoolData({
+                      name: "",
+                      contact: "",
+                      email: "",
+                      phone: "",
+                      address: "",
+                      website: "",
+                      description: "",
+                      representantId: "",
+                      userData: {
+                        name: "",
+                        email: "",
+                        phone: "",
+                        password: ""
+                      }
+                    });
+                  }}
+                >
+                  Annuler
+                </Button>
+                <Button onClick={handleCreateSchool} className="bg-black hover:bg-gray-800">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Créer l'école
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
   );
 }

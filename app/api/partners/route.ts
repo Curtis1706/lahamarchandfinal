@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import bcrypt from "bcryptjs";
 
 export async function GET(request: NextRequest) {
   try {
@@ -160,6 +163,151 @@ export async function GET(request: NextRequest) {
     console.error("Error fetching partners:", error);
     return NextResponse.json(
       { error: "Erreur lors de la récupération des partenaires" },
+      { status: 500 }
+    );
+  }
+}
+
+// POST /api/partners - Créer un nouveau partenaire (PDG uniquement)
+export async function POST(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user || session.user.role !== 'PDG') {
+      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const { 
+      name, 
+      type, 
+      contact, 
+      email, 
+      phone, 
+      address, 
+      website, 
+      description,
+      representantId,
+      userData 
+    } = body;
+
+    if (!name || !type || !contact || !userData?.name || !userData?.email || !userData?.password) {
+      return NextResponse.json({ 
+        error: 'Nom, type, contact et données utilisateur (nom, email, mot de passe) requis' 
+      }, { status: 400 });
+    }
+
+    // Vérifier que l'email utilisateur n'existe pas déjà
+    const existingUser = await prisma.user.findUnique({
+      where: { email: userData.email }
+    });
+
+    if (existingUser) {
+      return NextResponse.json({ 
+        error: 'Un utilisateur avec cet email existe déjà' 
+      }, { status: 400 });
+    }
+
+    // Hasher le mot de passe
+    const hashedPassword = await bcrypt.hash(userData.password, 12);
+
+    // Déterminer le rôle selon le type
+    // Si c'est une école, utiliser CLIENT, sinon PARTENAIRE
+    const userRole = type === "école" || type === "École" ? "CLIENT" : "PARTENAIRE";
+
+    // Créer l'utilisateur
+    const user = await prisma.user.create({
+      data: {
+        name: userData.name,
+        email: userData.email,
+        phone: userData.phone || '',
+        password: hashedPassword,
+        role: userRole,
+        status: 'ACTIVE', // Le PDG peut créer directement en ACTIVE
+        emailVerified: new Date()
+      }
+    });
+
+    // Créer le partenaire
+    const partner = await prisma.partner.create({
+      data: {
+        name,
+        type,
+        contact,
+        email: email || userData.email || '',
+        phone: phone || userData.phone || '',
+        address: address || '',
+        website: website || '',
+        description: description || '',
+        representantId: representantId || null,
+        userId: user.id
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            status: true,
+            role: true,
+            createdAt: true
+          }
+        },
+        representant: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true
+          }
+        },
+        _count: {
+          select: {
+            orders: true
+          }
+        }
+      }
+    });
+
+    // Créer un log d'audit
+    await prisma.auditLog.create({
+      data: {
+        action: 'PARTNER_CREATED',
+        userId: user.id,
+        performedBy: session.user.id,
+        details: JSON.stringify({
+          partnerId: partner.id,
+          partnerName: partner.name,
+          partnerType: partner.type,
+          createdBy: session.user.name
+        })
+      }
+    });
+
+    // Créer une notification pour le partenaire/école
+    await prisma.notification.create({
+      data: {
+        userId: user.id,
+        title: 'Votre compte a été créé',
+        message: `Votre compte ${type === "école" || type === "École" ? "d'école" : "partenaire"} "${name}" a été créé avec succès. Vous pouvez maintenant vous connecter.`,
+        type: 'ACCOUNT_CREATED',
+        data: JSON.stringify({ 
+          partnerId: partner.id,
+          partnerType: partner.type
+        })
+      }
+    });
+
+    return NextResponse.json({
+      message: `${type === "école" || type === "École" ? "École" : "Partenaire"} créé avec succès`,
+      partner
+    }, { status: 201 });
+
+  } catch (error: any) {
+    console.error('Error creating partner:', error);
+    return NextResponse.json(
+      { error: error.message || 'Erreur lors de la création du partenaire' },
       { status: 500 }
     );
   }
