@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
       totalAmount: movement.totalAmount,
       isCorrection: movement.isCorrection,
       correctionReason: movement.correctionReason,
-      performedBy: movement.performedByUser ? {
+      performedByUser: movement.performedByUser ? {
         id: movement.performedByUser.id,
         name: movement.performedByUser.name,
         email: movement.performedByUser.email,

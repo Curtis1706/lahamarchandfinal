@@ -297,6 +297,7 @@ export default function StockOperationsPage() {
   const getOperationIcon = (type: string) => {
     switch (type) {
       case 'INBOUND': return <TrendingUp className="w-4 h-4 text-green-600" />
+      case 'OUTBOUND': return <TrendingDown className="w-4 h-4 text-red-600" />
       case 'DIRECT_SALE': return <CheckCircle className="w-4 h-4 text-blue-600" />
       case 'PARTNER_ALLOCATION': return <Building2 className="w-4 h-4 text-purple-600" />
       case 'PARTNER_RETURN': return <RotateCcw className="w-4 h-4 text-orange-600" />
@@ -310,6 +311,7 @@ export default function StockOperationsPage() {
   const getOperationBadge = (type: string) => {
     switch (type) {
       case 'INBOUND': return <Badge className="bg-green-100 text-green-800">Entrée</Badge>
+      case 'OUTBOUND': return <Badge className="bg-red-100 text-red-800">Sortie</Badge>
       case 'DIRECT_SALE': return <Badge className="bg-blue-100 text-blue-800">Vente directe</Badge>
       case 'PARTNER_ALLOCATION': return <Badge className="bg-purple-100 text-purple-800">Dépôt partenaire</Badge>
       case 'PARTNER_RETURN': return <Badge className="bg-orange-100 text-orange-800">Retour partenaire</Badge>
