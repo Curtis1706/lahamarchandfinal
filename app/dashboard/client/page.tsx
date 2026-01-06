@@ -8,7 +8,7 @@ import { useNotifications } from "@/hooks/use-notifications";
 import { useOrders } from "@/hooks/use-orders";
 import { useCart } from "@/hooks/use-cart";
 import { apiClient } from "@/lib/api-client";
-import { PieChart, Pie, Cell, Legend, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
+import { PieChart, Pie, Cell, Legend, ResponsiveContainer } from "recharts";
 import { Loader2 } from "lucide-react";
 import Image from "next/image";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -181,16 +181,6 @@ export default function ClientDashboard() {
     { name: "Livrées/Réceptionnées", value: totalSpent },
   ];
 
-  // Données pour le graphique en barres (activité hebdomadaire)
-  const weeklyData = [
-    { day: "Dimanche", orders: Math.floor(Math.random() * 3) },
-    { day: "Lundi", orders: Math.floor(Math.random() * 5) },
-    { day: "Mardi", orders: Math.floor(Math.random() * 4) },
-    { day: "Mercredi", orders: Math.floor(Math.random() * 6) },
-    { day: "Jeudi", orders: Math.floor(Math.random() * 5) },
-    { day: "Vendredi", orders: Math.floor(Math.random() * 7) },
-    { day: "Samedi", orders: Math.floor(Math.random() * 4) },
-  ];
 
   // Rotation des livres recommandés
   useEffect(() => {
@@ -229,41 +219,6 @@ export default function ClientDashboard() {
   return (
     <DynamicDashboardLayout>
       <div className="space-y-6">
-        {/* Zone graphique */}
-        <div className="relative mb-6 w-full">
-          <div className="h-80 bg-slate-700 relative overflow-hidden rounded-2xl">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weeklyData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#626E82" opacity={0.3} />
-                <XAxis 
-                  dataKey="day" 
-                  stroke="#626E82"
-                  fontSize={12}
-                  tick={{ fill: '#626E82' }}
-                />
-                <YAxis 
-                  stroke="#626E82"
-                  fontSize={12}
-                  tick={{ fill: '#626E82' }}
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#1e293b', 
-                    border: '1px solid #475569',
-                    borderRadius: '8px',
-                    color: '#f1f5f9'
-                  }}
-                />
-                <Bar 
-                  dataKey="orders" 
-                  fill="#3b82f6" 
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
         <div className="p-4 lg:p-6">
           {/* Actions rapides */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
