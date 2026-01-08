@@ -472,37 +472,16 @@ async function loadRoyaltiesData(startDate?: string, endDate?: string) {
 
     // Récupérer toutes les royalties avec leurs relations
     const royalties = await prisma.royalty.findMany({
-      where: {
-        ...dateFilter,
-        workId: { not: null } // Exclure les royalties sans œuvre
-      },
+      where: dateFilter,
       include: {
         work: {
           include: {
             discipline: true,
-            author: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
-            },
-            concepteur: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
-            }
+            author: true,
+            concepteur: true
           }
         },
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        }
+        user: true
       },
       orderBy: { createdAt: 'desc' }
     })
@@ -534,52 +513,67 @@ async function loadRoyaltiesData(startDate?: string, endDate?: string) {
     const royaltiesData = {
       totalRoyalties,
       totalPendingAmount,
-      recentRoyalties: royalties.slice(0, 10).map(royalty => ({
-        id: royalty.id,
-        amount: royalty.amount,
-        paid: royalty.paid,
-        createdAt: royalty.createdAt,
-        work: {
-          id: royalty.work?.id,
-          title: royalty.work?.title || 'N/A',
-          discipline: royalty.work?.discipline ? {
-            name: royalty.work.discipline.name
+      recentRoyalties: royalties.slice(0, 10).map(royalty => {
+        // Gérer les cas où work ou user pourraient être null
+        const work = royalty.work;
+        const user = royalty.user;
+        
+        return {
+          id: royalty.id,
+          amount: royalty.amount,
+          paid: royalty.paid,
+          createdAt: royalty.createdAt,
+          work: work ? {
+            id: work.id,
+            title: work.title || 'N/A',
+            discipline: work.discipline ? {
+              name: work.discipline.name
+            } : null,
+            author: work.author ? {
+              name: work.author.name
+            } : null,
+            concepteur: work.concepteur ? {
+              name: work.concepteur.name
+            } : null
           } : null,
-          author: royalty.work?.author ? {
-            name: royalty.work.author.name
-          } : null,
-          concepteur: royalty.work?.concepteur ? {
-            name: royalty.work.concepteur.name
+          user: user ? {
+            id: user.id,
+            name: user.name || 'N/A',
+            email: user.email || 'N/A'
           } : null
-        },
-        user: royalty.user ? {
-          id: royalty.user.id,
-          name: royalty.user.name || 'N/A',
-          email: royalty.user.email || 'N/A'
-        } : null
-      })),
+        };
+      }),
       royaltiesByAuthor: Object.values(royaltiesByAuthor),
-      pendingPayments: pendingPayments.map(royalty => ({
-        id: royalty.id,
-        amount: royalty.amount,
-        createdAt: royalty.createdAt,
-        work: {
-          id: royalty.work?.id,
-          title: royalty.work?.title
-        },
-        author: {
-          id: royalty.user?.id,
-          name: royalty.user?.name
-        }
-      }))
+      pendingPayments: pendingPayments.map(royalty => {
+        const work = royalty.work;
+        const user = royalty.user;
+        
+        return {
+          id: royalty.id,
+          amount: royalty.amount,
+          createdAt: royalty.createdAt,
+          work: work ? {
+            id: work.id,
+            title: work.title || 'N/A'
+          } : null,
+          author: user ? {
+            id: user.id,
+            name: user.name || 'N/A'
+          } : null
+        };
+      })
     }
 
     return NextResponse.json(royaltiesData)
 
   } catch (error) {
     console.error("Erreur lors du chargement des données de royalties:", error)
+    console.error("Stack trace:", error instanceof Error ? error.stack : 'No stack trace')
     return NextResponse.json(
-      { error: "Erreur lors du chargement des données de royalties" },
+      { 
+        error: "Erreur lors du chargement des données de royalties",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     )
   }
