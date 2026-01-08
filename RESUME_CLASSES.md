@@ -961,3 +961,4 @@ Ce document présente un résumé de toutes les classes (modèles Prisma) et leu
 **Note :** Ce document résume toutes les classes (modèles Prisma) du système. Les attributs marqués avec `?` sont optionnels, et ceux avec `@default()` ont une valeur par défaut.
 
 
+

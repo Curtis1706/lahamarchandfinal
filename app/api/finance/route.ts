@@ -470,16 +470,39 @@ async function loadRoyaltiesData(startDate?: string, endDate?: string) {
       }
     }
 
-    // Récupérer toutes les royalties
+    // Récupérer toutes les royalties avec leurs relations
     const royalties = await prisma.royalty.findMany({
-      where: dateFilter,
+      where: {
+        ...dateFilter,
+        workId: { not: null } // Exclure les royalties sans œuvre
+      },
       include: {
         work: {
           include: {
-            discipline: true
+            discipline: true,
+            author: {
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
+            },
+            concepteur: {
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
+            }
           }
         },
-        user: true
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
       },
       orderBy: { createdAt: 'desc' }
     })
@@ -518,13 +541,22 @@ async function loadRoyaltiesData(startDate?: string, endDate?: string) {
         createdAt: royalty.createdAt,
         work: {
           id: royalty.work?.id,
-          title: royalty.work?.title,
-          discipline: royalty.work?.discipline?.name
+          title: royalty.work?.title || 'N/A',
+          discipline: royalty.work?.discipline ? {
+            name: royalty.work.discipline.name
+          } : null,
+          author: royalty.work?.author ? {
+            name: royalty.work.author.name
+          } : null,
+          concepteur: royalty.work?.concepteur ? {
+            name: royalty.work.concepteur.name
+          } : null
         },
-        author: {
-          id: royalty.user?.id,
-          name: royalty.user?.name
-        }
+        user: royalty.user ? {
+          id: royalty.user.id,
+          name: royalty.user.name || 'N/A',
+          email: royalty.user.email || 'N/A'
+        } : null
       })),
       royaltiesByAuthor: Object.values(royaltiesByAuthor),
       pendingPayments: pendingPayments.map(royalty => ({
