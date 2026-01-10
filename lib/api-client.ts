@@ -1170,13 +1170,33 @@ export class ApiClient {
   }
 
   async createProforma(data: {
-    partnerId?: string
-    userId?: string
-    items: Array<{ workId: string; quantity: number; unitPrice?: number }>
-    discountAmount?: number
-    discountPercent?: number
+    clientType: 'ECOLE' | 'PARTENAIRE' | 'CLIENT' | 'INVITE'
+    partnerId?: string // Pour PARTENAIRE
+    userId?: string // Pour CLIENT ou ECOLE
+    clientName?: string // Pour INVITE
+    clientEmail?: string // Pour INVITE
+    clientPhone?: string // Pour INVITE
+    clientAddress?: string // Pour INVITE
+    clientCity?: string // Pour INVITE
+    clientCountry?: string // Pour INVITE
+    country: string
+    currency: 'XOF' | 'XAF' | 'FCFA'
+    validUntil: string
+    items: Array<{
+      workId?: string // L'API attend workId
+      bookId?: string // Pour compatibilité
+      quantity: number
+      unitPriceHT?: number
+      discountRate?: number
+      tvaRate?: number
+      title?: string
+      isbn?: string
+    }>
+    promoCode?: string
+    promoDiscountRate?: number
+    orderType?: string
     notes?: string
-    deliveryZone?: string
+    initialStatus?: 'DRAFT' | 'SENT' // Statut initial (DRAFT par défaut, SENT si "Enregistrer & Envoyer")
   }) {
     return this.request('/pdg/proforma', {
       method: 'POST',
@@ -1185,11 +1205,10 @@ export class ApiClient {
   }
 
   async updateProforma(proformaId: string, data: {
-    action?: string
+    action?: 'send' | 'accept' | 'expire' | 'cancel' | 'convert'
     status?: string
-    items?: Array<{ workId: string; quantity: number; unitPrice?: number }>
-    discountAmount?: number
-    discountPercent?: number
+    cancellationReason?: string
+    items?: Array<{ bookId: string; quantity: number; unitPriceHT?: number; discountRate?: number; tvaRate?: number }>
     notes?: string
   }) {
     return this.request(`/pdg/proforma`, {

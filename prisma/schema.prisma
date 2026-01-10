@@ -154,7 +154,7 @@ model Work {
   projectId             String?
   orderItems            OrderItem[]
   partnerStocks         PartnerStock[]
-  proformaItems         ProformaItem[]
+  proformaItems         ProformaItem[]        @relation("ProformaItemWork")
   royalties             Royalty[]
   sales                 Sale[]
   stockAlerts           StockAlert[]
@@ -367,54 +367,121 @@ model DeliveryNote {
 }
 
 model Proforma {
-  id                 String         @id @default(cuid())
-  reference          String         @unique // Référence unique (ex: PF-2025-00045)
-  partnerId          String? // ID du partenaire destinataire
-  partner            Partner?       @relation("PartnerProformas", fields: [partnerId], references: [id])
-  userId             String? // ID du client (si ce n'est pas un partenaire)
-  user               User?          @relation("UserProformas", fields: [userId], references: [id])
-  createdById        String // ID du PDG qui a créé le proforma
-  createdBy          User           @relation("CreatedProformas", fields: [createdById], references: [id])
-  subtotal           Float          @default(0)
-  discount           Float          @default(0) // Remise appliquée
-  discountPercent    Float? // Pourcentage de remise
-  tax                Float          @default(0)
-  total              Float          @default(0)
-  status             ProformaStatus @default(PENDING)
-  notes              String? // Notes additionnelles
-  deliveryZone       String? // Zone de livraison
-  sentAt             DateTime? // Date d'envoi au partenaire
-  respondedAt        DateTime? // Date de réponse du partenaire
-  convertedToOrderId String?        @unique // ID de la commande si converti
-  convertedToOrder   Order?         @relation("ProformaOrder", fields: [convertedToOrderId], references: [id])
-  version            Int            @default(1) // Version du proforma (si modifié)
-  parentProformaId   String? // ID du proforma parent (si c'est une version modifiée)
-  parentProforma     Proforma?      @relation("ProformaVersions", fields: [parentProformaId], references: [id])
-  versions           Proforma[]     @relation("ProformaVersions")
-  items              ProformaItem[]
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
+  id                 String              @id @default(cuid())
+  proformaNumber     String?             @unique // ex: PF-2026-000023 (temporairement nullable pour migration)
+  reference          String?             @unique // Ancien champ pour compatibilité
+  country            String              @default("Gabon")
+  currency           Currency            @default(FCFA)
 
-  @@index([partnerId])
-  @@index([userId])
+  clientType         ProformaClientType? // Temporairement nullable pour migration
+  clientId           String? // nullable car INVITE possible
+  partnerId          String? // ID du partenaire (si clientType = PARTENAIRE)
+  partner            Partner?            @relation("PartnerProformas", fields: [partnerId], references: [id])
+  userId             String? // ID du client (si clientType = CLIENT)
+  user               User?               @relation("UserProformas", fields: [userId], references: [id])
+
+  status             ProformaStatus      @default(DRAFT)
+
+  issuedAt           DateTime            @default(now()) // Date d'émission
+  validUntil         DateTime? // Date de validité (temporairement nullable pour migration)
+  acceptedAt         DateTime? // Date d'acceptation
+  cancelledAt        DateTime? // Date d'annulation
+  cancellationReason String? // Raison de l'annulation
+
+  // Totaux (stockés pour éviter recalcul + audit)
+  subtotalHT         Float               @default(0) // Total HT
+  discountTotal      Float               @default(0) // Remise totale
+  taxableBase        Float               @default(0) // Base taxable (HT - remise)
+  tvaTotal           Float               @default(0) // Total TVA
+  totalTTC           Float               @default(0) // Total TTC
+
+  // Remise globale optionnelle (code promo)
+  promoCode          String?
+  promoDiscountRate  Float? // 0..1 (pourcentage de remise globale)
+
+  // Type de commande (rentrée, vacances, etc.)
+  orderType          String?
+
+  notes              String? // Notes additionnelles / conditions particulières
+
+  createdById        String // ID du PDG qui a créé le proforma
+  createdBy          User                @relation("CreatedProformas", fields: [createdById], references: [id])
+
+  items              ProformaItem[]
+  clientSnapshot     ProformaClientSnapshot?
+
+  // Lien éventuel vers une commande / une facture
+  orderId            String?             @unique
+  convertedToOrder   Order?              @relation("ProformaOrder", fields: [orderId], references: [id])
+
+  // Versioning (si besoin)
+  version            Int                 @default(1)
+  parentProformaId   String?
+  parentProforma     Proforma?           @relation("ProformaVersions", fields: [parentProformaId], references: [id])
+  versions           Proforma[]          @relation("ProformaVersions")
+
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
   @@index([status])
-  @@index([createdAt])
-  @@index([reference])
+  @@index([issuedAt])
+  @@index([clientType, clientId])
+  @@index([proformaNumber])
 }
 
 model ProformaItem {
-  id         String   @id @default(cuid())
-  proformaId String
-  proforma   Proforma @relation(fields: [proformaId], references: [id], onDelete: Cascade)
-  workId     String
-  work       Work     @relation(fields: [workId], references: [id])
-  quantity   Int
-  unitPrice  Float
-  discount   Float    @default(0) // Remise sur cet item
-  total      Float // quantity * unitPrice - discount
+  id           String   @id @default(cuid())
+  proformaId   String
+  proforma     Proforma @relation(fields: [proformaId], references: [id], onDelete: Cascade)
+
+  // Référence livre à l'instant T (peut être null si livre supprimé)
+  workId       String?
+  work         Work?    @relation("ProformaItemWork", fields: [workId], references: [id])
+  
+  // Snapshot des informations du livre (immuable)
+  reference    String? // Référence interne
+  isbn         String?
+  title        String? // Temporairement nullable pour migration
+  authorName   String?
+
+  quantity     Int
+  unitPriceHT  Float? // Prix unitaire HT (temporairement nullable pour migration)
+  unitPrice    Float? // Ancien champ pour compatibilité
+  
+  discountRate Float   @default(0) // 0..1 (pourcentage de remise ligne)
+  discount     Float?  @default(0) // Ancien champ pour compatibilité
+  tvaRate      Float   @default(0.18) // 0..1 (taux TVA, par défaut 18%)
+
+  // Totaux ligne (calculés et stockés)
+  lineHT       Float   @default(0) // HT = quantity * unitPriceHT
+  lineDiscount Float   @default(0) // Remise = lineHT * discountRate
+  lineTaxable  Float   @default(0) // Base taxable = lineHT - lineDiscount
+  lineTVA      Float   @default(0) // TVA = lineTaxable * tvaRate
+  totalTTC     Float   @default(0) // Total TTC = lineTaxable + lineTVA
+  total        Float?  @default(0) // Ancien champ pour compatibilité
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime? @updatedAt // Temporairement nullable pour migration
 
   @@index([proformaId])
   @@index([workId])
+}
+
+model ProformaClientSnapshot {
+  id         String   @id @default(cuid())
+  proformaId String   @unique
+  proforma   Proforma @relation(fields: [proformaId], references: [id], onDelete: Cascade)
+
+  name       String
+  email      String?
+  phone      String?
+  address    String?
+  city       String?
+  country    String?
+
+  createdAt  DateTime @default(now())
+
+  @@index([proformaId])
 }
 
 model StockRequest {
@@ -983,13 +1050,28 @@ enum DeliveryNoteStatus {
 }
 
 enum ProformaStatus {
-  PENDING // En attente d'envoi
-  SENT // Envoyé au partenaire
-  AWAITING_RESPONSE // En attente de décision
-  ACCEPTED // Accepté par le partenaire
-  REJECTED // Rejeté par le partenaire
-  CONVERTED // Converti en commande
+  PENDING // Ancien statut pour compatibilité (sera migré vers DRAFT)
+  DRAFT // Brouillon
+  SENT // Envoyé au client
+  AWAITING_RESPONSE // Ancien statut pour compatibilité
+  ACCEPTED // Accepté par le client
+  REJECTED // Ancien statut pour compatibilité
+  CONVERTED // Ancien statut pour compatibilité (sera migré vers ACCEPTED)
+  EXPIRED // Expiré
   CANCELLED // Annulé
+}
+
+enum ProformaClientType {
+  ECOLE // École
+  PARTENAIRE // Partenaire
+  CLIENT // Client
+  INVITE // Client invité (sans compte)
+}
+
+enum Currency {
+  XOF // Franc CFA (Afrique de l'Ouest)
+  XAF // Franc CFA (Afrique centrale)
+  FCFA // Franc CFA (alias)
 }
 
 enum StockRequestStatus {
