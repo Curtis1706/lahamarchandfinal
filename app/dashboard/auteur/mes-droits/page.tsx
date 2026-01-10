@@ -225,7 +225,7 @@ export default function MesDroitsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-blue-800">Total des royalties</p>
+                  <p className="text-sm font-medium text-blue-800">Total</p>
                   <p className="text-2xl font-bold text-blue-900">{formatCurrency(stats.total)}</p>
                   <p className="text-xs text-blue-600">Tous temps</p>
                 </div>
@@ -238,7 +238,7 @@ export default function MesDroitsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-green-800">Royalties payées</p>
+                  <p className="text-sm font-medium text-green-800">Payées</p>
                   <p className="text-2xl font-bold text-green-900">{formatCurrency(stats.paid)}</p>
                   <p className="text-xs text-green-600">Déjà reçues</p>
                 </div>
@@ -325,7 +325,7 @@ export default function MesDroitsPage() {
         </div>
       </div>
 
-      {/* Tableau des royalties */}
+      {/* Tableau des droits d'auteur */}
       <div className="bg-white">
         <div className="overflow-x-auto">
           <table className="w-full">
