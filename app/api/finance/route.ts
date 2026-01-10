@@ -76,10 +76,25 @@ async function loadOverviewData() {
       }
     })
 
+    // Fonction pour calculer le total d'une commande
+    const calculateOrderTotal = (order: any) => {
+      // Utiliser le champ total de la commande s'il existe et est valide
+      if (order.total && Number(order.total) > 0) {
+        return Number(order.total)
+      }
+      // Sinon calculer à partir des items
+      if (order.items && Array.isArray(order.items) && order.items.length > 0) {
+        return order.items.reduce((sum: number, item: any) => {
+          const itemPrice = Number(item.price || 0)
+          const itemQuantity = Number(item.quantity || 0)
+          return sum + (itemPrice * itemQuantity)
+        }, 0)
+      }
+      return 0
+    }
+
     const totalSalesFromOrders = deliveredOrders.reduce((sum, order) => {
-      return sum + order.items.reduce((itemSum, item) => {
-        return itemSum + (item.price * item.quantity)
-      }, 0)
+      return sum + calculateOrderTotal(order)
     }, 0)
 
     const totalSales = (totalSalesFromSales._sum.amount || 0) + totalSalesFromOrders
@@ -103,20 +118,38 @@ async function loadOverviewData() {
     })
 
     const totalOrderValue = ordersWithTotal.reduce((sum, order) => {
-      const orderTotal = order.items.reduce((itemSum, item) => {
-        return itemSum + (item.price * item.quantity)
-      }, 0)
-      return sum + orderTotal
+      return sum + calculateOrderTotal(order)
     }, 0)
 
     const avgOrderValue = totalOrders > 0 ? totalOrderValue / totalOrders : 0
 
-    // Récupérer les commandes récentes
+    // Calculer le nombre total d'articles vendus (somme des quantités de tous les items)
+    const totalItemsSold = ordersWithTotal.reduce((sum, order) => {
+      return sum + (order.items?.reduce((itemSum: number, item: any) => {
+        return itemSum + Number(item.quantity || 0)
+      }, 0) || 0)
+    }, 0)
+
+    // Récupérer les commandes récentes avec tous les détails
+    // Inclure toutes les commandes, même celles sans items pour l'instant
     const recentOrders = await prisma.order.findMany({
-      take: 5,
+      take: 10,
       orderBy: { createdAt: 'desc' },
       include: {
-        user: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        },
+        partner: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        },
         items: {
           include: {
             work: {
@@ -127,6 +160,11 @@ async function loadOverviewData() {
           }
         }
       }
+    })
+    
+    console.log(`📊 Récupération de ${recentOrders.length} commandes récentes`)
+    recentOrders.forEach(order => {
+      console.log(`  - Commande ${order.id}: ${order.items?.length || 0} items, user: ${order.user?.name || 'N/A'}, partner: ${order.partner?.name || 'N/A'}`)
     })
 
     // Récupérer les œuvres les plus vendues (ventes + commandes livrées)
@@ -260,15 +298,34 @@ async function loadOverviewData() {
       totalOrders,
       totalWorks,
       totalPartners,
+      totalItemsSold,
       avgOrderValue: Math.round(avgOrderValue),
-      recentOrders: recentOrders.map(order => ({
-        id: order.id,
-        status: order.status,
-        total: order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-        itemCount: order.items.length,
-        createdAt: order.createdAt,
-        customerName: order.user?.name || 'Client inconnu'
-      })),
+      recentOrders: recentOrders.map(order => {
+        // Calculer le total de la commande en utilisant la fonction helper
+        const calculatedTotal = calculateOrderTotal(order)
+        
+        // Calculer le nombre total d'articles (somme des quantités)
+        const totalItemCount = order.items && Array.isArray(order.items) && order.items.length > 0
+          ? order.items.reduce((sum: number, item: any) => {
+              const quantity = Number(item.quantity || 0)
+              return sum + quantity
+            }, 0)
+          : 0
+        
+        // Déterminer le nom du client (utilisateur ou partenaire)
+        const customerName = order.user?.name || order.partner?.name || 'N/A'
+        
+        return {
+          id: order.id,
+          status: order.status,
+          total: calculatedTotal,
+          itemCount: totalItemCount,
+          createdAt: order.createdAt,
+          customerName,
+          userId: order.userId,
+          partnerId: order.partnerId || null
+        }
+      }),
       topWorks: topWorks.filter(item => item.work !== null),
       monthlyTrends,
       disciplineRevenue
@@ -297,11 +354,24 @@ async function loadSalesData(startDate?: string, endDate?: string) {
       }
     }
 
-    // Récupérer les commandes (toutes les commandes, pas seulement celles dans la période)
+    // Récupérer les commandes avec tous les détails
     const orders = await prisma.order.findMany({
       where: dateFilter,
       include: {
-        user: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        },
+        partner: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        },
         items: {
           include: {
             work: {
@@ -329,21 +399,41 @@ async function loadSalesData(startDate?: string, endDate?: string) {
       }
     })
 
+    // Fonction pour calculer le total d'une commande
+    const calculateOrderTotal = (order: any) => {
+      // Utiliser le champ total de la commande s'il existe et est valide
+      if (order.total && Number(order.total) > 0) {
+        return Number(order.total)
+      }
+      // Sinon calculer à partir des items
+      if (order.items && Array.isArray(order.items) && order.items.length > 0) {
+        return order.items.reduce((sum: number, item: any) => {
+          const itemPrice = Number(item.price || 0)
+          const itemQuantity = Number(item.quantity || 0)
+          return sum + (itemPrice * itemQuantity)
+        }, 0)
+      }
+      return 0
+    }
+
     // Calculer les statistiques (commandes + ventes directes)
     const ordersRevenue = orders.reduce((sum, order) => {
-      return sum + order.items.reduce((itemSum, item) => {
-        return itemSum + (item.price * item.quantity)
-      }, 0)
+      return sum + calculateOrderTotal(order)
     }, 0)
 
     const salesRevenue = sales.reduce((sum, sale) => {
-      return sum + sale.amount
+      return sum + (Number(sale.amount) || 0)
     }, 0)
 
     const totalRevenue = ordersRevenue + salesRevenue
 
     const ordersItems = orders.reduce((sum, order) => {
-      return sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0)
+      if (order.items && Array.isArray(order.items) && order.items.length > 0) {
+        return sum + order.items.reduce((itemSum: number, item: any) => {
+          return itemSum + Number(item.quantity || 0)
+        }, 0)
+      }
+      return sum
     }, 0)
 
     const salesItems = sales.reduce((sum, sale) => {
@@ -359,13 +449,17 @@ async function loadSalesData(startDate?: string, endDate?: string) {
     
     // Ajouter les commandes
     orders.forEach(order => {
-      order.items.forEach(item => {
-        const disciplineName = item.work?.discipline?.name || 'Non définie'
-        if (!salesByDiscipline[disciplineName]) {
-          salesByDiscipline[disciplineName] = 0
-        }
-        salesByDiscipline[disciplineName] += item.price * item.quantity
-      })
+      if (order.items && Array.isArray(order.items) && order.items.length > 0) {
+        order.items.forEach(item => {
+          const disciplineName = item.work?.discipline?.name || 'Non définie'
+          if (!salesByDiscipline[disciplineName]) {
+            salesByDiscipline[disciplineName] = 0
+          }
+          const itemPrice = Number(item.price || 0)
+          const itemQuantity = Number(item.quantity || 0)
+          salesByDiscipline[disciplineName] += itemPrice * itemQuantity
+        })
+      }
     })
 
     // Ajouter les ventes directes
@@ -382,18 +476,22 @@ async function loadSalesData(startDate?: string, endDate?: string) {
     
     // Ajouter les commandes
     orders.forEach(order => {
-      order.items.forEach(item => {
-        const workId = item.workId
-        if (!workSales[workId]) {
-          workSales[workId] = {
-            work: item.work,
-            quantity: 0,
-            revenue: 0
+      if (order.items && Array.isArray(order.items) && order.items.length > 0) {
+        order.items.forEach(item => {
+          const workId = item.workId
+          if (!workSales[workId]) {
+            workSales[workId] = {
+              work: item.work,
+              quantity: 0,
+              revenue: 0
+            }
           }
-        }
-        workSales[workId].quantity += item.quantity
-        workSales[workId].revenue += item.price * item.quantity
-      })
+          const itemPrice = Number(item.price || 0)
+          const itemQuantity = Number(item.quantity || 0)
+          workSales[workId].quantity += itemQuantity
+          workSales[workId].revenue += itemPrice * itemQuantity
+        })
+      }
     })
 
     // Ajouter les ventes directes
@@ -421,25 +519,55 @@ async function loadSalesData(startDate?: string, endDate?: string) {
         totalItems,
         avgOrderValue: Math.round(avgOrderValue)
       },
-      orders: orders.map(order => ({
-        id: order.id,
-        status: order.status,
-        total: order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-        itemCount: order.items.length,
-        createdAt: order.createdAt,
-        customerName: order.user?.name || 'Client inconnu',
-        items: order.items.map(item => ({
-          id: item.id,
-          work: {
-            id: item.work?.id,
-            title: item.work?.title,
-            discipline: item.work?.discipline?.name,
-            author: item.work?.author?.name || "Auteur inconnu"
-          },
-          quantity: item.quantity,
-          price: item.price
-        }))
-      })),
+      orders: orders.map(order => {
+        // Calculer le total de la commande (utiliser order.total si disponible, sinon calculer)
+        const orderTotal = order.total && Number(order.total) > 0
+          ? Number(order.total)
+          : (order.items && Array.isArray(order.items) && order.items.length > 0
+              ? order.items.reduce((sum: number, item: any) => {
+                  return sum + (Number(item.price || 0) * Number(item.quantity || 0))
+                }, 0)
+              : 0)
+        
+        // Calculer le nombre total d'articles (somme des quantités)
+        const totalItemCount = order.items && Array.isArray(order.items) && order.items.length > 0
+          ? order.items.reduce((sum: number, item: any) => sum + Number(item.quantity || 0), 0)
+          : 0
+        
+        // Déterminer le nom du client (utilisateur ou partenaire)
+        const customerName = order.user?.name || order.partner?.name || 'Client inconnu'
+        
+        return {
+          id: order.id,
+          status: order.status,
+          total: orderTotal,
+          itemCount: totalItemCount,
+          itemsCount: totalItemCount, // Alias pour compatibilité
+          createdAt: order.createdAt,
+          customerName,
+          user: order.user ? {
+            id: order.user.id,
+            name: order.user.name || 'N/A',
+            email: order.user.email || 'N/A'
+          } : null,
+          partner: order.partner ? {
+            id: order.partner.id,
+            name: order.partner.name || 'N/A',
+            email: order.partner.email || 'N/A'
+          } : null,
+          items: order.items.map(item => ({
+            id: item.id,
+            work: {
+              id: item.work?.id,
+              title: item.work?.title,
+              discipline: item.work?.discipline?.name,
+              author: item.work?.author?.name || "Auteur inconnu"
+            },
+            quantity: item.quantity,
+            price: item.price
+          }))
+        }
+      }),
       salesByDiscipline: Object.entries(salesByDiscipline).map(([discipline, revenue]) => ({
         discipline,
         revenue

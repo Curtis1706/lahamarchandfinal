@@ -36,6 +36,7 @@ interface FinancialOverview {
   totalOrders: number;
   totalWorks: number;
   totalPartners: number;
+  totalItemsSold?: number;
   avgOrderValue: number;
   recentOrders: Array<{
     id: string;
@@ -421,7 +422,7 @@ export default function GestionFinancierePage() {
             {overview && (
               <>
                 {/* Métriques principales */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <Card>
                     <CardContent className="p-4">
                       <div className="flex items-center space-x-2">
@@ -449,7 +450,19 @@ export default function GestionFinancierePage() {
                   <Card>
                     <CardContent className="p-4">
                       <div className="flex items-center space-x-2">
-                        <TrendingUp className="h-5 w-5 text-purple-600" />
+                        <BookOpen className="h-5 w-5 text-purple-600" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-600">Articles</p>
+                          <p className="text-2xl font-bold">{overview?.totalItemsSold || 0}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center space-x-2">
+                        <TrendingUp className="h-5 w-5 text-orange-600" />
                         <div>
                           <p className="text-sm font-medium text-gray-600">Panier moyen</p>
                           <p className="text-2xl font-bold">{(overview?.avgOrderValue || 0).toFixed(2)} FCFA</p>
@@ -545,6 +558,57 @@ export default function GestionFinancierePage() {
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Détail des commandes récentes */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Détail des commandes</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Commande</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Client</TableHead>
+                          <TableHead>Statut</TableHead>
+                          <TableHead>Articles</TableHead>
+                          <TableHead>Total</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(overview?.recentOrders || []).length > 0 ? (
+                          overview.recentOrders.map((order) => (
+                            <TableRow key={order.id}>
+                              <TableCell className="font-medium">
+                                #{order.id.substring(0, 8).toUpperCase()}
+                              </TableCell>
+                              <TableCell>
+                                {format(new Date(order.createdAt), "dd/MM/yyyy", { locale: fr })}
+                              </TableCell>
+                              <TableCell>
+                                <div>
+                                  <div className="font-medium">{order.customerName || 'N/A'}</div>
+                                </div>
+                              </TableCell>
+                              <TableCell>{getStatusBadge(order.status)}</TableCell>
+                              <TableCell>{order.itemCount || 0}</TableCell>
+                              <TableCell className="font-medium">
+                                {(order.total || 0).toFixed(2)} FCFA
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                              Aucune commande récente
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
               </>
             )}
           </TabsContent>
@@ -584,7 +648,7 @@ export default function GestionFinancierePage() {
                         <BookOpen className="h-5 w-5 text-purple-600" />
                         <div>
                           <p className="text-sm font-medium text-gray-600">Articles</p>
-                          <p className="text-2xl font-bold">{salesReport?.summary?.totalItems || 0}</p>
+                          <p className="text-2xl font-bold">{overview?.totalItemsSold || 0}</p>
                         </div>
                       </div>
                     </CardContent>
@@ -596,7 +660,7 @@ export default function GestionFinancierePage() {
                         <TrendingUp className="h-5 w-5 text-orange-600" />
                         <div>
                           <p className="text-sm font-medium text-gray-600">Panier moyen</p>
-                          <p className="text-2xl font-bold">{(salesReport?.summary?.avgOrderValue || 0).toFixed(2)} FCFA</p>
+                          <p className="text-2xl font-bold">{(overview?.avgOrderValue || 0).toFixed(2)} FCFA</p>
                         </div>
                       </div>
                     </CardContent>
@@ -621,27 +685,37 @@ export default function GestionFinancierePage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {(salesReport?.orders || []).map((order) => (
-                          <TableRow key={order.id}>
-                            <TableCell className="font-medium">
-                              #{order.id.substring(0, 8).toUpperCase()}
-                            </TableCell>
-                            <TableCell>
-                              {format(new Date(order.createdAt), "dd/MM/yyyy", { locale: fr })}
-                            </TableCell>
-                            <TableCell>
-                              <div>
-                                <div className="font-medium">{order.user?.name || 'N/A'}</div>
-                                <div className="text-sm text-gray-500">{order.user?.email || 'N/A'}</div>
-                              </div>
-                            </TableCell>
-                            <TableCell>{getStatusBadge(order.status)}</TableCell>
-                            <TableCell>{order.itemsCount || 0}</TableCell>
-                            <TableCell className="font-medium">
-                              {(order.totalAmount || 0).toFixed(2)} FCFA
+                        {(salesReport?.orders || []).length > 0 ? (
+                          salesReport.orders.map((order: any) => (
+                            <TableRow key={order.id}>
+                              <TableCell className="font-medium">
+                                #{order.id.substring(0, 8).toUpperCase()}
+                              </TableCell>
+                              <TableCell>
+                                {format(new Date(order.createdAt), "dd/MM/yyyy", { locale: fr })}
+                              </TableCell>
+                              <TableCell>
+                                <div>
+                                  <div className="font-medium">{order.customerName || order.user?.name || order.partner?.name || 'N/A'}</div>
+                                  {(order.user?.email || order.partner?.email) && (
+                                    <div className="text-sm text-gray-500">{order.user?.email || order.partner?.email}</div>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>{getStatusBadge(order.status)}</TableCell>
+                              <TableCell>{order.itemCount || order.itemsCount || 0}</TableCell>
+                              <TableCell className="font-medium">
+                                {(order.total || 0).toFixed(2)} FCFA
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                              Aucune commande pour cette période
                             </TableCell>
                           </TableRow>
-                        ))}
+                        )}
                       </TableBody>
                     </Table>
                   </CardContent>

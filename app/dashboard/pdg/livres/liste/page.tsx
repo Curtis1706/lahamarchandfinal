@@ -74,6 +74,7 @@ export default function LivresListePage() {
   const [disciplines, setDisciplines] = useState<any[]>([]);
   const [auteurs, setAuteurs] = useState<any[]>([]);
   const [concepteurs, setConcepteurs] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
   const { toast } = useToast();
 
@@ -84,6 +85,7 @@ export default function LivresListePage() {
     loadAuteurs();
     loadConcepteurs();
     loadCollections();
+    loadCategories();
   }, []);
 
   // Vérifier si les données sont chargées
@@ -328,6 +330,26 @@ export default function LivresListePage() {
       }
     } catch (error) {
       console.error("Error loading collections:", error);
+    }
+  };
+
+  const loadCategories = async () => {
+    try {
+      const response = await fetch('/api/pdg/categories');
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Catégories chargées:", data);
+        // Filtrer uniquement les catégories actives
+        const activeCategories = Array.isArray(data) ? data.filter((cat: any) => cat.statut === 'Disponible' || cat.isActive) : [];
+        setCategories(activeCategories);
+      }
+    } catch (error) {
+      console.error("Error loading categories:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les catégories",
+        variant: "destructive"
+      });
     }
   };
 
@@ -1123,9 +1145,15 @@ export default function LivresListePage() {
                   <SelectValue placeholder="Sélectionner une catégorie" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="manuel">Manuel</SelectItem>
-                  <SelectItem value="exercice">Exercice</SelectItem>
-                  <SelectItem value="guide">Guide</SelectItem>
+                  {categories.length > 0 ? (
+                    categories.map((category) => (
+                      <SelectItem key={category.id} value={category.nom || category.name}>
+                        {category.nom || category.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="" disabled>Aucune catégorie disponible</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>

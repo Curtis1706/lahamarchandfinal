@@ -75,6 +75,7 @@ export async function GET(request: NextRequest) {
       paymentType: order.paymentType || 'CASH',
       paymentStatus: order.paymentStatus || 'UNPAID',
       paymentMethod: order.paymentMethod,
+      paymentReference: order.paymentReference, // Inclure paymentReference pour l'adresse de livraison
       amountPaid: order.amountPaid || 0,
       remainingAmount: order.remainingAmount || 0,
       depositAmount: order.depositAmount,
@@ -103,7 +104,19 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { userId, partnerId, items, promoCode, discountAmount } = body
+    const { 
+      userId, 
+      partnerId, 
+      items, 
+      promoCode, 
+      discountAmount,
+      deliveryDate,
+      deliveryAddress,
+      deliveryTimeFrom,
+      deliveryTimeTo,
+      paymentMethod,
+      orderType
+    } = body
 
     // Utiliser l'ID de la session si userId n'est pas fourni
     const finalUserId = userId || session.user.id
@@ -181,6 +194,19 @@ export async function POST(request: NextRequest) {
     console.log(`📦 Création de commande pour l'utilisateur ${finalUserId}`)
     console.log(`📦 Items: ${items.length}, Subtotal: ${subtotal}, Tax: ${tax}, Total: ${total}`)
 
+    // Préparer la date de livraison avec les heures si fournies
+    let finalDeliveryDate: Date | null = null
+    if (deliveryDate) {
+      try {
+        const date = new Date(deliveryDate)
+        // Si des heures sont fournies, on peut les combiner avec la date
+        // Pour l'instant, on utilise juste la date
+        finalDeliveryDate = date
+      } catch (e) {
+        console.warn("Erreur lors du parsing de la date de livraison:", e)
+      }
+    }
+
     const newOrder = await prisma.order.create({
       data: {
         userId: finalUserId,
@@ -191,13 +217,24 @@ export async function POST(request: NextRequest) {
         discount: discount || 0,
         promoCode: promoCode || null,
         status: "PENDING",
-        // Initialiser les champs de paiement
+        // Champs de paiement
         paymentType: "CASH", // Par défaut: paiement comptant
         paymentStatus: "UNPAID",
         amountPaid: 0,
         remainingAmount: total,
-        // Initialiser les champs de livraison
+        paymentMethod: paymentMethod || null,
+        // Champs de livraison
         deliveryStatus: "PENDING",
+        deliveryDate: finalDeliveryDate,
+        // Stocker les informations de livraison supplémentaires dans paymentReference temporairement
+        // ou créer un champ notes si disponible
+        // Pour l'instant, on stocke l'adresse et les heures dans paymentReference (à améliorer avec un modèle dédié)
+        paymentReference: deliveryAddress ? JSON.stringify({
+          address: deliveryAddress,
+          timeFrom: deliveryTimeFrom,
+          timeTo: deliveryTimeTo,
+          orderType: orderType
+        }) : null,
         items: {
           create: items.map((item: any) => {
             const work = works.find(w => w.id === item.workId)!

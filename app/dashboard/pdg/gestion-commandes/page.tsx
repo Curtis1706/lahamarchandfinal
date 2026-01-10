@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { apiClient } from "@/lib/api-client"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,17 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import {
+  Command,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+} from "@/components/ui/command"
+import { Check, ChevronsUpDown } from "lucide-react"
 import {
   Table,
   TableBody,
@@ -42,12 +53,16 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  Truck
+  Truck,
+  ChevronDown,
+  Save,
+  X
 } from "lucide-react"
 import { toast } from "sonner"
 import { format, parseISO } from "date-fns"
 import { fr } from "date-fns/locale"
 import { cn } from "@/lib/utils"
+import type { DateRange } from "react-day-picker"
 
 // Types pour les commandes
 interface Order {
@@ -96,6 +111,7 @@ interface Order {
   }>
   total: number
   bookCount: number
+  paymentReference?: string
 }
 
 export default function GestionCommandesPage() {
@@ -128,13 +144,35 @@ export default function GestionCommandesPage() {
   const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false)
   const [users, setUsers] = useState<any[]>([])
   const [works, setWorks] = useState<any[]>([])
+  const [categories, setCategories] = useState<any[]>([])
+  const [disciplines, setDisciplines] = useState<any[]>([])
+  const [classes, setClasses] = useState<any[]>([])
+  const [cartItems, setCartItems] = useState<Array<{ workId: string; title: string; price: number; quantity: number }>>([])
+  const [bookSearchTerm, setBookSearchTerm] = useState("")
+  const [isBookComboboxOpen, setIsBookComboboxOpen] = useState(false)
   const [newOrderData, setNewOrderData] = useState({
     userId: '',
-    items: [{ workId: '', quantity: 1, price: 0 }]
+    selectedCategory: '',
+    selectedDiscipline: '',
+    selectedClass: '',
+    selectedWork: '',
+    quantity: 0,
+    promoCode: '',
+    orderType: 'rentree-scolaire',
+    deliveryDate: undefined as Date | undefined,
+    deliveryTimeFrom: '07:00',
+    deliveryTimeTo: '19:00',
+    deliveryAddress: '',
+    paymentMethod: '',
+    items: [] as Array<{ workId: string; quantity: number; price: number }>
   })
 
   // Fonction utilitaire pour vérifier si works est un tableau valide
   const getWorks = () => works && Array.isArray(works) ? works : []
+
+  // Mémoriser les dates pour éviter les re-renders inutiles
+  const dateFromString = useMemo(() => dateRange.from?.toISOString(), [dateRange.from])
+  const dateToString = useMemo(() => dateRange.to?.toISOString(), [dateRange.to])
 
   // Charger les commandes réelles
   useEffect(() => {
@@ -147,13 +185,13 @@ export default function GestionCommandesPage() {
           params.status = statusFilter.toUpperCase()
         }
         
-        if (dateRange.from && dateRange.to) {
-          params.startDate = dateRange.from.toISOString()
-          params.endDate = dateRange.to.toISOString()
+        if (dateFromString && dateToString) {
+          params.startDate = dateFromString
+          params.endDate = dateToString
         }
         
         const ordersData = await apiClient.getOrders(params)
-        setOrders(ordersData)
+        setOrders(ordersData as Order[])
       } catch (error: any) {
         console.error("Error fetching orders:", error)
         toast.error("Erreur lors du chargement des commandes")
@@ -163,49 +201,60 @@ export default function GestionCommandesPage() {
     }
 
     fetchOrders()
-  }, [statusFilter, dateRange.from, dateRange.to])
+  }, [statusFilter, dateFromString, dateToString])
 
   // Charger les utilisateurs et les livres pour le formulaire de création
   useEffect(() => {
     const fetchFormData = async () => {
       try {
-        const [usersData, worksData] = await Promise.all([
+        const [usersData, worksData, categoriesData, disciplinesData, classesData] = await Promise.all([
           apiClient.getUsers(),
-          apiClient.getWorks()
+          apiClient.getWorks(),
+          fetch("/api/pdg/categories").then(r => r.json()).catch(() => []),
+          apiClient.getDisciplines(),
+          fetch("/api/pdg/classes").then(r => r.json()).catch(() => [])
         ])
         setUsers(usersData || [])
         setWorks(worksData || [])
+        setCategories(Array.isArray(categoriesData) ? categoriesData : [])
+        setDisciplines(Array.isArray(disciplinesData) ? disciplinesData : [])
+        setClasses(Array.isArray(classesData) ? classesData : [])
       } catch (error) {
         console.error("Error fetching form data:", error)
         setUsers([])
         setWorks([])
+        setCategories([])
+        setDisciplines([])
+        setClasses([])
       }
     }
 
     fetchFormData()
   }, [])
 
-  // Filtrage des commandes
-  const filteredOrders = orders.filter(order => {
-    const clientName = order.user?.name || order.partner?.name || ''
-    const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         clientName.toLowerCase().includes(searchTerm.toLowerCase())
-    
-    const matchesStatus = statusFilter === "all" || order.status === statusFilter.toUpperCase()
-    const matchesPaymentType = paymentTypeFilter === "all" || order.paymentType === paymentTypeFilter
-    const matchesPaymentStatus = paymentStatusFilter === "all" || order.paymentStatus === paymentStatusFilter
-    const matchesDeliveryStatus = deliveryStatusFilter === "all" || order.deliveryStatus === deliveryStatusFilter
-    
-    return matchesSearch && matchesStatus && matchesPaymentType && matchesPaymentStatus && matchesDeliveryStatus
-  })
+  // Filtrage des commandes - mémorisé pour éviter les recalculs inutiles
+  const filteredOrders = useMemo(() => {
+    return orders.filter(order => {
+      const clientName = order.user?.name || order.partner?.name || ''
+      const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           clientName.toLowerCase().includes(searchTerm.toLowerCase())
+      
+      const matchesStatus = statusFilter === "all" || order.status === statusFilter.toUpperCase()
+      const matchesPaymentType = paymentTypeFilter === "all" || order.paymentType === paymentTypeFilter
+      const matchesPaymentStatus = paymentStatusFilter === "all" || order.paymentStatus === paymentStatusFilter
+      const matchesDeliveryStatus = deliveryStatusFilter === "all" || order.deliveryStatus === deliveryStatusFilter
+      
+      return matchesSearch && matchesStatus && matchesPaymentType && matchesPaymentStatus && matchesDeliveryStatus
+    })
+  }, [orders, searchTerm, statusFilter, paymentTypeFilter, paymentStatusFilter, deliveryStatusFilter])
 
-  // Actions sur les commandes
-  const handleViewOrder = (order: Order) => {
+  // Actions sur les commandes - mémorisées avec useCallback
+  const handleViewOrder = useCallback((order: Order) => {
     setSelectedOrder(order)
     setIsDetailsOpen(true)
-  }
+  }, [])
 
-  const handleUpdateOrderStatus = async (orderId: string, newStatus: string) => {
+  const handleUpdateOrderStatus = useCallback(async (orderId: string, newStatus: string) => {
     try {
       await apiClient.updateOrder(orderId, { status: newStatus })
       
@@ -227,9 +276,9 @@ export default function GestionCommandesPage() {
     } catch (error: any) {
       toast.error(error.message || "Erreur lors de la mise à jour")
     }
-  }
+  }, [])
 
-  const handleDeleteOrder = async (orderId: string) => {
+  const handleDeleteOrder = useCallback(async (orderId: string) => {
     // Vérifier si la commande est livrée
     const order = orders.find(o => o.id === orderId)
     if (order?.status === 'DELIVERED') {
@@ -251,30 +300,218 @@ export default function GestionCommandesPage() {
     } catch (error: any) {
       toast.error(error.message || "Erreur lors de la suppression")
     }
-  }
+  }, [orders])
 
-  const handleCreateOrder = async () => {
+  // Filtrer les livres selon les sélections - mémorisé pour éviter les recalculs
+  const filteredWorksForSelection = useMemo(() => {
+    // La catégorie est obligatoire - si aucune catégorie n'est sélectionnée, aucun livre n'est affiché
+    if (!newOrderData.selectedCategory) {
+      return []
+    }
+    
+    let filtered = getWorks()
+    
+    // Filtrer par catégorie (obligatoire)
+    const selectedCategoryName = categories.find(cat => (cat.nom || cat.name) === newOrderData.selectedCategory)?.nom || newOrderData.selectedCategory
+    filtered = filtered.filter(work => {
+      // Le livre doit avoir une catégorie pour être trouvé
+      const workCategory = work.category || ''
+      if (!workCategory) {
+        return false // Exclure les livres sans catégorie
+      }
+      // Comparer le nom de la catégorie du work avec la catégorie sélectionnée
+      return workCategory.toLowerCase() === selectedCategoryName.toLowerCase() || 
+             workCategory.toLowerCase().includes(selectedCategoryName.toLowerCase())
+    })
+    
+    // Filtrer par matière (discipline) - optionnel
+    if (newOrderData.selectedDiscipline) {
+      filtered = filtered.filter(work => work.disciplineId === newOrderData.selectedDiscipline)
+    }
+    
+    // Filtrer par terme de recherche (titre du livre ou ISBN) - optionnel
+    if (bookSearchTerm.trim()) {
+      const searchLower = bookSearchTerm.toLowerCase().trim()
+      filtered = filtered.filter(work => 
+        work.title?.toLowerCase().includes(searchLower) ||
+        work.isbn?.toLowerCase().includes(searchLower)
+      )
+    }
+    
+    // Filtrer les livres sans stock (stock <= 0)
+    filtered = filtered.filter(work => {
+      const stock = work.stock ?? 0
+      return stock > 0
+    })
+    
+    // Note: La classe est optionnelle et ne filtre pas les livres
+    // Elle peut être utilisée pour d'autres fins (ex: informations de livraison)
+    
+    return filtered
+  }, [works, categories, newOrderData.selectedCategory, newOrderData.selectedDiscipline, bookSearchTerm])
+  
+  const getFilteredWorks = useCallback(() => {
+    return filteredWorksForSelection
+  }, [filteredWorksForSelection])
+
+  // Ajouter un article au panier - mémorisé avec useCallback
+  const handleAddToCart = useCallback(() => {
+    console.log("🛒 Tentative d'ajout au panier:", {
+      selectedWork: newOrderData.selectedWork,
+      quantity: newOrderData.quantity,
+      cartItemsCount: cartItems.length
+    })
+
+    if (!newOrderData.selectedWork) {
+      toast.error("Veuillez sélectionner un livre")
+      return
+    }
+
+    const quantity = newOrderData.quantity > 0 ? newOrderData.quantity : 1 // Par défaut, quantité = 1 si non spécifiée ou 0
+    if (quantity <= 0) {
+      toast.error("La quantité doit être supérieure à 0")
+      return
+    }
+
+    const work = getWorks().find(w => w.id === newOrderData.selectedWork)
+    if (!work) {
+      console.error("❌ Livre introuvable:", newOrderData.selectedWork)
+      toast.error("Livre introuvable")
+      return
+    }
+
+    // Vérifier le stock disponible
+    const stock = work.stock ?? 0
+    if (stock <= 0) {
+      toast.error(`${work.title} n'est plus en stock`)
+      return
+    }
+
+    console.log("✅ Livre trouvé:", work.title, "Stock disponible:", stock)
+
+    const existingItem = cartItems.find(item => item.workId === newOrderData.selectedWork)
+    if (existingItem) {
+      // Vérifier que la quantité totale (existante + nouvelle) ne dépasse pas le stock
+      const totalQuantity = existingItem.quantity + quantity
+      if (totalQuantity > stock) {
+        toast.error(`Stock insuffisant pour ${work.title}. Stock disponible: ${stock}, Quantité demandée: ${totalQuantity}`)
+        return
+      }
+      
+      console.log("📦 Article existant, mise à jour de la quantité")
+      setCartItems(prev => {
+        const updated = prev.map(item => 
+          item.workId === newOrderData.selectedWork
+            ? { ...item, quantity: item.quantity + quantity }
+            : item
+        )
+        console.log("🛒 Panier mis à jour:", updated)
+        return updated
+      })
+      toast.success(`${work.title} ajouté au panier (quantité: ${quantity})`)
+    } else {
+      // Vérifier que la quantité demandée ne dépasse pas le stock
+      if (quantity > stock) {
+        toast.error(`Stock insuffisant pour ${work.title}. Stock disponible: ${stock}, Quantité demandée: ${quantity}`)
+        return
+      }
+      console.log("🆕 Nouvel article, ajout au panier")
+      const newItem = {
+        workId: work.id,
+        title: work.title,
+        price: work.price || 0,
+        quantity: quantity
+      }
+      setCartItems(prev => {
+        const updated = [...prev, newItem]
+        console.log("🛒 Panier mis à jour:", updated)
+        return updated
+      })
+      toast.success(`${work.title} ajouté au panier`)
+    }
+
+    // Réinitialiser les sélections
+    setNewOrderData(prev => ({
+      ...prev,
+      selectedWork: '',
+      quantity: 0
+    }))
+  }, [newOrderData.selectedWork, newOrderData.quantity, cartItems, works])
+
+  // Retirer un article du panier - mémorisé avec useCallback
+  const handleRemoveFromCart = useCallback((workId: string) => {
+    setCartItems(prev => prev.filter(item => item.workId !== workId))
+  }, [])
+
+  // Calculer le total - mémorisé pour éviter les recalculs
+  const calculateTotal = useCallback(() => {
+    return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0)
+  }, [cartItems])
+  
+  const totalAmount = useMemo(() => calculateTotal(), [calculateTotal])
+
+  const handleCreateOrder = useCallback(async () => {
     try {
-      if (!newOrderData.userId || newOrderData.items.some(item => !item.workId || item.quantity <= 0)) {
-        toast.error("Veuillez remplir tous les champs obligatoires")
+      if (!newOrderData.userId || cartItems.length === 0) {
+        toast.error("Veuillez remplir tous les champs obligatoires et ajouter au moins un article")
         return
       }
 
-      // Calculer les prix pour chaque item
-      const itemsWithPrice = newOrderData.items.map(item => {
-        const work = getWorks().find(w => w.id === item.workId)
-        return {
-          ...item,
-          price: work?.price || 0
-        }
-      })
-
-      const orderData = {
-        userId: newOrderData.userId,
-        items: itemsWithPrice
+      if (!newOrderData.deliveryAddress || !newOrderData.deliveryDate) {
+        toast.error("Veuillez remplir les coordonnées de livraison")
+        return
       }
 
-      const newOrder = await apiClient.createOrder(orderData)
+      // Vérifier le stock disponible pour tous les articles du panier
+      for (const item of cartItems) {
+        const work = getWorks().find(w => w.id === item.workId)
+        if (!work) {
+          toast.error(`Livre introuvable: ${item.title}`)
+          return
+        }
+        const stock = work.stock ?? 0
+        if (stock < item.quantity) {
+          toast.error(`Stock insuffisant pour ${item.title}. Stock disponible: ${stock}, Quantité demandée: ${item.quantity}`)
+          return
+        }
+      }
+
+      // Convertir les articles du panier en format API
+      const itemsWithPrice = cartItems.map(item => ({
+        workId: item.workId,
+        quantity: item.quantity,
+        price: item.price
+      }))
+
+      const orderData: any = {
+        userId: newOrderData.userId,
+        items: itemsWithPrice,
+        promoCode: newOrderData.promoCode || undefined
+      }
+
+      // Ajouter les coordonnées de livraison
+      if (newOrderData.deliveryDate) {
+        orderData.deliveryDate = newOrderData.deliveryDate.toISOString()
+      }
+      if (newOrderData.deliveryAddress) {
+        orderData.deliveryAddress = newOrderData.deliveryAddress
+      }
+      if (newOrderData.deliveryTimeFrom && newOrderData.deliveryTimeTo) {
+        orderData.deliveryTimeFrom = newOrderData.deliveryTimeFrom
+        orderData.deliveryTimeTo = newOrderData.deliveryTimeTo
+      }
+      
+      // Ajouter le mode de paiement
+      if (newOrderData.paymentMethod) {
+        orderData.paymentMethod = newOrderData.paymentMethod
+      }
+      
+      // Ajouter le type de commande
+      if (newOrderData.orderType) {
+        orderData.orderType = newOrderData.orderType
+      }
+
+      const newOrder = await apiClient.createOrder(orderData) as Order
       
       // Ajouter à la liste locale
       setOrders(prev => [newOrder, ...prev])
@@ -282,44 +519,36 @@ export default function GestionCommandesPage() {
       // Réinitialiser le formulaire
       setNewOrderData({
         userId: '',
-        items: [{ workId: '', quantity: 1, price: 0 }]
+        selectedCategory: '',
+        selectedDiscipline: '',
+        selectedClass: '',
+        selectedWork: '',
+        quantity: 0,
+        promoCode: '',
+        orderType: 'rentree-scolaire',
+        deliveryDate: undefined,
+        deliveryTimeFrom: '07:00',
+        deliveryTimeTo: '19:00',
+        deliveryAddress: '',
+        paymentMethod: '',
+        items: []
       })
+      setCartItems([])
+      setBookSearchTerm("")
       setIsCreateOrderOpen(false)
       
       toast.success("Commande créée avec succès")
     } catch (error: any) {
       toast.error(error.message || "Erreur lors de la création")
     }
-  }
+  }, [newOrderData, cartItems])
 
-  const addOrderItem = () => {
-    setNewOrderData(prev => ({
-      ...prev,
-      items: [...prev.items, { workId: '', quantity: 1, price: 0 }]
-    }))
-  }
 
-  const removeOrderItem = (index: number) => {
-    setNewOrderData(prev => ({
-      ...prev,
-      items: prev.items.filter((_, i) => i !== index)
-    }))
-  }
-
-  const updateOrderItem = (index: number, field: string, value: any) => {
-    setNewOrderData(prev => ({
-      ...prev,
-      items: prev.items.map((item, i) => 
-        i === index ? { ...item, [field]: value } : item
-      )
-    }))
-  }
-
-  // Pagination
-  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const paginatedOrders = filteredOrders.slice(startIndex, endIndex)
+  // Pagination - mémorisée pour éviter les recalculs
+  const totalPages = useMemo(() => Math.ceil(filteredOrders.length / itemsPerPage), [filteredOrders.length, itemsPerPage])
+  const startIndex = useMemo(() => (currentPage - 1) * itemsPerPage, [currentPage, itemsPerPage])
+  const endIndex = useMemo(() => startIndex + itemsPerPage, [startIndex, itemsPerPage])
+  const paginatedOrders = useMemo(() => filteredOrders.slice(startIndex, endIndex), [filteredOrders, startIndex, endIndex])
 
   // Fonctions utilitaires
   const getStatusBadge = (status: string) => {
@@ -390,22 +619,59 @@ export default function GestionCommandesPage() {
     }
   }
 
-  const handleApplyFilters = () => {
+  // Extraire l'adresse de livraison depuis paymentReference
+  const getDeliveryAddress = (order: Order) => {
+    if (!order.paymentReference) {
+      return '-'
+    }
+    
+    try {
+      const deliveryInfo = JSON.parse(order.paymentReference)
+      return deliveryInfo.address || '-'
+    } catch {
+      // Si ce n'est pas du JSON, retourner la valeur telle quelle
+      return order.paymentReference || '-'
+    }
+  }
+
+  // Callback mémorisé pour la sélection de date
+  const handleDateRangeSelect = useCallback((range: DateRange | undefined) => {
+    setDateRange({ from: range?.from, to: range?.to })
+  }, [])
+
+  const handleApplyFilters = useCallback(() => {
     setCurrentPage(1)
     toast.success("Filtres appliqués")
-  }
+  }, [])
 
-  const handleExportPDF = () => {
+  const handleExportPDF = useCallback(() => {
     toast.success("Export PDF en cours...")
-  }
+  }, [])
 
-  const handleExportExcel = () => {
+  const handleExportExcel = useCallback(() => {
     toast.success("Export Excel en cours...")
-  }
+  }, [])
 
-  const handlePrint = () => {
+  const handlePrint = useCallback(() => {
     window.print()
-  }
+  }, [])
+
+  // Callback mémorisé pour la sélection de date de livraison
+  const handleDeliveryDateSelect = useCallback((date: Date | undefined) => {
+    setNewOrderData(prev => ({ ...prev, deliveryDate: date }))
+  }, [])
+
+  // Fonction pour ouvrir la modale et réinitialiser les données
+  const handleOpenCreateOrderModal = useCallback(() => {
+    setBookSearchTerm("")
+    setIsCreateOrderOpen(true)
+  }, [])
+
+  // Fonction pour fermer la modale et réinitialiser les données
+  const handleCloseCreateOrderModal = useCallback(() => {
+    setBookSearchTerm("")
+    setIsCreateOrderOpen(false)
+  }, [])
 
   if (userLoading || isLoading) {
     return (
@@ -437,7 +703,7 @@ export default function GestionCommandesPage() {
             </Button>
             
             <Button 
-              onClick={() => setIsCreateOrderOpen(true)}
+              onClick={handleOpenCreateOrderModal}
               className="bg-indigo-600 hover:bg-indigo-700"
             >
               <Plus className="h-4 w-4 mr-2" />
@@ -482,7 +748,7 @@ export default function GestionCommandesPage() {
                     mode="range"
                     defaultMonth={dateRange.from}
                     selected={{ from: dateRange.from, to: dateRange.to }}
-                    onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
+                    onSelect={handleDateRangeSelect}
                     numberOfMonths={2}
                   />
                 </PopoverContent>
@@ -642,6 +908,7 @@ export default function GestionCommandesPage() {
                 <TableHead className="font-semibold">Demandé par</TableHead>
                 <TableHead className="font-semibold">Fait le</TableHead>
                 <TableHead className="font-semibold">Date livraison</TableHead>
+                <TableHead className="font-semibold">Lieu de livraison</TableHead>
                 <TableHead className="font-semibold">Type</TableHead>
                 <TableHead className="font-semibold">Statut</TableHead>
                 <TableHead className="font-semibold">Livraison</TableHead>
@@ -655,7 +922,7 @@ export default function GestionCommandesPage() {
             <TableBody>
               {paginatedOrders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={12} className="text-center py-8">
+                  <TableCell colSpan={13} className="text-center py-8">
                     <div className="flex flex-col items-center space-y-2">
                       <Info className="h-8 w-8 text-gray-400" />
                       <p className="text-gray-500">Aucune donnée disponible dans le tableau</p>
@@ -671,6 +938,13 @@ export default function GestionCommandesPage() {
                     <TableCell>{formatDate(order.createdAt)}</TableCell>
                     <TableCell>
                       {order.deliveryDate ? formatDate(order.deliveryDate) : '-'}
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm" title={getDeliveryAddress(order)}>
+                        {getDeliveryAddress(order).length > 50 
+                          ? getDeliveryAddress(order).substring(0, 50) + '...' 
+                          : getDeliveryAddress(order)}
+                      </span>
                     </TableCell>
                     <TableCell>
                       {order.items[0]?.work?.discipline?.name || 'Divers'}
@@ -1073,121 +1347,431 @@ export default function GestionCommandesPage() {
 
         {/* Modal de création de commande */}
         <Dialog open={isCreateOrderOpen} onOpenChange={setIsCreateOrderOpen}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Nouvelle Commande</DialogTitle>
-              <DialogDescription>
-                Créer une nouvelle commande pour un client
-              </DialogDescription>
+          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <DialogTitle className="text-xl font-semibold">Création de nouvelle commande</DialogTitle>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">Total: {totalAmount.toLocaleString()} XOF</span>
+                <Button variant="ghost" size="sm" onClick={handleCloseCreateOrderModal}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
             </DialogHeader>
             
             <div className="space-y-6">
-              {/* Sélection du client */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Client *</label>
-                <Select 
-                  value={newOrderData.userId} 
-                  onValueChange={(value) => setNewOrderData(prev => ({ ...prev, userId: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionnez un client" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {users.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.name} ({user.email})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Articles de la commande */}
+              {/* Section de sélection des articles */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Articles</h3>
-                  <Button onClick={addOrderItem} variant="outline" size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Ajouter un article
-                  </Button>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Sélection du client */}
+                  <div className="space-y-2">
+                    <Label>Sélectionner le client</Label>
+                    <Select 
+                      value={newOrderData.userId} 
+                      onValueChange={(value) => setNewOrderData(prev => ({ ...prev, userId: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionnez un client" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {users.map((user) => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.name} ({user.email})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Choix de la catégorie */}
+                  <div className="space-y-2">
+                    <Label>Choix de la catégorie</Label>
+                    <Select 
+                      value={newOrderData.selectedCategory} 
+                      onValueChange={(value) => {
+                        setNewOrderData(prev => ({ ...prev, selectedCategory: value, selectedWork: '' }))
+                        setBookSearchTerm("")
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionnez une catégorie" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((category) => (
+                          <SelectItem key={category.id} value={category.nom || category.name || category.id}>
+                            {category.nom || category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Choix de la matière */}
+                  <div className="space-y-2">
+                    <Label>Choix de la Matière</Label>
+                    <Select 
+                      value={newOrderData.selectedDiscipline} 
+                      onValueChange={(value) => {
+                        setNewOrderData(prev => ({ ...prev, selectedDiscipline: value, selectedWork: '' }))
+                        setBookSearchTerm("")
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionnez une matière" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {disciplines.map((discipline) => (
+                          <SelectItem key={discipline.id} value={discipline.id}>
+                            {discipline.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
-                {newOrderData.items.map((item, index) => (
-                  <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border rounded-lg">
-                    <div className="md:col-span-2">
-                      <label className="text-sm font-medium">Livre *</label>
-                      <Select 
-                        value={item.workId} 
-                        onValueChange={(value) => updateOrderItem(index, 'workId', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sélectionnez un livre" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {getWorks().map((work) => (
-                            <SelectItem key={work.id} value={work.id}>
-                              {work.title} - {work.price?.toFixed(2) || '0.00'} FCFA
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium">Quantité *</label>
-                      <Input
-                        type="number"
-                        min="1"
-                        value={item.quantity}
-                        onChange={(e) => updateOrderItem(index, 'quantity', parseInt(e.target.value) || 1)}
-                      />
-                    </div>
-
-                    <div className="flex items-end">
-                      {newOrderData.items.length > 1 && (
-                        <Button 
-                          onClick={() => removeOrderItem(index)} 
-                          variant="destructive" 
-                          size="sm"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  {/* Choix de la classe */}
+                  <div className="space-y-2">
+                    <Label>Choix de la classe</Label>
+                    <Select 
+                      value={newOrderData.selectedClass} 
+                      onValueChange={(value) => setNewOrderData(prev => ({ ...prev, selectedClass: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionnez la classe" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {classes.map((classe) => (
+                          <SelectItem key={classe.id} value={classe.classe || classe.name || classe.id}>
+                            {classe.classe || classe.name} ({classe.section})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                ))}
+
+                  {/* Choix du livre */}
+                  <div className="space-y-2">
+                    <Label>Choix du livre</Label>
+                    <Popover 
+                      open={isBookComboboxOpen} 
+                      onOpenChange={(open) => {
+                        setIsBookComboboxOpen(open)
+                        if (!open) {
+                          setBookSearchTerm("")
+                        }
+                      }}
+                    >
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={isBookComboboxOpen}
+                          className="w-full justify-between"
+                        >
+                          {newOrderData.selectedWork
+                            ? getWorks().find((work) => work.id === newOrderData.selectedWork)?.title || "Sélectionnez un livre"
+                            : "Sélectionnez un livre..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[400px] p-0" align="start">
+                        <Command shouldFilter={false} className="rounded-lg border-none">
+                          <CommandInput 
+                            placeholder="Rechercher un livre..." 
+                            value={bookSearchTerm}
+                            onValueChange={(value) => setBookSearchTerm(value)}
+                            className="h-9"
+                          />
+                          <CommandList className="max-h-[300px]">
+                            <CommandEmpty>
+                              {bookSearchTerm.trim() ? `Aucun livre trouvé pour "${bookSearchTerm}"` : "Aucun livre disponible"}
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {filteredWorksForSelection.map((work) => (
+                                <CommandItem
+                                  key={work.id}
+                                  value={`${work.title} ${work.isbn || ''}`}
+                                  onSelect={() => {
+                                    setNewOrderData(prev => ({ ...prev, selectedWork: work.id }))
+                                    setBookSearchTerm("")
+                                    setIsBookComboboxOpen(false)
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      newOrderData.selectedWork === work.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  <div className="flex-1">
+                                    <div className="font-medium">{work.title}</div>
+                                    <div className="text-xs text-gray-500">
+                                      {(work.price || 0).toLocaleString()} XOF
+                                      {work.isbn && ` • ISBN: ${work.isbn}`}
+                                      {work.stock !== undefined && (
+                                        <span className={cn(
+                                          "ml-2",
+                                          (work.stock ?? 0) > 0 ? "text-green-600" : "text-red-600"
+                                        )}>
+                                          • Stock: {work.stock ?? 0}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                            {bookSearchTerm.trim() && filteredWorksForSelection.length > 0 && (
+                              <div className="p-2 text-xs text-gray-500 text-center border-t">
+                                {filteredWorksForSelection.length} livre{filteredWorksForSelection.length > 1 ? 's' : ''} trouvé{filteredWorksForSelection.length > 1 ? 's' : ''}
+                              </div>
+                            )}
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Quantité */}
+                  <div className="space-y-2">
+                    <Label>Quantité</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={newOrderData.quantity || ''}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value) || 0
+                        setNewOrderData(prev => ({ ...prev, quantity: value }))
+                      }}
+                      placeholder="1"
+                    />
+                  </div>
+
+                  {/* Boutons Ajouter et Auto */}
+                  <div className="flex items-end gap-2">
+                    <Button 
+                      onClick={handleAddToCart}
+                      className="bg-indigo-600 hover:bg-indigo-700 flex-1"
+                    >
+                      Ajouter
+                      <ChevronDown className="h-4 w-4 ml-2" />
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600"
+                    >
+                      Auto
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Tableau récapitulatif */}
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-gray-50">
+                        <TableHead>Livre</TableHead>
+                        <TableHead>Prix</TableHead>
+                        <TableHead>Quantité</TableHead>
+                        <TableHead>Montant</TableHead>
+                        <TableHead>Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {cartItems.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center text-gray-500 py-8">
+                            Aucun article dans le panier
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        cartItems.map((item) => (
+                          <TableRow key={item.workId}>
+                            <TableCell>{item.title}</TableCell>
+                            <TableCell>{item.price.toLocaleString()} XOF</TableCell>
+                            <TableCell>{item.quantity}</TableCell>
+                            <TableCell>{(item.price * item.quantity).toLocaleString()} XOF</TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveFromCart(item.workId)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Total */}
+                <div className="flex justify-end">
+                  <div className="text-right">
+                    <span className="text-sm font-medium">Total: {totalAmount.toLocaleString()} XOF</span>
+                  </div>
+                </div>
               </div>
 
-              {/* Total estimé */}
-              <div className="border-t pt-4">
-                <div className="text-right">
-                  <div className="text-lg font-semibold">
-                    Total estimé: {
-                      newOrderData.items.reduce((total, item) => {
-                        const work = getWorks().find(w => w.id === item.workId)
-                        return total + ((work?.price || 0) * item.quantity)
-                      }, 0).toFixed(2)
-                    } FCFA
+              {/* Section détails de la commande */}
+              <div className="space-y-4 border-t pt-4">
+                {/* Code promo */}
+                <div className="flex gap-2">
+                  <div className="flex-1 space-y-2">
+                    <Label>Code promo</Label>
+                    <Input
+                      placeholder="CODE PROMO"
+                      value={newOrderData.promoCode}
+                      onChange={(e) => setNewOrderData(prev => ({ ...prev, promoCode: e.target.value }))}
+                    />
                   </div>
-                  <div className="text-sm text-gray-600">
-                    {newOrderData.items.reduce((total, item) => total + item.quantity, 0)} livre(s)
+                  <div className="flex items-end">
+                    <Button className="bg-indigo-600 hover:bg-indigo-700">
+                      Appliquer
+                    </Button>
                   </div>
+                </div>
+
+                {/* Type de commande */}
+                <div className="space-y-2">
+                  <Label>Type de commande</Label>
+                  <Select 
+                    value={newOrderData.orderType} 
+                    onValueChange={(value) => setNewOrderData(prev => ({ ...prev, orderType: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionnez le type de commande" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="rentree-scolaire">Commande pour la rentrée scolaire</SelectItem>
+                      <SelectItem value="cours-vacances">Cours de vacances</SelectItem>
+                      <SelectItem value="periode-cours">Période de cours</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Coordonnées de Livraison */}
+                <div className="space-y-4">
+                  <div className="bg-black text-white px-4 py-2 rounded">
+                    <Label className="text-white font-semibold">Coordonnées de Livraison</Label>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Date de livraison */}
+                    <div className="space-y-2">
+                      <Label>Date de livraison</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !newOrderData.deliveryDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {newOrderData.deliveryDate ? (
+                              format(newOrderData.deliveryDate, "dd/MM/yyyy", { locale: fr })
+                            ) : (
+                              <span className="text-muted-foreground">Sélectionnez une date</span>
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={newOrderData.deliveryDate}
+                            onSelect={handleDeliveryDateSelect}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    {/* Plage horaire */}
+                    <div className="space-y-2">
+                      <Label>Plage horaire</Label>
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <Label className="text-xs text-gray-600">De</Label>
+                          <div className="relative">
+                            <Input
+                              type="time"
+                              value={newOrderData.deliveryTimeFrom}
+                              onChange={(e) => setNewOrderData(prev => ({ ...prev, deliveryTimeFrom: e.target.value }))}
+                              className="pr-8"
+                            />
+                            <Clock className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <Label className="text-xs text-gray-600">à</Label>
+                          <div className="relative">
+                            <Input
+                              type="time"
+                              value={newOrderData.deliveryTimeTo}
+                              onChange={(e) => setNewOrderData(prev => ({ ...prev, deliveryTimeTo: e.target.value }))}
+                              className="pr-8"
+                            />
+                            <Clock className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Adresse de livraison */}
+                  <div className="space-y-2">
+                    <Label>Adresse de livraison</Label>
+                    <Textarea
+                      placeholder="Adresse de livraison"
+                      value={newOrderData.deliveryAddress}
+                      onChange={(e) => setNewOrderData(prev => ({ ...prev, deliveryAddress: e.target.value }))}
+                      rows={3}
+                      className="resize-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Mode de paiement */}
+                <div className="space-y-2">
+                  <Label>Sélectionnez Mode de paiement</Label>
+                  <Select 
+                    value={newOrderData.paymentMethod} 
+                    onValueChange={(value) => setNewOrderData(prev => ({ ...prev, paymentMethod: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionnez mode de règlement" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="especes">Espèces</SelectItem>
+                      <SelectItem value="mobile-money">Mobile Money</SelectItem>
+                      <SelectItem value="virement">Virement bancaire</SelectItem>
+                      <SelectItem value="carte">Carte bancaire</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
               {/* Actions */}
               <div className="flex justify-end space-x-2 pt-4 border-t">
                 <Button 
-                  onClick={() => setIsCreateOrderOpen(false)} 
-                  variant="outline"
+                  onClick={handleCreateOrder}
+                  className="bg-indigo-600 hover:bg-indigo-700"
                 >
-                  Annuler
+                  <Save className="h-4 w-4 mr-2" />
+                  Enregistrer
                 </Button>
                 <Button 
-                  onClick={handleCreateOrder}
-                  className="bg-green-600 hover:bg-green-700"
+                  onClick={handleCloseCreateOrderModal} 
+                  variant="destructive"
                 >
-                  Créer la commande
+                  <X className="h-4 w-4 mr-2" />
+                  Fermer
                 </Button>
               </div>
             </div>
