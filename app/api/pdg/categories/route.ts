@@ -11,13 +11,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Permettre l'accès aux PDG et aux clients (pour passer des commandes)
-    if (session.user.role !== "PDG" && session.user.role !== "CLIENT") {
-      return NextResponse.json({ error: "Forbidden - PDG or CLIENT role required" }, { status: 403 })
+    // Permettre l'accès aux PDG, clients et auteurs (pour créer des œuvres)
+    if (session.user.role !== "PDG" && session.user.role !== "CLIENT" && session.user.role !== "AUTEUR") {
+      return NextResponse.json({ error: "Forbidden - PDG, CLIENT or AUTEUR role required" }, { status: 403 })
     }
 
-    // Filtrer uniquement les catégories actives pour les clients
-    const whereClause = session.user.role === "CLIENT" 
+    // Filtrer uniquement les catégories actives pour les clients et auteurs
+    const whereClause = (session.user.role === "CLIENT" || session.user.role === "AUTEUR")
       ? { isActive: true }
       : {}
 

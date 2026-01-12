@@ -163,6 +163,20 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
+    // Valider que toutes les quantités sont valides (strictement supérieures à 0)
+    for (const item of items) {
+      if (!item.workId) {
+        return NextResponse.json({ 
+          error: `workId manquant pour un article` 
+        }, { status: 400 })
+      }
+      if (!item.quantity || item.quantity <= 0 || !Number.isInteger(item.quantity)) {
+        return NextResponse.json({ 
+          error: `Quantité invalide pour l'article ${item.workId}. La quantité doit être un entier strictement positif` 
+        }, { status: 400 })
+      }
+    }
+
     // Récupérer l'utilisateur pour obtenir ses informations
     const user = await prisma.user.findUnique({
       where: { id: session.user.id }
@@ -203,6 +217,12 @@ export async function POST(request: NextRequest) {
       where: {
         id: { in: workIds },
         status: 'PUBLISHED'
+      },
+      select: {
+        id: true,
+        title: true,
+        stock: true,
+        price: true
       }
     })
 
@@ -210,6 +230,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ 
         error: 'Certaines œuvres ne sont pas disponibles' 
       }, { status: 400 })
+    }
+
+    // Vérifier le stock disponible pour chaque article
+    for (const item of items) {
+      const work = works.find(w => w.id === item.workId)
+      if (!work) {
+        return NextResponse.json({ 
+          error: `Œuvre ${item.workId} introuvable` 
+        }, { status: 400 })
+      }
+      if (work.stock < item.quantity) {
+        return NextResponse.json({ 
+          error: `Stock insuffisant pour "${work.title}". Disponible: ${work.stock}, Demandé: ${item.quantity}` 
+        }, { status: 400 })
+      }
     }
 
     // Créer la commande

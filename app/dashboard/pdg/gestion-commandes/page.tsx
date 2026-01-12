@@ -56,7 +56,8 @@ import {
   Truck,
   ChevronDown,
   Save,
-  X
+  X,
+  Loader2
 } from "lucide-react"
 import { toast } from "sonner"
 import { format, parseISO } from "date-fns"
@@ -142,6 +143,7 @@ export default function GestionCommandesPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false)
+  const [isCreatingOrder, setIsCreatingOrder] = useState(false)
   const [users, setUsers] = useState<any[]>([])
   const [works, setWorks] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
@@ -174,34 +176,35 @@ export default function GestionCommandesPage() {
   const dateFromString = useMemo(() => dateRange.from?.toISOString(), [dateRange.from])
   const dateToString = useMemo(() => dateRange.to?.toISOString(), [dateRange.to])
 
+  // Fonction pour charger/rafraîchir les commandes depuis la DB (source de vérité)
+  const fetchOrders = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      const params: any = {}
+      
+      if (statusFilter !== "all") {
+        params.status = statusFilter.toUpperCase()
+      }
+      
+      if (dateFromString && dateToString) {
+        params.startDate = dateFromString
+        params.endDate = dateToString
+      }
+      
+      const ordersData = await apiClient.getOrders(params)
+      setOrders(ordersData as Order[])
+    } catch (error: any) {
+      console.error("Error fetching orders:", error)
+      toast.error("Erreur lors du chargement des commandes")
+    } finally {
+      setIsLoading(false)
+    }
+  }, [statusFilter, dateFromString, dateToString])
+
   // Charger les commandes réelles
   useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        setIsLoading(true)
-        const params: any = {}
-        
-        if (statusFilter !== "all") {
-          params.status = statusFilter.toUpperCase()
-        }
-        
-        if (dateFromString && dateToString) {
-          params.startDate = dateFromString
-          params.endDate = dateToString
-        }
-        
-        const ordersData = await apiClient.getOrders(params)
-        setOrders(ordersData as Order[])
-      } catch (error: any) {
-        console.error("Error fetching orders:", error)
-        toast.error("Erreur lors du chargement des commandes")
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
     fetchOrders()
-  }, [statusFilter, dateFromString, dateToString])
+  }, [fetchOrders])
 
   // Charger les utilisateurs et les livres pour le formulaire de création
   useEffect(() => {
@@ -476,6 +479,8 @@ export default function GestionCommandesPage() {
         }
       }
 
+      setIsCreatingOrder(true)
+
       // Convertir les articles du panier en format API
       const itemsWithPrice = cartItems.map(item => ({
         workId: item.workId,
@@ -513,8 +518,8 @@ export default function GestionCommandesPage() {
 
       const newOrder = await apiClient.createOrder(orderData) as Order
       
-      // Ajouter à la liste locale
-      setOrders(prev => [newOrder, ...prev])
+      // ✅ BACKEND = SOURCE DE VÉRITÉ: Rafraîchir depuis la DB au lieu d'optimistic update
+      await fetchOrders()
       
       // Réinitialiser le formulaire
       setNewOrderData({
@@ -539,9 +544,12 @@ export default function GestionCommandesPage() {
       
       toast.success("Commande créée avec succès")
     } catch (error: any) {
+      console.error("Erreur lors de la création de la commande:", error)
       toast.error(error.message || "Erreur lors de la création")
+    } finally {
+      setIsCreatingOrder(false)
     }
-  }, [newOrderData, cartItems])
+  }, [newOrderData, cartItems, fetchOrders, getWorks])
 
 
   // Pagination - mémorisée pour éviter les recalculs
@@ -1043,7 +1051,7 @@ export default function GestionCommandesPage() {
                           </Button>
                         )}
                         
-                        {order.status !== 'CANCELLED' && order.status !== 'DELIVERED' && (
+                        {order.status === 'PENDING' && (
                           <Button 
                             variant="ghost" 
                             size="sm"
@@ -1329,16 +1337,18 @@ export default function GestionCommandesPage() {
                     </Button>
                   )}
                   
-                  <Button 
-                    onClick={() => {
-                      handleUpdateOrderStatus(selectedOrder.id, 'CANCELLED')
-                      setIsDetailsOpen(false)
-                    }}
-                    variant="destructive"
-                  >
-                    <XCircle className="h-4 w-4 mr-2" />
-                    Annuler
-                  </Button>
+                  {selectedOrder.status === 'PENDING' && (
+                    <Button 
+                      onClick={() => {
+                        handleUpdateOrderStatus(selectedOrder.id, 'CANCELLED')
+                        setIsDetailsOpen(false)
+                      }}
+                      variant="destructive"
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Annuler
+                    </Button>
+                  )}
                 </div>
               </div>
             )}
@@ -1762,9 +1772,19 @@ export default function GestionCommandesPage() {
                 <Button 
                   onClick={handleCreateOrder}
                   className="bg-indigo-600 hover:bg-indigo-700"
+                  disabled={isCreatingOrder}
                 >
-                  <Save className="h-4 w-4 mr-2" />
-                  Enregistrer
+                  {isCreatingOrder ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Création...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Enregistrer
+                    </>
+                  )}
                 </Button>
                 <Button 
                   onClick={handleCloseCreateOrderModal} 

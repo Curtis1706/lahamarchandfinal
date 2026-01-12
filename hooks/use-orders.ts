@@ -36,7 +36,7 @@ export interface Order {
 export interface UseOrdersResult {
   orders: Order[]
   addOrder: (orderData: Omit<Order, 'id' | 'reference' | 'date'>) => Promise<Order>
-  updateOrderStatus: (orderId: string, status: Order['status']) => void
+  updateOrderStatus: (orderId: string, status: Order['status']) => Promise<void>
   isLoading: boolean
   refreshOrders: () => void
 }
@@ -77,40 +77,71 @@ export const useOrders = (): UseOrdersResult => {
 
     try {
       setIsLoading(true)
-      // Charger les commandes depuis l'API
-      const apiOrders = await apiClient.getOrders()
+      // Utiliser /api/client/orders qui filtre automatiquement par userId côté serveur
+      const response = await fetch('/api/client/orders', {
+        credentials: 'include', // Important: inclure les cookies de session pour l'authentification
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
       
-      // Filtrer les commandes pour l'utilisateur actuel
-      const userOrders = apiOrders.filter(order => order.userId === user.id)
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error("❌ Erreur API client/orders:", response.status, errorData)
+        throw new Error(errorData.error || 'Erreur lors du chargement des commandes')
+      }
+      
+      const data = await response.json()
+      const userOrders = data.orders || [] // L'API filtre déjà par userId
+      
+      console.log("📦 Commandes reçues de /api/client/orders:", userOrders.length, userOrders)
       
       // Convertir au format attendu par le frontend
-      const formattedOrders: Order[] = userOrders.map(order => ({
-        id: order.id,
-        reference: order.id.substring(0, 8).toUpperCase(),
-        date: order.createdAt,
-        status: mapOrderStatus(order.status) as Order['status'],
-        total: order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-        itemCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
-        paymentMethod: 'Carte bancaire',
-        deliveryAddress: 'Adresse par défaut',
-        items: order.items.map(item => ({
-          id: item.id,
-          title: item.work.title,
-          quantity: item.quantity,
-          price: item.price,
-          image: '/placeholder-book.jpg'
-        })),
-        customerInfo: {
-          fullName: order.user.name,
-          email: order.user.email,
-          address: 'Adresse par défaut',
-          city: 'Libreville'
+      const formattedOrders: Order[] = userOrders.map((order: any) => {
+        // Générer une référence depuis l'ID (format: CMK + 8 premiers caractères)
+        const reference = order.id ? `CMK${order.id.substring(0, 8).toUpperCase()}` : ''
+        
+        // Extraire l'adresse de livraison si elle est dans paymentReference (JSON)
+        let deliveryAddress = order.deliveryAddress || null
+        if (!deliveryAddress && order.paymentReference) {
+          try {
+            const parsed = JSON.parse(order.paymentReference)
+            deliveryAddress = parsed.address || null
+          } catch (e) {
+            // Pas du JSON, ignorer
+          }
         }
-      }))
+        
+        return {
+          id: order.id,
+          reference,
+          date: order.date || order.createdAt,
+          status: mapOrderStatus(order.status) as Order['status'],
+          total: order.total || (order.items ? order.items.reduce((sum: number, item: any) => sum + ((item.price || item.unitPrice || 0) * (item.quantity || 0)), 0) : 0),
+          itemCount: order.itemCount || order.itemsCount || (order.items ? order.items.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) : 0),
+          paymentMethod: order.paymentMethod || 'Non spécifié',
+          deliveryAddress: deliveryAddress || 'Adresse non spécifiée',
+          items: (order.items || []).map((item: any) => ({
+            id: item.workId || item.work?.id || item.id,
+            title: item.work?.title || item.title,
+            quantity: item.quantity,
+            price: item.price || item.unitPrice || item.work?.price || 0,
+            image: item.work?.image || item.image || '/placeholder-book.jpg',
+            isbn: item.work?.isbn || item.isbn
+          })),
+          customerInfo: {
+            fullName: order.user?.name || user?.name || '',
+            email: order.user?.email || user?.email || '',
+            address: deliveryAddress || '',
+            city: 'Libreville'
+          }
+        }
+      })
       
+      console.log("✅ Commandes formatées:", formattedOrders.length, formattedOrders)
       setOrders(formattedOrders)
     } catch (error) {
-      console.error("Erreur lors du chargement des commandes:", error)
+      console.error("❌ Erreur lors du chargement des commandes:", error)
       setOrders([])
     } finally {
       setIsLoading(false)
@@ -194,15 +225,38 @@ export const useOrders = (): UseOrdersResult => {
     }
   }
 
-  const updateOrderStatus = (orderId: string, status: Order['status']) => {
-    setOrders(prevOrders => 
-      prevOrders.map(order => 
-        order.id === orderId 
-          ? { ...order, status }
-          : order
-      )
-    )
-    toast.success(`Statut de la commande mis à jour : ${status}`)
+  const updateOrderStatus = async (orderId: string, status: Order['status']) => {
+    try {
+      // Mapper le statut frontend vers le statut backend
+      const backendStatus = status === 'cancelled' ? 'CANCELLED' : status.toUpperCase()
+      
+      // Appeler l'API pour mettre à jour le statut dans la base de données
+      const response = await fetch('/api/client/orders', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          orderId,
+          action: status === 'cancelled' ? 'cancel' : undefined,
+          status: backendStatus
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Erreur lors de la mise à jour du statut')
+      }
+
+      // Recharger les commandes depuis l'API pour avoir les données à jour
+      await loadOrders()
+
+      toast.success(`Commande ${status === 'cancelled' ? 'annulée' : 'mise à jour'} avec succès`)
+    } catch (error: any) {
+      console.error("Erreur lors de la mise à jour du statut:", error)
+      toast.error(error.message || "Erreur lors de la mise à jour du statut de la commande")
+    }
   }
 
   const refreshOrders = useCallback(() => {

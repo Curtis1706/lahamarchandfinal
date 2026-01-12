@@ -53,6 +53,8 @@ interface Work {
   title: string;
   description?: string;
   isbn: string;
+  internalCode?: string;
+  price?: number;
   category?: string;
   targetAudience?: string;
   educationalObjectives?: string;
@@ -527,7 +529,9 @@ export default function ValidationOeuvresV2Page() {
             </DialogDescription>
           </DialogHeader>
           
-          {selectedWork && (
+          {selectedWork && (() => {
+            const filesData = parseFiles(selectedWork.files);
+            return (
             <div className="space-y-6">
               {/* Informations générales */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -543,12 +547,28 @@ export default function ValidationOeuvresV2Page() {
                   <p className="text-sm">{selectedWork.discipline.name}</p>
                 </div>
                 <div>
+                  <Label className="text-sm font-medium">Catégorie</Label>
+                  <p className="text-sm">{selectedWork.category || 'Non spécifié'}</p>
+                </div>
+                <div>
                   <Label className="text-sm font-medium">Type de contenu</Label>
                   <p className="text-sm">{selectedWork.contentType || 'Non spécifié'}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Public cible</Label>
                   <p className="text-sm">{selectedWork.targetAudience || 'Non spécifié'}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Prix suggéré</Label>
+                  <p className="text-sm">{selectedWork.price ? `${selectedWork.price.toFixed(2)} FCFA` : 'Non spécifié'}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Code interne</Label>
+                  <p className="text-sm font-mono">{selectedWork.internalCode || 'Non spécifié'}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Collection</Label>
+                  <p className="text-sm">{filesData.collectionId ? `ID: ${filesData.collectionId}` : 'Aucune collection'}</p>
                 </div>
               </div>
 
@@ -594,20 +614,51 @@ export default function ValidationOeuvresV2Page() {
                 </div>
               )}
 
+              {/* Image de couverture */}
+              {filesData.coverImage && (
+                <div>
+                  <Label className="text-sm font-medium">Image de couverture</Label>
+                  <div className="mt-2">
+                    <div className="relative w-full max-w-md h-48 border rounded-lg overflow-hidden">
+                      <img 
+                        src={filesData.coverImage} 
+                        alt="Image de couverture" 
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                        }}
+                      />
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="mt-2"
+                      asChild
+                    >
+                      <a href={filesData.coverImage} target="_blank" rel="noopener noreferrer">
+                        <Download className="h-4 w-4 mr-2" />
+                        Télécharger l'image
+                      </a>
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {/* Fichiers */}
-              {selectedWork.files && (
+              {filesData.files && filesData.files.length > 0 && (
                 <div>
                   <Label className="text-sm font-medium">Fichiers associés</Label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-1">
-                    {parseFiles(selectedWork.files).map((file: any, index: number) => (
+                    {filesData.files.map((file: any, index: number) => (
                       <div key={index} className="flex items-center space-x-2 p-2 border rounded">
                         <FileText className="h-4 w-4 text-muted-foreground" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{file.originalName || file.filename}</p>
-                          <p className="text-xs text-muted-foreground">{file.type}</p>
+                          <p className="text-sm font-medium truncate">{file.originalName || file.filename || file.name}</p>
+                          <p className="text-xs text-muted-foreground">{file.type || file.mimeType}</p>
                         </div>
                         <Button variant="ghost" size="sm" asChild>
-                          <a href={file.filepath} target="_blank" rel="noopener noreferrer">
+                          <a href={file.filepath || file.path || file.url} target="_blank" rel="noopener noreferrer">
                             <Download className="h-4 w-4" />
                           </a>
                         </Button>
@@ -648,7 +699,8 @@ export default function ValidationOeuvresV2Page() {
                 </div>
               )}
             </div>
-          )}
+            );
+          })()}
           
           <DialogFooter>
             {selectedWork?.status === "PENDING" && (

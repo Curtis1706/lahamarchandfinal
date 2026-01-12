@@ -46,6 +46,8 @@ interface WorkFormData {
   contentType: string;
   estimatedPrice: string;
   keywords: string[];
+  collectionId: string;
+  internalCode: string;
 }
 
 interface Project {
@@ -72,6 +74,7 @@ export default function CreerOeuvrePage() {
   
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [step4Ready, setStep4Ready] = useState(false); // Track if step 4 is ready for submission
   const [validatedProjects, setValidatedProjects] = useState<Project[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
@@ -90,7 +93,16 @@ export default function CreerOeuvrePage() {
     contentType: "",
     estimatedPrice: "",
     keywords: [],
+    collectionId: "none",
+    internalCode: "",
   });
+
+  const [categories, setCategories] = useState<any[]>([]);
+  const [collections, setCollections] = useState<any[]>([]);
+  const [coverImage, setCoverImage] = useState<File | null>(null);
+  const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+  const [isLoadingCollections, setIsLoadingCollections] = useState(false);
 
   // Redirection si pas connecté ou pas auteur
   useEffect(() => {
@@ -99,12 +111,14 @@ export default function CreerOeuvrePage() {
     }
   }, [user, userLoading, router]);
 
-  // Charger les projets validés quand l'utilisateur est disponible
+  // Charger les projets validés, catégories et collections quand l'utilisateur est disponible
   useEffect(() => {
     if (user && user.role === "AUTEUR" && !userLoading) {
       console.log("🔍 useEffect - État:", { userLoading, user: user.email, role: user.role });
       console.log("✅ Utilisateur auteur détecté, chargement des projets...");
       fetchValidatedProjects();
+      loadCategories();
+      loadCollections();
       
       // Auto-sélection de la discipline si l'utilisateur en a une
       if (user.disciplineId && !formData.disciplineId) {
@@ -112,6 +126,71 @@ export default function CreerOeuvrePage() {
       }
     }
   }, [user, userLoading, router, formData.disciplineId]);
+
+  const loadCategories = async () => {
+    try {
+      setIsLoadingCategories(true);
+      const response = await fetch('/api/pdg/categories');
+      if (response.ok) {
+        const data = await response.json();
+        // Filtrer uniquement les catégories actives
+        const activeCategories = Array.isArray(data) ? data.filter((cat: any) => cat.statut === 'Disponible' || cat.isActive) : [];
+        setCategories(activeCategories);
+      }
+    } catch (error) {
+      console.error("Error loading categories:", error);
+      toast.error("Erreur lors du chargement des catégories");
+    } finally {
+      setIsLoadingCategories(false);
+    }
+  };
+
+  const loadCollections = async () => {
+    try {
+      setIsLoadingCollections(true);
+      const response = await fetch('/api/pdg/collections');
+      if (response.ok) {
+        const data = await response.json();
+        setCollections(Array.isArray(data) ? data : []);
+      }
+    } catch (error) {
+      console.error("Error loading collections:", error);
+      // Ne pas afficher d'erreur pour les collections car elles sont optionnelles
+    } finally {
+      setIsLoadingCollections(false);
+    }
+  };
+
+  const handleCoverImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Vérifier le type de fichier
+      if (!file.type.startsWith('image/')) {
+        toast.error("Veuillez sélectionner un fichier image");
+        return;
+      }
+      
+      // Vérifier la taille (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("L'image ne doit pas dépasser 5MB");
+        return;
+      }
+
+      setCoverImage(file);
+      
+      // Créer une preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCoverImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveCoverImage = () => {
+    setCoverImage(null);
+    setCoverImagePreview(null);
+  };
 
   const fetchValidatedProjects = useCallback(async () => {
     try {
@@ -197,30 +276,52 @@ export default function CreerOeuvrePage() {
     if (currentStep === 1) {
       if (!formData.title.trim() || !formData.description.trim()) {
         toast.error("Le titre et la description sont obligatoires.");
-      return;
-    }
+        return;
+      }
     } else if (currentStep === 2) {
-      if (!formData.disciplineId || !formData.contentType || !formData.category) {
-        toast.error("La discipline, le type de contenu et la catégorie sont obligatoires.");
-      return;
-    }
+      if (!formData.disciplineId || !formData.category) {
+        toast.error("La discipline et la catégorie sont obligatoires.");
+        return;
+      }
+    } else if (currentStep === 3) {
+      // Validation pour l'étape 3 (Détails)
+      // Les champs de l'étape 3 ne sont pas tous obligatoires, mais on marque l'étape comme prête
+      setStep4Ready(true); // Marquer que l'étape 4 est maintenant accessible
     }
     setCurrentStep(prev => prev + 1);
   };
 
   const handlePreviousStep = () => {
+    if (currentStep === 4) {
+      setStep4Ready(false); // Réinitialiser quand on revient en arrière
+    }
     setCurrentStep(prev => prev - 1);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (!user) {
       toast.error("Vous devez être connecté pour soumettre une œuvre.");
       return;
     }
 
+    // Vérifier que nous sommes à l'étape 4 (dernière étape)
+    if (currentStep !== 4) {
+      toast.error("Veuillez compléter toutes les étapes avant de soumettre.");
+      return;
+    }
+
+    // Vérifier que l'étape 4 a été validée
+    if (!step4Ready) {
+      toast.error("Veuillez compléter toutes les étapes avant de soumettre.");
+      return;
+    }
+
     // Validation finale
-    if (!formData.title.trim() || !formData.description.trim() || !formData.disciplineId || !formData.contentType || !formData.category) {
+    if (!formData.title.trim() || !formData.description.trim() || !formData.disciplineId || !formData.category) {
       toast.error("Veuillez remplir tous les champs obligatoires.");
       return;
     }
@@ -228,7 +329,29 @@ export default function CreerOeuvrePage() {
     try {
       setIsSubmitting(true);
 
-      // 1. Upload des fichiers d'abord (en mode temporaire)
+      // 1. Upload de l'image de couverture si présente
+      let coverImageUrl = null;
+      if (coverImage) {
+        const formDataUpload = new FormData();
+        formDataUpload.append('files', coverImage);
+        formDataUpload.append('type', 'work');
+        
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formDataUpload
+        });
+        
+        if (uploadResponse.ok) {
+          const uploadData = await uploadResponse.json();
+          if (uploadData.files && uploadData.files.length > 0) {
+            coverImageUrl = uploadData.files[0].path;
+          }
+        } else {
+          console.warn("Erreur lors de l'upload de l'image, continuation sans image");
+        }
+      }
+
+      // 2. Upload des autres fichiers d'abord (en mode temporaire)
       let uploadedFiles = [];
       if (attachedFiles.length > 0) {
         const uploadResult = await apiClient.uploadFiles(attachedFiles, "temp");
@@ -236,7 +359,7 @@ export default function CreerOeuvrePage() {
         toast.success("Fichiers uploadés avec succès !");
       }
 
-      // 2. Créer l'œuvre avec les métadonnées
+      // 3. Créer l'œuvre avec les métadonnées
       const workData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
@@ -246,10 +369,12 @@ export default function CreerOeuvrePage() {
         category: formData.category,
         targetAudience: formData.targetAudience,
         educationalObjectives: formData.educationalObjectives,
-        contentType: formData.contentType,
         estimatedPrice: formData.estimatedPrice ? parseFloat(formData.estimatedPrice) : 0,
         keywords: formData.keywords,
         files: uploadedFiles,
+        collectionId: formData.collectionId && formData.collectionId !== "none" ? formData.collectionId : null,
+        coverImage: coverImageUrl,
+        internalCode: formData.internalCode.trim() || null,
         status: "PENDING" // En attente de validation PDG
       };
 
@@ -345,7 +470,26 @@ export default function CreerOeuvrePage() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            // Empêcher la soumission si on n'est pas à l'étape 4
+            if (currentStep !== 4) {
+              toast.error("Veuillez compléter toutes les étapes avant de soumettre.");
+              return;
+            }
+            // Empêcher la soumission si l'étape 4 n'a pas été validée (en cliquant sur Suivant depuis l'étape 3)
+            if (!step4Ready) {
+              toast.error("Veuillez compléter toutes les étapes avant de soumettre.");
+              return;
+            }
+            // Vérifier que les champs obligatoires sont remplis
+            if (!formData.title.trim() || !formData.description.trim() || !formData.disciplineId || !formData.category) {
+              toast.error("Veuillez remplir tous les champs obligatoires avant de soumettre.");
+              return;
+            }
+            handleSubmit(e);
+          }} className="space-y-6">
             {/* Step 1: Informations de base */}
             {currentStep === 1 && (
               <div className="space-y-6">
@@ -481,42 +625,51 @@ export default function CreerOeuvrePage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="contentType">Type de contenu *</Label>
-                  <Select
-                    value={formData.contentType}
-                    onValueChange={(value) => handleInputChange("contentType", value)}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner le type de contenu" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MANUEL">Manuel scolaire</SelectItem>
-                      <SelectItem value="CAHIER">Cahier d'exercices</SelectItem>
-                      <SelectItem value="LIVRE">Livre de lecture</SelectItem>
-                      <SelectItem value="GUIDE">Guide pédagogique</SelectItem>
-                      <SelectItem value="AUTRE">Autre</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
                   <Label htmlFor="category">Catégorie *</Label>
                   <Select
                     value={formData.category}
                     onValueChange={(value) => handleInputChange("category", value)}
                     required
+                    disabled={isLoadingCategories}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner une catégorie" />
+                      <SelectValue placeholder={isLoadingCategories ? "Chargement..." : "Sélectionner une catégorie"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="EDUCATION">Éducation</SelectItem>
-                      <SelectItem value="LITTERATURE">Littérature</SelectItem>
-                      <SelectItem value="SCIENCES">Sciences</SelectItem>
-                      <SelectItem value="HISTOIRE">Histoire</SelectItem>
-                      <SelectItem value="GEOGRAPHIE">Géographie</SelectItem>
-                      <SelectItem value="AUTRE">Autre</SelectItem>
+                      {categories.length > 0 ? (
+                        categories.map((category: any) => (
+                          <SelectItem key={category.id} value={category.nom || category.name}>
+                            {category.nom || category.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                          Aucune catégorie disponible
+                        </div>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="collectionId">Collection (optionnel)</Label>
+                  <Select
+                    value={formData.collectionId}
+                    onValueChange={(value) => handleInputChange("collectionId", value)}
+                    disabled={isLoadingCollections}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={isLoadingCollections ? "Chargement..." : "Sélectionner une collection"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Aucune collection</SelectItem>
+                      {collections.length > 0 ? (
+                        collections.map((collection: any) => (
+                          <SelectItem key={collection.id} value={collection.id}>
+                            {collection.nom || collection.name}
+                          </SelectItem>
+                        ))
+                      ) : null}
                     </SelectContent>
                   </Select>
                 </div>
@@ -549,6 +702,15 @@ export default function CreerOeuvrePage() {
                       placeholder="Étudiants, Professionnels, Grand public..."
                       value={formData.targetAudience}
                       onChange={(e) => handleInputChange("targetAudience", e.target.value)}
+                />
+              </div>
+                  <div>
+                    <Label htmlFor="internalCode">Code interne (optionnel)</Label>
+                <Input
+                      id="internalCode"
+                      placeholder="Code interne de référence"
+                      value={formData.internalCode}
+                      onChange={(e) => handleInputChange("internalCode", e.target.value)}
                 />
               </div>
             </div>
@@ -607,11 +769,43 @@ export default function CreerOeuvrePage() {
               <div className="space-y-2">
                     <Label>Image de couverture</Label>
                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                      <Image className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-                      <Button type="button" variant="outline" size="sm">
-                        <Upload className="h-4 w-4 mr-2" />
-                        Choisir une image
-                      </Button>
+                      {coverImagePreview ? (
+                        <div className="space-y-2">
+                          <img 
+                            src={coverImagePreview} 
+                            alt="Aperçu de couverture" 
+                            className="w-full h-32 object-cover rounded"
+                          />
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm"
+                            onClick={handleRemoveCoverImage}
+                          >
+                            <XCircle className="h-4 w-4 mr-2" />
+                            Retirer l'image
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <Image className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                          <label htmlFor="coverImageInput">
+                            <Button type="button" variant="outline" size="sm" asChild>
+                              <span>
+                                <Upload className="h-4 w-4 mr-2" />
+                                Choisir une image
+                              </span>
+                            </Button>
+                          </label>
+                          <input
+                            id="coverImageInput"
+                            type="file"
+                            accept="image/*"
+                            onChange={handleCoverImageChange}
+                            className="hidden"
+                          />
+                        </>
+                      )}
               </div>
             </div>
 
@@ -706,21 +900,50 @@ export default function CreerOeuvrePage() {
                     {currentStep === 1 ? "Continuer" : "Suivant"}
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
-                ) : (
-                  <Button type="submit" disabled={isSubmitting} className="bg-green-600 hover:bg-green-700">
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Soumission...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="h-4 w-4 mr-2" />
-                        Soumettre l'œuvre
-                      </>
-                    )}
-                  </Button>
-                )}
+                ) : currentStep === 4 ? (
+                  step4Ready ? (
+                    <Button 
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleSubmit(e);
+                      }}
+                      disabled={isSubmitting || !formData.title.trim() || !formData.description.trim() || !formData.disciplineId || !formData.category} 
+                      className="bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Soumission...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4 mr-2" />
+                          Soumettre l'œuvre
+                        </>
+                      )}
+                    </Button>
+                  ) : (
+                    <Button 
+                      type="button" 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        // Marquer l'étape 4 comme prête après validation des étapes précédentes
+                        if (!formData.title.trim() || !formData.description.trim() || !formData.disciplineId || !formData.category) {
+                          toast.error("Veuillez remplir tous les champs obligatoires des étapes précédentes.");
+                          return;
+                        }
+                        setStep4Ready(true);
+                      }} 
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      Finaliser
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  )
+                ) : null}
               </div>
             </div>
           </form>

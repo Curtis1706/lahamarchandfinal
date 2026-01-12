@@ -11,8 +11,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    if (session.user.role !== "PDG") {
-      return NextResponse.json({ error: "Forbidden - PDG role required" }, { status: 403 })
+    // Permettre l'accès aux PDG et aux auteurs (pour créer des œuvres)
+    if (session.user.role !== "PDG" && session.user.role !== "AUTEUR") {
+      return NextResponse.json({ error: "Forbidden - PDG or AUTEUR role required" }, { status: 403 })
     }
 
     // Pour l'instant, on utilise les disciplines comme collections
@@ -121,8 +122,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    if (session.user.role !== "PDG") {
-      return NextResponse.json({ error: "Forbidden - PDG role required" }, { status: 403 })
+    // Permettre l'accès aux PDG et aux auteurs (pour créer des œuvres)
+    if (session.user.role !== "PDG" && session.user.role !== "AUTEUR") {
+      return NextResponse.json({ error: "Forbidden - PDG or AUTEUR role required" }, { status: 403 })
     }
 
     const { nom, description, statut } = await request.json()

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout"
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { Button } from "@/components/ui/button"
@@ -16,15 +16,85 @@ export default function ProfilPage() {
   const { user, isLoading } = useCurrentUser()
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [profileData, setProfileData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+    ifu: "",
+    establishment: "",
+    director: "",
+    department: "",
+    founded: ""
+  })
+
+  // Initialiser les données du formulaire avec les données utilisateur
+  useEffect(() => {
+    if (user) {
+      setProfileData({
+        name: user.name || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        address: user.address || "",
+        ifu: user.ifu || "",
+        establishment: user.establishment || "",
+        director: user.director || "",
+        department: user.department || "",
+        founded: user.founded || ""
+      })
+    }
+  }, [user])
 
   const handleSave = async () => {
-    setIsSaving(true)
-    // Simulation de sauvegarde
-    setTimeout(() => {
+    if (!user) return
+
+    try {
+      setIsSaving(true)
+
+      // Appeler l'API pour mettre à jour le profil (endpoint dédié pour le profil utilisateur)
+      const response = await fetch('/api/users/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: profileData.name,
+          phone: profileData.phone,
+          address: profileData.address,
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Erreur lors de la mise à jour du profil')
+      }
+
+      // Recharger la page pour afficher les données mises à jour
+      window.location.reload()
+    } catch (error: any) {
+      console.error("Erreur lors de la mise à jour du profil:", error)
+      toast.error(error.message || "Erreur lors de la mise à jour du profil")
       setIsSaving(false)
-      setIsEditing(false)
-      toast.success("Profil mis à jour avec succès !")
-    }, 1000)
+    }
+  }
+
+  const handleCancel = () => {
+    // Restaurer les valeurs originales
+    if (user) {
+      setProfileData({
+        name: user.name || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        address: user.address || "",
+        ifu: user.ifu || "",
+        establishment: user.establishment || "",
+        director: user.director || "",
+        department: user.department || "",
+        founded: user.founded || ""
+      })
+    }
+    setIsEditing(false)
   }
 
   if (isLoading) {
@@ -64,7 +134,7 @@ export default function ProfilPage() {
                 <>
                   <Button
                     variant="outline"
-                    onClick={() => setIsEditing(false)}
+                    onClick={handleCancel}
                     disabled={isSaving}
                   >
                     Annuler
@@ -109,7 +179,8 @@ export default function ProfilPage() {
                     <Label htmlFor="name">Nom complet</Label>
                     <Input
                       id="name"
-                      value={user.name}
+                      value={profileData.name}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, name: e.target.value }))}
                       disabled={!isEditing}
                       className="mt-1"
                     />
@@ -119,9 +190,9 @@ export default function ProfilPage() {
                     <Input
                       id="email"
                       type="email"
-                      value={user.email}
-                      disabled={!isEditing}
-                      className="mt-1"
+                      value={profileData.email}
+                      disabled={true}
+                      className="mt-1 bg-muted"
                     />
                   </div>
                   <div>
@@ -129,6 +200,8 @@ export default function ProfilPage() {
                     <Input
                       id="phone"
                       type="tel"
+                      value={profileData.phone}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
                       placeholder="+229 XX XX XX XX"
                       disabled={!isEditing}
                       className="mt-1"
@@ -138,6 +211,8 @@ export default function ProfilPage() {
                     <Label htmlFor="ifu">N° IFU</Label>
                     <Input
                       id="ifu"
+                      value={profileData.ifu}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, ifu: e.target.value }))}
                       placeholder="Numéro d'identification fiscale"
                       disabled={!isEditing}
                       className="mt-1"
@@ -149,6 +224,8 @@ export default function ProfilPage() {
                   <Label htmlFor="address">Adresse complète</Label>
                   <textarea
                     id="address"
+                    value={profileData.address}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, address: e.target.value }))}
                     className="mt-1 w-full p-3 border rounded-lg resize-none disabled:bg-muted disabled:cursor-not-allowed"
                     rows={3}
                     placeholder="Votre adresse complète"
@@ -174,6 +251,8 @@ export default function ProfilPage() {
                     <Label htmlFor="establishment">Dénomination</Label>
                     <Input
                       id="establishment"
+                      value={profileData.establishment}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, establishment: e.target.value }))}
                       placeholder="Nom de l'établissement"
                       disabled={!isEditing}
                       className="mt-1"
@@ -183,6 +262,8 @@ export default function ProfilPage() {
                     <Label htmlFor="director">Directeur</Label>
                     <Input
                       id="director"
+                      value={profileData.director}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, director: e.target.value }))}
                       placeholder="Nom du directeur"
                       disabled={!isEditing}
                       className="mt-1"
@@ -192,6 +273,8 @@ export default function ProfilPage() {
                     <Label htmlFor="department">Département</Label>
                     <Input
                       id="department"
+                      value={profileData.department}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, department: e.target.value }))}
                       placeholder="Département (ex: Atlantique)"
                       disabled={!isEditing}
                       className="mt-1"
@@ -202,6 +285,8 @@ export default function ProfilPage() {
                     <Input
                       id="founded"
                       type="number"
+                      value={profileData.founded}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, founded: e.target.value }))}
                       placeholder="2020"
                       disabled={!isEditing}
                       className="mt-1"
@@ -225,11 +310,15 @@ export default function ProfilPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Statut</span>
-                  <Badge className="bg-green-100 text-green-800">Actif</Badge>
+                  <Badge className="bg-green-100 text-green-800">
+                    {user.status === 'ACTIVE' ? 'Actif' : user.status || 'Actif'}
+                  </Badge>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Membre depuis</span>
-                  <span className="text-sm text-muted-foreground">2025</span>
+                  <span className="text-sm text-muted-foreground">
+                    {user.createdAt ? new Date(user.createdAt).getFullYear() : '2025'}
+                  </span>
                 </div>
                 <Separator />
                 <div className="text-center">
@@ -251,7 +340,15 @@ export default function ProfilPage() {
               <CardContent>
                 <div className="flex flex-col items-center space-y-4">
                   <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center">
-                    <User className="h-8 w-8 text-muted-foreground" />
+                    {user.profileImage ? (
+                      <img 
+                        src={user.profileImage} 
+                        alt="Photo de profil" 
+                        className="w-20 h-20 rounded-full object-cover"
+                      />
+                    ) : (
+                      <User className="h-8 w-8 text-muted-foreground" />
+                    )}
                   </div>
                   <Button variant="outline" size="sm" disabled={!isEditing}>
                     <Upload className="h-4 w-4 mr-2" />

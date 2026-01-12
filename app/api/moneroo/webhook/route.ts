@@ -130,44 +130,61 @@ async function handlePaymentSuccess(event: any) {
       },
     });
 
-    // Enregistrer le paiement
-    await prisma.payment.create({
-      data: {
-        orderId: orderId,
-        amount: amount,
-        paymentMethod: "Moneroo",
-        paymentReference: transaction_id,
-        paymentDate: new Date(),
-        notes: `Paiement Moneroo confirmé`,
-        recordedById: order.userId,
-      },
-    });
-
-    // Décrémenter le stock pour chaque item
-    for (const item of order.items) {
-      await prisma.work.update({
-        where: { id: item.workId },
+    // ✅ UTILISER UNE TRANSACTION pour garantir la cohérence (BACKEND = SOURCE DE VÉRITÉ)
+    await prisma.$transaction(async (tx) => {
+      // Enregistrer le paiement
+      await tx.payment.create({
         data: {
-          stock: {
-            decrement: item.quantity,
+          orderId: orderId,
+          amount: amount,
+          paymentMethod: "Moneroo",
+          paymentReference: transaction_id,
+          paymentDate: new Date(),
+          notes: `Paiement Moneroo confirmé`,
+          recordedById: order.userId,
+        },
+      });
+
+      // Décrémenter le stock pour chaque item et créer les mouvements de stock
+      for (const item of order.items) {
+        const work = item.work;
+        const quantity = item.quantity;
+
+        // Vérifier que le stock est suffisant
+        if (work.stock < quantity) {
+          throw new Error(
+            `Stock insuffisant pour "${work.title}". Disponible: ${work.stock}, Demandé: ${quantity}`
+          );
+        }
+
+        // Réduire le stock
+        await tx.work.update({
+          where: { id: item.workId },
+          data: {
+            stock: {
+              decrement: quantity,
+            },
+            physicalStock: {
+              decrement: quantity,
+            },
           },
-        },
-      });
+        });
 
-      // Enregistrer le mouvement de stock
-      await prisma.stockMovement.create({
-        data: {
-          workId: item.workId,
-          type: "OUTBOUND",
-          quantity: item.quantity,
-          reason: "Vente validée via Moneroo",
-          reference: orderId,
-          performedBy: order.userId,
-          unitPrice: item.price,
-          totalAmount: item.price * item.quantity,
-        },
-      });
-    }
+        // Enregistrer le mouvement de stock
+        await tx.stockMovement.create({
+          data: {
+            workId: item.workId,
+            type: "OUTBOUND",
+            quantity: -quantity, // Négatif car c'est une sortie
+            reason: "Vente validée via Moneroo",
+            reference: orderId,
+            performedBy: order.userId,
+            unitPrice: item.price,
+            totalAmount: item.price * item.quantity,
+          },
+        });
+      }
+    });
 
     // Calculer et créer les royalties pour les auteurs
     await calculateAndCreateRoyalties(order);
@@ -491,7 +508,7 @@ async function calculateAndCreateRoyalties(order: any) {
         ],
       });
 
-      const royaltyRate = rebateRate?.rate || 10; // Taux par défaut: 10%
+      const royaltyRate = rebateRate?.rate || 15; // Taux par défaut: 15%
       const royaltyAmount = (item.price * item.quantity * royaltyRate) / 100;
 
       // Créer la royalty

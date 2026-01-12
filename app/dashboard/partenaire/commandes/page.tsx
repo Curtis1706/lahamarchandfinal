@@ -209,9 +209,8 @@ export default function PartenaireCommandesPage() {
                     </TableCell>
                     <TableCell>{getStatusBadge(order.status)}</TableCell>
                     <TableCell>
-                      <div className="flex items-center text-sm font-medium text-green-600">
-                        <DollarSign className="h-3 w-3 mr-1" />
-                        {order.total.toLocaleString()} FCFA
+                      <div className="text-sm font-medium text-green-600">
+                        {order.total.toLocaleString("fr-FR")} FCFA
                       </div>
                     </TableCell>
                     <TableCell>

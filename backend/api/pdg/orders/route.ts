@@ -117,6 +117,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Commande non trouvée" }, { status: 404 })
     }
 
+    // Empêcher la validation d'une commande annulée
+    if (status === "VALIDATED" && order.status === "CANCELLED") {
+      return NextResponse.json({ 
+        error: "Impossible de valider une commande annulée" 
+      }, { status: 400 })
+    }
+
     // Vérifier que le statut est valide
     const validStatuses = Object.values(OrderStatus)
     if (!validStatuses.includes(status as OrderStatus)) {

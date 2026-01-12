@@ -30,8 +30,12 @@ import {
   BarChart3,
   FileText,
   Edit,
-  MoreHorizontal
+  MoreHorizontal,
+  Tag,
+  Download,
+  Image as ImageIcon
 } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -39,16 +43,27 @@ import { fr } from "date-fns/locale";
 interface Work {
   id: string;
   title: string;
+  description?: string;
   isbn: string;
+  internalCode?: string;
   price: number;
   tva: number;
   stock: number;
   minStock: number;
   maxStock: number | null;
+  category?: string;
+  targetAudience?: string;
+  educationalObjectives?: string;
+  contentType?: string;
+  keywords?: string;
+  files?: string;
   status: string;
-  publishedAt: string;
+  publishedAt?: string;
+  submittedAt?: string;
   createdAt: string;
   updatedAt: string;
+  validationComment?: string;
+  rejectionReason?: string;
   author?: {
     id: string;
     name: string;
@@ -193,6 +208,28 @@ export default function ValidationOeuvresPage() {
         {config.label}
       </Badge>
     );
+  };
+
+  const parseFiles = (filesJson?: string) => {
+    if (!filesJson) return { files: [], coverImage: null, collectionId: null };
+    try {
+      const parsed = JSON.parse(filesJson);
+      if (Array.isArray(parsed)) {
+        return { files: parsed, coverImage: null, collectionId: null };
+      }
+      return {
+        files: parsed.files || [],
+        coverImage: parsed.coverImage || null,
+        collectionId: parsed.collectionId || null
+      };
+    } catch {
+      return { files: [], coverImage: null, collectionId: null };
+    }
+  };
+
+  const parseKeywords = (keywordsString?: string) => {
+    if (!keywordsString) return [];
+    return keywordsString.split(',').map(k => k.trim()).filter(k => k);
   };
 
   const handleValidateWork = async (workId: string, status: string, reason?: string) => {
@@ -576,78 +613,240 @@ export default function ValidationOeuvresPage() {
 
         {/* Dialog de détails de l'œuvre */}
         <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Détails de l'œuvre</DialogTitle>
+              <DialogTitle>Détails de l'œuvre - {selectedWork?.title}</DialogTitle>
             </DialogHeader>
-            {selectedWork && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="font-medium">Titre</Label>
-                    <p>{selectedWork.title}</p>
-                  </div>
-                  <div>
-                    <Label className="font-medium">ISBN</Label>
-                    <p>{selectedWork.isbn}</p>
-                  </div>
-                  <div>
-                    <Label className="font-medium">Prix</Label>
-                    <p className="font-bold">{selectedWork.price.toFixed(2)} FCFA</p>
-                  </div>
-                  <div>
-                    <Label className="font-medium">TVA</Label>
-                    <p>{(selectedWork.tva * 100).toFixed(1)}%</p>
-                  </div>
-                  <div>
-                    <Label className="font-medium">Stock</Label>
-                    <p>{selectedWork.stock} exemplaires</p>
-                  </div>
-                  <div>
-                    <Label className="font-medium">Statut</Label>
-                    <div>{getStatusBadge(selectedWork.status)}</div>
-                  </div>
-                </div>
-
+            {selectedWork && (() => {
+              const filesData = parseFiles(selectedWork.files);
+              return (
+              <div className="space-y-6">
+                {/* Étape 1: Informations de base */}
                 <div>
-                  <Label className="font-medium">Auteur</Label>
-                  <div className="bg-gray-50 p-3 rounded-lg space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <User className="h-4 w-4" />
-                      <span>{selectedWork.author?.name || selectedWork.concepteur?.name || "Non assigné"}</span>
+                  <h3 className="text-lg font-semibold mb-4 flex items-center">
+                    <span className="bg-blue-100 text-blue-600 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm">1</span>
+                    Informations de base
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-11">
+                    <div>
+                      <Label className="font-medium text-sm text-gray-600">Titre</Label>
+                      <p className="mt-1">{selectedWork.title}</p>
                     </div>
-                    <div className="text-sm text-gray-500">{selectedWork.author?.email || selectedWork.concepteur?.email || ""}</div>
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="font-medium">Concepteur</Label>
-                  <div className="bg-gray-50 p-3 rounded-lg space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <User className="h-4 w-4" />
-                      <span>{selectedWork.concepteur?.name || "Non assigné"}</span>
+                    <div>
+                      <Label className="font-medium text-sm text-gray-600">ISBN</Label>
+                      <p className="mt-1 font-mono text-sm">{selectedWork.isbn}</p>
                     </div>
-                    <div className="text-sm text-gray-500">{selectedWork.concepteur?.email || ""}</div>
+                    {selectedWork.description && (
+                      <div className="md:col-span-2">
+                        <Label className="font-medium text-sm text-gray-600">Description</Label>
+                        <p className="mt-1 whitespace-pre-wrap text-sm">{selectedWork.description}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
+                <Separator />
+
+                {/* Étape 2: Classification */}
                 <div>
-                  <Label className="font-medium">Discipline</Label>
-                  <Badge variant="outline">{selectedWork.discipline.name}</Badge>
+                  <h3 className="text-lg font-semibold mb-4 flex items-center">
+                    <span className="bg-blue-100 text-blue-600 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm">2</span>
+                    Classification
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-11">
+                    <div>
+                      <Label className="font-medium text-sm text-gray-600">Discipline</Label>
+                      <p className="mt-1">{selectedWork.discipline.name}</p>
+                    </div>
+                    <div>
+                      <Label className="font-medium text-sm text-gray-600">Catégorie</Label>
+                      <p className="mt-1">{selectedWork.category || 'Non spécifié'}</p>
+                    </div>
+                    <div>
+                      <Label className="font-medium text-sm text-gray-600">Public cible</Label>
+                      <p className="mt-1">{selectedWork.targetAudience || 'Non spécifié'}</p>
+                    </div>
+                    <div>
+                      <Label className="font-medium text-sm text-gray-600">Collection</Label>
+                      <p className="mt-1">{filesData.collectionId ? `ID: ${filesData.collectionId}` : 'Aucune collection'}</p>
+                    </div>
+                    {selectedWork.contentType && (
+                      <div>
+                        <Label className="font-medium text-sm text-gray-600">Type de contenu</Label>
+                        <p className="mt-1">{selectedWork.contentType}</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="font-medium">Date de création</Label>
-                    <p>{format(new Date(selectedWork.createdAt), "dd/MM/yyyy HH:mm", { locale: fr })}</p>
+                <Separator />
+
+                {/* Étape 3: Détails et Prix */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 flex items-center">
+                    <span className="bg-blue-100 text-blue-600 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm">3</span>
+                    Détails et Prix
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-11">
+                    <div>
+                      <Label className="font-medium text-sm text-gray-600">Prix suggéré</Label>
+                      <p className="mt-1">{selectedWork.price ? `${selectedWork.price.toFixed(2)} FCFA` : 'Non spécifié'}</p>
+                    </div>
+                    <div>
+                      <Label className="font-medium text-sm text-gray-600">Code interne</Label>
+                      <p className="mt-1 font-mono text-sm">{selectedWork.internalCode || 'Non spécifié'}</p>
+                    </div>
+                    {selectedWork.educationalObjectives && (
+                      <div className="md:col-span-2">
+                        <Label className="font-medium text-sm text-gray-600">Objectifs pédagogiques</Label>
+                        <p className="mt-1 whitespace-pre-wrap text-sm">{selectedWork.educationalObjectives}</p>
+                      </div>
+                    )}
+                    {selectedWork.keywords && (
+                      <div className="md:col-span-2">
+                        <Label className="font-medium text-sm text-gray-600">Mots-clés</Label>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {parseKeywords(selectedWork.keywords).map((keyword, index) => (
+                            <Badge key={index} variant="outline" className="text-xs">
+                              <Tag className="h-3 w-3 mr-1" />
+                              {keyword}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <Label className="font-medium">Dernière mise à jour</Label>
-                    <p>{format(new Date(selectedWork.updatedAt), "dd/MM/yyyy HH:mm", { locale: fr })}</p>
+                </div>
+
+                <Separator />
+
+                {/* Étape 4: Fichiers */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 flex items-center">
+                    <span className="bg-blue-100 text-blue-600 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm">4</span>
+                    Fichiers et Documents
+                  </h3>
+                  <div className="space-y-4 pl-11">
+                    {filesData.coverImage && (
+                      <div>
+                        <Label className="font-medium text-sm text-gray-600">Image de couverture</Label>
+                        <div className="mt-2">
+                          <div className="relative w-full max-w-md h-48 border rounded-lg overflow-hidden">
+                            <img 
+                              src={filesData.coverImage} 
+                              alt="Image de couverture" 
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                              }}
+                            />
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="mt-2"
+                            asChild
+                          >
+                            <a href={filesData.coverImage} target="_blank" rel="noopener noreferrer">
+                              <Download className="h-4 w-4 mr-2" />
+                              Télécharger l'image
+                            </a>
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    {filesData.files && filesData.files.length > 0 && (
+                      <div>
+                        <Label className="font-medium text-sm text-gray-600">Fichiers associés</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+                          {filesData.files.map((file: any, index: number) => (
+                            <div key={index} className="flex items-center space-x-2 p-2 border rounded">
+                              <FileText className="h-4 w-4 text-muted-foreground" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{file.originalName || file.filename || file.name}</p>
+                                <p className="text-xs text-muted-foreground">{file.type || file.mimeType}</p>
+                              </div>
+                              <Button variant="ghost" size="sm" asChild>
+                                <a href={file.filepath || file.path || file.url} target="_blank" rel="noopener noreferrer">
+                                  <Download className="h-4 w-4" />
+                                </a>
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
+                </div>
+
+                <Separator />
+
+                {/* Informations supplémentaires */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Informations supplémentaires</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="font-medium text-sm text-gray-600">Auteur</Label>
+                      <p className="mt-1">{selectedWork.author?.name || "Non assigné"}</p>
+                      <p className="text-xs text-gray-500">{selectedWork.author?.email}</p>
+                    </div>
+                    <div>
+                      <Label className="font-medium text-sm text-gray-600">Concepteur</Label>
+                      <p className="mt-1">{selectedWork.concepteur?.name || "Non assigné"}</p>
+                      <p className="text-xs text-gray-500">{selectedWork.concepteur?.email}</p>
+                    </div>
+                    {selectedWork.project && (
+                      <div>
+                        <Label className="font-medium text-sm text-gray-600">Projet parent</Label>
+                        <div className="flex items-center space-x-2 mt-1">
+                          <Badge variant="secondary">{selectedWork.project.title}</Badge>
+                          <span className="text-xs text-gray-500">({selectedWork.project.status})</span>
+                        </div>
+                      </div>
+                    )}
+                    <div>
+                      <Label className="font-medium text-sm text-gray-600">Stock</Label>
+                      <p className="mt-1">{selectedWork.stock} exemplaires</p>
+                    </div>
+                    <div>
+                      <Label className="font-medium text-sm text-gray-600">Date de création</Label>
+                      <p className="mt-1 text-sm">{format(new Date(selectedWork.createdAt), "dd/MM/yyyy HH:mm", { locale: fr })}</p>
+                    </div>
+                    {selectedWork.submittedAt && (
+                      <div>
+                        <Label className="font-medium text-sm text-gray-600">Date de soumission</Label>
+                        <p className="mt-1 text-sm">{format(new Date(selectedWork.submittedAt), "dd/MM/yyyy HH:mm", { locale: fr })}</p>
+                      </div>
+                    )}
+                    <div>
+                      <Label className="font-medium text-sm text-gray-600">Dernière mise à jour</Label>
+                      <p className="mt-1 text-sm">{format(new Date(selectedWork.updatedAt), "dd/MM/yyyy HH:mm", { locale: fr })}</p>
+                    </div>
+                    <div>
+                      <Label className="font-medium text-sm text-gray-600">Statut</Label>
+                      <div className="mt-1">{getStatusBadge(selectedWork.status)}</div>
+                    </div>
+                  </div>
+                  {(selectedWork.validationComment || selectedWork.rejectionReason) && (
+                    <div className="mt-4 pt-4 border-t">
+                      <Label className="font-medium text-sm text-gray-600">Commentaires</Label>
+                      {selectedWork.validationComment && (
+                        <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded">
+                          <p className="text-sm text-green-800">{selectedWork.validationComment}</p>
+                        </div>
+                      )}
+                      {selectedWork.rejectionReason && (
+                        <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded">
+                          <p className="text-sm text-red-800">{selectedWork.rejectionReason}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
+              );
+            })()}
           </DialogContent>
         </Dialog>
 

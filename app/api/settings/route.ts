@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { RebateRateType } from "@prisma/client";
 
-// Simulation des paramètres globaux (en production, ceci devrait être stocké en base)
+// Paramètres par défaut
 const DEFAULT_SETTINGS = {
   platform: {
     name: "LAHA Marchand",
@@ -28,7 +31,7 @@ const DEFAULT_SETTINGS = {
     autoReorder: false
   },
   pricing: {
-    authorRoyaltyRate: 0.10, // 10% pour les auteurs
+    authorRoyaltyRate: 0.15, // 15% pour les auteurs (par défaut)
     conceptorRoyaltyRate: 0.05, // 5% pour les concepteurs
     partnerCommissionRate: 0.15, // 15% pour les partenaires
     representantCommissionRate: 0.08 // 8% pour les représentants
@@ -54,20 +57,67 @@ const DEFAULT_SETTINGS = {
   }
 };
 
+// Fonction pour récupérer les taux de pricing depuis la base
+async function getPricingRatesFromDB() {
+  try {
+    const pricingKeys = [
+      'pricing.authorRoyaltyRate',
+      'pricing.conceptorRoyaltyRate',
+      'pricing.partnerCommissionRate',
+      'pricing.representantCommissionRate'
+    ];
+
+    const settings = await prisma.advancedSetting.findMany({
+      where: {
+        key: { in: pricingKeys }
+      }
+    });
+
+    const pricing: any = { ...DEFAULT_SETTINGS.pricing };
+
+    settings.forEach(setting => {
+      const value = parseFloat(setting.value);
+      if (!isNaN(value)) {
+        if (setting.key === 'pricing.authorRoyaltyRate') {
+          pricing.authorRoyaltyRate = value;
+        } else if (setting.key === 'pricing.conceptorRoyaltyRate') {
+          pricing.conceptorRoyaltyRate = value;
+        } else if (setting.key === 'pricing.partnerCommissionRate') {
+          pricing.partnerCommissionRate = value;
+        } else if (setting.key === 'pricing.representantCommissionRate') {
+          pricing.representantCommissionRate = value;
+        }
+      }
+    });
+
+    return pricing;
+  } catch (error) {
+    console.error("Error fetching pricing rates from DB:", error);
+    return DEFAULT_SETTINGS.pricing;
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get("category");
 
-    if (category && DEFAULT_SETTINGS[category as keyof typeof DEFAULT_SETTINGS]) {
+    // Récupérer les paramètres de pricing depuis la base de données
+    const pricingRates = await getPricingRatesFromDB();
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      pricing: pricingRates
+    };
+
+    if (category && settings[category as keyof typeof settings]) {
       return NextResponse.json({
         category,
-        settings: DEFAULT_SETTINGS[category as keyof typeof DEFAULT_SETTINGS]
+        settings: settings[category as keyof typeof settings]
       });
     }
 
     return NextResponse.json({
-      settings: DEFAULT_SETTINGS
+      settings
     });
   } catch (error) {
     console.error("Error fetching settings:", error);
@@ -80,6 +130,22 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: "Non authentifié" },
+        { status: 401 }
+      );
+    }
+
+    // Vérifier que l'utilisateur est PDG
+    if (session.user.role !== "PDG") {
+      return NextResponse.json(
+        { error: "Accès refusé - Seul le PDG peut modifier les paramètres" },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { category, settings } = body;
 
@@ -90,15 +156,19 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // En production, ceci devrait sauvegarder en base de données
-    // Pour l'instant, on simule la sauvegarde
     console.log(`Updating settings for category: ${category}`, settings);
+
+    // Si c'est la catégorie pricing, sauvegarder dans AdvancedSetting et RebateRate
+    if (category === "pricing") {
+      await savePricingSettings(settings, session.user.id);
+    }
 
     // Créer un log d'audit
     await prisma.auditLog.create({
       data: {
+        userId: session.user.id,
         action: `SETTINGS_UPDATE_${category.toUpperCase()}`,
-        performedBy: "PDG", // En production, récupérer l'ID du PDG connecté
+        performedBy: session.user.name || session.user.email || "PDG",
         details: JSON.stringify({
           category,
           settings,
@@ -118,6 +188,90 @@ export async function PUT(request: NextRequest) {
       { error: "Erreur lors de la mise à jour des paramètres" },
       { status: 500 }
     );
+  }
+}
+
+// Fonction pour sauvegarder les paramètres de pricing
+async function savePricingSettings(pricing: any, userId: string) {
+  try {
+    // Sauvegarder dans AdvancedSetting pour la persistance
+    const pricingSettings = [
+      { key: 'pricing.authorRoyaltyRate', description: 'Taux de royalties pour les auteurs', value: pricing.authorRoyaltyRate.toString() },
+      { key: 'pricing.conceptorRoyaltyRate', description: 'Taux de royalties pour les concepteurs', value: pricing.conceptorRoyaltyRate.toString() },
+      { key: 'pricing.partnerCommissionRate', description: 'Taux de commission pour les partenaires', value: pricing.partnerCommissionRate.toString() },
+      { key: 'pricing.representantCommissionRate', description: 'Taux de commission pour les représentants', value: pricing.representantCommissionRate.toString() }
+    ];
+
+    for (const setting of pricingSettings) {
+      await prisma.advancedSetting.upsert({
+        where: { key: setting.key },
+        update: {
+          value: setting.value,
+          updatedById: userId,
+          updatedAt: new Date()
+        },
+        create: {
+          key: setting.key,
+          description: setting.description,
+          value: setting.value,
+          type: 'number',
+          category: 'pricing',
+          updatedById: userId
+        }
+      });
+    }
+
+    // Désactiver les anciens taux GLOBAL dans RebateRate
+    await prisma.rebateRate.updateMany({
+      where: {
+        type: "GLOBAL",
+        isActive: true,
+        partnerId: null,
+        userId: null,
+        workId: null
+      },
+      data: {
+        isActive: false
+      }
+    });
+
+    // Créer de nouveaux taux GLOBAL dans RebateRate pour utilisation par le système
+    // Note: On crée un seul taux GLOBAL pour les auteurs (le système utilisera celui-ci)
+    // Les autres types (PARTNER, etc.) seront gérés séparément
+    const authorRate = await prisma.rebateRate.findFirst({
+      where: {
+        type: "GLOBAL",
+        userId: null,
+        workId: null,
+        partnerId: null
+      }
+    });
+
+    if (authorRate) {
+      await prisma.rebateRate.update({
+        where: { id: authorRate.id },
+        data: {
+          rate: pricing.authorRoyaltyRate * 100, // Convertir en pourcentage
+          isActive: true,
+          updatedAt: new Date()
+        }
+      });
+    } else {
+      // Créer un nouveau taux GLOBAL pour les auteurs
+      await prisma.rebateRate.create({
+        data: {
+          type: "GLOBAL",
+          rate: pricing.authorRoyaltyRate * 100,
+          isActive: true,
+          createdById: userId
+        }
+      });
+    }
+
+    console.log("✅ Pricing settings saved successfully");
+  } catch (error) {
+    console.error("Error saving pricing settings:", error);
+    throw error;
   }
 }
 

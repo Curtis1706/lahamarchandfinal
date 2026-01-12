@@ -199,13 +199,14 @@ export async function PATCH(
     }
 
     // Valider les transitions de statut
+    // Une fois validée, une commande ne peut plus être annulée
     const validTransitions: Record<OrderStatus, OrderStatus[]> = {
       [OrderStatus.PENDING]: [OrderStatus.VALIDATED, OrderStatus.CANCELLED],
-      [OrderStatus.VALIDATED]: [OrderStatus.PROCESSING, OrderStatus.CANCELLED],
-      [OrderStatus.PROCESSING]: [OrderStatus.SHIPPED, OrderStatus.CANCELLED],
+      [OrderStatus.VALIDATED]: [OrderStatus.PROCESSING], // CANCELLED retiré : une commande validée ne peut plus être annulée
+      [OrderStatus.PROCESSING]: [OrderStatus.SHIPPED], // CANCELLED retiré : une commande en traitement ne peut plus être annulée
       [OrderStatus.SHIPPED]: [OrderStatus.DELIVERED],
       [OrderStatus.DELIVERED]: [],
-      [OrderStatus.CANCELLED]: [],
+      [OrderStatus.CANCELLED]: [], // Une commande annulée ne peut plus être modifiée
     }
 
     if (!validTransitions[existingOrder.status].includes(status)) {

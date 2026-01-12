@@ -266,9 +266,8 @@ function ClientCommandePageContent() {
   })
 
   // Fonctions pour gérer les actions
-  const handleCancelOrder = (orderId: string) => {
-    updateOrderStatus(orderId, 'cancelled')
-    toast.success("Commande annulée avec succès")
+  const handleCancelOrder = async (orderId: string) => {
+    await updateOrderStatus(orderId, 'cancelled')
   }
 
   const getStatusIcon = (status: Order['status']) => {
@@ -567,16 +566,12 @@ function ClientCommandePageContent() {
                 Suivez l'état de vos commandes de livres scolaires
               </p>
         </div>
-        <Button 
-          onClick={() => {
-            setBookSearchTerm("")
-            setIsCreateOrderOpen(true)
-          }}
-          className="bg-indigo-600 hover:bg-indigo-700"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Commande +
-        </Button>
+        <Link href="/dashboard/client/commande/nouvelle">
+          <Button className="bg-indigo-600 hover:bg-indigo-700">
+            <Plus className="h-4 w-4 mr-2" />
+            Commande +
+          </Button>
+        </Link>
       </div>
 
           {/* Filtres */}

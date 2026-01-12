@@ -32,7 +32,8 @@ export async function POST(request: NextRequest) {
       status = "PENDING",
       collectionId,
       coverImage,
-      isbn
+      isbn,
+      internalCode
     } = body;
     
     console.log("🔍 Données extraites:", { 
@@ -70,9 +71,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "L'ID de l'auteur est obligatoire" }, { status: 400 });
     }
 
-    if (!contentType) {
-      return NextResponse.json({ error: "Le type de contenu est obligatoire" }, { status: 400 });
-    }
+    // contentType n'est plus obligatoire - peut être null
 
     // Vérifier que l'utilisateur connecté a les permissions
     // Les concepteurs peuvent créer des œuvres pour n'importe quel auteur
@@ -151,6 +150,7 @@ export async function POST(request: NextRequest) {
         title: title.trim(),
         description: description.trim(),
         isbn: workIsbn,
+        internalCode: internalCode?.trim() || null,
         price: estimatedPrice,
         tva: 0.18,
         stock: 0,

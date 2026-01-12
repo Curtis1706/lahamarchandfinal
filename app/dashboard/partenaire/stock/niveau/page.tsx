@@ -299,8 +299,8 @@ export default function NiveauStockPage() {
                         <td className="p-4 text-sm">{item.vacances}</td>
                         <td className="p-4 text-sm">{item.depot}</td>
                         <td className="p-4 text-sm font-medium">{item.total}</td>
-                        <td className="p-4 text-sm">{item.prixPublic.toLocaleString()} F CFA</td>
-                        <td className="p-4 text-sm text-green-600 font-medium">{item.prixRemise.toLocaleString()} F CFA</td>
+                        <td className="p-4 text-sm">{(item.prixPublic ?? 0).toLocaleString("fr-FR")} F CFA</td>
+                        <td className="p-4 text-sm text-green-600 font-medium">{(item.prixRemise ?? 0).toLocaleString("fr-FR")} F CFA</td>
                         <td className="p-4">
                           {item.stockFaible ? (
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">

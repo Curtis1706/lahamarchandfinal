@@ -3,18 +3,15 @@
 import { useState, useEffect } from "react"
 import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout"
 import { useCurrentUser } from "@/hooks/use-current-user"
-import { useCart } from "@/hooks/use-cart"
-import { useOrders } from "@/hooks/use-orders"
 import { useRouter } from "next/navigation"
 import { apiClient } from "@/lib/api-client"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Search, Book, ShoppingCart, Filter, Image as ImageIcon, X, Trash2, Plus, Minus } from "lucide-react"
+import { Loader2, Search, Book, Filter, ShoppingBag } from "lucide-react"
 import Image from "next/image"
 import { toast } from "sonner"
-import Link from "next/link"
 import {
   Select,
   SelectContent,
@@ -22,15 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Separator } from "@/components/ui/separator"
 
 // Types locaux pour éviter les problèmes d'import Prisma
 interface Work {
@@ -110,17 +98,13 @@ const getBookImageUrl = (work: WorkWithDiscipline, title: string, discipline?: s
 
 export default function ClientCataloguePage() {
   const { user, isLoading: userLoading } = useCurrentUser()
-  const { cart, addToCart, removeFromCart, updateQuantity, getTotalPrice, getTotalItems, isInCart, clearCart } = useCart()
-  const { addOrder } = useOrders()
   const router = useRouter()
   const [works, setWorks] = useState<WorkWithDiscipline[]>([])
   const [disciplines, setDisciplines] = useState<Discipline[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedDiscipline, setSelectedDiscipline] = useState<string>("all")
-  const [isProcessingOrder, setIsProcessingOrder] = useState(false)
   const [loadingDiscounts, setLoadingDiscounts] = useState(false)
-  const [cartDiscounts, setCartDiscounts] = useState<Record<string, any>>({})
 
   useEffect(() => {
     const fetchData = async () => {
@@ -202,36 +186,10 @@ export default function ClientCataloguePage() {
     fetchData()
   }, [])
 
-  // Fonction pour mettre à jour la remise d'un article dans le panier
-  const updateItemDiscount = async (workId: string, workTitle: string, quantity: number) => {
-    try {
-      const clientType = user?.role === 'PARTENAIRE' ? 'Partenaire' : 
-                        user?.role === 'REPRESENTANT' ? 'Représentant' : 'Client'
-      
-      const discountResponse = await fetch(
-        `/api/discounts/applicable?workId=${workId}&workTitle=${encodeURIComponent(workTitle)}&clientType=${clientType}&quantity=${quantity}`
-      )
-      
-      if (discountResponse.ok) {
-        const discountData = await discountResponse.json()
-        setCartDiscounts(prev => ({
-          ...prev,
-          [workId]: discountData.applicable
-        }))
-      }
-    } catch (error) {
-      console.error(`Error updating discount for work ${workId}:`, error)
-    }
+  // Fonction pour rediriger vers la page de commande avec un livre pré-sélectionné
+  const handleSelectBook = (workId: string) => {
+    router.push(`/dashboard/client/commande/nouvelle?workId=${workId}`)
   }
-
-  // Charger les remises pour les articles du panier au chargement
-  useEffect(() => {
-    if (cart.length > 0 && user) {
-      cart.forEach(item => {
-        updateItemDiscount(item.id, item.title, item.quantity || 1)
-      })
-    }
-  }, [cart.length, user]) // Seulement quand le panier change de taille ou l'utilisateur change
 
   const filteredWorks = works.filter(work => {
     // Filtrer uniquement les livres PUBLISHED (sécurité supplémentaire côté client)
@@ -243,59 +201,6 @@ export default function ClientCataloguePage() {
     return matchesSearch && matchesDiscipline
   })
 
-  // Fonction pour créer directement la commande
-  const handleCreateOrder = async () => {
-    if (cart.length === 0) {
-      toast.error("Votre panier est vide")
-      return
-    }
-
-    if (!user) {
-      toast.error("Vous devez être connecté pour passer commande")
-      return
-    }
-
-    setIsProcessingOrder(true)
-
-    try {
-      // Créer la commande avec des données par défaut
-      const orderItems = cart.map(item => ({
-        id: item.id,
-        title: item.title,
-        isbn: item.isbn,
-        price: item.price || 0,
-        quantity: item.quantity || 1,
-        image: item.image || "/placeholder.jpg"
-      }))
-
-      const newOrder = await addOrder({
-        total: getTotalPrice(),
-        itemCount: cart.length,
-        paymentMethod: "À confirmer",
-        deliveryAddress: "Adresse à confirmer",
-        items: orderItems,
-        customerInfo: {
-          fullName: user.name || "Client",
-          email: user.email || "",
-          phone: "À confirmer",
-          address: "À confirmer",
-          city: "À confirmer"
-        }
-      })
-
-      // Vider le panier silencieusement (pas de toast)
-      clearCart(false)
-      
-      // Rediriger vers les commandes
-      router.push(`/dashboard/client/commandes?newOrder=${newOrder.id}`)
-      
-    } catch (error) {
-      console.error("Erreur lors de la création de la commande:", error)
-      toast.error("Erreur lors de la création de la commande")
-    } finally {
-      setIsProcessingOrder(false)
-    }
-  }
 
 
   if (userLoading || isLoading) {
@@ -330,214 +235,6 @@ export default function ClientCataloguePage() {
                 Découvrez notre collection de livres scolaires et éducatifs
               </p>
             </div>
-            
-            {/* Panier fonctionnel */}
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  className="relative flex items-center space-x-2 hover:bg-blue-50"
-                >
-                  <ShoppingCart className="h-5 w-5" />
-                  <span>Panier</span>
-                  {cart.length > 0 && (
-                    <Badge 
-                      variant="destructive" 
-                      className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs"
-                    >
-                      {getTotalItems()}
-                    </Badge>
-                  )}
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center space-x-2">
-                    <ShoppingCart className="h-5 w-5" />
-                    <span>Mon Panier ({getTotalItems()} article{getTotalItems() > 1 ? 's' : ''})</span>
-                  </DialogTitle>
-                  <DialogDescription>
-                    Gérez les articles de votre panier
-                  </DialogDescription>
-                </DialogHeader>
-                
-                {cart.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <ShoppingCart className="h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">Votre panier est vide</h3>
-                    <p className="text-muted-foreground">
-                      Ajoutez des livres à votre panier pour commencer vos achats
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {cart.map((item) => (
-                      <div key={item.id} className="flex items-center space-x-4 p-4 border rounded-lg">
-                        <div className="relative w-16 h-20 bg-gray-100 rounded">
-                          <Image
-                            src={getBookImageUrl(item, item.title, item.discipline?.name)}
-                            alt={item.title}
-                            fill
-                            className="object-cover rounded"
-                            sizes="64px"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement
-                              target.src = '/placeholder.jpg'
-                            }}
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-sm line-clamp-2">{item.title}</h4>
-                          <p className="text-xs text-muted-foreground">ISBN: {item.isbn}</p>
-                          <p className="text-sm font-semibold text-blue-600">
-                            {item.price?.toFixed(2)} FCFA / unité
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Stock disponible: {item.stock || 0} exemplaires
-                          </p>
-                        </div>
-                        <div className="flex flex-col items-center space-y-2">
-                          <div className="flex items-center space-x-2 border rounded-lg">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={async () => {
-                                const newQuantity = (item.quantity || 1) - 1
-                                updateQuantity(item.id, newQuantity)
-                                // Recalculer la remise pour la nouvelle quantité
-                                if (newQuantity > 0) {
-                                  await updateItemDiscount(item.id, item.title, newQuantity)
-                                }
-                              }}
-                              disabled={(item.quantity || 1) <= 1}
-                              className="h-8 w-8 p-0"
-                            >
-                              <Minus className="h-3 w-3" />
-                            </Button>
-                            <span className="w-12 text-center font-medium">
-                              {item.quantity || 1}
-                            </span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={async () => {
-                                const newQuantity = (item.quantity || 1) + 1
-                                updateQuantity(item.id, newQuantity)
-                                // Recalculer la remise pour la nouvelle quantité
-                                await updateItemDiscount(item.id, item.title, newQuantity)
-                              }}
-                              disabled={item.stock !== undefined && (item.quantity || 1) >= item.stock}
-                              className="h-8 w-8 p-0"
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                          </div>
-                          {(() => {
-                            const discount = cartDiscounts[item.id]
-                            const itemPrice = item.price || 0
-                            const quantity = item.quantity || 1
-                            let finalPrice = itemPrice * quantity
-                            
-                            if (discount) {
-                              if (discount.type === 'Pourcentage') {
-                                finalPrice = itemPrice * quantity * (1 - discount.reduction / 100)
-                              } else if (discount.type === 'Montant') {
-                                finalPrice = Math.max(0, (itemPrice * quantity) - discount.reduction)
-                              }
-                            }
-                            
-                            return (
-                              <div className="text-center">
-                                {discount && (
-                                  <p className="text-xs text-gray-500 line-through">
-                                    {(itemPrice * quantity).toFixed(2)} FCFA
-                                  </p>
-                                )}
-                                <p className="text-xs font-semibold text-gray-700">
-                                  {finalPrice.toFixed(2)} FCFA
-                                </p>
-                              </div>
-                            )
-                          })()}
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeFromCart(item.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                    
-                    <Separator />
-                    
-                    <div className="flex items-center justify-between">
-                      <div className="text-lg font-semibold">
-                        {(() => {
-                          // Calculer le total avec remises
-                          const totalWithoutDiscount = cart.reduce((sum, item) => 
-                            sum + ((item.price || 0) * (item.quantity || 1)), 0
-                          )
-                          
-                          const totalDiscount = cart.reduce((sum, item) => {
-                            const discount = cartDiscounts[item.id]
-                            if (!discount) return sum
-                            
-                            const itemTotal = (item.price || 0) * (item.quantity || 1)
-                            if (discount.type === 'Pourcentage') {
-                              return sum + (itemTotal * discount.reduction / 100)
-                            } else {
-                              return sum + discount.reduction
-                            }
-                          }, 0)
-                          
-                          const finalTotal = Math.max(0, totalWithoutDiscount - totalDiscount)
-                          
-                          return (
-                            <div className="flex flex-col">
-                              {totalDiscount > 0 && (
-                                <div className="text-sm text-gray-500 line-through">
-                                  {totalWithoutDiscount.toFixed(2)} FCFA
-                                </div>
-                              )}
-                              <div>
-                                Total: {finalTotal.toFixed(2)} FCFA
-                                {totalDiscount > 0 && (
-                                  <span className="text-sm text-green-600 ml-2">
-                                    (-{totalDiscount.toFixed(2)} FCFA)
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )
-                        })()}
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button variant="outline" onClick={() => clearCart()}>
-                          Vider le panier
-                        </Button>
-                        <Button 
-                          className="bg-blue-600 hover:bg-blue-700"
-                          onClick={handleCreateOrder}
-                          disabled={isProcessingOrder}
-                        >
-                          {isProcessingOrder ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Création en cours...
-                            </>
-                          ) : (
-                            "Passer commande"
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </DialogContent>
-            </Dialog>
           </div>
 
           {/* Filtres et recherche */}
@@ -583,7 +280,6 @@ export default function ClientCataloguePage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredWorks.map((work) => {
-              const workInCart = isInCart(work.id)
               const discipline = disciplines.find(d => d.id === work.disciplineId)
               
               return (
@@ -646,55 +342,44 @@ export default function ClientCataloguePage() {
                     </div>
                   </CardContent>
                   
-                  <CardFooter className="pt-4">
-                    <div className="flex flex-col space-y-2 w-full">
-                      <div className="flex items-center justify-between">
-                        <div className="flex flex-col">
-                          {work.discount && work.price ? (
-                            <>
-                              <div className="text-sm text-gray-500 line-through">
-                                {work.price.toFixed(2)} FCFA
-                              </div>
-                              <div className="text-2xl font-bold text-primary">
-                                {work.finalPrice?.toFixed(2)} FCFA
-                              </div>
-                            </>
-                          ) : (
-                      <div className="text-2xl font-bold text-primary">
-                        {work.price ? `${work.price.toFixed(2)} FCFA` : "Prix non défini"}
+                  <CardFooter className="pt-4 border-t">
+                    <div className="flex flex-col space-y-3 w-full">
+                      {/* Prix */}
+                      <div className="flex flex-col">
+                        {work.discount && work.price ? (
+                          <>
+                            <div className="text-sm text-gray-500 line-through">
+                              {work.price.toFixed(2)} FCFA
                             </div>
-                          )}
-                      </div>
-                      {workInCart ? (
-                        <Button
-                          variant="outline"
-                          onClick={() => removeFromCart(work.id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          Retirer du panier
-                        </Button>
-                      ) : (
-                        <Button
-                          onClick={() => addToCart({
-                            ...work,
-                              price: work.finalPrice || work.price, // Utiliser le prix avec remise
-                              image: getBookImageUrl(work, work.title, discipline?.name)
-                          })}
-                          disabled={!work.price}
-                        >
-                          <ShoppingCart className="h-4 w-4 mr-2" />
-                          Ajouter au panier
-                        </Button>
+                            <div className="text-2xl font-bold text-indigo-600">
+                              {work.finalPrice?.toFixed(2)} FCFA
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-2xl font-bold text-indigo-600">
+                            {work.price ? `${work.price.toFixed(2)} FCFA` : "Prix non défini"}
+                          </div>
+                        )}
+                        {work.discount && (
+                          <div className="text-xs text-green-600 font-medium mt-1">
+                            Remise : {work.discount.type === 'Pourcentage' 
+                              ? `${work.discount.reduction}%` 
+                              : `${work.discount.reduction} F CFA`} 
+                            {work.discount.quantiteMin > 1 && ` (min. ${work.discount.quantiteMin} exemplaires)`}
+                          </div>
                         )}
                       </div>
-                      {work.discount && (
-                        <div className="text-xs text-green-600 font-medium">
-                          Remise appliquée : {work.discount.type === 'Pourcentage' 
-                            ? `${work.discount.reduction}%` 
-                            : `${work.discount.reduction} F CFA`} 
-                          {work.discount.quantiteMin > 1 && ` (min. ${work.discount.quantiteMin} exemplaires)`}
-                        </div>
-                      )}
+                      
+                      {/* Bouton Commander */}
+                      <Button
+                        onClick={() => handleSelectBook(work.id)}
+                        disabled={!work.price || work.stock === 0}
+                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
+                        size="lg"
+                      >
+                        <ShoppingBag className="h-4 w-4 mr-2" />
+                        {work.stock === 0 ? "Rupture de stock" : "Commander"}
+                      </Button>
                     </div>
                   </CardFooter>
                 </Card>
