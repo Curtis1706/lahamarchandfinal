@@ -35,7 +35,8 @@ import {
   Camera,
   TrendingUp,
   ArrowRightLeft,
-  Wallet
+  Wallet,
+  RotateCcw
 } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import Link from "next/link";
@@ -335,19 +336,19 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           label: "Stock alloué"
         },
         {
-          href: `${basePath}/commandes`,
-          icon: ShoppingCart,
-          label: "Mes commandes"
-        },
-        {
           href: `${basePath}/catalogue`,
           icon: BookOpen,
           label: "Catalogue"
         },
         {
-          href: `${basePath}/ventes-retours`,
+          href: `${basePath}/ventes`,
           icon: TrendingUp,
-          label: "Ventes réalisées"
+          label: "Ventes"
+        },
+        {
+          href: `${basePath}/retours`,
+          icon: RotateCcw,
+          label: "Retours"
         },
         {
           href: `${basePath}/rapports`,

@@ -12,8 +12,8 @@ import {
 } from "@/components/ui/select"
 import {
   Package,
-  FileText,
-  Users,
+  TrendingUp,
+  TrendingDown,
   BookOpen,
   Printer,
   Eye,
@@ -26,8 +26,8 @@ import { calculateAvailableStock } from "@/lib/partner-stock"
 
 export default function NiveauStockPage() {
   const { user } = useCurrentUser()
-  const [stockData, setStockData] = useState([])
-  const [filteredData, setFilteredData] = useState([])
+  const [stockData, setStockData] = useState<any[]>([])
+  const [filteredData, setFilteredData] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("toutes")
@@ -59,30 +59,30 @@ export default function NiveauStockPage() {
     loadStock()
   }, [selectedDiscipline, selectedStatus])
 
-  // Calculer les statistiques
-  // availableQuantity est calculé côté API, mais on peut aussi le calculer ici pour sécurité
-  const totalStock = stockData.reduce((sum, item) => sum + (item.allocatedQuantity || 0), 0)
-  const totalDepot = stockData.reduce((sum, item) => {
-    // Utiliser availableQuantity de l'API si présent, sinon calculer
+  // Calculer les statistiques (KPI)
+  const totalAllocated = stockData.reduce((sum, item) => sum + Number(item.allocatedQuantity ?? 0), 0)
+  const totalSold = stockData.reduce((sum, item) => sum + Number(item.soldQuantity ?? 0), 0)
+  const totalReturned = stockData.reduce((sum, item) => sum + Number(item.returnedQuantity ?? 0), 0)
+  const totalAvailable = stockData.reduce((sum, item) => {
     const available = item.availableQuantity !== undefined 
       ? item.availableQuantity 
       : calculateAvailableStock(
-          item.allocatedQuantity || 0,
-          item.soldQuantity || 0,
-          item.returnedQuantity || 0
+          Number(item.allocatedQuantity ?? 0),
+          Number(item.soldQuantity ?? 0),
+          Number(item.returnedQuantity ?? 0)
         )
-    return sum + available
+    return sum + Number(available ?? 0)
   }, 0)
-  const totalRentree = stockData.reduce((sum, item) => sum + (item.soldQuantity || 0), 0)
+  
   const stockFaibleCount = stockData.filter(item => {
     const available = item.availableQuantity !== undefined 
       ? item.availableQuantity 
       : calculateAvailableStock(
-          item.allocatedQuantity || 0,
-          item.soldQuantity || 0,
-          item.returnedQuantity || 0
+          Number(item.allocatedQuantity ?? 0),
+          Number(item.soldQuantity ?? 0),
+          Number(item.returnedQuantity ?? 0)
         )
-    return available < 20
+    return Number(available ?? 0) <= 5 && Number(available ?? 0) > 0
   }).length
 
   // Filtrer les données
@@ -91,8 +91,8 @@ export default function NiveauStockPage() {
 
     if (searchTerm) {
       filtered = filtered.filter(item => 
-        item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.isbn.includes(searchTerm)
+        item.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.isbn?.toLowerCase().includes(searchTerm.toLowerCase())
       )
     }
 
@@ -109,11 +109,38 @@ export default function NiveauStockPage() {
     }
 
     if (selectedStatus === "stock-faible") {
-      filtered = filtered.filter(item => item.stockFaible)
+      filtered = filtered.filter(item => {
+        const available = item.availableQuantity !== undefined 
+          ? item.availableQuantity 
+          : calculateAvailableStock(
+              Number(item.allocatedQuantity ?? 0),
+              Number(item.soldQuantity ?? 0),
+              Number(item.returnedQuantity ?? 0)
+            )
+        return Number(available ?? 0) <= 5 && Number(available ?? 0) > 0
+      })
+    } else if (selectedStatus === "disponible") {
+      filtered = filtered.filter(item => {
+        const available = item.availableQuantity !== undefined 
+          ? item.availableQuantity 
+          : calculateAvailableStock(
+              Number(item.allocatedQuantity ?? 0),
+              Number(item.soldQuantity ?? 0),
+              Number(item.returnedQuantity ?? 0)
+            )
+        return Number(available ?? 0) > 0
+      })
     }
 
     setFilteredData(filtered)
   }, [searchTerm, selectedCategory, selectedDiscipline, selectedClass, selectedStatus, stockData])
+
+  // Fonction pour calculer le statut
+  const getStatus = (available: number) => {
+    if (available === 0) return { label: "Rupture", color: "bg-red-100 text-red-800" }
+    if (available <= 5) return { label: "Faible stock", color: "bg-yellow-100 text-yellow-800" }
+    return { label: "Disponible", color: "bg-green-100 text-green-800" }
+  }
 
   return (
     <div>
@@ -135,32 +162,32 @@ export default function NiveauStockPage() {
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="bg-white rounded-2xl p-6 text-center shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-600 mb-2">Rentrée scolaire</h3>
-              <div className="text-4xl font-bold text-gray-800 mb-2">{totalRentree}</div>
+              <h3 className="text-lg font-semibold text-gray-600 mb-2">Total alloué</h3>
+              <div className="text-4xl font-bold text-gray-800 mb-2">{totalAllocated}</div>
               <div className="w-12 h-12 bg-blue-100 rounded-lg mx-auto flex items-center justify-center">
                 <Package className="w-6 h-6 text-blue-600" />
               </div>
             </div>
 
             <div className="bg-white rounded-2xl p-6 text-center shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-600 mb-2">Vacances</h3>
-              <div className="text-4xl font-bold text-gray-800 mb-2">{stockData.reduce((sum, item) => sum + item.vacances, 0)}</div>
+              <h3 className="text-lg font-semibold text-gray-600 mb-2">Total vendu</h3>
+              <div className="text-4xl font-bold text-gray-800 mb-2">{totalSold}</div>
               <div className="w-12 h-12 bg-green-100 rounded-lg mx-auto flex items-center justify-center">
-                <FileText className="w-6 h-6 text-green-600" />
+                <TrendingUp className="w-6 h-6 text-green-600" />
               </div>
             </div>
 
             <div className="bg-white rounded-2xl p-6 text-center shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-600 mb-2">En dépôt</h3>
-              <div className="text-4xl font-bold text-gray-800 mb-2">{totalDepot}</div>
+              <h3 className="text-lg font-semibold text-gray-600 mb-2">Total retourné</h3>
+              <div className="text-4xl font-bold text-gray-800 mb-2">{totalReturned}</div>
               <div className="w-12 h-12 bg-purple-100 rounded-lg mx-auto flex items-center justify-center">
-                <Users className="w-6 h-6 text-purple-600" />
+                <TrendingDown className="w-6 h-6 text-purple-600" />
               </div>
             </div>
 
             <div className="bg-white rounded-2xl p-6 text-center shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-600 mb-2">Total alloué</h3>
-              <div className="text-4xl font-bold text-gray-800 mb-2">{totalStock}</div>
+              <h3 className="text-lg font-semibold text-gray-600 mb-2">Total disponible</h3>
+              <div className="text-4xl font-bold text-gray-800 mb-2">{totalAvailable}</div>
               <div className="w-12 h-12 bg-orange-100 rounded-lg mx-auto flex items-center justify-center">
                 <BookOpen className="w-6 h-6 text-orange-600" />
               </div>
@@ -277,18 +304,18 @@ export default function NiveauStockPage() {
 
             {/* Table */}
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1000px]">
+              <table className="w-full min-w-[1200px]">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="text-left p-4">LIVRE</th>
                     <th className="text-left p-4">DISCIPLINE</th>
                     <th className="text-left p-4">CLASSE</th>
-                    <th className="text-left p-4">RENTRÉE</th>
-                    <th className="text-left p-4">VACANCES</th>
-                    <th className="text-left p-4">DÉPÔT</th>
-                    <th className="text-left p-4">TOTAL</th>
+                    <th className="text-left p-4">ALLOUÉ</th>
+                    <th className="text-left p-4">VENDU</th>
+                    <th className="text-left p-4">RETOURNÉ</th>
+                    <th className="text-left p-4">DISPONIBLE</th>
                     <th className="text-left p-4">PRIX PUBLIC</th>
-                    <th className="text-left p-4">PRIX REMISE</th>
+                    <th className="text-left p-4">PRIX PARTENAIRE</th>
                     <th className="text-left p-4">STATUT</th>
                     <th className="text-left p-4">ACTIONS</th>
                   </tr>
@@ -297,55 +324,66 @@ export default function NiveauStockPage() {
                   {filteredData.length === 0 ? (
                     <tr>
                       <td colSpan={11} className="p-8 text-center text-gray-500">
-                        Aucun article trouvé
+                        {isLoading ? "Chargement..." : "Aucun article trouvé"}
                       </td>
                     </tr>
                   ) : (
-                    filteredData.map((item) => (
-                      <tr key={item.id} className="border-b hover:bg-gray-50">
-                        <td className="p-4">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center flex-shrink-0">
-                              <BookOpen className="w-4 h-4 text-white" />
+                    filteredData.map((item) => {
+                      const available = item.availableQuantity !== undefined 
+                        ? item.availableQuantity 
+                        : calculateAvailableStock(
+                            Number(item.allocatedQuantity ?? 0),
+                            Number(item.soldQuantity ?? 0),
+                            Number(item.returnedQuantity ?? 0)
+                          )
+                      const status = getStatus(Number(available ?? 0))
+                      const prixPublic = Number(item.price ?? 0)
+                      const prixPartenaire = Number(item.price ?? 0) // TODO: Ajouter prix partenaire si disponible dans l'API
+                      
+                      return (
+                        <tr key={item.id} className="border-b hover:bg-gray-50">
+                          <td className="p-4">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center flex-shrink-0">
+                                <BookOpen className="w-4 h-4 text-white" />
+                              </div>
+                              <div>
+                                <div className="font-medium text-sm">{item.title || 'N/A'}</div>
+                                <div className="text-xs text-gray-500">ISBN: {item.isbn || 'N/A'}</div>
+                              </div>
                             </div>
-                            <div>
-                              <div className="font-medium text-sm">{item.title}</div>
-                              <div className="text-xs text-gray-500">ISBN: {item.isbn}</div>
+                          </td>
+                          <td className="p-4 text-sm">{item.discipline || 'N/A'}</td>
+                          <td className="p-4 text-sm">{item.class || 'N/A'}</td>
+                          <td className="p-4 text-sm font-medium">{Number(item.allocatedQuantity ?? 0)}</td>
+                          <td className="p-4 text-sm">{Number(item.soldQuantity ?? 0)}</td>
+                          <td className="p-4 text-sm">{Number(item.returnedQuantity ?? 0)}</td>
+                          <td className="p-4 text-sm font-medium text-blue-600">{Number(available ?? 0)}</td>
+                          <td className="p-4 text-sm">{prixPublic.toLocaleString("fr-FR")} F CFA</td>
+                          <td className="p-4 text-sm text-green-600 font-medium">{prixPartenaire.toLocaleString("fr-FR")} F CFA</td>
+                          <td className="p-4">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${status.color}`}>
+                              {status.label === "Faible stock" && <AlertTriangle className="w-3 h-3 mr-1" />}
+                              {status.label}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center space-x-2">
+                              <button 
+                                className="p-1 hover:bg-gray-100 rounded"
+                                title="Voir les détails"
+                                onClick={() => {
+                                  // TODO: Implémenter l'historique
+                                  toast.info("Fonctionnalité historique à venir")
+                                }}
+                              >
+                                <Eye className="w-4 h-4 text-blue-600" />
+                              </button>
                             </div>
-                          </div>
-                        </td>
-                        <td className="p-4 text-sm">{item.discipline}</td>
-                        <td className="p-4 text-sm">{item.class}</td>
-                        <td className="p-4 text-sm">{item.rentree}</td>
-                        <td className="p-4 text-sm">{item.vacances}</td>
-                        <td className="p-4 text-sm">{item.depot}</td>
-                        <td className="p-4 text-sm font-medium">{item.total}</td>
-                        <td className="p-4 text-sm">{(item.prixPublic ?? 0).toLocaleString("fr-FR")} F CFA</td>
-                        <td className="p-4 text-sm text-green-600 font-medium">{(item.prixRemise ?? 0).toLocaleString("fr-FR")} F CFA</td>
-                        <td className="p-4">
-                          {item.stockFaible ? (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                              <AlertTriangle className="w-3 h-3 mr-1" />
-                              Stock faible
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              Disponible
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center space-x-2">
-                            <button 
-                              className="p-1 hover:bg-gray-100 rounded"
-                              title="Voir les détails"
-                            >
-                              <Eye className="w-4 h-4 text-blue-600" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                          </td>
+                        </tr>
+                      )
+                    })
                   )}
                 </tbody>
               </table>
@@ -388,9 +426,6 @@ export default function NiveauStockPage() {
                 <Button variant="outline" className="bg-green-600 text-white hover:bg-green-700">
                   EXCEL
                 </Button>
-                <Button variant="outline">
-                  <Printer className="w-4 h-4" />
-                </Button>
               </div>
             </div>
           </div>
@@ -399,4 +434,3 @@ export default function NiveauStockPage() {
     </div>
   )
 }
-

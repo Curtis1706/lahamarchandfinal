@@ -32,43 +32,7 @@ export async function GET(request: NextRequest) {
 
     // Récupérer le partenaire associé à l'utilisateur, ou le créer s'il n'existe pas
     let partner = await prisma.partner.findUnique({
-      where: { userId: session.user.id },
-      include: {
-        orders: {
-          where: {
-            status: {
-              notIn: ['PENDING', 'CANCELLED']
-            },
-            ...(startDate && endDate ? {
-              createdAt: {
-                gte: new Date(startDate),
-                lte: new Date(endDate)
-              }
-            } : {})
-          },
-          include: {
-            items: {
-              include: {
-                work: {
-                  select: {
-                    id: true,
-                    title: true,
-                    isbn: true,
-                    price: true,
-                    discipline: {
-                      select: {
-                        id: true,
-                        name: true
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          orderBy: { createdAt: 'desc' }
-        }
-      }
+      where: { userId: session.user.id }
     })
 
     if (!partner) {
@@ -82,9 +46,6 @@ export async function GET(request: NextRequest) {
             email: user.email,
             phone: user.phone || null,
             contact: user.name,
-          },
-          include: {
-            orders: []
           }
         })
         console.log("✅ Partenaire créé automatiquement pour l'utilisateur existant:", user.name)
@@ -94,39 +55,68 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Calculer les statistiques
-    const orders = partner.orders || []
-    const totalCommandes = orders.length
-    const totalVentes = orders.reduce((sum, order) => {
-      const orderTotal = order.items.reduce((itemSum, item) => itemSum + (item.quantity * item.price), 0)
-      return sum + orderTotal
+    // Récupérer les ventes (StockMovement PARTNER_SALE)
+    const salesMovements = await prisma.stockMovement.findMany({
+      where: {
+        partnerId: partner.id,
+        type: 'PARTNER_SALE',
+        ...(startDate && endDate ? {
+          createdAt: {
+            gte: new Date(startDate),
+            lte: new Date(endDate)
+          }
+        } : {})
+      },
+      include: {
+        work: {
+          select: {
+            id: true,
+            title: true,
+            isbn: true,
+            price: true,
+            discipline: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    // Calculer les statistiques à partir des ventes
+    const totalCommandes = salesMovements.length
+    const totalVentes = salesMovements.reduce((sum, movement) => {
+      return sum + (movement.totalAmount ?? (movement.unitPrice ?? movement.work.price ?? 0) * Math.abs(movement.quantity))
     }, 0)
-    const totalLivres = orders.reduce((sum, order) => {
-      return sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0)
+    const totalLivres = salesMovements.reduce((sum, movement) => {
+      return sum + Math.abs(movement.quantity)
     }, 0)
 
     // Calculer les statistiques par discipline
     const disciplineStats = new Map<string, { name: string; count: number; revenue: number }>()
-    orders.forEach(order => {
-      order.items.forEach(item => {
-        const disciplineName = item.work.discipline?.name || 'Autre'
-        const current = disciplineStats.get(disciplineName) || { name: disciplineName, count: 0, revenue: 0 }
-        current.count += item.quantity
-        current.revenue += item.quantity * item.price
-        disciplineStats.set(disciplineName, current)
-      })
+    salesMovements.forEach(movement => {
+      const disciplineName = movement.work.discipline?.name || 'Autre'
+      const quantity = Math.abs(movement.quantity)
+      const revenue = movement.totalAmount ?? (movement.unitPrice ?? movement.work.price ?? 0) * quantity
+      const current = disciplineStats.get(disciplineName) || { name: disciplineName, count: 0, revenue: 0 }
+      current.count += quantity
+      current.revenue += revenue
+      disciplineStats.set(disciplineName, current)
     })
 
     // Calculer les statistiques par livre
     const livreStats = new Map<string, { title: string; count: number; revenue: number }>()
-    orders.forEach(order => {
-      order.items.forEach(item => {
-        const livreTitle = item.work.title
-        const current = livreStats.get(livreTitle) || { title: livreTitle, count: 0, revenue: 0 }
-        current.count += item.quantity
-        current.revenue += item.quantity * item.price
-        livreStats.set(livreTitle, current)
-      })
+    salesMovements.forEach(movement => {
+      const livreTitle = movement.work.title
+      const quantity = Math.abs(movement.quantity)
+      const revenue = movement.totalAmount ?? (movement.unitPrice ?? movement.work.price ?? 0) * quantity
+      const current = livreStats.get(livreTitle) || { title: livreTitle, count: 0, revenue: 0 }
+      current.count += quantity
+      current.revenue += revenue
+      livreStats.set(livreTitle, current)
     })
 
     // Trouver le livre le plus populaire
@@ -147,24 +137,26 @@ export async function GET(request: NextRequest) {
       const prevStart = new Date(start.getTime() - duration)
       const prevEnd = start
 
-      const prevOrders = await prisma.order.findMany({
+      const prevSalesMovements = await prisma.stockMovement.findMany({
         where: {
           partnerId: partner.id,
-          status: {
-            notIn: ['PENDING', 'CANCELLED']
-          },
+          type: 'PARTNER_SALE',
           createdAt: {
             gte: prevStart,
             lt: prevEnd
           }
         },
         include: {
-          items: true
+          work: {
+            select: {
+              price: true
+            }
+          }
         }
       })
 
-      const prevTotal = prevOrders.reduce((sum, order) => {
-        return sum + order.items.reduce((itemSum, item) => itemSum + (item.quantity * item.price), 0)
+      const prevTotal = prevSalesMovements.reduce((sum, movement) => {
+        return sum + (movement.totalAmount ?? (movement.unitPrice ?? movement.work.price ?? 0) * Math.abs(movement.quantity))
       }, 0)
 
       if (prevTotal > 0) {
@@ -191,20 +183,26 @@ export async function GET(request: NextRequest) {
       })
     } else if (type === 'detailed') {
       return NextResponse.json({
-        orders: orders.map(order => ({
-          id: order.id,
-          reference: `CMD-${order.id.slice(-8)}`,
-          date: format(order.createdAt, 'dd MMM yyyy', { locale: fr }),
-          total: order.items.reduce((sum, item) => sum + (item.quantity * item.price), 0),
-          items: order.items.map(item => ({
-            work: item.work.title,
-            isbn: item.work.isbn,
-            quantity: item.quantity,
-            price: item.price,
-            total: item.quantity * item.price
-          })),
-          status: order.status
-        })),
+        orders: salesMovements.map(movement => {
+          const quantity = Math.abs(movement.quantity)
+          const unitPrice = movement.unitPrice ?? movement.work.price ?? 0
+          const total = movement.totalAmount ?? (unitPrice * quantity)
+          
+          return {
+            id: movement.id,
+            reference: movement.reference ?? `SALE-${movement.id.slice(-8)}`,
+            date: format(movement.createdAt, 'dd MMM yyyy', { locale: fr }),
+            total: total,
+            items: [{
+              work: movement.work.title,
+              isbn: movement.work.isbn,
+              quantity: quantity,
+              price: unitPrice,
+              total: total
+            }],
+            status: 'COMPLETED'
+          }
+        }),
         summary: {
           totalVentes: totalVentes,
           totalCommandes: totalCommandes,

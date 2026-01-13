@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
           returnedQuantity: number;
           workTitle: string;
           isbn: string | null;
+          workPrice: number;
         }>
       >`
         SELECT ps."id",
@@ -62,7 +63,8 @@ export async function POST(request: NextRequest) {
                ps."soldQuantity",
                ps."returnedQuantity",
                w."title" as "workTitle",
-               w."isbn" as "isbn"
+               w."isbn" as "isbn",
+               w."price" as "workPrice"
         FROM "PartnerStock" ps
         JOIN "Work" w ON w."id" = ps."workId"
         WHERE ps."partnerId" = ${partner.id} AND ps."workId" = ${workId}
@@ -92,12 +94,18 @@ export async function POST(request: NextRequest) {
         }
       });
 
-      // 4) Créer un mouvement de stock (sortie)
+      // 4) Calculer le montant total
+      const unitPrice = ps.workPrice || 0
+      const totalAmount = unitPrice * qty
+
+      // 5) Créer un mouvement de stock (sortie)
       await tx.stockMovement.create({
         data: {
           workId,
           type: "PARTNER_SALE",
           quantity: -qty, // Négatif car sortie
+          unitPrice: unitPrice,
+          totalAmount: totalAmount,
           reason: `Vente partenaire - ${clientName || "Client"}`,
           reference: `PSALE_${partner.id}_${Date.now()}`,
           performedBy: session.user.id,
@@ -107,7 +115,7 @@ export async function POST(request: NextRequest) {
         }
       });
 
-      // 5) Notification au PDG (CORRIGÉ: chercher le PDG, pas utiliser session.user.id)
+      // 6) Notification au PDG (CORRIGÉ: chercher le PDG, pas utiliser session.user.id)
       const pdg = await tx.user.findFirst({
         where: { role: "PDG" },
         select: { id: true }
