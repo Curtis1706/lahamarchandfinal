@@ -13,11 +13,18 @@ const ROLE_DASHBOARD_PREFIX: Record<string, string[]> = {
 };
 
 // Routes communes accessibles à tous les rôles authentifiés
+// Note: Ces routes vérifient l'authentification et les permissions dans leur propre code
 const COMMON_ALLOWED = [
   "/dashboard/profile",
   "/dashboard/settings",
   "/api/auth",
   "/api/users/list", // Pour la messagerie
+  "/api/users", // Pour la gestion des utilisateurs (vérifie le rôle PDG dans la route)
+  "/api/notifications", // Pour les notifications (vérification d'auth dans la route)
+  "/api/disciplines", // Pour les disciplines (accessible à tous les rôles authentifiés)
+  "/api/works", // Pour les œuvres (vérifie les permissions dans la route)
+  "/api/projects", // Pour les projets (vérifie les permissions dans la route)
+  "/api/authors/works", // Pour les œuvres d'un auteur (vérifie les permissions dans la route)
 ];
 
 export async function middleware(req: NextRequest) {

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from '@prisma/client';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 const prisma = new PrismaClient();
 
@@ -83,6 +85,15 @@ export async function POST(request: NextRequest) {
 // GET /api/notifications - Récupérer les notifications d'un utilisateur
 export async function GET(request: NextRequest) {
   try {
+    // Vérifier l'authentification
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Non authentifié" },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
     const unreadOnly = searchParams.get('unreadOnly') === 'true';
@@ -92,6 +103,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { error: "ID de l'utilisateur requis" },
         { status: 400 }
+      );
+    }
+
+    // Vérifier que l'utilisateur ne peut accéder qu'à ses propres notifications
+    // (sauf si c'est le PDG qui peut accéder à toutes les notifications)
+    if (session.user.id !== userId && session.user.role !== 'PDG') {
+      return NextResponse.json(
+        { error: "Accès refusé" },
+        { status: 403 }
       );
     }
 
@@ -147,6 +167,15 @@ export async function GET(request: NextRequest) {
 // PUT /api/notifications - Marquer une notification comme lue
 export async function PUT(request: NextRequest) {
   try {
+    // Vérifier l'authentification
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Non authentifié" },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { notificationId, read = true } = body;
 
@@ -166,6 +195,14 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(
         { error: "Notification non trouvée" },
         { status: 404 }
+      );
+    }
+
+    // Vérifier que l'utilisateur peut modifier cette notification (propriétaire ou PDG)
+    if (existingNotification.userId !== session.user.id && session.user.role !== 'PDG') {
+      return NextResponse.json(
+        { error: "Accès refusé" },
+        { status: 403 }
       );
     }
 
@@ -199,6 +236,15 @@ export async function PUT(request: NextRequest) {
 // DELETE /api/notifications - Supprimer une notification
 export async function DELETE(request: NextRequest) {
   try {
+    // Vérifier l'authentification
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Non authentifié" },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const notificationId = searchParams.get('id');
 
@@ -218,6 +264,14 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json(
         { error: "Notification non trouvée" },
         { status: 404 }
+      );
+    }
+
+    // Vérifier que l'utilisateur peut supprimer cette notification (propriétaire ou PDG)
+    if (existingNotification.userId !== session.user.id && session.user.role !== 'PDG') {
+      return NextResponse.json(
+        { error: "Accès refusé" },
+        { status: 403 }
       );
     }
 
