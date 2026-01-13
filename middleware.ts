@@ -32,6 +32,7 @@ const COMMON_ALLOWED = [
   "/api/stock", // Pour le stock (vérifie les permissions dans la route - PDG uniquement)
   "/api/pdg/categories", // Pour les catégories (accessible aux PDG, CLIENT et AUTEUR - vérifie les permissions dans la route)
   "/api/pdg/collections", // Pour les collections (accessible aux PDG et AUTEUR - vérifie les permissions dans la route)
+  "/api/pdg/classes", // Pour les classes (accessible aux PDG et CLIENT - vérifie les permissions dans la route)
 ];
 
 export async function middleware(req: NextRequest) {
