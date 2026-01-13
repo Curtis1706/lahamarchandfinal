@@ -38,6 +38,12 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // Routes communes - autorisées AVANT la vérification du cookie
+  // (surtout /api/auth qui doit être accessible pour NextAuth)
+  if (COMMON_ALLOWED.some((p) => pathname.startsWith(p))) {
+    return NextResponse.next();
+  }
+
   // Vérifier les cookies de session
   const sessionCookie = req.cookies.get(
     process.env.NODE_ENV === "production"
@@ -71,11 +77,6 @@ export async function middleware(req: NextRequest) {
   }
 
   const role = String(token.role || "");
-
-  // Routes communes - autorisées pour tous les rôles authentifiés
-  if (COMMON_ALLOWED.some((p) => pathname.startsWith(p))) {
-    return NextResponse.next();
-  }
 
   // Vérifier que le rôle est valide et existe dans la map
   if (!role || !ROLE_DASHBOARD_PREFIX[role]) {

@@ -142,18 +142,48 @@ export async function GET(request: NextRequest) {
       take: limit
     });
 
-    // Compter les notifications non lues
-    const unreadCount = await prisma.notification.count({
-      where: {
-        userId: userId,
-        read: false
+    // Dédupliquer les notifications (grouper les notifications identiques récentes)
+    // Une notification est considérée comme dupliquée si elle a le même titre, message, type et userId
+    // et a été créée dans les 5 dernières secondes
+    const deduplicatedNotifications = notifications.reduce((acc: typeof notifications, notification) => {
+      const existingIndex = acc.findIndex((n) => {
+        const timeDiff = Math.abs(
+          new Date(n.createdAt).getTime() - new Date(notification.createdAt).getTime()
+        );
+        return (
+          n.title === notification.title &&
+          n.message === notification.message &&
+          n.type === notification.type &&
+          n.userId === notification.userId &&
+          timeDiff < 5000 // 5 secondes
+        );
+      });
+
+      if (existingIndex === -1) {
+        // Pas de doublon trouvé, ajouter la notification
+        acc.push(notification);
+      } else {
+        // Doublon trouvé, garder la plus récente
+        if (new Date(notification.createdAt) > new Date(acc[existingIndex].createdAt)) {
+          acc[existingIndex] = notification;
+        }
       }
-    });
+
+      return acc;
+    }, []);
+
+    // Trier à nouveau par date de création (ordre décroissant)
+    deduplicatedNotifications.sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    // Compter les notifications non lues (après déduplication)
+    const unreadCount = deduplicatedNotifications.filter(n => !n.read).length;
 
     return NextResponse.json({
-      notifications,
+      notifications: deduplicatedNotifications,
       unreadCount,
-      total: notifications.length
+      total: deduplicatedNotifications.length
     });
   } catch (error) {
     console.error("Error fetching notifications:", error);
