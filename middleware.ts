@@ -25,6 +25,11 @@ const COMMON_ALLOWED = [
   "/api/works", // Pour les œuvres (vérifie les permissions dans la route)
   "/api/projects", // Pour les projets (vérifie les permissions dans la route)
   "/api/authors/works", // Pour les œuvres d'un auteur (vérifie les permissions dans la route)
+  "/api/partners", // Pour les partenaires (vérifie les permissions dans la route)
+  "/api/messages", // Pour les messages (vérifie les permissions dans la route)
+  "/api/upload", // Pour l'upload de fichiers (vérifie les permissions dans la route)
+  "/api/orders", // Pour les commandes (vérifie les permissions dans la route)
+  "/api/stock", // Pour le stock (vérifie les permissions dans la route - PDG uniquement)
 ];
 
 export async function middleware(req: NextRequest) {
