@@ -257,7 +257,7 @@ model PartnerStock {
   allocatedQuantity Int
   soldQuantity      Int      @default(0)
   returnedQuantity  Int      @default(0)
-  availableQuantity Int
+  // availableQuantity supprimé - calculé à la lecture: allocatedQuantity - soldQuantity + returnedQuantity
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   partner           Partner  @relation(fields: [partnerId], references: [id])

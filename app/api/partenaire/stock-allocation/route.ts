@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { enrichPartnerStockWithAvailable } from "@/lib/partner-stock"
 
 export const dynamic = 'force-dynamic'
 
@@ -107,8 +108,11 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // Enrichir avec availableQuantity calculé
+    const enrichedStock = stockItems.map(enrichPartnerStockWithAvailable)
+
     // Transformer les données pour l'affichage
-    const stockData = stockItems.map(item => ({
+    const stockData = enrichedStock.map(item => ({
       id: item.id,
       workId: item.work.id,
       title: item.work.title,
@@ -119,7 +123,7 @@ export async function GET(request: NextRequest) {
       allocatedQuantity: item.allocatedQuantity,
       soldQuantity: item.soldQuantity,
       returnedQuantity: item.returnedQuantity,
-      availableQuantity: item.availableQuantity,
+      availableQuantity: item.availableQuantity, // Calculé
       status: item.availableQuantity > 0 ? 'Disponible' : 'Épuisé',
       price: item.work.price || 0,
       createdAt: item.createdAt.toISOString(),

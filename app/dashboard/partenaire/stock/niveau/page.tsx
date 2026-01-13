@@ -22,6 +22,7 @@ import {
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { toast } from "sonner"
 import { apiClient } from "@/lib/api-client"
+import { calculateAvailableStock } from "@/lib/partner-stock"
 
 export default function NiveauStockPage() {
   const { user } = useCurrentUser()
@@ -59,10 +60,30 @@ export default function NiveauStockPage() {
   }, [selectedDiscipline, selectedStatus])
 
   // Calculer les statistiques
+  // availableQuantity est calculé côté API, mais on peut aussi le calculer ici pour sécurité
   const totalStock = stockData.reduce((sum, item) => sum + (item.allocatedQuantity || 0), 0)
-  const totalDepot = stockData.reduce((sum, item) => sum + (item.availableQuantity || 0), 0)
+  const totalDepot = stockData.reduce((sum, item) => {
+    // Utiliser availableQuantity de l'API si présent, sinon calculer
+    const available = item.availableQuantity !== undefined 
+      ? item.availableQuantity 
+      : calculateAvailableStock(
+          item.allocatedQuantity || 0,
+          item.soldQuantity || 0,
+          item.returnedQuantity || 0
+        )
+    return sum + available
+  }, 0)
   const totalRentree = stockData.reduce((sum, item) => sum + (item.soldQuantity || 0), 0)
-  const stockFaibleCount = stockData.filter(item => (item.availableQuantity || 0) < 20).length
+  const stockFaibleCount = stockData.filter(item => {
+    const available = item.availableQuantity !== undefined 
+      ? item.availableQuantity 
+      : calculateAvailableStock(
+          item.allocatedQuantity || 0,
+          item.soldQuantity || 0,
+          item.returnedQuantity || 0
+        )
+    return available < 20
+  }).length
 
   // Filtrer les données
   useEffect(() => {

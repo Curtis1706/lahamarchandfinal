@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { calculateAvailableStock } from "@/lib/partner-stock"
 
 export const dynamic = 'force-dynamic'
 
@@ -62,10 +63,24 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    if (!partnerStock || partnerStock.availableQuantity < quantity) {
+    if (!partnerStock) {
       return NextResponse.json({
-        error: `Stock insuffisant. Disponible: ${partnerStock?.availableQuantity || 0}, Demandé: ${quantity}`,
-        available: partnerStock?.availableQuantity || 0
+        error: `Cette œuvre n'est pas allouée à votre stock`,
+        available: 0
+      }, { status: 400 })
+    }
+
+    // Calculer le stock disponible
+    const available = calculateAvailableStock(
+      partnerStock.allocatedQuantity,
+      partnerStock.soldQuantity,
+      partnerStock.returnedQuantity
+    )
+
+    if (available < quantity) {
+      return NextResponse.json({
+        error: `Stock insuffisant. Disponible: ${available}, Demandé: ${quantity}`,
+        available: available
       }, { status: 400 })
     }
 
@@ -81,22 +96,27 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
+    // ⚠️ ATTENTION: Cette route remet le stock dans le stock central
+    // Selon le cahier de charges, le partenaire ne devrait PAS toucher au stock central
+    // Utiliser /api/partenaire/returns/register pour les retours qui ne touchent que le stock partenaire
+    
     // Utiliser une transaction pour garantir la cohérence
     const result = await prisma.$transaction(async (tx) => {
-      // Mettre à jour le stock partenaire
+      // Mettre à jour le stock partenaire (incrémenter returnedQuantity uniquement)
+      // availableQuantity est calculé, pas stocké
       await tx.partnerStock.update({
         where: { id: partnerStock.id },
         data: {
-          availableQuantity: {
-            decrement: quantity
-          },
           returnedQuantity: {
             increment: quantity
-          }
+          },
+          updatedAt: new Date()
         }
       })
 
-      // Remettre le stock dans le stock central
+      // ⚠️ REMET LE STOCK DANS LE STOCK CENTRAL (logique métier à vérifier)
+      // Selon le cahier de charges, le partenaire ne devrait pas toucher au stock central
+      // Cette ligne est peut-être à retirer ou à modifier selon les besoins métier
       await tx.work.update({
         where: { id: workId },
         data: {

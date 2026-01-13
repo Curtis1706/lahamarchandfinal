@@ -30,13 +30,20 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const totalDepot = await prisma.partnerStock.aggregate({
-      _sum: {
-        availableQuantity: true
+    // Calculer le stock en dépôt (availableQuantity calculé)
+    const partnerStocks = await prisma.partnerStock.findMany({
+      select: {
+        allocatedQuantity: true,
+        soldQuantity: true,
+        returnedQuantity: true
       }
     })
+    const totalDepot = partnerStocks.reduce((sum, ps) => {
+      const available = ps.allocatedQuantity - ps.soldQuantity + ps.returnedQuantity
+      return sum + available
+    }, 0)
 
-    const totalGlobal = (totalStock._sum.stock || 0) + (totalDepot._sum.availableQuantity || 0)
+    const totalGlobal = (totalStock._sum.stock || 0) + totalDepot
 
     // Construire les conditions de filtre pour les œuvres
     const where: any = {}
@@ -100,17 +107,21 @@ export async function GET(request: NextRequest) {
         // Stock actuel
         const stockActuel = work.stock
 
-        // Stock en dépôt (chez les partenaires)
-        const depotStock = await prisma.partnerStock.aggregate({
+        // Stock en dépôt (chez les partenaires) - availableQuantity calculé
+        const depotStocks = await prisma.partnerStock.findMany({
           where: {
             workId: work.id
           },
-          _sum: {
-            availableQuantity: true
+          select: {
+            allocatedQuantity: true,
+            soldQuantity: true,
+            returnedQuantity: true
           }
         })
-
-        const stockDepot = depotStock._sum.availableQuantity || 0
+        const stockDepot = depotStocks.reduce((sum, ps) => {
+          const available = ps.allocatedQuantity - ps.soldQuantity + ps.returnedQuantity
+          return sum + available
+        }, 0)
 
         // Calculer les mouvements de rentrée (INBOUND)
         const rentreeMovements = await prisma.stockMovement.aggregate({
@@ -183,7 +194,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       stats: {
         enStock: totalStock._sum.stock || 0,
-        enDepot: totalDepot._sum.availableQuantity || 0,
+        enDepot: totalDepot, // totalDepot est maintenant un nombre calculé
         total: totalGlobal
       },
       data: trackingData,

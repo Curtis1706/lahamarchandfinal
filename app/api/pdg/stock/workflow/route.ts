@@ -194,26 +194,24 @@ export async function POST(request: NextRequest) {
           })
 
           if (existingPartnerStock) {
+            // availableQuantity est calculé, on ne le stocke plus
             partnerStockUpdate = await tx.partnerStock.update({
               where: { id: existingPartnerStock.id },
               data: {
                 allocatedQuantity: {
                   increment: Math.abs(quantity)
-                },
-                availableQuantity: {
-                  increment: Math.abs(quantity)
                 }
               }
             })
           } else {
+            // availableQuantity est calculé, on ne le stocke plus
             partnerStockUpdate = await tx.partnerStock.create({
               data: {
                 partnerId: partnerId,
                 workId: workId,
                 allocatedQuantity: Math.abs(quantity),
                 soldQuantity: 0,
-                returnedQuantity: 0,
-                availableQuantity: Math.abs(quantity)
+                returnedQuantity: 0
               }
             })
           }

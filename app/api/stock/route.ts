@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { StockMovementType } from "@prisma/client"
+import { calculateAvailableStock } from "@/lib/partner-stock"
 
 export const dynamic = 'force-dynamic'
 
@@ -251,10 +252,20 @@ export async function GET(request: NextRequest) {
         // C'est le stock qui a quitté l'entrepôt principal mais appartient toujours à LahaMarchand
         const partnerStocks = await prisma.partnerStock.findMany({
           select: {
-            availableQuantity: true
+            allocatedQuantity: true,
+            soldQuantity: true,
+            returnedQuantity: true
           }
         })
-        const totalDepot = partnerStocks.reduce((sum, ps) => sum + ps.availableQuantity, 0)
+        // Calculer availableQuantity: allocated - sold + returned
+        const totalDepot = partnerStocks.reduce((sum, ps) => {
+          const available = calculateAvailableStock(
+            ps.allocatedQuantity,
+            ps.soldQuantity,
+            ps.returnedQuantity
+          )
+          return sum + available
+        }, 0)
 
         const totalWorks = allWorks.length
         // En stock = livres dans l'entrepôt principal (disponibles pour vente immédiate)

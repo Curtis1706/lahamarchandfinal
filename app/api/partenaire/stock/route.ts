@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { calculateAvailableStock } from "@/lib/partner-stock"
 
 export const dynamic = 'force-dynamic'
 
@@ -122,6 +123,15 @@ export async function GET(request: NextRequest) {
       // Trouver le stock alloué pour ce partenaire si disponible
       const partnerStock = partnerStocks.find(ps => ps.workId === work.id)
       
+      // Calculer le stock disponible si PartnerStock existe
+      const availableQuantity = partnerStock 
+        ? calculateAvailableStock(
+            partnerStock.allocatedQuantity,
+            partnerStock.soldQuantity,
+            partnerStock.returnedQuantity
+          )
+        : 0
+      
       return {
         id: work.id,
         title: work.title,
@@ -130,11 +140,12 @@ export async function GET(request: NextRequest) {
         author: work.author?.name || 'Auteur inconnu',
         project: work.project?.title || null,
         status: partnerStock 
-          ? (partnerStock.availableQuantity > 0 ? 'Disponible' : 'Épuisé')
+          ? (availableQuantity > 0 ? 'Disponible' : 'Épuisé')
           : (work.stock > 0 ? 'Disponible' : 'Rupture de stock'),
-        stock: partnerStock ? partnerStock.availableQuantity : work.stock || 0,
+        stock: partnerStock ? availableQuantity : work.stock || 0,
         allocatedStock: partnerStock?.allocatedQuantity || 0,
         soldQuantity: partnerStock?.soldQuantity || 0,
+        returnedQuantity: partnerStock?.returnedQuantity || 0,
         price: work.price || 0,
         createdAt: work.createdAt.toISOString(),
         publishedAt: work.publishedAt?.toISOString() || null

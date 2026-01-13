@@ -1,136 +1,174 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
-// POST /api/partenaire/sales/register - Enregistrer une vente
+/**
+ * POST /api/partenaire/sales/register
+ * 
+ * Enregistre une vente partenaire (déduit le stock partenaire alloué).
+ * 
+ * RÈGLES CRITIQUES:
+ * - Le partenaire ne peut vendre que depuis son stock alloué
+ * - La vente déduit immédiatement le stock partenaire (pas le stock central)
+ * - Utilise FOR UPDATE pour éviter les ventes simultanées (concurrence)
+ * - Formule: available = allocatedQuantity - soldQuantity + returnedQuantity
+ */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session?.user || session.user.role !== 'PARTENAIRE') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    const session = await getServerSession(authOptions);
+    if (!session?.user || session.user.role !== "PARTENAIRE") {
+      return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
     }
 
-    const body = await request.json()
-    const { workId, quantity, clientName, clientPhone, notes } = body
+    const body = await request.json();
+    const { workId, quantity, clientName, clientPhone, notes } = body;
 
-    if (!workId || !quantity || quantity <= 0) {
-      return NextResponse.json({ 
-        error: 'ID de l\'œuvre et quantité requise' 
-      }, { status: 400 })
+    const qty = Number(quantity);
+    if (!workId || !Number.isInteger(qty) || qty <= 0) {
+      return NextResponse.json(
+        { error: "workId et quantity (>0) requis" },
+        { status: 400 }
+      );
     }
 
-    // Récupérer le partenaire associé à l'utilisateur
+    // Récupérer le partenaire (ownership)
     const partner = await prisma.partner.findFirst({
-      where: { userId: session.user.id }
-    })
+      where: { userId: session.user.id },
+      select: { id: true, name: true }
+    });
 
     if (!partner) {
-      return NextResponse.json({ error: 'Partenaire non trouvé' }, { status: 404 })
+      return NextResponse.json({ error: "Partenaire non trouvé" }, { status: 404 });
     }
 
-    // Vérifier que le partenaire a du stock disponible pour cette œuvre
-    const partnerStock = await prisma.partnerStock.findFirst({
-      where: {
-        partnerId: partner.id,
-        workId: workId
-      },
-      include: {
-        work: {
-          select: {
-            id: true,
-            title: true,
-            isbn: true
-          }
-        }
-      }
-    })
-
-    if (!partnerStock) {
-      return NextResponse.json({ 
-        error: 'Cette œuvre n\'est pas allouée à votre stock' 
-      }, { status: 400 })
-    }
-
-    if (partnerStock.availableQuantity < quantity) {
-      return NextResponse.json({ 
-        error: `Stock insuffisant. Disponible: ${partnerStock.availableQuantity}, Demandé: ${quantity}` 
-      }, { status: 400 })
-    }
-
-    // Utiliser une transaction pour garantir la cohérence
+    // Transaction avec FOR UPDATE pour éviter les ventes simultanées
     const result = await prisma.$transaction(async (tx) => {
-      // Mettre à jour le stock partenaire
-      const updatedPartnerStock = await tx.partnerStock.update({
-        where: {
-          id: partnerStock.id
-        },
+      // 1) Lock la ligne PartnerStock concernée (FOR UPDATE)
+      const rows = await tx.$queryRaw<
+        Array<{
+          id: string;
+          allocatedQuantity: number;
+          soldQuantity: number;
+          returnedQuantity: number;
+          workTitle: string;
+          isbn: string | null;
+        }>
+      >`
+        SELECT ps."id",
+               ps."allocatedQuantity",
+               ps."soldQuantity",
+               ps."returnedQuantity",
+               w."title" as "workTitle",
+               w."isbn" as "isbn"
+        FROM "PartnerStock" ps
+        JOIN "Work" w ON w."id" = ps."workId"
+        WHERE ps."partnerId" = ${partner.id} AND ps."workId" = ${workId}
+        FOR UPDATE
+      `;
+
+      const ps = rows[0];
+      if (!ps) {
+        throw { code: 400, message: "Cette œuvre n'est pas allouée à votre stock" };
+      }
+
+      // 2) Calculer le stock disponible (formule correcte)
+      const available = ps.allocatedQuantity - ps.soldQuantity + ps.returnedQuantity;
+      if (available < qty) {
+        throw {
+          code: 400,
+          message: `Stock insuffisant. Disponible: ${available}, Demandé: ${qty}`
+        };
+      }
+
+      // 3) Mettre à jour le stock partenaire (incrémenter soldQuantity uniquement)
+      const updated = await tx.partnerStock.update({
+        where: { id: ps.id },
         data: {
-          soldQuantity: {
-            increment: quantity
-          },
-          availableQuantity: {
-            decrement: quantity
-          },
+          soldQuantity: { increment: qty },
           updatedAt: new Date()
         }
-      })
+      });
 
-      // Créer un mouvement de stock
+      // 4) Créer un mouvement de stock (sortie)
       await tx.stockMovement.create({
         data: {
-          workId: workId,
-          type: 'PARTNER_SALE',
-          quantity: -quantity, // Négatif car c'est une sortie
-          reason: `Vente partenaire - ${clientName || 'Client'}`,
-          reference: `PARTNER_SALE_${partner.id}_${Date.now()}`,
+          workId,
+          type: "PARTNER_SALE",
+          quantity: -qty, // Négatif car sortie
+          reason: `Vente partenaire - ${clientName || "Client"}`,
+          reference: `PSALE_${partner.id}_${Date.now()}`,
           performedBy: session.user.id,
-          partnerId: partner.id
+          partnerId: partner.id,
+          source: "PARTNER_STOCK",
+          destination: "CLIENT"
         }
-      })
+      });
 
-      // Créer une notification pour le PDG
-      await tx.notification.create({
-        data: {
-          userId: session.user.id, // Le PDG recevra la notification
-          title: 'Vente enregistrée par partenaire',
-          message: `Le partenaire ${partner.name} a enregistré une vente de ${quantity} exemplaire(s) de "${partnerStock.work.title}"`,
-          type: 'PARTNER_SALE',
-          data: JSON.stringify({
-            partnerId: partner.id,
-            partnerName: partner.name,
-            workId: workId,
-            workTitle: partnerStock.work.title,
-            quantity: quantity,
-            clientName: clientName,
-            clientPhone: clientPhone
-          })
-        }
-      })
+      // 5) Notification au PDG (CORRIGÉ: chercher le PDG, pas utiliser session.user.id)
+      const pdg = await tx.user.findFirst({
+        where: { role: "PDG" },
+        select: { id: true }
+      });
 
-      return updatedPartnerStock
-    })
-
-    return NextResponse.json({
-      success: true,
-      message: 'Vente enregistrée avec succès',
-      stock: {
-        workId: workId,
-        workTitle: partnerStock.work.title,
-        soldQuantity: quantity,
-        remainingStock: result.availableQuantity
+      if (pdg) {
+        await tx.notification.create({
+          data: {
+            userId: pdg.id, // ✅ PDG, pas le partenaire
+            title: "Vente enregistrée par partenaire",
+            message: `Le partenaire ${partner.name} a vendu ${qty} exemplaire(s) de "${ps.workTitle}"`,
+            type: "PARTNER_SALE",
+            data: JSON.stringify({
+              partnerId: partner.id,
+              partnerName: partner.name,
+              workId,
+              workTitle: ps.workTitle,
+              quantity: qty,
+              clientName,
+              clientPhone,
+              notes
+            })
+          }
+        });
       }
-    }, { status: 201 })
 
-  } catch (error: any) {
-    console.error('Erreur lors de l\'enregistrement de la vente:', error)
+      const remaining = updated.allocatedQuantity - updated.soldQuantity + updated.returnedQuantity;
+
+      return {
+        workTitle: ps.workTitle,
+        isbn: ps.isbn,
+        remaining
+      };
+    }, {
+      timeout: 10000, // 10 secondes max
+    });
+
     return NextResponse.json(
-      { error: 'Erreur interne du serveur' },
+      {
+        success: true,
+        message: "Vente enregistrée avec succès",
+        stock: {
+          workId,
+          workTitle: result.workTitle,
+          soldQuantity: qty,
+          remainingStock: result.remaining
+        }
+      },
+      { status: 201 }
+    );
+  } catch (error: any) {
+    console.error("❌ Erreur lors de l'enregistrement de la vente:", error);
+    
+    // Gestion des erreurs de validation
+    if (error.code === 400) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    return NextResponse.json(
+      { error: "Erreur interne du serveur" },
       { status: 500 }
-    )
+    );
   }
 }
-

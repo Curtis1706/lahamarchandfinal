@@ -327,7 +327,7 @@ export default function ConcepteurDashboard() {
       )}
 
       {/* Information importante */}
-      <Card className="border-blue-200 bg-blue-50">
+      {/* <Card className="border-blue-200 bg-blue-50">
         <CardContent className="pt-6">
           <div className="flex items-start gap-3">
             <FileText className="h-5 w-5 text-blue-600 mt-0.5" />
@@ -344,7 +344,7 @@ export default function ConcepteurDashboard() {
             </div>
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
             </div>
   );
 }

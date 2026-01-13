@@ -87,13 +87,20 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const totalDepot = await prisma.partnerStock.aggregate({
-      _sum: {
-        availableQuantity: true
+    // Calculer le stock en dépôt (availableQuantity calculé)
+    const partnerStocks = await prisma.partnerStock.findMany({
+      select: {
+        allocatedQuantity: true,
+        soldQuantity: true,
+        returnedQuantity: true
       }
     })
+    const totalDepot = partnerStocks.reduce((sum, ps) => {
+      const available = ps.allocatedQuantity - ps.soldQuantity + ps.returnedQuantity
+      return sum + available
+    }, 0)
 
-    const totalGlobal = (totalStock._sum.stock || 0) + (totalDepot._sum.availableQuantity || 0)
+    const totalGlobal = (totalStock._sum.stock || 0) + totalDepot
 
     // Récupérer les œuvres avec leurs stocks
     const [works, total] = await Promise.all([
