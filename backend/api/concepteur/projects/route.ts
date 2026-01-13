@@ -158,7 +158,7 @@ export async function PUT(request: NextRequest) {
 
     console.log("📋 Updating project:", projectId)
 
-    // Vérifier que le projet appartient au concepteur
+    // Vérifier que le projet appartient au concepteur (ownership)
     const existingProject = await prisma.project.findFirst({
       where: { 
         id: projectId, 
@@ -170,14 +170,37 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Project not found or access denied" }, { status: 404 })
     }
 
+    // Importer les helpers de statut
+    const { canEditProject, canSubmitProject, canArchiveProject } = await import("@/lib/project-status")
+
     // Préparer les données de mise à jour
     const updateData: any = {}
-    if (title) updateData.title = title
-    if (description !== undefined) updateData.description = description
-    if (status && Object.values(ProjectStatus).includes(status)) {
-      updateData.status = status
-      if (status === ProjectStatus.SUBMITTED) {
+    
+    // Vérifier les permissions selon l'action
+    if (status) {
+      // Changement de statut
+      if (status === "SUBMITTED") {
+        if (!canSubmitProject(existingProject.status)) {
+          return NextResponse.json({ error: "Cannot submit this project" }, { status: 400 })
+        }
+        updateData.status = status
         updateData.submittedAt = new Date()
+      } else if (status === "ARCHIVED") {
+        if (!canArchiveProject(existingProject.status)) {
+          return NextResponse.json({ error: "Cannot archive this project" }, { status: 400 })
+        }
+        updateData.status = status
+      } else if (Object.values(ProjectStatus).includes(status)) {
+        updateData.status = status
+      }
+    } else {
+      // Modification de contenu
+      if (title || description !== undefined) {
+        if (!canEditProject(existingProject.status)) {
+          return NextResponse.json({ error: "Project not editable" }, { status: 400 })
+        }
+        if (title) updateData.title = title
+        if (description !== undefined) updateData.description = description
       }
     }
 

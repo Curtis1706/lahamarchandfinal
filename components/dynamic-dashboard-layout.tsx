@@ -265,6 +265,11 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           label: "Œuvres des projets"
         },
         {
+          href: `${basePath}/gains`,
+          icon: Wallet,
+          label: "Gains"
+        },
+        {
           href: `${basePath}/notifications`,
           icon: Bell,
           label: "Notifications"

@@ -99,7 +99,7 @@ export default function MessagesPage() {
 
   const loadRecipients = async () => {
     try {
-      const response = await fetch("/api/pdg/users?role=PDG");
+      const response = await fetch("/api/users/list?role=PDG");
       if (response.ok) {
         const data = await response.json();
         setRecipients(data.users || []);

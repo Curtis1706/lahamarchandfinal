@@ -270,6 +270,13 @@ export class ApiClient {
     })
   }
 
+  async archiveConcepteurProject(projectId: string) {
+    return this.request('/concepteurs/projects', {
+      method: 'PUT',
+      body: JSON.stringify({ projectId, status: 'ARCHIVED' }),
+    })
+  }
+
   async updateConcepteurProject(projectId: string, data: any) {
     return this.request('/projects', {
       method: 'PUT',

@@ -1,17 +1,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, PenTool, Clock, CheckCircle, XCircle, Eye, Edit, Trash2, Search, Filter, FileText, Send } from "lucide-react";
+import { Plus, PenTool, Clock, CheckCircle, XCircle, Eye, Edit, Trash2, Search, Filter, FileText, Send, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { apiClient } from "@/lib/api-client";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { useDisciplines } from "@/hooks/use-disciplines";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -19,7 +20,7 @@ interface Project {
   id: string;
   title: string;
   discipline: { name: string };
-  status: "DRAFT" | "SUBMITTED" | "UNDER_REVIEW" | "ACCEPTED" | "REJECTED";
+  status: "DRAFT" | "SUBMITTED" | "UNDER_REVIEW" | "ACCEPTED" | "APPROVED" | "REJECTED" | "ARCHIVED";
   description?: string;
   createdAt: string;
   updatedAt: string;
@@ -27,6 +28,7 @@ interface Project {
 
 export default function MesProjetsPage() {
   const { user } = useCurrentUser();
+  const { disciplines, isLoading: disciplinesLoading } = useDisciplines();
   const router = useRouter();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +44,7 @@ export default function MesProjetsPage() {
   const [newProject, setNewProject] = useState({
     title: "",
     description: "",
-    discipline: ""
+    disciplineId: ""
   });
 
   useEffect(() => {
@@ -65,7 +67,7 @@ export default function MesProjetsPage() {
   };
 
   const handleCreateProject = async () => {
-    if (!newProject.title.trim() || !newProject.discipline.trim()) {
+    if (!newProject.title.trim() || !newProject.disciplineId.trim()) {
       toast.error("Veuillez remplir tous les champs obligatoires");
       return;
     }
@@ -78,7 +80,7 @@ export default function MesProjetsPage() {
     try {
       const projectData = {
         title: newProject.title.trim(),
-        disciplineId: newProject.discipline,
+        disciplineId: newProject.disciplineId,
         concepteurId: user.id,
         description: newProject.description.trim(),
         status: "DRAFT"
@@ -90,7 +92,7 @@ export default function MesProjetsPage() {
       await loadProjects();
       
       setShowCreateModal(false);
-      setNewProject({ title: "", description: "", discipline: "" });
+      setNewProject({ title: "", description: "", disciplineId: "" });
       toast.success("Projet créé avec succès en brouillon");
     } catch (error: any) {
       console.error("Erreur lors de la création du projet:", error);
@@ -147,11 +149,33 @@ export default function MesProjetsPage() {
     }
   };
 
+  const handleArchiveProject = async (project: any) => {
+    if (!confirm(`Êtes-vous sûr de vouloir archiver le projet "${project.title}" ?\n\nUn projet archivé ne pourra plus être modifié.`)) {
+      return;
+    }
+
+    try {
+      await apiClient.archiveConcepteurProject(project.id);
+      toast.success("Projet archivé avec succès !");
+      await loadProjects(); // Recharger la liste pour voir le nouveau statut
+    } catch (error: any) {
+      console.error("Erreur lors de l'archivage:", error);
+      const errorMessage = error?.message || "Erreur lors de l'archivage du projet";
+      toast.error(errorMessage);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const variants = {
       ACCEPTED: { 
         variant: "default" as const, 
         label: "Accepté", 
+        color: "bg-green-100 text-green-800",
+        icon: <CheckCircle className="w-3 h-3 mr-1" />
+      },
+      APPROVED: { 
+        variant: "default" as const, 
+        label: "Approuvé", 
         color: "bg-green-100 text-green-800",
         icon: <CheckCircle className="w-3 h-3 mr-1" />
       },
@@ -172,6 +196,12 @@ export default function MesProjetsPage() {
         label: "Refusé", 
         color: "bg-red-100 text-red-800",
         icon: <XCircle className="w-3 h-3 mr-1" />
+      },
+      ARCHIVED: { 
+        variant: "outline" as const, 
+        label: "Archivé", 
+        color: "bg-gray-200 text-gray-600",
+        icon: <FileText className="w-3 h-3 mr-1" />
       },
       DRAFT: { 
         variant: "outline" as const, 
@@ -241,11 +271,13 @@ export default function MesProjetsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tous les statuts</SelectItem>
-              <SelectItem value="ACCEPTED">Accepté</SelectItem>
+              <SelectItem value="DRAFT">Brouillon</SelectItem>
               <SelectItem value="SUBMITTED">Soumis</SelectItem>
               <SelectItem value="UNDER_REVIEW">En révision</SelectItem>
-              <SelectItem value="DRAFT">Brouillon</SelectItem>
+              <SelectItem value="APPROVED">Approuvé</SelectItem>
+              <SelectItem value="ACCEPTED">Accepté</SelectItem>
               <SelectItem value="REJECTED">Refusé</SelectItem>
+              <SelectItem value="ARCHIVED">Archivé</SelectItem>
             </SelectContent>
           </Select>
       </div>
@@ -317,6 +349,17 @@ export default function MesProjetsPage() {
                           <Send className="w-4 h-4" />
                         </Button>
                       )}
+                      {(project.status === "APPROVED" || project.status === "ACCEPTED" || project.status === "REJECTED") && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-gray-600 hover:text-gray-700"
+                          onClick={() => handleArchiveProject(project)}
+                          title="Archiver le projet"
+                        >
+                          <Archive className="w-4 h-4" />
+                        </Button>
+                      )}
                       {project.status === "DRAFT" && (
                         <Button 
                           variant="ghost" 
@@ -368,21 +411,19 @@ export default function MesProjetsPage() {
                 Discipline *
               </label>
               <Select 
-                value={newProject.discipline} 
-                onValueChange={(value) => setNewProject(prev => ({ ...prev, discipline: value }))}
+                value={newProject.disciplineId} 
+                onValueChange={(value) => setNewProject(prev => ({ ...prev, disciplineId: value }))}
+                disabled={disciplinesLoading}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Sélectionnez une discipline" />
+                  <SelectValue placeholder={disciplinesLoading ? "Chargement..." : "Sélectionnez une discipline"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Mathématiques">Mathématiques</SelectItem>
-                  <SelectItem value="Sciences">Sciences</SelectItem>
-                  <SelectItem value="Littérature">Littérature</SelectItem>
-                  <SelectItem value="Histoire">Histoire</SelectItem>
-                  <SelectItem value="Géographie">Géographie</SelectItem>
-                  <SelectItem value="Philosophie">Philosophie</SelectItem>
-                  <SelectItem value="Arts">Arts</SelectItem>
-                  <SelectItem value="Langues">Langues</SelectItem>
+                  {disciplines.map((discipline) => (
+                    <SelectItem key={discipline.id} value={discipline.id}>
+                      {discipline.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -409,9 +450,9 @@ export default function MesProjetsPage() {
               <Button 
                 onClick={handleCreateProject}
                 className="bg-blue-600 hover:bg-blue-700"
-                disabled={!newProject.title.trim() || !newProject.discipline.trim()}
+                disabled={!newProject.title.trim() || !newProject.disciplineId.trim() || disciplinesLoading}
               >
-                Créer et Soumettre
+                Créer
               </Button>
             </div>
           </div>
@@ -485,6 +526,18 @@ export default function MesProjetsPage() {
                   >
                     <Send className="w-4 h-4 mr-2" />
                     Soumettre au PDG
+                  </Button>
+                )}
+                {(selectedProject.status === "APPROVED" || selectedProject.status === "ACCEPTED" || selectedProject.status === "REJECTED") && (
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      setShowDetailsModal(false);
+                      handleArchiveProject(selectedProject);
+                    }}
+                  >
+                    <Archive className="w-4 h-4 mr-2" />
+                    Archiver
                   </Button>
                 )}
               </div>

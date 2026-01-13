@@ -254,7 +254,7 @@ export async function PUT(
         );
       }
     } else {
-      // Modification du contenu - seul le concepteur peut le faire (et seulement si DRAFT)
+      // Modification du contenu - seul le concepteur peut le faire
       if (existingProject.concepteurId !== userId) {
         return NextResponse.json(
           { error: "Seul le concepteur peut modifier ce projet" },
@@ -262,9 +262,11 @@ export async function PUT(
         );
       }
       
-      if (existingProject.status !== "DRAFT") {
+      // Utiliser le helper pour vérifier si le projet peut être modifié
+      const { canEditProject } = await import("@/lib/project-status");
+      if (!canEditProject(existingProject.status)) {
         return NextResponse.json(
-          { error: "Ce projet ne peut plus être modifié car il a été soumis" },
+          { error: "Ce projet ne peut plus être modifié" },
           { status: 400 }
         );
       }

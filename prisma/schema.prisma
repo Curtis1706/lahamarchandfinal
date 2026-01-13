@@ -154,7 +154,7 @@ model Work {
   projectId             String?
   orderItems            OrderItem[]
   partnerStocks         PartnerStock[]
-  proformaItems         ProformaItem[]        @relation("ProformaItemWork")
+  proformaItems         ProformaItem[]     @relation("ProformaItemWork")
   royalties             Royalty[]
   sales                 Sale[]
   stockAlerts           StockAlert[]
@@ -367,61 +367,61 @@ model DeliveryNote {
 }
 
 model Proforma {
-  id                 String              @id @default(cuid())
-  proformaNumber     String?             @unique // ex: PF-2026-000023 (temporairement nullable pour migration)
-  reference          String?             @unique // Ancien champ pour compatibilité
-  country            String              @default("Gabon")
-  currency           Currency            @default(FCFA)
+  id             String   @id @default(cuid())
+  proformaNumber String?  @unique // ex: PF-2026-000023 (temporairement nullable pour migration)
+  reference      String?  @unique // Ancien champ pour compatibilité
+  country        String   @default("Gabon")
+  currency       Currency @default(FCFA)
 
-  clientType         ProformaClientType? // Temporairement nullable pour migration
-  clientId           String? // nullable car INVITE possible
-  partnerId          String? // ID du partenaire (si clientType = PARTENAIRE)
-  partner            Partner?            @relation("PartnerProformas", fields: [partnerId], references: [id])
-  userId             String? // ID du client (si clientType = CLIENT)
-  user               User?               @relation("UserProformas", fields: [userId], references: [id])
+  clientType ProformaClientType? // Temporairement nullable pour migration
+  clientId   String? // nullable car INVITE possible
+  partnerId  String? // ID du partenaire (si clientType = PARTENAIRE)
+  partner    Partner?            @relation("PartnerProformas", fields: [partnerId], references: [id])
+  userId     String? // ID du client (si clientType = CLIENT)
+  user       User?               @relation("UserProformas", fields: [userId], references: [id])
 
-  status             ProformaStatus      @default(DRAFT)
+  status ProformaStatus @default(DRAFT)
 
-  issuedAt           DateTime            @default(now()) // Date d'émission
+  issuedAt           DateTime  @default(now()) // Date d'émission
   validUntil         DateTime? // Date de validité (temporairement nullable pour migration)
   acceptedAt         DateTime? // Date d'acceptation
   cancelledAt        DateTime? // Date d'annulation
   cancellationReason String? // Raison de l'annulation
 
   // Totaux (stockés pour éviter recalcul + audit)
-  subtotalHT         Float               @default(0) // Total HT
-  discountTotal      Float               @default(0) // Remise totale
-  taxableBase        Float               @default(0) // Base taxable (HT - remise)
-  tvaTotal           Float               @default(0) // Total TVA
-  totalTTC           Float               @default(0) // Total TTC
+  subtotalHT    Float @default(0) // Total HT
+  discountTotal Float @default(0) // Remise totale
+  taxableBase   Float @default(0) // Base taxable (HT - remise)
+  tvaTotal      Float @default(0) // Total TVA
+  totalTTC      Float @default(0) // Total TTC
 
   // Remise globale optionnelle (code promo)
-  promoCode          String?
-  promoDiscountRate  Float? // 0..1 (pourcentage de remise globale)
+  promoCode         String?
+  promoDiscountRate Float? // 0..1 (pourcentage de remise globale)
 
   // Type de commande (rentrée, vacances, etc.)
-  orderType          String?
+  orderType String?
 
-  notes              String? // Notes additionnelles / conditions particulières
+  notes String? // Notes additionnelles / conditions particulières
 
-  createdById        String // ID du PDG qui a créé le proforma
-  createdBy          User                @relation("CreatedProformas", fields: [createdById], references: [id])
+  createdById String // ID du PDG qui a créé le proforma
+  createdBy   User   @relation("CreatedProformas", fields: [createdById], references: [id])
 
-  items              ProformaItem[]
-  clientSnapshot     ProformaClientSnapshot?
+  items          ProformaItem[]
+  clientSnapshot ProformaClientSnapshot?
 
   // Lien éventuel vers une commande / une facture
-  orderId            String?             @unique
-  convertedToOrder   Order?              @relation("ProformaOrder", fields: [orderId], references: [id])
+  orderId          String? @unique
+  convertedToOrder Order?  @relation("ProformaOrder", fields: [orderId], references: [id])
 
   // Versioning (si besoin)
-  version            Int                 @default(1)
-  parentProformaId   String?
-  parentProforma     Proforma?           @relation("ProformaVersions", fields: [parentProformaId], references: [id])
-  versions           Proforma[]          @relation("ProformaVersions")
+  version          Int        @default(1)
+  parentProformaId String?
+  parentProforma   Proforma?  @relation("ProformaVersions", fields: [parentProformaId], references: [id])
+  versions         Proforma[] @relation("ProformaVersions")
 
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status])
   @@index([issuedAt])
@@ -430,38 +430,38 @@ model Proforma {
 }
 
 model ProformaItem {
-  id           String   @id @default(cuid())
-  proformaId   String
-  proforma     Proforma @relation(fields: [proformaId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  proformaId String
+  proforma   Proforma @relation(fields: [proformaId], references: [id], onDelete: Cascade)
 
   // Référence livre à l'instant T (peut être null si livre supprimé)
-  workId       String?
-  work         Work?    @relation("ProformaItemWork", fields: [workId], references: [id])
-  
-  // Snapshot des informations du livre (immuable)
-  reference    String? // Référence interne
-  isbn         String?
-  title        String? // Temporairement nullable pour migration
-  authorName   String?
+  workId String?
+  work   Work?   @relation("ProformaItemWork", fields: [workId], references: [id])
 
-  quantity     Int
-  unitPriceHT  Float? // Prix unitaire HT (temporairement nullable pour migration)
-  unitPrice    Float? // Ancien champ pour compatibilité
-  
-  discountRate Float   @default(0) // 0..1 (pourcentage de remise ligne)
-  discount     Float?  @default(0) // Ancien champ pour compatibilité
-  tvaRate      Float   @default(0.18) // 0..1 (taux TVA, par défaut 18%)
+  // Snapshot des informations du livre (immuable)
+  reference  String? // Référence interne
+  isbn       String?
+  title      String? // Temporairement nullable pour migration
+  authorName String?
+
+  quantity    Int
+  unitPriceHT Float? // Prix unitaire HT (temporairement nullable pour migration)
+  unitPrice   Float? // Ancien champ pour compatibilité
+
+  discountRate Float  @default(0) // 0..1 (pourcentage de remise ligne)
+  discount     Float? @default(0) // Ancien champ pour compatibilité
+  tvaRate      Float  @default(0.18) // 0..1 (taux TVA, par défaut 18%)
 
   // Totaux ligne (calculés et stockés)
-  lineHT       Float   @default(0) // HT = quantity * unitPriceHT
-  lineDiscount Float   @default(0) // Remise = lineHT * discountRate
-  lineTaxable  Float   @default(0) // Base taxable = lineHT - lineDiscount
-  lineTVA      Float   @default(0) // TVA = lineTaxable * tvaRate
-  totalTTC     Float   @default(0) // Total TTC = lineTaxable + lineTVA
-  total        Float?  @default(0) // Ancien champ pour compatibilité
+  lineHT       Float  @default(0) // HT = quantity * unitPriceHT
+  lineDiscount Float  @default(0) // Remise = lineHT * discountRate
+  lineTaxable  Float  @default(0) // Base taxable = lineHT - lineDiscount
+  lineTVA      Float  @default(0) // TVA = lineTaxable * tvaRate
+  totalTTC     Float  @default(0) // Total TTC = lineTaxable + lineTVA
+  total        Float? @default(0) // Ancien champ pour compatibilité
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime? @updatedAt // Temporairement nullable pour migration
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt // Temporairement nullable pour migration
 
   @@index([proformaId])
   @@index([workId])
@@ -472,14 +472,14 @@ model ProformaClientSnapshot {
   proformaId String   @unique
   proforma   Proforma @relation(fields: [proformaId], references: [id], onDelete: Cascade)
 
-  name       String
-  email      String?
-  phone      String?
-  address    String?
-  city       String?
-  country    String?
+  name    String
+  email   String?
+  phone   String?
+  address String?
+  city    String?
+  country String?
 
-  createdAt  DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([proformaId])
 }
@@ -993,8 +993,10 @@ enum ProjectStatus {
   DRAFT
   SUBMITTED
   UNDER_REVIEW
-  ACCEPTED
+  ACCEPTED // compat legacy (à migrer plus tard)
+  APPROVED // nouveau officiel
   REJECTED
+  ARCHIVED // nouveau officiel
 }
 
 enum WorkStatus {

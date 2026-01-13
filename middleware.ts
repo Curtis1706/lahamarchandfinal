@@ -1,83 +1,112 @@
-import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
-import { getToken } from "next-auth/jwt"
-import { isPublicRoute, isProtectedRoute, GUEST_ROLE } from "@/lib/guest"
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
-  
-  // Routes publiques - toujours accessibles
-  if (isPublicRoute(pathname)) {
-    return NextResponse.next()
+const ROLE_DASHBOARD_PREFIX: Record<string, string[]> = {
+  PDG: ["/dashboard/pdg", "/api/pdg"],
+  REPRESENTANT: ["/dashboard/representant", "/api/representant"],
+  PARTENAIRE: ["/dashboard/partenaire", "/api/partenaire"],
+  CONCEPTEUR: ["/dashboard/concepteur", "/api/concepteur"],
+  AUTEUR: ["/dashboard/auteur", "/api/auteur"],
+  CLIENT: ["/dashboard/client", "/api/client"],
+  INVITE: ["/dashboard/invite"], // INVITE n'a généralement pas d'API dédiée
+};
+
+// Routes communes accessibles à tous les rôles authentifiés
+const COMMON_ALLOWED = [
+  "/dashboard/profile",
+  "/dashboard/settings",
+  "/api/auth",
+  "/api/users/list", // Pour la messagerie
+];
+
+export async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+
+  // On ne filtre que dashboard + api internes
+  const isProtected =
+    pathname.startsWith("/dashboard") || pathname.startsWith("/api");
+
+  if (!isProtected) {
+    return NextResponse.next();
   }
-  
-  // Routes protégées - nécessitent une authentification
-  if (isProtectedRoute(pathname)) {
-    try {
-      // Vérifier les cookies de session
-      const sessionCookie = request.cookies.get(
-        process.env.NODE_ENV === 'production' 
-          ? '__Secure-next-auth.session-token' 
-          : 'next-auth.session-token'
-      )
-      
-      // Si pas de cookie de session, rediriger immédiatement
-      if (!sessionCookie || !sessionCookie.value) {
-        console.log("🔒 Middleware: No session cookie found, redirecting to login")
-        const loginUrl = new URL("/auth/login", request.url)
-        loginUrl.searchParams.set("callbackUrl", pathname)
-        return NextResponse.redirect(loginUrl)
-      }
-      
-      const token = await getToken({
-        req: request,
-        secret: process.env.NEXTAUTH_SECRET || "fallback-secret-key-for-development",
-        cookieName: process.env.NODE_ENV === 'production' 
-          ? '__Secure-next-auth.session-token' 
-          : 'next-auth.session-token'
-      })
-      
-      // Si pas de token ou pas de sub (ID utilisateur), rediriger vers la page de login
-      if (!token || !token.sub) {
-        console.log("🔒 Middleware: No token or sub, redirecting to login")
-        const loginUrl = new URL("/auth/login", request.url)
-        loginUrl.searchParams.set("callbackUrl", pathname)
-        return NextResponse.redirect(loginUrl)
-      }
-      
-      // Vérifier que le rôle existe et n'est pas GUEST
-      const validRoles = ['PDG', 'REPRESENTANT', 'PARTENAIRE', 'CONCEPTEUR', 'AUTEUR', 'CLIENT', 'INVITE']
-      if (!token.role || token.role === GUEST_ROLE || !validRoles.includes(token.role as string)) {
-        console.log("🔒 Middleware: Invalid role", token.role, ", redirecting to login")
-        const loginUrl = new URL("/auth/login", request.url)
-        loginUrl.searchParams.set("callbackUrl", pathname)
-        return NextResponse.redirect(loginUrl)
-      }
-      
-      console.log("✅ Middleware: User authenticated with role", token.role)
-      return NextResponse.next()
-    } catch (error) {
-      console.error("🔒 Middleware auth error:", error)
-      const loginUrl = new URL("/auth/login", request.url)
-      loginUrl.searchParams.set("callbackUrl", pathname)
-      return NextResponse.redirect(loginUrl)
-    }
+
+  // Vérifier les cookies de session
+  const sessionCookie = req.cookies.get(
+    process.env.NODE_ENV === "production"
+      ? "__Secure-next-auth.session-token"
+      : "next-auth.session-token"
+  );
+
+  // Si pas de cookie de session, rediriger vers login
+  if (!sessionCookie || !sessionCookie.value) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/auth/login";
+    url.searchParams.set("callbackUrl", pathname);
+    return NextResponse.redirect(url);
   }
-  
-  // Pour toutes les autres routes, permettre l'accès
-  return NextResponse.next()
+
+  const token = await getToken({
+    req,
+    secret: process.env.NEXTAUTH_SECRET || "fallback-secret-key-for-development",
+    cookieName:
+      process.env.NODE_ENV === "production"
+        ? "__Secure-next-auth.session-token"
+        : "next-auth.session-token",
+  });
+
+  // Pas de token ou pas de sub (ID utilisateur) => login
+  if (!token || !token.sub) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/auth/login";
+    url.searchParams.set("callbackUrl", pathname);
+    return NextResponse.redirect(url);
+  }
+
+  const role = String(token.role || "");
+
+  // Routes communes - autorisées pour tous les rôles authentifiés
+  if (COMMON_ALLOWED.some((p) => pathname.startsWith(p))) {
+    return NextResponse.next();
+  }
+
+  // Vérifier que le rôle est valide et existe dans la map
+  if (!role || !ROLE_DASHBOARD_PREFIX[role]) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/auth/login";
+    url.searchParams.set("error", "InvalidRole");
+    return NextResponse.redirect(url);
+  }
+
+  const allowedPrefixes = ROLE_DASHBOARD_PREFIX[role];
+
+  // Vérifie que l'URL visitée correspond au rôle
+  const isAuthorized = allowedPrefixes.some((prefix) =>
+    pathname.startsWith(prefix)
+  );
+
+  if (!isAuthorized) {
+    // Rediriger vers le bon dashboard du rôle
+    const url = req.nextUrl.clone();
+    url.pathname = allowedPrefixes[0] || "/dashboard";
+    console.log(
+      `🔒 Middleware: User with role ${role} tried to access ${pathname}, redirecting to ${url.pathname}`
+    );
+    return NextResponse.redirect(url);
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
-     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public folder
      */
-    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
-}
+};

@@ -455,6 +455,17 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // Vérifier ownership (sauf pour PDG)
+    const session = await getServerSession(authOptions);
+    if (session?.user && session.user.role !== "PDG") {
+      if (session.user.id !== existingProject.concepteurId) {
+        return NextResponse.json(
+          { error: "Vous ne pouvez modifier que vos propres projets" },
+          { status: 403 }
+        );
+      }
+    }
+
     // Mettre à jour le projet
     const updatedProject = await prisma.project.update({
       where: { id },
@@ -609,6 +620,24 @@ export async function DELETE(request: NextRequest) {
         { error: "Projet non trouvé" },
         { status: 404 }
       );
+    }
+
+    // Vérifier ownership (sauf pour PDG)
+    const session = await getServerSession(authOptions);
+    if (session?.user && session.user.role !== "PDG") {
+      if (session.user.id !== existingProject.concepteurId) {
+        return NextResponse.json(
+          { error: "Vous ne pouvez supprimer que vos propres projets" },
+          { status: 403 }
+        );
+      }
+      // Vérifier que le projet peut être supprimé (seulement DRAFT pour concepteur)
+      if (existingProject.status !== "DRAFT") {
+        return NextResponse.json(
+          { error: "Seuls les projets en brouillon peuvent être supprimés" },
+          { status: 400 }
+        );
+      }
     }
 
     // Supprimer le projet

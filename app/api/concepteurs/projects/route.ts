@@ -258,14 +258,43 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Projet non trouvé" }, { status: 404 });
     }
 
-    // Vérifier les permissions
+    // Vérifier les permissions (ownership)
     if (session.user.id !== existingProject.concepteurId && session.user.role !== "PDG") {
       return NextResponse.json({ error: "Vous ne pouvez modifier que vos propres projets" }, { status: 403 });
     }
 
-    // Si c'est un changement de statut vers SUBMITTED, ajouter la date de soumission
-    if (status === "SUBMITTED" && existingProject.status !== "SUBMITTED") {
-      updateData.submittedAt = new Date();
+    // Si c'est un concepteur, vérifier qu'il peut modifier/soumettre ce projet
+    if (session.user.role === "CONCEPTEUR" && session.user.id === existingProject.concepteurId) {
+      const { canEditProject, canSubmitProject, canArchiveProject } = await import("@/lib/project-status");
+      
+      // Si c'est une soumission
+      if (status === "SUBMITTED") {
+        if (!canSubmitProject(existingProject.status)) {
+          return NextResponse.json(
+            { error: "Ce projet ne peut pas être soumis dans son état actuel" },
+            { status: 400 }
+          );
+        }
+        updateData.submittedAt = new Date();
+      }
+      // Si c'est un archivage
+      else if (status === "ARCHIVED") {
+        if (!canArchiveProject(existingProject.status)) {
+          return NextResponse.json(
+            { error: "Ce projet ne peut pas être archivé dans son état actuel" },
+            { status: 400 }
+          );
+        }
+      }
+      // Si c'est une modification de contenu (sans changement de statut)
+      else if (!status && (updateData.title || updateData.description !== undefined)) {
+        if (!canEditProject(existingProject.status)) {
+          return NextResponse.json(
+            { error: "Ce projet ne peut plus être modifié" },
+            { status: 400 }
+          );
+        }
+      }
     }
 
     // Mettre à jour le projet

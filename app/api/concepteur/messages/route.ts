@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' }
     })
 
-    // Combiner et formater les messages
+    // Combiner les messages (sans formatage de date pour le tri)
     let allMessages = [
       ...receivedMessages.map(msg => ({
         id: msg.id,
@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
           role: msg.recipient.role
         },
         read: msg.read,
-        createdAt: format(msg.createdAt, 'dd MMM yyyy, HH:mm', { locale: fr }),
+        createdAtRaw: msg.createdAt,
         type: 'received' as const
       })),
       ...sentMessages.map(msg => ({
@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
           role: msg.recipient.role
         },
         read: true, // Les messages envoyés sont toujours "lus"
-        createdAt: format(msg.createdAt, 'dd MMM yyyy, HH:mm', { locale: fr }),
+        createdAtRaw: msg.createdAt,
         type: 'sent' as const
       }))
     ]
@@ -130,17 +130,21 @@ export async function GET(request: NextRequest) {
       allMessages = allMessages.filter(m => m.type === 'received')
     }
 
-    // Trier par date (plus récent en premier)
+    // Trier par date (plus récent en premier) - AVANT le formatage
     allMessages.sort((a, b) => {
-      const dateA = new Date(a.createdAt)
-      const dateB = new Date(b.createdAt)
-      return dateB.getTime() - dateA.getTime()
+      return b.createdAtRaw.getTime() - a.createdAtRaw.getTime()
     })
+
+    // Formater les dates après le tri
+    const formattedMessages = allMessages.map(msg => ({
+      ...msg,
+      createdAt: format(msg.createdAtRaw, 'dd MMM yyyy, HH:mm', { locale: fr })
+    }))
 
     const unreadCount = receivedMessages.filter(m => !m.read).length
 
     return NextResponse.json({
-      messages: allMessages,
+      messages: formattedMessages,
       unreadCount
     })
   } catch (error) {
