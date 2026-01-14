@@ -253,9 +253,9 @@ export async function POST(request: NextRequest) {
         select: { id: true, name: true }
       });
 
-      for (const pdg of pdgUsers) {
-        await prisma.notification.create({
-          data: {
+      if (pdgUsers.length > 0) {
+        await prisma.notification.createMany({
+          data: pdgUsers.map(pdg => ({
             userId: pdg.id,
             title: "Nouvelle œuvre soumise pour validation",
             message: `L'auteur ${work.author?.name} a soumis l'œuvre "${work.title}" pour validation. ${work.project ? `Issue du projet "${work.project.title}".` : 'Soumission directe.'}`,
@@ -263,14 +263,14 @@ export async function POST(request: NextRequest) {
             data: JSON.stringify({
               workId: work.id,
               workTitle: work.title,
-            authorId: work.authorId,
-            authorName: work.author?.name,
+              authorId: work.authorId,
+              authorName: work.author?.name,
               disciplineName: work.discipline?.name,
               projectId: work.projectId,
               projectTitle: work.project?.title,
               contentType: work.contentType
             })
-          }
+          }))
         });
       }
       console.log(`✅ Notifications créées pour ${pdgUsers.length} PDG`);
