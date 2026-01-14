@@ -70,6 +70,8 @@ export default function VentesPage() {
   const [stockItems, setStockItems] = useState<StockItem[]>([])
   const [loadingStock, setLoadingStock] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [selectedSale, setSelectedSale] = useState<SaleRow | null>(null)
+  const [showSaleDetailModal, setShowSaleDetailModal] = useState(false)
 
   // Formulaire
   const [formData, setFormData] = useState({
@@ -310,7 +312,8 @@ export default function VentesPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => {
-                                toast.info("Détails de la vente à venir")
+                                setSelectedSale(r)
+                                setShowSaleDetailModal(true)
                               }}
                             >
                               <Eye className="w-4 h-4" />

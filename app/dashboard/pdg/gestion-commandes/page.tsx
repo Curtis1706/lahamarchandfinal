@@ -127,12 +127,9 @@ export default function GestionCommandesPage() {
     to: undefined
   })
   const [statusFilter, setStatusFilter] = useState("all")
-  const [typeFilter, setTypeFilter] = useState("all")
   const [paymentTypeFilter, setPaymentTypeFilter] = useState("all")
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("all")
   const [deliveryStatusFilter, setDeliveryStatusFilter] = useState("all")
-  const [methodFilter, setMethodFilter] = useState("all")
-  const [categoryFilter, setCategoryFilter] = useState("all")
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
@@ -722,8 +719,7 @@ export default function GestionCommandesPage() {
 
         {/* Section des filtres */}
         <div className="bg-white rounded-lg border p-6 space-y-4">
-          {/* Première ligne de filtres */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             {/* Sélecteur de dates */}
             <div className="space-y-2">
               <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
@@ -763,10 +759,10 @@ export default function GestionCommandesPage() {
               </Popover>
             </div>
 
-            {/* Filtre statut */}
+            {/* Filtre statut de commande */}
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger>
-                <SelectValue placeholder="Tous les statuts" />
+                <SelectValue placeholder="Statut commande" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tous les statuts</SelectItem>
@@ -779,33 +775,10 @@ export default function GestionCommandesPage() {
               </SelectContent>
             </Select>
 
-            {/* Filtre type */}
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Tous les types" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les types</SelectItem>
-                <SelectItem value="Livres scolaires">Livres scolaires</SelectItem>
-                <SelectItem value="Manuels">Manuels</SelectItem>
-                <SelectItem value="Cahiers d'exercices">Cahiers d'exercices</SelectItem>
-                <SelectItem value="Guides pédagogiques">Guides pédagogiques</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Bouton Appliquer */}
-            <Button onClick={handleApplyFilters} className="bg-indigo-600 hover:bg-indigo-700">
-              <Filter className="h-4 w-4 mr-2" />
-              Appliquer
-            </Button>
-          </div>
-
-          {/* Deuxième ligne de filtres */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Filtre type de paiement */}
             <Select value={paymentTypeFilter} onValueChange={setPaymentTypeFilter}>
               <SelectTrigger>
-                <SelectValue placeholder="Tous les types de paiement" />
+                <SelectValue placeholder="Type de paiement" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tous les types</SelectItem>
@@ -818,7 +791,7 @@ export default function GestionCommandesPage() {
             {/* Filtre statut de paiement */}
             <Select value={paymentStatusFilter} onValueChange={setPaymentStatusFilter}>
               <SelectTrigger>
-                <SelectValue placeholder="Tous les statuts de paiement" />
+                <SelectValue placeholder="Statut de paiement" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tous les statuts</SelectItem>
@@ -832,7 +805,7 @@ export default function GestionCommandesPage() {
             {/* Filtre statut de livraison */}
             <Select value={deliveryStatusFilter} onValueChange={setDeliveryStatusFilter}>
               <SelectTrigger>
-                <SelectValue placeholder="Tous les statuts de livraison" />
+                <SelectValue placeholder="Statut de livraison" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tous les statuts</SelectItem>
@@ -841,36 +814,6 @@ export default function GestionCommandesPage() {
                 <SelectItem value="IN_TRANSIT">En transit</SelectItem>
                 <SelectItem value="DELIVERED">Livré</SelectItem>
                 <SelectItem value="RECEIVED">Réceptionné</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Troisième ligne de filtres */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Filtre méthode */}
-            <Select value={methodFilter} onValueChange={setMethodFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Toutes les méthodes" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Toutes les méthodes</SelectItem>
-                <SelectItem value="Espèces">Espèces</SelectItem>
-                <SelectItem value="Mobile Money">Mobile Money</SelectItem>
-                <SelectItem value="Virement">Virement bancaire</SelectItem>
-                <SelectItem value="Carte">Carte bancaire</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Filtre catégorie */}
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Vacances et rentrée scolaire" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Toutes les catégories</SelectItem>
-                <SelectItem value="rentree">Vacances et rentrée scolaire</SelectItem>
-                <SelectItem value="cours">Période de cours</SelectItem>
-                <SelectItem value="examens">Période d'examens</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -920,17 +863,14 @@ export default function GestionCommandesPage() {
                 <TableHead className="font-semibold">Type</TableHead>
                 <TableHead className="font-semibold">Statut</TableHead>
                 <TableHead className="font-semibold">Livraison</TableHead>
-                <TableHead className="font-semibold">État Réception</TableHead>
-                <TableHead className="font-semibold">Type Paiement</TableHead>
-                <TableHead className="font-semibold">Statut Paiement</TableHead>
-                <TableHead className="font-semibold">Méthode</TableHead>
+                <TableHead className="font-semibold">Paiement</TableHead>
                 <TableHead className="font-semibold">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {paginatedOrders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={13} className="text-center py-8">
+                  <TableCell colSpan={10} className="text-center py-8">
                     <div className="flex flex-col items-center space-y-2">
                       <Info className="h-8 w-8 text-gray-400" />
                       <p className="text-gray-500">Aucune donnée disponible dans le tableau</p>
@@ -959,24 +899,24 @@ export default function GestionCommandesPage() {
                     </TableCell>
                     <TableCell>{getStatusBadge(order.status)}</TableCell>
                     <TableCell>
-                      {getDeliveryStatusBadge(order.deliveryStatus)}
-                    </TableCell>
-                    <TableCell>
-                      {order.receivedBy ? (
-                        <div className="text-xs">
-                          <div className="font-medium">Réceptionné</div>
-                          <div className="text-gray-500">Par: {order.receivedBy}</div>
-                        </div>
-                      ) : (
-                        <Badge variant="secondary">En attente</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {getPaymentTypeBadge(order.paymentType)}
+                      <div className="flex flex-col space-y-1">
+                        {getDeliveryStatusBadge(order.deliveryStatus)}
+                        {order.receivedBy && (
+                          <span className="text-xs text-gray-500">
+                            Réceptionné par: {order.receivedBy}
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col space-y-1">
-                        {getPaymentStatusBadge(order.paymentStatus)}
+                        <div className="flex items-center gap-2">
+                          {getPaymentTypeBadge(order.paymentType)}
+                          {getPaymentStatusBadge(order.paymentStatus)}
+                        </div>
+                        {order.paymentMethod && (
+                          <span className="text-xs text-gray-600">{order.paymentMethod}</span>
+                        )}
                         {order.paymentType === 'DEPOSIT' && order.depositAmount && (
                           <span className="text-xs text-gray-500">
                             Acompte: {order.depositAmount.toFixed(0)} FCFA
@@ -988,9 +928,6 @@ export default function GestionCommandesPage() {
                           </span>
                         )}
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-xs">{order.paymentMethod || 'Non défini'}</span>
                     </TableCell>
                     <TableCell>
                       <div className="flex space-x-1">

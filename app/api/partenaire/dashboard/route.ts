@@ -1,12 +1,21 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { calculateAvailableStock } from "@/lib/partner-stock"
 
 export const dynamic = 'force-dynamic'
 
-// GET /api/partenaire/dashboard - Statistiques du dashboard partenaire
-export async function GET(request: NextRequest) {
+/**
+ * GET /api/partenaire/dashboard
+ * 
+ * Retourne les données du dashboard partenaire :
+ * - KPIs : Stock disponible, Ventes, Retours, Ristournes
+ * - Activité récente (10 derniers mouvements)
+ * - Stock faible
+ * - Top ventes
+ */
+export async function GET() {
   try {
     const session = await getServerSession(authOptions)
     
@@ -14,238 +23,234 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
-    // Récupérer l'utilisateur pour obtenir ses informations
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id }
-    })
-
-    if (!user) {
-      return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 })
-    }
-
-    // Récupérer le partenaire associé à l'utilisateur, ou le créer s'il n'existe pas
-    let partner = await prisma.partner.findFirst({
+    // Récupérer le partenaire
+    const partner = await prisma.partner.findFirst({
       where: { userId: session.user.id },
       include: {
-        user: true,
-        representant: {
+        user: {
           select: {
             id: true,
             name: true,
             email: true
+          }
+        },
+        representant: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true
+          }
+        },
+        stockItems: {
+          include: {
+            work: {
+              select: {
+                id: true,
+                title: true,
+                isbn: true,
+                price: true
+              }
+            }
+          }
+        },
+        stockMovements: {
+          where: {
+            type: {
+              in: ['PARTNER_SALE', 'PARTNER_RETURN', 'PARTNER_ALLOCATION']
+            }
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+          include: {
+            work: {
+              select: {
+                id: true,
+                title: true,
+                isbn: true
+              }
+            }
           }
         }
       }
     })
 
     if (!partner) {
-      // Créer automatiquement un Partner pour les utilisateurs existants
-      try {
-        partner = await prisma.partner.create({
-          data: {
-            name: user.name,
-            type: 'INDEPENDANT',
-            userId: user.id,
-            email: user.email,
-            phone: user.phone || null,
-            contact: user.name,
-          },
-          include: {
-            user: true,
-            representant: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
-            }
-          }
-        })
-        console.log("✅ Partenaire créé automatiquement pour l'utilisateur existant:", user.name)
-      } catch (partnerError: any) {
-        console.error("❌ Erreur lors de la création automatique du partenaire:", partnerError)
-        return NextResponse.json({ error: 'Erreur lors de la création du partenaire' }, { status: 500 })
-      }
+      return NextResponse.json({ error: 'Partenaire non trouvé' }, { status: 404 })
     }
 
-    // Statistiques des commandes
-    const ordersStats = await prisma.order.aggregate({
-      where: {
-        partnerId: partner.id
-      },
-      _count: {
-        id: true
-      }
-    })
-
-    const pendingOrders = await prisma.order.count({
-      where: {
-        partnerId: partner.id,
-        status: 'PENDING'
-      }
-    })
-
-    const completedOrders = await prisma.order.count({
-      where: {
-        partnerId: partner.id,
-        status: 'DELIVERED'
-      }
-    })
-
-    // Calculer le chiffre d'affaires total
-    const ordersWithItems = await prisma.order.findMany({
-      where: {
-        partnerId: partner.id,
-        status: 'DELIVERED'
-      },
-      include: {
-        items: true
-      }
-    })
-
-    const totalRevenue = ordersWithItems.reduce((sum, order) => {
-      return sum + order.items.reduce((itemSum, item) => {
-        return itemSum + (item.price * item.quantity)
-      }, 0)
-    }, 0)
-
-    // Nombre d'œuvres disponibles (toutes les œuvres validées)
-    const availableWorks = await prisma.work.count({
-      where: {
-        status: 'PUBLISHED'
-      }
-    })
-
-    // Calculer l'évolution du chiffre d'affaires (mois actuel vs mois précédent)
+    // Dates pour les calculs
     const now = new Date()
-    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
-    const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-    const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
+    const startOfDay = new Date(now.setHours(0, 0, 0, 0))
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const startOfWeek = new Date(now)
+    startOfWeek.setDate(now.getDate() - now.getDay())
 
-    // Chiffre d'affaires du mois actuel
-    const currentMonthOrders = await prisma.order.findMany({
+    // Calculer le stock disponible total
+    const totalAvailableStock = partner.stockItems.reduce((sum, item) => {
+      const available = calculateAvailableStock(
+        item.allocatedQuantity,
+        item.soldQuantity,
+        item.returnedQuantity
+      )
+      return sum + available
+    }, 0)
+
+    // Récupérer les ventes (mouvements PARTNER_SALE)
+    const salesMovements = await prisma.stockMovement.findMany({
       where: {
         partnerId: partner.id,
-        status: 'DELIVERED',
+        type: 'PARTNER_SALE',
         createdAt: {
-          gte: currentMonthStart,
-          lte: currentMonthEnd
+          gte: startOfMonth
         }
       },
       include: {
-        items: true
-      }
-    })
-
-    const currentMonthRevenue = currentMonthOrders.reduce((sum, order) => {
-      return sum + order.items.reduce((itemSum, item) => {
-        return itemSum + (item.price * item.quantity)
-      }, 0)
-    }, 0)
-
-    // Chiffre d'affaires du mois précédent
-    const previousMonthOrders = await prisma.order.findMany({
-      where: {
-        partnerId: partner.id,
-        status: 'DELIVERED',
-        createdAt: {
-          gte: previousMonthStart,
-          lte: previousMonthEnd
-        }
-      },
-      include: {
-        items: true
-      }
-    })
-
-    const previousMonthRevenue = previousMonthOrders.reduce((sum, order) => {
-      return sum + order.items.reduce((itemSum, item) => {
-        return itemSum + (item.price * item.quantity)
-      }, 0)
-    }, 0)
-
-    // Calculer le pourcentage d'évolution
-    let revenueGrowth = 0
-    if (previousMonthRevenue > 0) {
-      revenueGrowth = ((currentMonthRevenue - previousMonthRevenue) / previousMonthRevenue) * 100
-    } else if (currentMonthRevenue > 0) {
-      revenueGrowth = 100 // Si pas de revenu le mois précédent mais qu'il y en a ce mois
-    }
-
-    // Récupérer les commandes récentes (5 dernières)
-    const recentOrders = await prisma.order.findMany({
-      where: {
-        partnerId: partner.id
-      },
-      include: {
-        items: {
-          include: {
-            work: {
-              select: {
-                id: true,
-                title: true,
-                discipline: {
-                  select: {
-                    name: true
-                  }
-                }
-              }
-            }
+        work: {
+          select: {
+            id: true,
+            title: true
           }
         }
-      },
-      orderBy: {
-        createdAt: 'desc'
-      },
-      take: 5
-    })
-
-    // Formater les commandes récentes
-    const formattedRecentOrders = recentOrders.map(order => {
-      const totalAmount = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-      const totalQuantity = order.items.reduce((sum, item) => sum + item.quantity, 0)
-      const disciplines = [...new Set(order.items.map(item => item.work.discipline?.name || 'Autre'))]
-      
-      return {
-        id: order.id,
-        reference: `CMD-${order.id.slice(-8)}`,
-        quantity: totalQuantity,
-        disciplines: disciplines.join(', '),
-        status: order.status,
-        amount: totalAmount,
-        createdAt: order.createdAt
       }
     })
 
-    // Récupérer la dernière activité (dernière commande)
-    const lastActivity = recentOrders.length > 0 ? recentOrders[0].createdAt : partner.createdAt
+    const salesTodayMovements = salesMovements.filter(m => 
+      new Date(m.createdAt) >= startOfDay
+    )
 
-    const stats = {
-      totalOrders: ordersStats._count.id,
-      pendingOrders,
-      completedOrders,
-      totalRevenue,
-      availableWorks,
-      revenueGrowth: Math.round(revenueGrowth),
+    const salesMonthQty = salesMovements.reduce((sum, m) => sum + Math.abs(m.quantity), 0)
+    const salesMonthAmount = salesMovements.reduce((sum, m) => 
+      sum + (m.totalAmount ?? (m.unitPrice ?? 0) * Math.abs(m.quantity)), 0
+    )
+    const salesTodayQty = salesTodayMovements.reduce((sum, m) => sum + Math.abs(m.quantity), 0)
+
+    // Récupérer les retours (mouvements PARTNER_RETURN)
+    const returnsMovements = await prisma.stockMovement.findMany({
+      where: {
+        partnerId: partner.id,
+        type: 'PARTNER_RETURN',
+        createdAt: {
+          gte: startOfMonth
+        }
+      }
+    })
+
+    const returnsMonthQty = returnsMovements.reduce((sum, m) => sum + Math.abs(m.quantity), 0)
+
+    // Calculer les ristournes disponibles (si le modèle existe)
+    const availableRebates = await prisma.partnerRebate.aggregate({
+      where: {
+        partnerId: partner.id,
+        status: 'VALIDATED',
+        paidAt: null
+      },
+      _sum: {
+        amount: true
+      }
+    })
+
+    const ristournesDisponibles = availableRebates._sum.amount ?? 0
+
+    // Stock faible (availableQuantity <= 5)
+    const LOW_STOCK_THRESHOLD = 5
+    const lowStockItems = partner.stockItems
+      .map(item => {
+        const available = calculateAvailableStock(
+          item.allocatedQuantity,
+          item.soldQuantity,
+          item.returnedQuantity
+        )
+        return {
+          ...item,
+          availableQuantity: available
+        }
+      })
+      .filter(item => item.availableQuantity <= LOW_STOCK_THRESHOLD && item.availableQuantity > 0)
+      .slice(0, 10)
+      .map(item => ({
+        id: item.id,
+        workId: item.workId,
+        title: item.work.title,
+        isbn: item.work.isbn,
+        availableQuantity: item.availableQuantity,
+        allocatedQuantity: item.allocatedQuantity,
+        threshold: LOW_STOCK_THRESHOLD
+      }))
+
+    // Top ventes du mois (par livre)
+    const topSalesMap = new Map<string, { title: string; quantity: number; amount: number }>()
+    salesMovements.forEach(movement => {
+      const workId = movement.workId
+      const quantity = Math.abs(movement.quantity)
+      const amount = movement.totalAmount ?? (movement.unitPrice ?? 0) * quantity
+      
+      const current = topSalesMap.get(workId) || { title: movement.work.title, quantity: 0, amount: 0 }
+      current.quantity += quantity
+      current.amount += amount
+      topSalesMap.set(workId, current)
+    })
+
+    const topSales = Array.from(topSalesMap.values())
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 5)
+
+    // Activité récente (10 derniers mouvements)
+    const recentMovements = partner.stockMovements.map(m => ({
+      id: m.id,
+      type: m.type,
+      quantity: Math.abs(m.quantity),
+      createdAt: m.createdAt.toISOString(),
+      work: {
+        id: m.work.id,
+        title: m.work.title,
+        isbn: m.work.isbn
+      },
+      reference: m.reference,
+      reason: m.reason
+    }))
+
+    // Dernière vente enregistrée
+    const lastSale = await prisma.stockMovement.findFirst({
+      where: {
+        partnerId: partner.id,
+        type: 'PARTNER_SALE'
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true }
+    })
+
+    return NextResponse.json({
+      kpis: {
+        totalAvailableStock,
+        salesTodayQty,
+        salesMonthQty,
+        salesMonthAmount,
+        returnsMonthQty,
+        ristournesDisponibles,
+        lowStockCount: lowStockItems.length
+      },
       partner: {
         name: partner.name,
         type: partner.type,
-        status: user.status,
-        representant: partner.representant?.name || null,
-        lastActivity: lastActivity.toISOString()
+        status: 'ACTIF', // À adapter selon votre logique
+        representant: partner.representant ? {
+          name: partner.representant.name,
+          email: partner.representant.email,
+          phone: partner.representant.phone
+        } : null,
+        lastSaleDate: lastSale?.createdAt.toISOString() ?? null
       },
-      recentOrders: formattedRecentOrders
-    }
-
-    return NextResponse.json(stats)
-
+      recentMovements,
+      lowStockItems,
+      topSales,
+      totalWorks: partner.stockItems.length
+    })
   } catch (error: any) {
-    console.error('Erreur lors de la récupération des statistiques partenaire:', error)
+    console.error('Erreur lors de la récupération des données du dashboard:', error)
     return NextResponse.json(
       { error: 'Erreur interne du serveur' },
       { status: 500 }
     )
   }
 }
-

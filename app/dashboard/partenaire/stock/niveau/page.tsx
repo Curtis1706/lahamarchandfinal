@@ -11,6 +11,12 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   Package,
   TrendingUp,
   TrendingDown,
@@ -18,11 +24,16 @@ import {
   Printer,
   Eye,
   AlertTriangle,
+  Loader2,
+  Activity,
 } from "lucide-react"
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { toast } from "sonner"
 import { apiClient } from "@/lib/api-client"
 import { calculateAvailableStock } from "@/lib/partner-stock"
+import { format } from "date-fns"
+import { fr } from "date-fns/locale"
+import { Badge } from "@/components/ui/badge"
 
 export default function NiveauStockPage() {
   const { user } = useCurrentUser()
@@ -34,6 +45,10 @@ export default function NiveauStockPage() {
   const [selectedDiscipline, setSelectedDiscipline] = useState("toutes")
   const [selectedClass, setSelectedClass] = useState("toutes")
   const [selectedStatus, setSelectedStatus] = useState("tous")
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
+  const [selectedWorkId, setSelectedWorkId] = useState<string | null>(null)
+  const [historyData, setHistoryData] = useState<any>(null)
+  const [loadingHistory, setLoadingHistory] = useState(false)
 
   // Charger le stock au montage et quand les filtres changent
   useEffect(() => {
@@ -140,6 +155,36 @@ export default function NiveauStockPage() {
     if (available === 0) return { label: "Rupture", color: "bg-red-100 text-red-800" }
     if (available <= 5) return { label: "Faible stock", color: "bg-yellow-100 text-yellow-800" }
     return { label: "Disponible", color: "bg-green-100 text-green-800" }
+  }
+
+  const handleShowHistory = async (workId: string) => {
+    setSelectedWorkId(workId)
+    setShowHistoryModal(true)
+    setLoadingHistory(true)
+    
+    try {
+      const res = await fetch(`/api/partenaire/stock/history?workId=${workId}`, { cache: "no-store" })
+      if (!res.ok) {
+        throw new Error("Erreur lors du chargement")
+      }
+      const data = await res.json()
+      setHistoryData(data)
+    } catch (error: any) {
+      console.error("Erreur lors du chargement de l'historique:", error)
+      toast.error("Erreur lors du chargement de l'historique")
+      setHistoryData(null)
+    } finally {
+      setLoadingHistory(false)
+    }
+  }
+
+  const getMovementTypeBadge = (type: string) => {
+    const configs: { [key: string]: { label: string; color: string } } = {
+      'PARTNER_ALLOCATION': { label: 'Allocation', color: 'bg-blue-100 text-blue-800' },
+      'PARTNER_SALE': { label: 'Vente', color: 'bg-green-100 text-green-800' },
+      'PARTNER_RETURN': { label: 'Retour', color: 'bg-purple-100 text-purple-800' }
+    }
+    return configs[type] || { label: type, color: 'bg-gray-100 text-gray-800' }
   }
 
   return (
@@ -338,7 +383,7 @@ export default function NiveauStockPage() {
                           )
                       const status = getStatus(Number(available ?? 0))
                       const prixPublic = Number(item.price ?? 0)
-                      const prixPartenaire = Number(item.price ?? 0) // TODO: Ajouter prix partenaire si disponible dans l'API
+                      const prixPartenaire = Number(item.price ?? 0) // Prix public utilisé (pas de prix partenaire spécifique dans le modèle)
                       
                       return (
                         <tr key={item.id} className="border-b hover:bg-gray-50">
@@ -371,11 +416,8 @@ export default function NiveauStockPage() {
                             <div className="flex items-center space-x-2">
                               <button 
                                 className="p-1 hover:bg-gray-100 rounded"
-                                title="Voir les détails"
-                                onClick={() => {
-                                  // TODO: Implémenter l'historique
-                                  toast.info("Fonctionnalité historique à venir")
-                                }}
+                                title="Voir l'historique"
+                                onClick={() => handleShowHistory(item.workId)}
                               >
                                 <Eye className="w-4 h-4 text-blue-600" />
                               </button>
@@ -431,6 +473,106 @@ export default function NiveauStockPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal Historique */}
+      <Dialog open={showHistoryModal} onOpenChange={setShowHistoryModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Historique des mouvements de stock</DialogTitle>
+          </DialogHeader>
+          {loadingHistory ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            </div>
+          ) : historyData ? (
+            <div className="space-y-6">
+              {/* Informations du produit */}
+              {historyData.work && (
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-lg mb-2">{historyData.work.title}</h3>
+                  {historyData.work.isbn && (
+                    <p className="text-sm text-gray-600">ISBN: {historyData.work.isbn}</p>
+                  )}
+                  {historyData.stockInfo && (
+                    <div className="grid grid-cols-4 gap-4 mt-4">
+                      <div>
+                        <p className="text-xs text-gray-500">Alloué</p>
+                        <p className="font-semibold">{historyData.stockInfo.allocatedQuantity}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Vendu</p>
+                        <p className="font-semibold">{historyData.stockInfo.soldQuantity}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Retourné</p>
+                        <p className="font-semibold">{historyData.stockInfo.returnedQuantity}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Disponible</p>
+                        <p className="font-semibold text-blue-600">{historyData.stockInfo.availableQuantity}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Liste des mouvements */}
+              <div>
+                <h3 className="font-semibold mb-4">Mouvements ({historyData.history?.length || 0})</h3>
+                {historyData.history && historyData.history.length > 0 ? (
+                  <div className="space-y-3">
+                    {historyData.history.map((movement: any) => {
+                      const typeConfig = getMovementTypeBadge(movement.type)
+                      return (
+                        <div key={movement.id} className="border rounded-lg p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Badge className={typeConfig.color}>{typeConfig.label}</Badge>
+                                <span className={`text-sm font-semibold ${movement.isNegative ? 'text-red-600' : 'text-green-600'}`}>
+                                  {movement.isNegative ? '-' : '+'}{movement.quantity}
+                                </span>
+                              </div>
+                              {movement.reason && (
+                                <p className="text-sm text-gray-600 mb-1">{movement.reason}</p>
+                              )}
+                              {movement.reference && (
+                                <p className="text-xs text-gray-500">Réf: {movement.reference}</p>
+                              )}
+                              {movement.totalAmount && (
+                                <p className="text-sm font-semibold mt-2">
+                                  {movement.totalAmount.toLocaleString("fr-FR")} FCFA
+                                </p>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm text-gray-600">
+                                {format(new Date(movement.createdAt), "dd MMM yyyy à HH:mm", { locale: fr })}
+                              </p>
+                              {movement.performedBy && (
+                                <p className="text-xs text-gray-500 mt-1">{movement.performedBy.name}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <Activity className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>Aucun mouvement enregistré</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <p>Aucune donnée disponible</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

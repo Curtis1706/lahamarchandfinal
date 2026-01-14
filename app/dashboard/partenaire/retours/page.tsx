@@ -71,6 +71,8 @@ export default function RetoursPage() {
   const [stockItems, setStockItems] = useState<StockItem[]>([])
   const [loadingStock, setLoadingStock] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [selectedReturn, setSelectedReturn] = useState<ReturnRow | null>(null)
+  const [showReturnDetailModal, setShowReturnDetailModal] = useState(false)
 
   // Formulaire
   const [formData, setFormData] = useState({
@@ -294,7 +296,8 @@ export default function RetoursPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => {
-                                toast.info("Détails du retour à venir")
+                                setSelectedReturn(r)
+                                setShowReturnDetailModal(true)
                               }}
                             >
                               <Eye className="w-4 h-4" />
