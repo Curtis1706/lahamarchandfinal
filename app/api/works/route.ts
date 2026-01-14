@@ -420,24 +420,21 @@ export async function GET(request: NextRequest) {
           [works, total] = await Promise.all([
             prisma.work.findMany({
               where: whereForQuery,
-              select: {
-                id: true,
-                title: true,
-                description: true,
-                isbn: true,
-                price: true,
-                tva: true,
-                stock: true,
-                status: true,
-                category: true,
-                targetAudience: true,
-                files: true,
-                createdAt: true,
-                updatedAt: true,
-                authorId: true,
-                disciplineId: true,
-                concepteurId: true,
-                projectId: true
+              include: {
+                author: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    role: true
+                  }
+                },
+                discipline: {
+                  select: {
+                    id: true,
+                    name: true
+                  }
+                }
               },
               orderBy: {
                 createdAt: 'desc'
@@ -447,34 +444,6 @@ export async function GET(request: NextRequest) {
             }),
             prisma.work.count({ where: whereForQuery })
           ]);
-          // Enrichir avec les relations manuellement si possible
-          for (const work of works) {
-            try {
-              if (work.authorId) {
-                const author = await prisma.user.findUnique({
-                  where: { id: work.authorId },
-                  select: { id: true, name: true, email: true, role: true }
-                });
-                (work as any).author = author;
-              }
-              if (work.disciplineId) {
-                const discipline = await prisma.discipline.findUnique({
-                  where: { id: work.disciplineId },
-                  select: { id: true, name: true }
-                });
-                (work as any).discipline = discipline;
-              }
-              if (work.concepteurId) {
-                const concepteur = await prisma.user.findUnique({
-                  where: { id: work.concepteurId },
-                  select: { id: true, name: true, email: true }
-                });
-                (work as any).concepteur = concepteur;
-              }
-            } catch (enrichError) {
-              console.warn(`⚠️ Erreur lors de l'enrichissement du work ${work.id}:`, enrichError);
-            }
-          }
         } else {
           throw relationError;
         }
