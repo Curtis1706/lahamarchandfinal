@@ -119,34 +119,86 @@ export async function GET(request: NextRequest) {
         })
 
         // Créer ou mettre à jour les alertes dans la base de données
+        // 1. Récupérer tous les workIds
+        const workIds = worksForAlerts.map(w => w.id)
+
+        // 2. Charger TOUS les alerts existants non résolus en 1 requête
+        const existingAlerts = await prisma.stockAlert.findMany({
+          where: {
+            workId: { in: workIds },
+            isResolved: false
+          }
+        })
+
+        // 3. Créer un Set pour lookup rapide
+        const existingAlertsSet = new Set(
+          existingAlerts.map(a => `${a.workId}-${a.type}`)
+        )
+
+        // 4. Préparer les nouvelles alertes à créer (en JavaScript, pas de DB)
+        const newAlerts: Array<{
+          workId: string
+          type: string
+          severity: string
+          title: string
+          message: string
+        }> = []
+
+        // 5. Collecter les workIds à résoudre par type d'alerte
+        const stockOutWorkIdsToResolve: string[] = []
+        const stockLowWorkIdsToResolve: string[] = []
+
+        // 6. Parcourir les works et déterminer quelles alertes créer/résoudre
         for (const work of worksForAlerts) {
           if (work.stock === 0) {
-            // Vérifier s'il n'y a pas déjà une alerte non résolue pour ce livre
-            const existingAlert = await prisma.stockAlert.findFirst({
-              where: {
+            // Vérifier si une alerte STOCK_OUT existe déjà
+            const alertKey = `${work.id}-STOCK_OUT`
+            if (!existingAlertsSet.has(alertKey)) {
+              newAlerts.push({
                 workId: work.id,
                 type: 'STOCK_OUT',
-                isResolved: false
-              }
-            })
-
-            if (!existingAlert) {
-              // Créer une nouvelle alerte
-              await prisma.stockAlert.create({
-                data: {
-                  workId: work.id,
-                  type: 'STOCK_OUT',
-                  severity: 'ERROR',
-                  title: `Stock épuisé - ${work.title}`,
-                  message: `Stock épuisé pour "${work.title}"`
-                }
+                severity: 'ERROR',
+                title: `Stock épuisé - ${work.title}`,
+                message: `Stock épuisé pour "${work.title}"`
               })
             }
           } else {
             // Résoudre les alertes de stock épuisé si le stock est maintenant > 0
-            await prisma.stockAlert.updateMany({
+            const stockOutAlertKey = `${work.id}-STOCK_OUT`
+            if (existingAlertsSet.has(stockOutAlertKey)) {
+              stockOutWorkIdsToResolve.push(work.id)
+            }
+
+            // Gérer les alertes de stock faible
+            if (work.stock <= work.minStock) {
+              const stockLowAlertKey = `${work.id}-STOCK_LOW`
+              if (!existingAlertsSet.has(stockLowAlertKey)) {
+                newAlerts.push({
+                  workId: work.id,
+                  type: 'STOCK_LOW',
+                  severity: work.stock <= work.minStock / 2 ? 'ERROR' : 'WARNING',
+                  title: `Stock faible - ${work.title}`,
+                  message: `Stock faible pour "${work.title}" (${work.stock} restant, minimum: ${work.minStock})`
+                })
+              }
+            } else {
+              // Résoudre les alertes de stock faible si le stock est maintenant au-dessus du minimum
+              const stockLowAlertKey = `${work.id}-STOCK_LOW`
+              if (existingAlertsSet.has(stockLowAlertKey)) {
+                stockLowWorkIdsToResolve.push(work.id)
+              }
+            }
+          }
+        }
+
+        // 7. Résoudre les alertes en batch (groupées par type)
+        const resolvePromises: Promise<any>[] = []
+        
+        if (stockOutWorkIdsToResolve.length > 0) {
+          resolvePromises.push(
+            prisma.stockAlert.updateMany({
               where: {
-                workId: work.id,
+                workId: { in: stockOutWorkIdsToResolve },
                 type: 'STOCK_OUT',
                 isResolved: false
               },
@@ -155,43 +207,34 @@ export async function GET(request: NextRequest) {
                 resolvedAt: new Date()
               }
             })
+          )
+        }
 
-            // Gérer les alertes de stock faible
-            if (work.stock <= work.minStock) {
-              const existingLowAlert = await prisma.stockAlert.findFirst({
-                where: {
-                  workId: work.id,
-                  type: 'STOCK_LOW',
-                  isResolved: false
-                }
-              })
-
-              if (!existingLowAlert) {
-                await prisma.stockAlert.create({
-                  data: {
-                    workId: work.id,
-                    type: 'STOCK_LOW',
-                    severity: work.stock <= work.minStock / 2 ? 'ERROR' : 'WARNING',
-                    title: `Stock faible - ${work.title}`,
-                    message: `Stock faible pour "${work.title}" (${work.stock} restant, minimum: ${work.minStock})`
-                  }
-                })
+        if (stockLowWorkIdsToResolve.length > 0) {
+          resolvePromises.push(
+            prisma.stockAlert.updateMany({
+              where: {
+                workId: { in: stockLowWorkIdsToResolve },
+                type: 'STOCK_LOW',
+                isResolved: false
+              },
+              data: {
+                isResolved: true,
+                resolvedAt: new Date()
               }
-            } else {
-              // Résoudre les alertes de stock faible si le stock est maintenant au-dessus du minimum
-              await prisma.stockAlert.updateMany({
-                where: {
-                  workId: work.id,
-                  type: 'STOCK_LOW',
-                  isResolved: false
-                },
-                data: {
-                  isResolved: true,
-                  resolvedAt: new Date()
-                }
-              })
-            }
-          }
+            })
+          )
+        }
+
+        // Exécuter les résolutions en parallèle
+        await Promise.all(resolvePromises)
+
+        // 8. Créer toutes les nouvelles alertes en 1 requête
+        if (newAlerts.length > 0) {
+          await prisma.stockAlert.createMany({
+            data: newAlerts,
+            skipDuplicates: true
+          })
         }
 
         // Récupérer toutes les alertes non résolues pour les retourner
