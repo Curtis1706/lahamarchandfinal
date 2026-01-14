@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import { apiClient } from "@/lib/api-client"
 import {
@@ -26,6 +27,8 @@ import {
   Plus
 } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { format } from "date-fns"
+import { fr } from "date-fns/locale"
 
 interface PartnerOrder {
   id: string
@@ -57,6 +60,8 @@ export default function RepresentantCommandesPage() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
+  const [selectedOrder, setSelectedOrder] = useState<PartnerOrder | null>(null)
+  const [showOrderDetailModal, setShowOrderDetailModal] = useState(false)
 
   // Charger les commandes créées par le représentant
   useEffect(() => {
@@ -84,6 +89,54 @@ export default function RepresentantCommandesPage() {
 
   const handleSearch = () => {
     loadOrders()
+  }
+
+  const handleDownloadOrder = (order: PartnerOrder) => {
+    try {
+      // Générer un contenu CSV simple
+      const csvContent = [
+        ["Commande", order.id],
+        ["Date", format(new Date(order.createdAt), "dd/MM/yyyy à HH:mm", { locale: fr })],
+        ["Statut", order.status],
+        ["Total", `${order.total.toLocaleString("fr-FR")} FCFA`],
+        [""],
+        ["Articles"],
+        ["Livre", "ISBN", "Discipline", "Quantité", "Prix unitaire", "Sous-total"]
+      ]
+
+      order.items.forEach(item => {
+        csvContent.push([
+          item.work.title,
+          item.work.isbn || "",
+          item.work.discipline || "",
+          item.quantity.toString(),
+          `${item.price.toLocaleString("fr-FR")} FCFA`,
+          `${(item.price * item.quantity).toLocaleString("fr-FR")} FCFA`
+        ])
+      })
+
+      const csv = csvContent.map(row => row.join(",")).join("\n")
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `commande-${order.id.slice(0, 8)}-${format(new Date(), "yyyy-MM-dd", { locale: fr })}.csv`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      toast({
+        title: "Succès",
+        description: "Commande téléchargée avec succès"
+      })
+    } catch (error: any) {
+      toast({
+        title: "Erreur",
+        description: "Erreur lors du téléchargement",
+        variant: "destructive"
+      })
+    }
   }
 
   const getStatusBadge = (status: string) => {
@@ -247,10 +300,23 @@ export default function RepresentantCommandesPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
-                          <Button variant="ghost" size="sm" title="Voir les détails">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            title="Voir les détails"
+                            onClick={() => {
+                              setSelectedOrder(order)
+                              setShowOrderDetailModal(true)
+                            }}
+                          >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" title="Télécharger">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            title="Télécharger"
+                            onClick={() => handleDownloadOrder(order)}
+                          >
                             <FileText className="h-4 w-4" />
                           </Button>
                         </div>
@@ -270,20 +336,145 @@ export default function RepresentantCommandesPage() {
           Affichage de 1 à {filteredOrders.length} sur {filteredOrders.length} éléments
         </div>
         <div className="flex space-x-2">
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => {
+              const csvContent = [
+                ["Référence", "Date", "Statut", "Nombre d'articles", "Total"]
+              ]
+              filteredOrders.forEach(order => {
+                csvContent.push([
+                  order.id,
+                  format(new Date(order.createdAt), "dd/MM/yyyy", { locale: fr }),
+                  order.status,
+                  order.itemCount.toString(),
+                  `${order.total.toLocaleString("fr-FR")} FCFA`
+                ])
+              })
+              const csv = csvContent.map(row => row.join(",")).join("\n")
+              const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+              const url = window.URL.createObjectURL(blob)
+              const link = document.createElement("a")
+              link.href = url
+              link.download = `commandes-${format(new Date(), "yyyy-MM-dd", { locale: fr })}.csv`
+              document.body.appendChild(link)
+              link.click()
+              document.body.removeChild(link)
+              window.URL.revokeObjectURL(url)
+              toast({ title: "Succès", description: "Export CSV réussi" })
+            }}
+          >
             <Download className="h-4 w-4 mr-2" />
-            PDF
+            CSV
           </Button>
-          <Button variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-2" />
-            EXCEL
-          </Button>
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => window.print()}
+          >
             <Printer className="h-4 w-4 mr-2" />
             Imprimer
           </Button>
         </div>
       </div>
+
+      {/* Modal Détails de la commande */}
+      <Dialog open={showOrderDetailModal} onOpenChange={setShowOrderDetailModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Détails de la commande</DialogTitle>
+          </DialogHeader>
+          {selectedOrder && (
+            <div className="space-y-6">
+              {/* Informations générales */}
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500">Référence</p>
+                    <p className="font-mono font-semibold">{selectedOrder.id}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Date</p>
+                    <p className="font-semibold">
+                      {format(new Date(selectedOrder.createdAt), "dd MMM yyyy à HH:mm", { locale: fr })}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Statut</p>
+                    <div className="mt-1">{getStatusBadge(selectedOrder.status)}</div>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Total</p>
+                    <p className="font-bold text-lg text-green-600">
+                      {selectedOrder.total.toLocaleString("fr-FR")} FCFA
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Articles de la commande */}
+              <div>
+                <h3 className="font-semibold mb-4">Articles ({selectedOrder.items.length})</h3>
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Livre</TableHead>
+                        <TableHead>ISBN</TableHead>
+                        <TableHead>Discipline</TableHead>
+                        <TableHead className="text-right">Quantité</TableHead>
+                        <TableHead className="text-right">Prix unitaire</TableHead>
+                        <TableHead className="text-right">Sous-total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedOrder.items.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-medium">{item.work.title}</TableCell>
+                          <TableCell className="font-mono text-sm">{item.work.isbn || "-"}</TableCell>
+                          <TableCell>{item.work.discipline || "-"}</TableCell>
+                          <TableCell className="text-right">{item.quantity}</TableCell>
+                          <TableCell className="text-right">
+                            {item.price.toLocaleString("fr-FR")} FCFA
+                          </TableCell>
+                          <TableCell className="text-right font-semibold">
+                            {(item.price * item.quantity).toLocaleString("fr-FR")} FCFA
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div className="mt-4 flex justify-end">
+                  <div className="text-right">
+                    <p className="text-sm text-gray-500">Total général</p>
+                    <p className="text-2xl font-bold text-green-600">
+                      {selectedOrder.total.toLocaleString("fr-FR")} FCFA
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end space-x-2 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => handleDownloadOrder(selectedOrder)}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Télécharger
+                </Button>
+                <Button
+                  onClick={() => setShowOrderDetailModal(false)}
+                >
+                  Fermer
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -67,18 +67,14 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Récupérer les statistiques des auteurs gérés par ce représentant
-    // Pour l'instant, les représentants ne gèrent pas directement les auteurs
-    // Cette fonctionnalité sera implémentée quand la relation sera ajoutée
+    // Les représentants gèrent des partenaires, pas directement des auteurs/œuvres
+    // Les statistiques auteurs/œuvres ne sont donc pas pertinentes pour les représentants
     const authorsStats = { _count: { id: 0 } }
     const activeAuthors = 0
 
-    // Récupérer les statistiques des œuvres
-    // Pour l'instant, les représentants ne gèrent pas directement les œuvres
-    // Cette fonctionnalité sera implémentée quand la relation sera ajoutée
+    // Statistiques des œuvres : non applicables pour les représentants
     const worksStats = { _count: { id: 0 } }
-
-    const worksByStatus = []
+    const worksByStatus: Array<{ status: string; _count: { id: number } }> = []
 
     // Récupérer d'abord les IDs des partenaires de ce représentant
     const partnerIds = await prisma.partner.findMany({

@@ -44,11 +44,14 @@ export async function GET(request: NextRequest) {
       phone: client.telephone || "",
       address: client.address || "",
       city: client.city || "",
+      departement: client.departement || "",
       status: client.statut === 'ACTIF' ? 'Actif' : client.statut === 'EN_ATTENTE' ? 'En attente' : 'Inactif',
       totalOrders: client.totalOrders,
       totalSpent: client.totalSpent,
       lastOrder: client.lastOrder?.toISOString().split('T')[0] || null,
-      notes: client.notes || ""
+      notes: client.notes || "",
+      dette: client.dette || 0,
+      createdAt: client.createdAt.toISOString()
     }))
 
     // Calculer les statistiques
