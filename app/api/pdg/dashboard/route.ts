@@ -22,7 +22,6 @@ export async function GET(request: NextRequest) {
       totalOrders,
       totalRevenue,
       validatedOrders,
-      collaboratorOrders,
       outOfStockWorks,
       recentWorks
     ] = await Promise.all([
@@ -64,18 +63,7 @@ export async function GET(request: NextRequest) {
         }
       }),
 
-      // Commandes aux collaborateurs (partenaires) avec items
-      prisma.order.findMany({
-        where: {
-          status: { 
-            in: [OrderStatus.VALIDATED, OrderStatus.PROCESSING, OrderStatus.SHIPPED, OrderStatus.DELIVERED] 
-          },
-          partnerId: { not: null }
-        },
-        include: {
-          items: true
-        }
-      }),
+      // Ne plus charger les commandes aux partenaires (remplacé par PartnerStock)
 
       // Œuvres en rupture de stock
       prisma.work.findMany({
@@ -132,22 +120,11 @@ export async function GET(request: NextRequest) {
       _sum: { quantity: true }
     })
 
-    // Calculer le nombre de livres validés aux collaborateurs (partenaires)
-    const validatedPartnerOrders = await prisma.order.findMany({
-      where: {
-        status: { 
-          in: [OrderStatus.VALIDATED, OrderStatus.PROCESSING, OrderStatus.SHIPPED, OrderStatus.DELIVERED] 
-        },
-        partnerId: { not: null }
-      },
-      select: { id: true }
-    })
-
-    const collaboratorBooksCount = await prisma.orderItem.aggregate({
-      where: {
-        orderId: { in: validatedPartnerOrders.map(o => o.id) }
-      },
-      _sum: { quantity: true }
+    // Calculer le nombre de livres alloués aux partenaires
+    const partnerBooksAllocated = await prisma.partnerStock.aggregate({
+      _sum: {
+        allocatedQuantity: true
+      }
     })
 
     // Calculer les totaux à partir des items si le total de la commande n'est pas disponible
@@ -189,16 +166,11 @@ export async function GET(request: NextRequest) {
         }, 0)
       : 0
 
-    // Calculer les montants pour les collaborateurs
-    const toCollaboratorsAmount = Array.isArray(collaboratorOrders)
-      ? collaboratorOrders.reduce((sum, order) => {
-          const orderTotal = calculateOrderTotal(order)
-          return sum + orderTotal
-        }, 0)
-      : 0
+    // Les livres alloués aux partenaires ne sont pas encore vendus, donc montant = 0
+    const toPartnersAmount = 0
 
-    const totalValidatedBooks = (validatedBooksCount._sum.quantity || 0) + (collaboratorBooksCount._sum.quantity || 0)
-    const totalValidatedAmount = validatedToClientsAmount + toCollaboratorsAmount
+    const totalValidatedBooks = (validatedBooksCount._sum.quantity || 0) + (partnerBooksAllocated._sum.allocatedQuantity || 0)
+    const totalValidatedAmount = validatedToClientsAmount + toPartnersAmount
 
     return NextResponse.json({
       stats: {
@@ -211,8 +183,8 @@ export async function GET(request: NextRequest) {
           amount: validatedToClientsAmount
         },
         toCollaborators: {
-          books: collaboratorBooksCount._sum.quantity || 0,
-          amount: toCollaboratorsAmount
+          books: partnerBooksAllocated._sum.allocatedQuantity || 0,
+          amount: toPartnersAmount
         },
         totalValidated: {
           books: totalValidatedBooks,
