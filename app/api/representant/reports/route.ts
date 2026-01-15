@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { getCached } from "@/lib/cache"
 
 export const dynamic = 'force-dynamic'
 
@@ -67,184 +68,197 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Les représentants gèrent des partenaires, pas directement des auteurs/œuvres
-    // Les statistiques auteurs/œuvres ne sont donc pas pertinentes pour les représentants
-    const authorsStats = { _count: { id: 0 } }
-    const activeAuthors = 0
+    // Construire une clé de cache unique basée sur l'utilisateur et les dates
+    const cacheKey = `representant:${session.user.id}:${startDate}:${endDate}`
+    
+    // Récupérer les données avec cache (TTL: 5 minutes pour rapports)
+    const reportData = await getCached(
+      cacheKey,
+      async () => {
+        // Les représentants gèrent des partenaires, pas directement des auteurs/œuvres
+        // Les statistiques auteurs/œuvres ne sont donc pas pertinentes pour les représentants
+        const authorsStats = { _count: { id: 0 } }
+        const activeAuthors = 0
 
-    // Statistiques des œuvres : non applicables pour les représentants
-    const worksStats = { _count: { id: 0 } }
-    const worksByStatus: Array<{ status: string; _count: { id: number } }> = []
+        // Statistiques des œuvres : non applicables pour les représentants
+        const worksStats = { _count: { id: 0 } }
+        const worksByStatus: Array<{ status: string; _count: { id: number } }> = []
 
-    // Récupérer d'abord les IDs des partenaires de ce représentant
-    const partnerIds = await prisma.partner.findMany({
-      where: {
-        representantId: session.user.id
-      },
-      select: {
-        id: true
-      }
-    })
-
-    const partnerIdsList = partnerIds.map(p => p.id)
-
-    // Récupérer les statistiques des commandes des partenaires de ce représentant
-    const ordersStats = partnerIdsList.length > 0
-      ? await prisma.order.aggregate({
+        // Récupérer d'abord les IDs des partenaires de ce représentant
+        const partnerIds = await prisma.partner.findMany({
           where: {
-            createdAt: {
-              gte: start,
-              lte: end
-            },
-            partnerId: {
-              in: partnerIdsList
-            }
+            representantId: session.user.id
           },
-          _count: {
+          select: {
             id: true
           }
         })
-      : { _count: { id: 0 } }
 
-    // Calculer le montant total des commandes des partenaires
-    const ordersWithItems = partnerIdsList.length > 0
-      ? await prisma.order.findMany({
+        const partnerIdsList = partnerIds.map(p => p.id)
+
+        // Récupérer les statistiques des commandes des partenaires de ce représentant
+        const ordersStats = partnerIdsList.length > 0
+          ? await prisma.order.aggregate({
+              where: {
+                createdAt: {
+                  gte: start,
+                  lte: end
+                },
+                partnerId: {
+                  in: partnerIdsList
+                }
+              },
+              _count: {
+                id: true
+              }
+            })
+          : { _count: { id: 0 } }
+
+        // Calculer le montant total des commandes des partenaires
+        const ordersWithItems = partnerIdsList.length > 0
+          ? await prisma.order.findMany({
+              where: {
+                createdAt: {
+                  gte: start,
+                  lte: end
+                },
+                partnerId: {
+                  in: partnerIdsList
+                }
+              },
+              include: {
+                items: true
+              }
+            })
+          : []
+
+        const totalAmount = ordersWithItems.reduce((sum, order) => {
+          const orderTotal = order.items.reduce((itemSum, item) => {
+            return itemSum + (item.price * item.quantity)
+          }, 0)
+          return sum + orderTotal
+        }, 0)
+
+        // Ensuite, grouper les commandes par statut
+        const ordersByStatus = partnerIdsList.length > 0
+          ? await prisma.order.groupBy({
+              by: ['status'],
+              where: {
+                createdAt: {
+                  gte: start,
+                  lte: end
+                },
+                partnerId: {
+                  in: partnerIdsList
+                }
+              },
+              _count: {
+                id: true
+              }
+            })
+          : []
+
+        // Récupérer les activités récentes
+        const activities = await prisma.auditLog.findMany({
           where: {
+            userId: session.user.id,
             createdAt: {
               gte: start,
               lte: end
-            },
-            partnerId: {
-              in: partnerIdsList
             }
           },
-          include: {
-            items: true
-          }
-        })
-      : []
-
-    const totalAmount = ordersWithItems.reduce((sum, order) => {
-      const orderTotal = order.items.reduce((itemSum, item) => {
-        return itemSum + (item.price * item.quantity)
-      }, 0)
-      return sum + orderTotal
-    }, 0)
-
-    // Ensuite, grouper les commandes par statut
-    const ordersByStatus = partnerIdsList.length > 0
-      ? await prisma.order.groupBy({
-          by: ['status'],
-          where: {
-            createdAt: {
-              gte: start,
-              lte: end
-            },
-            partnerId: {
-              in: partnerIdsList
-            }
+          select: {
+            id: true,
+            action: true,
+            details: true,
+            createdAt: true,
+            metadata: true
           },
-          _count: {
-            id: true
+          orderBy: {
+            createdAt: 'desc'
+          },
+          take: 20
+        })
+
+        // Transformer les données
+        const worksStatusMap = {
+          'DRAFT': 0,
+          'PENDING': 0,
+          'UNDER_REVIEW': 0,
+          'PUBLISHED': 0,
+          'REJECTED': 0
+        }
+
+        worksByStatus.forEach(stat => {
+          worksStatusMap[stat.status as keyof typeof worksStatusMap] = stat._count.id
+        })
+
+        const ordersStatusMap = {
+          'PENDING': 0,
+          'VALIDATED': 0,
+          'PROCESSING': 0,
+          'SHIPPED': 0,
+          'DELIVERED': 0,
+          'CANCELLED': 0
+        }
+
+        ordersByStatus.forEach(stat => {
+          ordersStatusMap[stat.status as keyof typeof ordersStatusMap] = stat._count.id
+        })
+
+        const formattedActivities = activities.map(activity => {
+          // Parser metadata si c'est une chaîne JSON
+          let metadata: any = null
+          if (activity.metadata) {
+            try {
+              metadata = typeof activity.metadata === 'string' 
+                ? JSON.parse(activity.metadata) 
+                : activity.metadata
+            } catch (e) {
+              console.warn('Failed to parse metadata:', e)
+              metadata = null
+            }
+          }
+
+          return {
+            id: activity.id,
+            type: activity.action,
+            description: activity.details || activity.action,
+            date: activity.createdAt.toISOString(),
+            author: metadata?.authorName || null,
+            work: metadata?.workTitle || null,
+            order: metadata?.orderTitle || null
           }
         })
-      : []
 
-    // Récupérer les activités récentes
-    const activities = await prisma.auditLog.findMany({
-      where: {
-        userId: session.user.id,
-        createdAt: {
-          gte: start,
-          lte: end
+        return {
+          period: `${startDate} - ${endDate}`,
+          authors: {
+            total: activeAuthors,
+            active: activeAuthors,
+            new: authorsStats._count.id
+          },
+          works: {
+            total: worksStats._count.id,
+            pending: worksStatusMap.PENDING,
+            transmitted: worksStatusMap.UNDER_REVIEW,
+            published: worksStatusMap.PUBLISHED,
+            rejected: worksStatusMap.REJECTED
+          },
+          orders: {
+            total: ordersStats._count.id,
+            pending: ordersStatusMap.PENDING,
+            completed: ordersStatusMap.DELIVERED,
+            totalValue: totalAmount
+          },
+          activities: formattedActivities
         }
       },
-      select: {
-        id: true,
-        action: true,
-        details: true,
-        createdAt: true,
-        metadata: true
-      },
-      orderBy: {
-        createdAt: 'desc'
-      },
-      take: 20
-    })
-
-    // Transformer les données
-    const worksStatusMap = {
-      'DRAFT': 0,
-      'PENDING': 0,
-      'UNDER_REVIEW': 0,
-      'PUBLISHED': 0,
-      'REJECTED': 0
-    }
-
-    worksByStatus.forEach(stat => {
-      worksStatusMap[stat.status as keyof typeof worksStatusMap] = stat._count.id
-    })
-
-    const ordersStatusMap = {
-      'PENDING': 0,
-      'VALIDATED': 0,
-      'PROCESSING': 0,
-      'SHIPPED': 0,
-      'DELIVERED': 0,
-      'CANCELLED': 0
-    }
-
-    ordersByStatus.forEach(stat => {
-      ordersStatusMap[stat.status as keyof typeof ordersStatusMap] = stat._count.id
-    })
-
-    const formattedActivities = activities.map(activity => {
-      // Parser metadata si c'est une chaîne JSON
-      let metadata: any = null
-      if (activity.metadata) {
-        try {
-          metadata = typeof activity.metadata === 'string' 
-            ? JSON.parse(activity.metadata) 
-            : activity.metadata
-        } catch (e) {
-          console.warn('Failed to parse metadata:', e)
-          metadata = null
-        }
+      {
+        ttl: 300, // 5 minutes
+        namespace: 'reports'
       }
-
-      return {
-        id: activity.id,
-        type: activity.action,
-        description: activity.details || activity.action,
-        date: activity.createdAt.toISOString(),
-        author: metadata?.authorName || null,
-        work: metadata?.workTitle || null,
-        order: metadata?.orderTitle || null
-      }
-    })
-
-    const reportData = {
-      period: `${startDate} - ${endDate}`,
-      authors: {
-        total: activeAuthors,
-        active: activeAuthors,
-        new: authorsStats._count.id
-      },
-      works: {
-        total: worksStats._count.id,
-        pending: worksStatusMap.PENDING,
-        transmitted: worksStatusMap.UNDER_REVIEW,
-        published: worksStatusMap.PUBLISHED,
-        rejected: worksStatusMap.REJECTED
-      },
-      orders: {
-        total: ordersStats._count.id,
-        pending: ordersStatusMap.PENDING,
-        completed: ordersStatusMap.DELIVERED,
-        totalValue: totalAmount
-      },
-      activities: formattedActivities
-    }
+    )
 
     return NextResponse.json(reportData)
 

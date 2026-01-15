@@ -22,6 +22,11 @@ model User {
   lastLoginAt                      DateTime? // Dernière connexion
   createdAt                        DateTime                 @default(now())
   updatedAt                        DateTime                 @updatedAt
+
+  @@index([role])
+  @@index([status])
+  @@index([representantId])
+  @@index([disciplineId])
   accounts                         Account[]
   receivedMessages                 Message[]                @relation("ReceivedMessages")
   sentMessages                     Message[]                @relation("SentMessages")
@@ -176,6 +181,11 @@ model Work {
   @@index([authorId, status])
   @@index([stock])
   @@index([createdAt])
+  @@index([status])
+  @@index([authorId])
+  @@index([disciplineId])
+  @@index([projectId])
+  @@index([publishedAt])
 }
 
 model StockMovement {
@@ -203,6 +213,9 @@ model StockMovement {
   @@index([createdAt])
   @@index([partnerId])
   @@index([isCorrection])
+  @@index([partnerId, type])
+  @@index([partnerId, type, createdAt])
+  @@index([workId, type])
 }
 
 model Discipline {
@@ -266,6 +279,7 @@ model PartnerStock {
   @@unique([partnerId, workId])
   @@index([partnerId])
   @@index([workId])
+  @@index([createdAt])
 }
 
 model Order {
@@ -311,6 +325,9 @@ model Order {
   @@index([userId, status, createdAt])
   @@index([partnerId, status])
   @@index([status, createdAt])
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model OrderItem {
@@ -321,6 +338,9 @@ model OrderItem {
   price    Float
   order    Order  @relation(fields: [orderId], references: [id])
   work     Work   @relation(fields: [workId], references: [id])
+
+  @@index([orderId])
+  @@index([workId])
 }
 
 model Payment {
@@ -647,6 +667,7 @@ model PartnerRebate {
   @@index([orderId])
   @@index([status])
   @@index([createdAt])
+  @@index([workId])
 }
 
 // Taux de ristourne configurables
@@ -1295,6 +1316,8 @@ model Client {
   @@index([type])
   @@index([representantId])
   @@index([email])
+  @@index([createdAt])
+  @@index([representantId, statut])
 }
 
 enum ClientStatus {

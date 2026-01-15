@@ -1,8 +1,37 @@
 -- Migration: Add RepresentantWithdrawal model and INVITE role
 -- This migration adds only the new changes without affecting existing data
 
--- Add INVITE to Role enum
-ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'INVITE';
+-- Create WithdrawalMethod enum if not exists
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'WithdrawalMethod') THEN
+    CREATE TYPE "WithdrawalMethod" AS ENUM ('MOMO', 'BANK', 'CASH');
+  END IF;
+END $$;
+
+-- Create WithdrawalStatus enum if not exists
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'WithdrawalStatus') THEN
+    CREATE TYPE "WithdrawalStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'PAID', 'CANCELLED');
+  END IF;
+END $$;
+
+-- Add INVITE to Role enum (idempotent: only if Role exists and INVITE not present)
+DO $$
+BEGIN
+  -- Check if Role enum exists
+  IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'Role') THEN
+    -- Check if INVITE value already exists
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_enum 
+      WHERE enumtypid = (SELECT oid FROM pg_type WHERE typname = 'Role')
+      AND enumlabel = 'INVITE'
+    ) THEN
+      ALTER TYPE "Role" ADD VALUE 'INVITE';
+    END IF;
+  END IF;
+END $$;
 
 -- Create RepresentantWithdrawal table
 CREATE TABLE IF NOT EXISTS "RepresentantWithdrawal" (

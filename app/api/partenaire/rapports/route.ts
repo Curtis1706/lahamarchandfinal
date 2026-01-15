@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { getPaginationParams, paginateQuery } from "@/lib/pagination"
+import { getCached } from "@/lib/cache"
 
 export const dynamic = 'force-dynamic'
 
@@ -68,8 +69,8 @@ export async function GET(request: NextRequest) {
       } : {})
     }
 
-    // Si type === 'detailed', utiliser la pagination
-    // Sinon (summary), utiliser aggregate pour les stats et limiter les résultats pour les calculs
+    // Si type === 'detailed', utiliser la pagination (pas de cache car pagination change)
+    // Sinon (summary), utiliser aggregate avec cache pour les stats
     let salesMovements: any[] = []
     
     if (type === 'detailed') {
@@ -159,28 +160,44 @@ export async function GET(request: NextRequest) {
         }
       })
     } else {
-      // Pour summary, charger toutes les données (mais limiter si trop nombreuses)
-      salesMovements = await prisma.stockMovement.findMany({
-        where: whereClause,
-        include: {
-          work: {
-            select: {
-              id: true,
-              title: true,
-              isbn: true,
-              price: true,
-              discipline: {
+      // Pour summary, utiliser le cache (TTL: 5 minutes)
+      const cacheKey = `partenaire:${partner.id}:summary:${startDate || 'all'}:${endDate || 'all'}`
+      
+      const cachedData = await getCached(
+        cacheKey,
+        async () => {
+          // Charger toutes les données (mais limiter si trop nombreuses)
+          const movements = await prisma.stockMovement.findMany({
+            where: whereClause,
+            include: {
+              work: {
                 select: {
                   id: true,
-                  name: true
+                  title: true,
+                  isbn: true,
+                  price: true,
+                  discipline: {
+                    select: {
+                      id: true,
+                      name: true
+                    }
+                  }
                 }
               }
-            }
-          }
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 1000 // Limiter à 1000 pour éviter timeout sur les calculs de stats
+          })
+          
+          return movements
         },
-        orderBy: { createdAt: 'desc' },
-        take: 1000 // Limiter à 1000 pour éviter timeout sur les calculs de stats
-      })
+        {
+          ttl: 300, // 5 minutes
+          namespace: 'reports'
+        }
+      )
+      
+      salesMovements = cachedData
     }
 
     // Calculer les statistiques à partir des ventes

@@ -1,161 +1,128 @@
+import redis from './redis'
+
+export interface CacheOptions {
+  ttl?: number // Time to live en secondes (défaut: 300 = 5min)
+  namespace?: string // Préfixe pour les clés
+}
+
+export interface PaginatedResult<T> {
+  data: T[]
+  nextCursor?: string
+  hasMore: boolean
+}
+
 /**
- * Cache centralisé pour optimiser les performances
- * Utilise unstable_cache de Next.js 14
+ * Cache wrapper générique
+ * @param key - Clé de cache unique
+ * @param fetchFn - Fonction async pour récupérer les données si cache miss
+ * @param options - TTL et namespace
  */
-
-import { unstable_cache, revalidateTag } from 'next/cache'
-import { prisma } from '@/lib/prisma'
-
-// ============================================
-// DISCIPLINES (réutilisées partout)
-// ============================================
-
-export const getCachedDisciplines = unstable_cache(
-  async () => {
-    return await prisma.discipline.findMany({
-      select: {
-        id: true,
-        name: true,
-        description: true
-      },
-      orderBy: {
-        name: 'asc'
+export async function getCached<T>(
+  key: string,
+  fetchFn: () => Promise<T>,
+  options: CacheOptions = {}
+): Promise<T> {
+  const { ttl = 300, namespace = 'app' } = options
+  const cacheKey = `${namespace}:${key}`
+  
+  try {
+    // 1. Essayer de récupérer depuis le cache
+    const cached = await redis.get(cacheKey)
+    
+    if (cached) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`✅ Cache HIT: ${cacheKey}`)
       }
-    })
-  },
-  ['disciplines-list'],
-  {
-    revalidate: 3600, // 1 heure
-    tags: ['disciplines']
-  }
-)
-
-export async function revalidateDisciplines() {
-  revalidateTag('disciplines')
-}
-
-// ============================================
-// STATISTIQUES DASHBOARD
-// ============================================
-
-export const getCachedDashboardStats = unstable_cache(
-  async (userId: string, role: string) => {
-    // Logique spécifique selon le rôle
-    switch (role) {
-      case 'PDG':
-        return await getPDGStats()
-      case 'AUTEUR':
-        return await getAuthorStats(userId)
-      case 'PARTENAIRE':
-        return await getPartnerStats(userId)
-      default:
-        return null
+      return JSON.parse(cached) as T
     }
-  },
-  ['dashboard-stats'],
-  {
-    revalidate: 300, // 5 minutes
-    tags: ['stats']
-  }
-)
-
-async function getPDGStats() {
-  const [totalOrders, totalWorks, totalUsers] = await Promise.all([
-    prisma.order.count(),
-    prisma.work.count({ where: { status: 'PUBLISHED' } }),
-    prisma.user.count()
-  ])
-
-  return { totalOrders, totalWorks, totalUsers }
-}
-
-async function getAuthorStats(userId: string) {
-  const [totalWorks, totalRoyalties] = await Promise.all([
-    prisma.work.count({ where: { authorId: userId } }),
-    prisma.royalty.aggregate({
-      where: { userId },
-      _sum: { amount: true }
-    })
-  ])
-
-  return {
-    totalWorks,
-    totalRoyalties: totalRoyalties._sum.amount || 0
-  }
-}
-
-async function getPartnerStats(userId: string) {
-  const partner = await prisma.partner.findFirst({
-    where: { userId },
-    include: {
-      stockItems: true,
-      orders: true
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`❌ Cache MISS: ${cacheKey}`)
     }
-  })
-
-  if (!partner) return null
-
-  return {
-    totalStock: partner.stockItems.reduce((sum, item) => sum + item.availableQuantity, 0),
-    totalOrders: partner.orders.length
+    
+    // 2. Cache miss → exécuter la fonction
+    const data = await fetchFn()
+    
+    // 3. Mettre en cache avec TTL
+    await redis.setex(cacheKey, ttl, JSON.stringify(data))
+    
+    return data
+  } catch (error) {
+    console.error(`⚠️  Cache error for ${cacheKey}:`, error)
+    // En cas d'erreur Redis, exécuter quand même la fonction (fallback)
+    return fetchFn()
   }
 }
 
-export async function revalidateStats() {
-  revalidateTag('stats')
+/**
+ * Invalider le cache pour une clé
+ */
+export async function invalidateCache(
+  key: string,
+  namespace: string = 'app'
+): Promise<void> {
+  const cacheKey = `${namespace}:${key}`
+  try {
+    await redis.del(cacheKey)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🗑️  Cache invalidated: ${cacheKey}`)
+    }
+  } catch (error) {
+    console.error(`⚠️  Error invalidating cache ${cacheKey}:`, error)
+  }
 }
 
-// ============================================
-// LISTE DES ŒUVRES PUBLIÉES
-// ============================================
-
-export const getCachedPublishedWorks = unstable_cache(
-  async () => {
-    return await prisma.work.findMany({
-      where: {
-        status: 'PUBLISHED'
-      },
-      select: {
-        id: true,
-        title: true,
-        price: true,
-        stock: true,
-        isbn: true,
-        discipline: {
-          select: {
-            id: true,
-            name: true
-          }
-        }
-      },
-      orderBy: {
-        title: 'asc'
+/**
+ * Invalider le cache pour un pattern (ex: tous les rapports)
+ */
+export async function invalidateCachePattern(
+  pattern: string,
+  namespace: string = 'app'
+): Promise<void> {
+  const cachePattern = `${namespace}:${pattern}`
+  try {
+    const keys = await redis.keys(cachePattern)
+    
+    if (keys.length > 0) {
+      await redis.del(...keys)
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🗑️  Cache invalidated: ${keys.length} keys matching ${cachePattern}`)
       }
-    })
-  },
-  ['published-works'],
-  {
-    revalidate: 600, // 10 minutes
-    tags: ['works']
+    }
+  } catch (error) {
+    console.error(`⚠️  Error invalidating cache pattern ${cachePattern}:`, error)
   }
-)
-
-export async function revalidateWorks() {
-  revalidateTag('works')
 }
 
-// ============================================
-// UTILITAIRES DE CACHE
-// ============================================
-
-export function clearAllCache() {
-  revalidateTag('disciplines')
-  revalidateTag('stats')
-  revalidateTag('works')
+/**
+ * Récupérer les stats du cache
+ */
+export async function getCacheStats() {
+  try {
+    const info = await redis.info('stats')
+    const dbSize = await redis.dbsize()
+    
+    return {
+      totalKeys: dbSize,
+      info: info,
+    }
+  } catch (error) {
+    console.error('⚠️  Error getting cache stats:', error)
+    return {
+      totalKeys: 0,
+      info: null,
+    }
+  }
 }
 
-// Fonction helper pour invalidation multiple
-export function revalidateMultiple(...tags: string[]) {
-  tags.forEach(tag => revalidateTag(tag))
+/**
+ * Vérifier si Redis est disponible
+ */
+export async function isRedisAvailable(): Promise<boolean> {
+  try {
+    await redis.ping()
+    return true
+  } catch {
+    return false
+  }
 }
-
