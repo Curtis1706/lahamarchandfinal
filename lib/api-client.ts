@@ -325,7 +325,7 @@ export class ApiClient {
   }
 
   async getAuthorDashboard() {
-    return this.request('/author/dashboard')
+    return this.request('/auteur/dashboard')
   }
 
   async getAuthorRoyalties() {

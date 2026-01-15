@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { 
   BookOpen, 
   Plus, 
@@ -120,18 +119,6 @@ export default function AuteurDashboardPage() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Formulaire de création d'œuvre
-  const [formData, setFormData] = useState({
-    title: "",
-    isbn: "",
-    price: "",
-    stock: "",
-    disciplineId: "",
-    description: ""
-  });
 
   useEffect(() => {
     if (user && user.role === "AUTEUR") {
@@ -182,53 +169,6 @@ export default function AuteurDashboardPage() {
     }
   };
 
-  const handleCreateWork = async () => {
-    if (!formData.title || !formData.isbn || !formData.disciplineId) {
-      toast.error("Veuillez remplir tous les champs obligatoires");
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-      
-      const workData = {
-        title: formData.title,
-        isbn: formData.isbn,
-        price: parseFloat(formData.price) || 0,
-        stock: parseInt(formData.stock) || 0,
-        disciplineId: formData.disciplineId,
-        authorId: user?.id,
-        status: "PENDING" // Soumission directe pour validation PDG
-      };
-
-      console.log("🔍 Création d'œuvre:", workData);
-
-      const newWork = await apiClient.createAuthorWork(workData);
-      
-      console.log("✅ Œuvre créée:", newWork);
-      
-      toast.success("Œuvre soumise avec succès pour validation");
-      setIsCreateDialogOpen(false);
-      setFormData({
-        title: "",
-        isbn: "",
-        price: "",
-        stock: "",
-        disciplineId: "",
-        description: ""
-      });
-      
-      // Recharger les données
-      await fetchData();
-      await fetchDashboardData();
-      
-    } catch (error: any) {
-      console.error("❌ Erreur création œuvre:", error);
-      toast.error(error.message || "Erreur lors de la création de l'œuvre");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -445,98 +385,12 @@ export default function AuteurDashboardPage() {
             Gérez vos œuvres et suivez leur statut de validation
           </p>
         </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Nouvelle Œuvre
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>Créer une nouvelle œuvre</DialogTitle>
-              <DialogDescription>
-                Soumettez votre œuvre pour validation par l'équipe éditoriale
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="title">Titre *</Label>
-                  <Input
-                    id="title"
-                    placeholder="Titre de l'œuvre"
-                    value={formData.title}
-                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="isbn">ISBN *</Label>
-                  <Input
-                    id="isbn"
-                    placeholder="978-1234567890"
-                    value={formData.isbn}
-                    onChange={(e) => setFormData(prev => ({ ...prev, isbn: e.target.value }))}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="price">Prix (FCFA)</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    placeholder="0"
-                    value={formData.price}
-                    onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="stock">Stock initial</Label>
-                  <Input
-                    id="stock"
-                    type="number"
-                    placeholder="0"
-                    value={formData.stock}
-                    onChange={(e) => setFormData(prev => ({ ...prev, stock: e.target.value }))}
-                  />
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="discipline">Discipline *</Label>
-                <Select value={formData.disciplineId} onValueChange={(value) => setFormData(prev => ({ ...prev, disciplineId: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner une discipline" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {disciplines.map((discipline) => (
-                      <SelectItem key={discipline.id} value={discipline.id}>
-                        {discipline.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Description de l'œuvre..."
-                  value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                />
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                  Annuler
-                </Button>
-                <Button onClick={handleCreateWork} disabled={isSubmitting}>
-                  {isSubmitting ? "Soumission..." : "Soumettre pour validation"}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Link href="/dashboard/auteur/creer-oeuvre">
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Nouvelle Œuvre
+          </Button>
+        </Link>
       </div>
 
       {/* Statistiques améliorées */}

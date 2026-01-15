@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         amount: true,
+        approved: true,
         paid: true,
         paidAt: true
       }
@@ -54,13 +55,13 @@ export async function GET(request: NextRequest) {
       orderBy: { requestedAt: 'desc' }
     })
 
-    // Calculer le total retiré (seulement les retraits approuvés ou payés)
+    // Calculer le total retiré (inclure PENDING, APPROVED et PAID pour éviter les doublons)
     const totalWithdrawn = withdrawals
-      .filter(w => w.status === 'APPROVED' || w.status === 'PAID')
+      .filter(w => w.status === 'PENDING' || w.status === 'APPROVED' || w.status === 'PAID')
       .reduce((sum, w) => sum + w.amount, 0)
 
-    // Solde disponible = royalties approuvées - retraits approuvés/payés
-    const availableBalance = totalRoyaltiesApproved - totalWithdrawn
+    // Solde disponible = royalties approuvées - retraits (pending, approuvés et payés)
+    const availableBalance = Math.max(0, totalRoyaltiesApproved - totalWithdrawn)
 
     // Formater les retraits pour l'affichage
     const formattedWithdrawals = withdrawals.map(withdrawal => ({
@@ -96,7 +97,7 @@ export async function GET(request: NextRequest) {
         totalPaid: totalRoyaltiesPaid,
         totalApproved: totalRoyaltiesApproved, // Royalties approuvées (disponibles pour retrait)
         totalWithdrawn: totalWithdrawn,
-        available: Math.max(0, availableBalance) // Ne pas permettre de solde négatif
+        available: availableBalance // Déjà calculé avec Math.max(0, ...)
       }
     })
 
@@ -155,16 +156,17 @@ export async function POST(request: NextRequest) {
 
     const totalApproved = royalties.reduce((sum, r) => sum + r.amount, 0)
 
+    // Récupérer tous les retraits (PENDING, APPROVED, PAID) pour calculer le solde disponible
     const withdrawals = await prisma.withdrawal.findMany({
       where: { 
         userId: userId,
-        status: { in: ['APPROVED', 'PAID'] }
+        status: { in: ['PENDING', 'APPROVED', 'PAID'] }
       },
       select: { amount: true }
     })
 
     const totalWithdrawn = withdrawals.reduce((sum, w) => sum + w.amount, 0)
-    const availableBalance = totalApproved - totalWithdrawn
+    const availableBalance = Math.max(0, totalApproved - totalWithdrawn)
 
     // Vérifier le montant minimum (par défaut 5000 F CFA, peut être configuré)
     const MIN_WITHDRAWAL_AMOUNT = 5000
@@ -177,11 +179,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Vérifier qu'il n'y a pas déjà une demande en cours (pending ou approved)
+    // Vérifier qu'il n'y a pas déjà une demande en cours (pending seulement)
+    // Note: On permet plusieurs demandes APPROVED car elles peuvent être traitées par lots
     const pendingWithdrawal = await prisma.withdrawal.findFirst({
       where: {
         userId: userId,
-        status: { in: ['PENDING', 'APPROVED'] }
+        status: 'PENDING' // Seulement les demandes en attente
       }
     })
 

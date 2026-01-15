@@ -298,10 +298,16 @@ export default function RetraitsPage() {
               <DialogHeader>
                 <DialogTitle>Nouvelle demande de retrait</DialogTitle>
                 <DialogDescription>
-                  Solde disponible: {formatCurrency(balance.available)}
-                  {balance.available <= 0 && (
-                    <span className="block mt-2 text-red-600 font-medium">
-                      ⚠️ Votre solde disponible est insuffisant pour effectuer un retrait.
+                  Solde disponible: <span className="font-semibold">{formatCurrency(balance.available)}</span>
+                  {balance.available < 5000 && (
+                    <span className="block mt-2 text-red-600 font-medium flex items-center gap-1">
+                      <AlertCircle className="w-4 h-4" />
+                      Votre solde disponible est insuffisant. Le montant minimum est de 5 000 F CFA.
+                    </span>
+                  )}
+                  {balance.available >= 5000 && (
+                    <span className="block mt-2 text-green-600 text-sm">
+                      ✓ Vous pouvez effectuer un retrait
                     </span>
                   )}
                 </DialogDescription>
@@ -314,19 +320,21 @@ export default function RetraitsPage() {
                     type="number"
                     min="5000"
                     max={balance.available > 0 ? balance.available : undefined}
+                    step="100"
                     value={formData.amount}
                     onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                     required
-                    disabled={balance.available <= 0}
-                    placeholder="Minimum: 5 000 F CFA"
+                    disabled={balance.available < 5000}
+                    placeholder={balance.available > 0 ? `Maximum: ${balance.available.toLocaleString()} F CFA` : "Minimum: 5 000 F CFA"}
                   />
-                  {balance.available <= 0 ? (
-                    <p className="text-xs text-red-600 mt-1">
-                      Vous devez avoir un solde disponible pour effectuer un retrait.
+                  {balance.available < 5000 ? (
+                    <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      Votre solde disponible ({formatCurrency(balance.available)}) est insuffisant. Le montant minimum est de 5 000 F CFA.
                     </p>
                   ) : (
                     <p className="text-xs text-gray-500 mt-1">
-                      Montant minimum: 5 000 F CFA
+                      Montant minimum: 5 000 F CFA | Maximum: {formatCurrency(balance.available)}
                     </p>
                   )}
                 </div>
@@ -398,7 +406,7 @@ export default function RetraitsPage() {
                   <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                     Annuler
                   </Button>
-                  <Button type="submit" disabled={balance.available <= 0}>
+                  <Button type="submit" disabled={balance.available < 5000}>
                     Envoyer la demande
                   </Button>
                 </div>

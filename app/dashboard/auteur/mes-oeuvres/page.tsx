@@ -28,21 +28,31 @@ export default function MesOeuvresPage() {
 
   useEffect(() => {
     loadWorks();
-  }, [user]);
+  }, [user, statusFilter, searchTerm]);
 
   const loadWorks = async () => {
     if (!user) return;
     
     try {
       setLoading(true);
-      const worksData = await apiClient.getWorks();
+      // Construire les paramètres de recherche
+      const params = new URLSearchParams();
+      if (statusFilter && statusFilter !== 'all') {
+        params.append('status', statusFilter);
+      }
+      if (searchTerm) {
+        params.append('search', searchTerm);
+      }
       
-      // Filter works by current author
-      const myWorks = worksData.filter((work: any) => 
-        work.authorId === user.id
-      );
+      // Utiliser l'API dédiée pour les auteurs qui inclut les statistiques de ventes
+      const response = await fetch(`/api/auteur/works?${params.toString()}`);
       
-      setWorks(myWorks);
+      if (!response.ok) {
+        throw new Error('Erreur lors de la récupération des œuvres');
+      }
+      
+      const data = await response.json();
+      setWorks(data.works || []);
     } catch (error) {
       console.error("Error loading works:", error);
       toast.error("Erreur lors du chargement des œuvres");
@@ -145,6 +155,16 @@ export default function MesOeuvresPage() {
   };
 
   const getWorkStats = (work: any) => {
+    // Utiliser les statistiques déjà calculées par l'API si disponibles
+    if (work.sales) {
+      return {
+        sales: work.sales.quantity || 0,
+        revenue: work.sales.revenue || 0,
+        royalties: work.sales.royalties?.total || 0
+      };
+    }
+    
+    // Fallback pour la compatibilité avec l'ancien format
     const sales = work.orderItems?.reduce((sum: number, item: any) => sum + item.quantity, 0) || 0;
     const revenue = work.orderItems?.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0) || 0;
     const royalties = work.royalties?.reduce((sum: number, roy: any) => sum + roy.amount, 0) || 0;
@@ -152,14 +172,8 @@ export default function MesOeuvresPage() {
     return { sales, revenue, royalties };
   };
 
-  // Filter works based on search and status
-  const filteredWorks = works.filter((work: any) => {
-    const matchesSearch = work.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         work.discipline?.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || work.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+  // Les filtres sont maintenant gérés côté serveur, donc on utilise directement works
+  const filteredWorks = works;
 
   // Pagination
   const totalItems = filteredWorks.length;
