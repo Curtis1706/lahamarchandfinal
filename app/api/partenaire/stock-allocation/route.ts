@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { enrichPartnerStockWithAvailable } from "@/lib/partner-stock"
+import { getPaginationParams, paginateQuery } from "@/lib/pagination"
 
 export const dynamic = 'force-dynamic'
 
@@ -53,6 +54,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Paramètres de pagination
+    const paginationParams = getPaginationParams(searchParams, 50)
+
     // Récupérer le stock alloué au partenaire
     const whereClause: any = {
       partnerId: partner.id
@@ -76,37 +80,48 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const stockItems = await prisma.partnerStock.findMany({
-      where: whereClause,
-      include: {
-        work: {
-          include: {
-            author: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
-            },
-            discipline: {
-              select: {
-                id: true,
-                name: true
-              }
-            },
-            project: {
-              select: {
-                id: true,
-                title: true
+    // Paginer le stock alloué
+    const paginatedResult = await paginateQuery(
+      paginationParams,
+      {
+        where: whereClause,
+        include: {
+          work: {
+            select: {
+              id: true,
+              title: true,
+              isbn: true,
+              price: true,
+              author: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true
+                }
+              },
+              discipline: {
+                select: {
+                  id: true,
+                  name: true
+                }
+              },
+              project: {
+                select: {
+                  id: true,
+                  title: true
+                }
               }
             }
           }
+        },
+        orderBy: {
+          createdAt: 'desc'
         }
       },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    })
+      prisma.partnerStock
+    )
+
+    const stockItems = paginatedResult.data
 
     // Enrichir avec availableQuantity calculé
     const enrichedStock = stockItems.map(enrichPartnerStockWithAvailable)
@@ -132,7 +147,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       stockItems: stockData,
-      total: stockData.length
+      total: stockData.length,
+      pagination: {
+        nextCursor: paginatedResult.nextCursor,
+        hasMore: paginatedResult.hasMore
+      }
     })
 
   } catch (error: any) {

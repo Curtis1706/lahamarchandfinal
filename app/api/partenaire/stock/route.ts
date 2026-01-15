@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { calculateAvailableStock } from "@/lib/partner-stock"
+import { getPaginationParams, paginateQuery } from "@/lib/pagination"
 
 export const dynamic = 'force-dynamic'
 
@@ -19,6 +20,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || ''
     const discipline = searchParams.get('discipline') || ''
     const status = searchParams.get('status') || ''
+    const view = searchParams.get('view') || 'allocated' // 'allocated' ou 'available'
 
     // Récupérer le partenaire associé à l'utilisateur
     const partner = await prisma.partner.findFirst({
@@ -29,51 +31,69 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Partenaire non trouvé' }, { status: 404 })
     }
 
-    // Récupérer le stock alloué spécifique au partenaire via PartnerStock
-    const partnerStocks = await prisma.partnerStock.findMany({
-      where: {
+    // Paramètres de pagination
+    const paginationParams = getPaginationParams(searchParams, 50)
+
+    let works: any[] = []
+    let partnerStocks: any[] = []
+    let paginatedResult: any = null
+
+    if (view === 'allocated') {
+      // Stock alloué au partenaire
+      const whereClause: any = {
         partnerId: partner.id
-      },
-      include: {
-        work: {
+      }
+
+      paginatedResult = await paginateQuery(
+        paginationParams,
+        {
+          where: whereClause,
           include: {
-            discipline: {
+            work: {
               select: {
                 id: true,
-                name: true
-              }
-            },
-            author: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
-            },
-            project: {
-              select: {
-                id: true,
-                title: true
+                title: true,
+                isbn: true,
+                price: true,
+                stock: true,
+                createdAt: true,
+                publishedAt: true,
+                discipline: {
+                  select: {
+                    id: true,
+                    name: true
+                  }
+                },
+                author: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true
+                  }
+                },
+                project: {
+                  select: {
+                    id: true,
+                    title: true
+                  }
+                }
               }
             }
+          },
+          orderBy: {
+            createdAt: 'desc'
           }
-        }
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    })
+        },
+        prisma.partnerStock
+      )
 
-    // Si le partenaire n'a pas de stock alloué, retourner les œuvres publiées
-    let works: any[] = []
-    
-    if (partnerStocks.length > 0) {
-      // Utiliser le stock alloué
-      works = partnerStocks.map(ps => ps.work)
-    } else {
-      // Fallback : retourner les œuvres publiées
+      partnerStocks = paginatedResult.data
+      works = partnerStocks.map((ps: any) => ({ ...ps.work, partnerStock: ps }))
+    } else if (view === 'available') {
+      // Œuvres disponibles pour allocation
       const whereClause: any = {
-        status: 'PUBLISHED'
+        status: 'PUBLISHED',
+        stock: { gt: 0 }
       }
 
       if (search) {
@@ -89,39 +109,52 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      works = await prisma.work.findMany({
-        where: whereClause,
-        include: {
-          author: {
-            select: {
-              id: true,
-              name: true,
-              email: true
+      paginatedResult = await paginateQuery(
+        paginationParams,
+        {
+          where: whereClause,
+          select: {
+            id: true,
+            title: true,
+            isbn: true,
+            price: true,
+            stock: true,
+            createdAt: true,
+            publishedAt: true,
+            author: {
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
+            },
+            discipline: {
+              select: {
+                id: true,
+                name: true
+              }
+            },
+            project: {
+              select: {
+                id: true,
+                title: true
+              }
             }
           },
-          discipline: {
-            select: {
-              id: true,
-              name: true
-            }
-          },
-          project: {
-            select: {
-              id: true,
-              title: true
-            }
+          orderBy: {
+            createdAt: 'desc'
           }
         },
-        orderBy: {
-          createdAt: 'desc'
-        }
-      })
+        prisma.work
+      )
+
+      works = paginatedResult.data
     }
 
     // Transformer les données pour l'affichage
-    const stockData = works.map(work => {
+    const stockData = works.map((work: any) => {
       // Trouver le stock alloué pour ce partenaire si disponible
-      const partnerStock = partnerStocks.find(ps => ps.workId === work.id)
+      const partnerStock = work.partnerStock || partnerStocks.find((ps: any) => ps.workId === work.id)
       
       // Calculer le stock disponible si PartnerStock existe
       const availableQuantity = partnerStock 
@@ -154,7 +187,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       works: stockData,
-      total: stockData.length
+      total: stockData.length,
+      pagination: paginatedResult ? {
+        nextCursor: paginatedResult.nextCursor,
+        hasMore: paginatedResult.hasMore
+      } : undefined
     })
 
   } catch (error: any) {

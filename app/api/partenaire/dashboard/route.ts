@@ -96,8 +96,9 @@ export async function GET() {
       return sum + available
     }, 0)
 
-    // Récupérer les ventes (mouvements PARTNER_SALE)
-    const salesMovements = await prisma.stockMovement.findMany({
+    // Pour un dashboard, on limite les résultats récents mais on calcule les stats totales
+    // Récupérer les 20 dernières ventes pour l'affichage
+    const recentSalesMovements = await prisma.stockMovement.findMany({
       where: {
         partnerId: partner.id,
         type: 'PARTNER_SALE',
@@ -112,31 +113,81 @@ export async function GET() {
             title: true
           }
         }
-      }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20 // Limiter à 20 ventes récentes pour le dashboard
     })
 
-    const salesTodayMovements = salesMovements.filter(m => 
+    // Calculer les stats totales avec aggregate pour toutes les ventes du mois
+    const salesStats = await prisma.stockMovement.aggregate({
+      where: {
+        partnerId: partner.id,
+        type: 'PARTNER_SALE',
+        createdAt: {
+          gte: startOfMonth
+        }
+      },
+      _sum: {
+        quantity: true
+      },
+      _count: true
+    })
+
+    // Calculer le montant total (besoin des données pour totalAmount/unitPrice)
+    const allSalesForAmount = await prisma.stockMovement.findMany({
+      where: {
+        partnerId: partner.id,
+        type: 'PARTNER_SALE',
+        createdAt: {
+          gte: startOfMonth
+        }
+      },
+      select: {
+        totalAmount: true,
+        unitPrice: true,
+        quantity: true
+      },
+      take: 1000 // Limiter pour éviter timeout, mais suffisant pour le calcul
+    })
+
+    const salesTodayMovements = recentSalesMovements.filter(m => 
       new Date(m.createdAt) >= startOfDay
     )
 
-    const salesMonthQty = salesMovements.reduce((sum, m) => sum + Math.abs(m.quantity), 0)
-    const salesMonthAmount = salesMovements.reduce((sum, m) => 
+    const salesMonthQty = Math.abs(salesStats._sum.quantity || 0)
+    const salesMonthAmount = allSalesForAmount.reduce((sum, m) => 
       sum + (m.totalAmount ?? (m.unitPrice ?? 0) * Math.abs(m.quantity)), 0
     )
     const salesTodayQty = salesTodayMovements.reduce((sum, m) => sum + Math.abs(m.quantity), 0)
 
-    // Récupérer les retours (mouvements PARTNER_RETURN)
-    const returnsMovements = await prisma.stockMovement.findMany({
+    // Récupérer les retours (mouvements PARTNER_RETURN) - limiter aussi
+    const recentReturnsMovements = await prisma.stockMovement.findMany({
       where: {
         partnerId: partner.id,
         type: 'PARTNER_RETURN',
         createdAt: {
           gte: startOfMonth
         }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20 // Limiter à 20 retours récents
+    })
+
+    // Stats totales des retours
+    const returnsStats = await prisma.stockMovement.aggregate({
+      where: {
+        partnerId: partner.id,
+        type: 'PARTNER_RETURN',
+        createdAt: {
+          gte: startOfMonth
+        }
+      },
+      _sum: {
+        quantity: true
       }
     })
 
-    const returnsMonthQty = returnsMovements.reduce((sum, m) => sum + Math.abs(m.quantity), 0)
+    const returnsMonthQty = Math.abs(returnsStats._sum.quantity || 0)
 
     // Calculer les ristournes disponibles (si le modèle existe)
     const availableRebates = await prisma.partnerRebate.aggregate({
@@ -178,9 +229,28 @@ export async function GET() {
         threshold: LOW_STOCK_THRESHOLD
       }))
 
-    // Top ventes du mois (par livre)
+    // Top ventes du mois (par livre) - utiliser toutes les ventes pour le calcul
+    const allSalesForTop = await prisma.stockMovement.findMany({
+      where: {
+        partnerId: partner.id,
+        type: 'PARTNER_SALE',
+        createdAt: {
+          gte: startOfMonth
+        }
+      },
+      include: {
+        work: {
+          select: {
+            id: true,
+            title: true
+          }
+        }
+      },
+      take: 1000 // Limiter mais suffisant pour le top 5
+    })
+
     const topSalesMap = new Map<string, { title: string; quantity: number; amount: number }>()
-    salesMovements.forEach(movement => {
+    allSalesForTop.forEach(movement => {
       const workId = movement.workId
       const quantity = Math.abs(movement.quantity)
       const amount = movement.totalAmount ?? (movement.unitPrice ?? 0) * quantity

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { getPaginationParams, paginateQuery } from "@/lib/pagination"
 
 // GET /api/representant/clients - Récupérer les clients du représentant
 export async function GET(request: NextRequest) {
@@ -24,18 +25,72 @@ export async function GET(request: NextRequest) {
 
     console.log("✅ User found:", user.name, user.role)
 
-    // Récupérer les clients depuis la base de données
-    const clients = await prisma.client.findMany({
-      where: {
-        representantId: user.id
+    // Paramètres de pagination
+    const { searchParams } = new URL(request.url)
+    const paginationParams = getPaginationParams(searchParams, 50)
+    
+    // Filtres de recherche
+    const search = searchParams.get('search')
+    const statut = searchParams.get('statut')
+    
+    // Construire la clause where
+    const whereClause: any = {
+      representantId: user.id
+    }
+    
+    // Ajouter filtres si présents
+    if (search) {
+      whereClause.OR = [
+        { nom: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { telephone: { contains: search, mode: 'insensitive' } }
+      ]
+    }
+    
+    if (statut) {
+      whereClause.statut = statut
+    }
+
+    // Paginer les clients
+    const paginatedResult = await paginateQuery(
+      paginationParams,
+      {
+        where: whereClause,
+        select: {
+          id: true,
+          nom: true,
+          prenom: true,
+          email: true,
+          telephone: true,
+          statut: true,
+          type: true,
+          createdAt: true,
+          totalOrders: true,
+          totalSpent: true,
+          lastOrder: true,
+          notes: true,
+          dette: true,
+          address: true,
+          city: true,
+          departement: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
       },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    })
+      prisma.client
+    )
+
+    // Récupérer le total pour les statistiques (en parallèle)
+    const [totalCount, activeCount] = await Promise.all([
+      prisma.client.count({ where: whereClause }),
+      prisma.client.count({ 
+        where: { ...whereClause, statut: 'ACTIF' } 
+      })
+    ])
 
     // Formater les données pour le frontend
-    const formattedClients = clients.map(client => ({
+    const formattedClients = paginatedResult.data.map(client => ({
       id: client.id,
       name: client.nom,
       type: client.type,
@@ -54,9 +109,9 @@ export async function GET(request: NextRequest) {
       createdAt: client.createdAt.toISOString()
     }))
 
-    // Calculer les statistiques
-    const totalClients = formattedClients.length
-    const activeClients = formattedClients.filter(c => c.status === "Actif").length
+    // Calculer les statistiques (utiliser les données paginées pour les calculs partiels)
+    const totalClients = totalCount
+    const activeClients = activeCount
     const totalRevenue = formattedClients.reduce((sum, client) => sum + client.totalSpent, 0)
     const averageOrderValue = totalClients > 0 
       ? totalRevenue / totalClients
@@ -68,13 +123,17 @@ export async function GET(request: NextRequest) {
         total: totalClients,
         active: activeClients,
         pending: formattedClients.filter(c => c.status === "En attente").length,
-        totalRevenue: Math.round(totalRevenue),
-        averageOrderValue: Math.round(averageOrderValue),
+        totalRevenue: Math.round(totalRevenue), // Calculé sur la page actuelle seulement
+        averageOrderValue: Math.round(averageOrderValue), // Calculé sur la page actuelle seulement
         topClient: formattedClients.length > 0
           ? formattedClients.reduce((max, client) => 
               client.totalSpent > max.totalSpent ? client : max
             )
           : null
+      },
+      pagination: {
+        nextCursor: paginatedResult.nextCursor,
+        hasMore: paginatedResult.hasMore
       }
     }
 

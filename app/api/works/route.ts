@@ -260,6 +260,7 @@ export async function POST(request: NextRequest) {
             title: "Nouvelle œuvre soumise pour validation",
             message: `L'auteur ${work.author?.name} a soumis l'œuvre "${work.title}" pour validation. ${work.project ? `Issue du projet "${work.project.title}".` : 'Soumission directe.'}`,
             type: "WORK_SUBMITTED",
+            read: false,
             data: JSON.stringify({
               workId: work.id,
               workTitle: work.title,
@@ -270,7 +271,8 @@ export async function POST(request: NextRequest) {
               projectTitle: work.project?.title,
               contentType: work.contentType
             })
-          }))
+          })),
+          skipDuplicates: true
         });
       }
       console.log(`✅ Notifications créées pour ${pdgUsers.length} PDG`);
