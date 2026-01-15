@@ -67,10 +67,19 @@ async function getPricingRatesFromDB() {
       'pricing.representantCommissionRate'
     ];
 
+    // Vérifier que Prisma est disponible
+    if (!prisma) {
+      console.warn("Prisma client not available, using default pricing rates");
+      return DEFAULT_SETTINGS.pricing;
+    }
+
     const settings = await prisma.advancedSetting.findMany({
       where: {
         key: { in: pricingKeys }
       }
+    }).catch((error) => {
+      console.error("Prisma error fetching pricing rates:", error);
+      return [];
     });
 
     const pricing: any = { ...DEFAULT_SETTINGS.pricing };
@@ -91,8 +100,9 @@ async function getPricingRatesFromDB() {
     });
 
     return pricing;
-  } catch (error) {
-    console.error("Error fetching pricing rates from DB:", error);
+  } catch (error: any) {
+    console.error("Error fetching pricing rates from DB:", error?.message || error);
+    // Toujours retourner les valeurs par défaut en cas d'erreur
     return DEFAULT_SETTINGS.pricing;
   }
 }
@@ -103,7 +113,15 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get("category");
 
     // Récupérer les paramètres de pricing depuis la base de données
-    const pricingRates = await getPricingRatesFromDB();
+    // En cas d'erreur, utiliser les valeurs par défaut
+    let pricingRates = DEFAULT_SETTINGS.pricing;
+    try {
+      pricingRates = await getPricingRatesFromDB();
+    } catch (pricingError) {
+      console.error("Error fetching pricing rates from DB, using defaults:", pricingError);
+      // Continuer avec les valeurs par défaut
+    }
+
     const settings = {
       ...DEFAULT_SETTINGS,
       pricing: pricingRates
@@ -113,17 +131,36 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         category,
         settings: settings[category as keyof typeof settings]
+      }, { 
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
     }
 
     return NextResponse.json({
       settings
+    }, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json'
+      }
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching settings:", error);
+    // Toujours retourner du JSON, même en cas d'erreur
     return NextResponse.json(
-      { error: "Erreur lors de la récupération des paramètres" },
-      { status: 500 }
+      { 
+        error: "Erreur lors de la récupération des paramètres",
+        message: process.env.NODE_ENV === 'development' ? error?.message : undefined
+      },
+      { 
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
     );
   }
 }

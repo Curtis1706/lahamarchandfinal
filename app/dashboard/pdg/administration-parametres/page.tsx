@@ -115,6 +115,16 @@ export default function AdministrationParametresPage() {
     try {
       setLoading(true);
       const response = await fetch("/api/settings");
+      
+      // Vérifier le content-type avant de parser le JSON
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await response.text();
+        console.error("Expected JSON but received:", text.substring(0, 200));
+        toast.error("Erreur: Le serveur a retourné une réponse non-JSON");
+        return;
+      }
+      
       const data = await response.json();
       
       if (response.ok) {
@@ -122,9 +132,14 @@ export default function AdministrationParametresPage() {
       } else {
         toast.error(data.error || "Erreur lors du chargement des paramètres");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching settings:", error);
-      toast.error("Erreur lors du chargement des paramètres");
+      // Vérifier si c'est une erreur de parsing JSON
+      if (error instanceof SyntaxError) {
+        toast.error("Erreur: Le serveur a retourné une réponse invalide. Vérifiez les logs de la console.");
+      } else {
+        toast.error("Erreur lors du chargement des paramètres");
+      }
     } finally {
       setLoading(false);
     }

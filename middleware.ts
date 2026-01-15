@@ -30,6 +30,7 @@ const COMMON_ALLOWED = [
   "/api/upload", // Pour l'upload de fichiers (vérifie les permissions dans la route)
   "/api/orders", // Pour les commandes (vérifie les permissions dans la route)
   "/api/stock", // Pour le stock (vérifie les permissions dans la route - PDG uniquement)
+  "/api/settings", // Pour les paramètres (vérifie les permissions dans la route - PDG uniquement)
   "/api/pdg/categories", // Pour les catégories (accessible aux PDG, CLIENT et AUTEUR - vérifie les permissions dans la route)
   "/api/pdg/collections", // Pour les collections (accessible aux PDG et AUTEUR - vérifie les permissions dans la route)
   "/api/pdg/classes", // Pour les classes (accessible aux PDG et CLIENT - vérifie les permissions dans la route)
@@ -59,8 +60,17 @@ export async function middleware(req: NextRequest) {
       : "next-auth.session-token"
   );
 
-  // Si pas de cookie de session, rediriger vers login
+  // Pour les routes API, retourner du JSON au lieu de rediriger vers HTML
+  const isApiRoute = pathname.startsWith("/api");
+
+  // Si pas de cookie de session
   if (!sessionCookie || !sessionCookie.value) {
+    if (isApiRoute) {
+      return NextResponse.json(
+        { error: "Non authentifié", message: "Session requise" },
+        { status: 401 }
+      );
+    }
     const url = req.nextUrl.clone();
     url.pathname = "/auth/login";
     url.searchParams.set("callbackUrl", pathname);
@@ -76,8 +86,14 @@ export async function middleware(req: NextRequest) {
         : "next-auth.session-token",
   });
 
-  // Pas de token ou pas de sub (ID utilisateur) => login
+  // Pas de token ou pas de sub (ID utilisateur)
   if (!token || !token.sub) {
+    if (isApiRoute) {
+      return NextResponse.json(
+        { error: "Non authentifié", message: "Token invalide" },
+        { status: 401 }
+      );
+    }
     const url = req.nextUrl.clone();
     url.pathname = "/auth/login";
     url.searchParams.set("callbackUrl", pathname);
@@ -88,6 +104,12 @@ export async function middleware(req: NextRequest) {
 
   // Vérifier que le rôle est valide et existe dans la map
   if (!role || !ROLE_DASHBOARD_PREFIX[role]) {
+    if (isApiRoute) {
+      return NextResponse.json(
+        { error: "Accès refusé", message: "Rôle invalide" },
+        { status: 403 }
+      );
+    }
     const url = req.nextUrl.clone();
     url.pathname = "/auth/login";
     url.searchParams.set("error", "InvalidRole");
@@ -102,6 +124,12 @@ export async function middleware(req: NextRequest) {
   );
 
   if (!isAuthorized) {
+    if (isApiRoute) {
+      return NextResponse.json(
+        { error: "Accès refusé", message: `Route non autorisée pour le rôle ${role}` },
+        { status: 403 }
+      );
+    }
     // Rediriger vers le bon dashboard du rôle
     const url = req.nextUrl.clone();
     url.pathname = allowedPrefixes[0] || "/dashboard";
