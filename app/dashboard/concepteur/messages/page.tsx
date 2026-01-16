@@ -102,10 +102,17 @@ export default function MessagesPage() {
       const response = await fetch("/api/users/list?role=PDG");
       if (response.ok) {
         const data = await response.json();
-        setRecipients(data.users || []);
+        // L'API peut retourner users directement ou dans un objet
+        const usersList = data.users || data || [];
+        setRecipients(usersList);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Erreur lors du chargement des destinataires:", response.status, errorData);
+        toast.error(errorData.error || "Erreur lors du chargement des destinataires");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading recipients:", error);
+      toast.error(error.message || "Erreur lors du chargement des destinataires");
     }
   };
 
@@ -200,7 +207,9 @@ export default function MessagesPage() {
   };
 
   const filteredMessages = messages.filter(message => {
-    const matchesSearch = message.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    // Le filtre est déjà appliqué côté serveur, on ne fait que la recherche
+    const matchesSearch = !searchTerm || 
+                         message.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          message.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (message.type === "received" ? message.sender.name : message.recipient.name).toLowerCase().includes(searchTerm.toLowerCase());
     
@@ -236,8 +245,15 @@ export default function MessagesPage() {
         </div>
         
         <div className="flex items-center space-x-2">
-          <Button variant="outline" onClick={loadMessages}>
-            <RefreshCw className="h-4 w-4 mr-2" />
+          <Button 
+            variant="outline" 
+            onClick={async () => {
+              await loadMessages();
+              toast.success("Messages actualisés");
+            }}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Actualiser
           </Button>
           <Dialog open={isComposeOpen} onOpenChange={setIsComposeOpen}>
