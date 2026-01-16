@@ -38,7 +38,7 @@ export interface UseOrdersResult {
   addOrder: (orderData: Omit<Order, 'id' | 'reference' | 'date'>) => Promise<Order>
   updateOrderStatus: (orderId: string, status: Order['status']) => Promise<void>
   isLoading: boolean
-  refreshOrders: () => void
+  refreshOrders: () => Promise<void>
 }
 
 export const useOrders = (): UseOrdersResult => {
@@ -259,8 +259,8 @@ export const useOrders = (): UseOrdersResult => {
     }
   }
 
-  const refreshOrders = useCallback(() => {
-    loadOrders()
+  const refreshOrders = useCallback(async () => {
+    await loadOrders()
   }, [loadOrders])
 
   return {

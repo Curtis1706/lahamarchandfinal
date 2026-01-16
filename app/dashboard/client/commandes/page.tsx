@@ -53,7 +53,8 @@ import {
   Trash2,
   Calendar as CalendarIcon,
   Check,
-  ChevronsUpDown
+  ChevronsUpDown,
+  RefreshCw
 } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
@@ -240,6 +241,16 @@ function ClientCommandePageContent() {
     }
   }, [searchParams, orders, ordersLoading])
 
+  // Fonction pour actualiser les commandes
+  const handleRefresh = async () => {
+    try {
+      await refreshOrders()
+      toast.success("Commandes actualisées")
+    } catch (error) {
+      console.error("Erreur lors de l'actualisation:", error)
+    }
+  }
+
   const getStatusBadge = (status: Order['status']) => {
     const variants = {
       pending: { variant: "secondary" as const, label: "En attente", color: "bg-yellow-100 text-yellow-800" },
@@ -267,7 +278,13 @@ function ClientCommandePageContent() {
 
   // Fonctions pour gérer les actions
   const handleCancelOrder = async (orderId: string) => {
-    await updateOrderStatus(orderId, 'cancelled')
+    try {
+      await updateOrderStatus(orderId, 'cancelled')
+      // Recharger les commandes pour mettre à jour les statistiques
+      await refreshOrders()
+    } catch (error) {
+      console.error("Erreur lors de l'annulation:", error)
+    }
   }
 
   const getStatusIcon = (status: Order['status']) => {
@@ -525,8 +542,8 @@ function ClientCommandePageContent() {
       setBookSearchTerm("")
       setIsCreateOrderOpen(false)
       
-      // Rafraîchir les commandes
-      refreshOrders()
+      // Rafraîchir les commandes pour mettre à jour la liste et les statistiques
+      await refreshOrders()
       
       toast.success("Commande créée avec succès")
     } catch (error: any) {
@@ -566,12 +583,23 @@ function ClientCommandePageContent() {
                 Suivez l'état de vos commandes de livres scolaires
               </p>
         </div>
-        <Link href="/dashboard/client/commande/nouvelle">
-          <Button className="bg-indigo-600 hover:bg-indigo-700">
-            <Plus className="h-4 w-4 mr-2" />
-            Commande +
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={handleRefresh}
+            variant="outline"
+            disabled={ordersLoading}
+            title="Actualiser les commandes"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${ordersLoading ? 'animate-spin' : ''}`} />
+            Actualiser
           </Button>
-        </Link>
+          <Link href="/dashboard/client/commande/nouvelle">
+            <Button className="bg-indigo-600 hover:bg-indigo-700">
+              <Plus className="h-4 w-4 mr-2" />
+              Commande +
+            </Button>
+          </Link>
+        </div>
       </div>
 
           {/* Filtres */}
