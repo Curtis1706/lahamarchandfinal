@@ -349,15 +349,15 @@ export default function ClientCataloguePage() {
                         {work.discount && work.price ? (
                           <>
                             <div className="text-sm text-gray-500 line-through">
-                              {work.price.toFixed(2)} FCFA
+                              {Math.round(work.price).toLocaleString('fr-FR')} FCFA
                             </div>
                             <div className="text-2xl font-bold text-indigo-600">
-                              {work.finalPrice?.toFixed(2)} FCFA
+                              {work.finalPrice ? Math.round(work.finalPrice).toLocaleString('fr-FR') : 0} FCFA
                             </div>
                           </>
                         ) : (
                           <div className="text-2xl font-bold text-indigo-600">
-                            {work.price ? `${work.price.toFixed(2)} FCFA` : "Prix non défini"}
+                            {work.price ? `${Math.round(work.price).toLocaleString('fr-FR')} FCFA` : "Prix non défini"}
                           </div>
                         )}
                         {work.discount && (
