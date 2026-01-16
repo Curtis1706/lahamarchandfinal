@@ -1,22 +1,43 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RefreshCw, Maximize2 } from "lucide-react";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { toast } from "sonner";
 
 export default function ProfilPage() {
+  const { user, refreshUser } = useCurrentUser();
   const [profileData, setProfileData] = useState({
-    nom: "Dupont",
-    prenoms: "Jean",
-    email: "jean.dupont@example.com",
-    telephone: "+241 01 23 45 67",
+    nom: "",
+    prenoms: "",
+    email: "",
+    telephone: "",
     role: "PARTENAIRE",
   });
 
-  const handleRefresh = () => {
-    console.log("[v0] Refreshing profile data...");
+  useEffect(() => {
+    if (user) {
+      const nameParts = (user.name || "").split(" ");
+      setProfileData({
+        nom: nameParts[0] || "",
+        prenoms: nameParts.slice(1).join(" ") || "",
+        email: user.email || "",
+        telephone: user.phone || "",
+        role: user.role || "PARTENAIRE",
+      });
+    }
+  }, [user]);
+
+  const handleRefresh = async () => {
+    try {
+      await refreshUser();
+      toast.success("Profil actualisé");
+    } catch (error) {
+      toast.error("Erreur lors de l'actualisation");
+    }
   };
 
   const handleFullscreen = () => {

@@ -57,7 +57,8 @@ import {
   ChevronDown,
   Save,
   X,
-  Loader2
+  Loader2,
+  RefreshCw
 } from "lucide-react"
 import { toast } from "sonner"
 import { format, parseISO } from "date-fns"
@@ -678,6 +679,12 @@ export default function GestionCommandesPage() {
     setIsCreateOrderOpen(false)
   }, [])
 
+  // Fonction pour actualiser les commandes
+  const handleRefresh = useCallback(() => {
+    fetchOrders()
+    toast.success("Commandes actualisées")
+  }, [fetchOrders])
+
   if (userLoading || isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -713,6 +720,16 @@ export default function GestionCommandesPage() {
             >
               <Plus className="h-4 w-4 mr-2" />
               Commande
+            </Button>
+
+            <Button 
+              onClick={handleRefresh}
+              variant="outline"
+              disabled={isLoading}
+              title="Actualiser les commandes"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Actualiser
             </Button>
           </div>
         </div>

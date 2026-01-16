@@ -91,79 +91,86 @@ export default function GestionUtilisateursPage() {
   const [itemsPerPage, setItemsPerPage] = useState(100)
   const [currentPage, setCurrentPage] = useState(1)
 
-  // Charger les données
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true)
-        console.log("🔍 Début du chargement des données...")
-        
-        const [usersData, disciplinesData] = await Promise.all([
-          apiClient.getUsers(),
-          apiClient.getDisciplines()
-        ])
-        
-        console.log("🔍 Données reçues:", { 
-          usersData, 
-          usersDataType: typeof usersData,
-          usersDataLength: Array.isArray(usersData) ? usersData.length : 'N/A',
-          disciplinesData,
-          disciplinesDataType: typeof disciplinesData,
-          disciplinesDataLength: Array.isArray(disciplinesData) ? disciplinesData.length : 'N/A'
-        })
-        
-        const usersArray = Array.isArray(usersData) ? usersData : []
-        const disciplinesArray = Array.isArray(disciplinesData) ? disciplinesData : []
-        
-        // Enrichir les utilisateurs avec les statistiques d'œuvres pour les auteurs
-        const enrichedUsers = await Promise.all(
-          usersArray.map(async (user: User) => {
-            if (user.role === 'AUTEUR') {
-              try {
-                const worksResponse = await fetch(`/api/authors/works?authorId=${user.id}`)
-                if (worksResponse.ok) {
-                  const worksData = await worksResponse.json()
-                  const works = worksData.works || []
-                  return {
-                    ...user,
-                    worksCount: works.length,
-                    publishedWorksCount: works.filter((w: any) => w.status === 'ON_SALE' || w.status === 'PUBLISHED').length,
-                    pendingWorksCount: works.filter((w: any) => w.status === 'PENDING' || w.status === 'DRAFT').length
-                  }
+  // Fonction pour charger les données
+  const loadUsers = async () => {
+    try {
+      setIsLoading(true)
+      console.log("🔍 Début du chargement des données...")
+      
+      const [usersData, disciplinesData] = await Promise.all([
+        apiClient.getUsers(),
+        apiClient.getDisciplines()
+      ])
+      
+      console.log("🔍 Données reçues:", { 
+        usersData, 
+        usersDataType: typeof usersData,
+        usersDataLength: Array.isArray(usersData) ? usersData.length : 'N/A',
+        disciplinesData,
+        disciplinesDataType: typeof disciplinesData,
+        disciplinesDataLength: Array.isArray(disciplinesData) ? disciplinesData.length : 'N/A'
+      })
+      
+      const usersArray = Array.isArray(usersData) ? usersData : []
+      const disciplinesArray = Array.isArray(disciplinesData) ? disciplinesData : []
+      
+      // Enrichir les utilisateurs avec les statistiques d'œuvres pour les auteurs
+      const enrichedUsers = await Promise.all(
+        usersArray.map(async (user: User) => {
+          if (user.role === 'AUTEUR') {
+            try {
+              const worksResponse = await fetch(`/api/authors/works?authorId=${user.id}`)
+              if (worksResponse.ok) {
+                const worksData = await worksResponse.json()
+                const works = worksData.works || []
+                return {
+                  ...user,
+                  worksCount: works.length,
+                  publishedWorksCount: works.filter((w: any) => w.status === 'ON_SALE' || w.status === 'PUBLISHED').length,
+                  pendingWorksCount: works.filter((w: any) => w.status === 'PENDING' || w.status === 'DRAFT').length
                 }
-              } catch (error) {
-                console.error(`Error fetching works for author ${user.id}:`, error)
               }
+            } catch (error) {
+              console.error(`Error fetching works for author ${user.id}:`, error)
             }
-            return user
-          })
-        )
-        
-        setUsers(enrichedUsers)
-        setDisciplines(disciplinesArray)
-        
-        console.log("🔍 État mis à jour:", {
-          usersCount: usersArray.length,
-          disciplinesCount: disciplinesArray.length,
-          firstUser: usersArray[0] || 'Aucun utilisateur',
-          firstDiscipline: disciplinesArray[0] || 'Aucune discipline'
+          }
+          return user
         })
-      } catch (error: any) {
-        console.error("❌ Error fetching data:", error)
-        console.error("❌ Error details:", {
-          message: error.message,
-          stack: error.stack,
-          name: error.name
-        })
-        toast.error("Erreur lors du chargement des données: " + error.message)
-      } finally {
-        setIsLoading(false)
-        console.log("🔍 Chargement terminé")
-      }
+      )
+      
+      setUsers(enrichedUsers)
+      setDisciplines(disciplinesArray)
+      
+      console.log("🔍 État mis à jour:", {
+        usersCount: usersArray.length,
+        disciplinesCount: disciplinesArray.length,
+        firstUser: usersArray[0] || 'Aucun utilisateur',
+        firstDiscipline: disciplinesArray[0] || 'Aucune discipline'
+      })
+    } catch (error: any) {
+      console.error("❌ Error fetching data:", error)
+      console.error("❌ Error details:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      })
+      toast.error("Erreur lors du chargement des données: " + error.message)
+    } finally {
+      setIsLoading(false)
+      console.log("🔍 Chargement terminé")
     }
+  }
 
-    fetchData()
+  // Charger les données au montage du composant
+  useEffect(() => {
+    loadUsers()
   }, [])
+
+  // Fonction pour actualiser les données
+  const handleRefresh = () => {
+    loadUsers()
+    toast.success("Données actualisées")
+  }
 
   // Fonctions de gestion
   const handleCreateUser = async (userData: any) => {
@@ -398,13 +405,10 @@ export default function GestionUtilisateursPage() {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-gray-900">Liste des utilisateurs</h2>
           <div className="flex items-center space-x-2">
-            <Button variant="ghost" size="sm">
-              <Minimize2 className="h-4 w-4" />
+            <Button variant="ghost" size="sm" onClick={handleRefresh} title="Actualiser">
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             </Button>
-            <Button variant="ghost" size="sm">
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" title="Plein écran">
               <Maximize2 className="h-4 w-4" />
             </Button>
           </div>

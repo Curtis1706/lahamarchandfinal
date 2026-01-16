@@ -97,6 +97,15 @@ export default function ProfilPage() {
     setIsEditing(false)
   }
 
+  const handleRefresh = async () => {
+    try {
+      await refreshUser();
+      toast.success("Profil actualisé");
+    } catch (error) {
+      toast.error("Erreur lors de l'actualisation");
+    }
+  }
+
   if (isLoading) {
     return (
       <DynamicDashboardLayout>
@@ -118,7 +127,7 @@ export default function ProfilPage() {
   }
 
   return (
-    <DynamicDashboardLayout>
+    <DynamicDashboardLayout onRefresh={handleRefresh}>
       <div className="space-y-8">
         {/* En-tête */}
         <div className="flex flex-col space-y-4">

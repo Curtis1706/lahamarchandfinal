@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { getPaginationParams, paginateQuery } from "@/lib/pagination"
-import { getCached } from "@/lib/cache"
 
 export const dynamic = 'force-dynamic'
 
@@ -160,44 +159,28 @@ export async function GET(request: NextRequest) {
         }
       })
     } else {
-      // Pour summary, utiliser le cache (TTL: 5 minutes)
-      const cacheKey = `partenaire:${partner.id}:summary:${startDate || 'all'}:${endDate || 'all'}`
-      
-      const cachedData = await getCached(
-        cacheKey,
-        async () => {
-          // Charger toutes les données (mais limiter si trop nombreuses)
-          const movements = await prisma.stockMovement.findMany({
-            where: whereClause,
-            include: {
-              work: {
+      // Charger toutes les données (mais limiter si trop nombreuses)
+      salesMovements = await prisma.stockMovement.findMany({
+        where: whereClause,
+        include: {
+          work: {
+            select: {
+              id: true,
+              title: true,
+              isbn: true,
+              price: true,
+              discipline: {
                 select: {
                   id: true,
-                  title: true,
-                  isbn: true,
-                  price: true,
-                  discipline: {
-                    select: {
-                      id: true,
-                      name: true
-                    }
-                  }
+                  name: true
                 }
               }
-            },
-            orderBy: { createdAt: 'desc' },
-            take: 1000 // Limiter à 1000 pour éviter timeout sur les calculs de stats
-          })
-          
-          return movements
+            }
+          }
         },
-        {
-          ttl: 300, // 5 minutes
-          namespace: 'reports'
-        }
-      )
-      
-      salesMovements = cachedData
+        orderBy: { createdAt: 'desc' },
+        take: 1000 // Limiter à 1000 pour éviter timeout sur les calculs de stats
+      })
     }
 
     // Calculer les statistiques à partir des ventes
