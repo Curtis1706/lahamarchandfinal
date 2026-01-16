@@ -13,6 +13,7 @@ import {
   Trash2,
   Play,
   ChevronsUpDown,
+  RefreshCw,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -36,6 +37,8 @@ export default function NotificationsPage() {
   const [showBroadcastModal, setShowBroadcastModal] = useState(false)
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
+  const [itemsPerPage, setItemsPerPage] = useState(20)
+  const [currentPage, setCurrentPage] = useState(1)
   const { toast } = useToast()
 
   const [formData, setFormData] = useState({
@@ -82,6 +85,10 @@ export default function NotificationsPage() {
 
   const handleRefresh = () => {
     loadNotifications()
+    toast({
+      title: "Succès",
+      description: "Notifications actualisées"
+    })
   }
 
   const handleAddNotification = async () => {
@@ -269,6 +276,22 @@ export default function NotificationsPage() {
     notif.code.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
+  // Pagination
+  const totalPages = Math.ceil(filteredNotifications.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedNotifications = filteredNotifications.slice(startIndex, endIndex)
+
+  // Gestion de la pagination
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(Number(value))
+    setCurrentPage(1)
+  }
+
   return (
     <>
       {/* En-tête */}
@@ -291,19 +314,30 @@ export default function NotificationsPage() {
           <div className="p-6 border-b">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Liste des notifications</h3>
-              <Button
-                onClick={() => setShowAddModal(true)}
-                className="bg-indigo-600 hover:bg-indigo-700"
-              >
-                Ajouter
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={handleRefresh}
+                  variant="outline"
+                  disabled={isLoading}
+                  title="Actualiser les notifications"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                  Actualiser
+                </Button>
+                <Button
+                  onClick={() => setShowAddModal(true)}
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                >
+                  Ajouter
+                </Button>
+              </div>
             </div>
 
             {/* Table Controls */}
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-600">Afficher</span>
-                <Select defaultValue="20">
+                <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
                   <SelectTrigger className="w-20">
                     <SelectValue />
                   </SelectTrigger>
@@ -369,7 +403,7 @@ export default function NotificationsPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredNotifications.map((notif, index) => (
+                  paginatedNotifications.map((notif, index) => (
                     <tr key={index} className="border-b hover:bg-gray-50">
                       <td className="py-3 px-4 text-sm">{notif.code}</td>
                       <td className="py-3 px-4 text-sm font-medium">{notif.titre}</td>
@@ -429,16 +463,65 @@ export default function NotificationsPage() {
           {/* Pagination */}
           <div className="p-6 border-t flex justify-between items-center">
             <p className="text-sm text-gray-600">
-              Affichage de 1 à {filteredNotifications.length} sur {notifications.length} éléments
+              Affichage de {filteredNotifications.length > 0 ? startIndex + 1 : 0} à {Math.min(endIndex, filteredNotifications.length)} sur {filteredNotifications.length} éléments
             </p>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">Premier</Button>
-              <Button variant="outline" size="sm">Précédent</Button>
-              <Button variant="outline" size="sm" className="bg-indigo-600 text-white">
-                1
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => handlePageChange(1)}
+                disabled={currentPage === 1 || totalPages === 0}
+              >
+                Premier
               </Button>
-              <Button variant="outline" size="sm">Suivant</Button>
-              <Button variant="outline" size="sm">Dernier</Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1 || totalPages === 0}
+              >
+                Précédent
+              </Button>
+              {/* Afficher seulement les pages proches de la page actuelle (max 5 pages) */}
+              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                let page: number
+                if (totalPages <= 5) {
+                  page = i + 1
+                } else if (currentPage <= 3) {
+                  page = i + 1
+                } else if (currentPage >= totalPages - 2) {
+                  page = totalPages - 4 + i
+                } else {
+                  page = currentPage - 2 + i
+                }
+                return (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handlePageChange(page)}
+                    className={currentPage === page ? "bg-indigo-600 text-white" : ""}
+                  >
+                    {page}
+                  </Button>
+                )
+              })}
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages || totalPages === 0}
+              >
+                Suivant
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => handlePageChange(totalPages)}
+                disabled={currentPage === totalPages || totalPages === 0}
+              >
+                Dernier
+              </Button>
             </div>
           </div>
         </div>
