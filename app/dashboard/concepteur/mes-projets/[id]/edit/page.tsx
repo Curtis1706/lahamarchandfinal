@@ -122,7 +122,12 @@ export default function EditProjectPage() {
       }
 
       toast.success("Projet mis à jour avec succès");
-      router.push("/dashboard/concepteur/mes-projets");
+      // Forcer le rechargement de la liste avec paramètre refreshed
+      router.push("/dashboard/concepteur/mes-projets?refreshed=true");
+      // Recharger après un court délai pour s'assurer que la navigation est terminée
+      setTimeout(() => {
+        router.refresh();
+      }, 200);
     } catch (error: any) {
       console.error("Error updating project:", error);
       toast.error(error.message || "Erreur lors de la mise à jour du projet");

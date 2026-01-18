@@ -33,7 +33,8 @@ import {
   MoreHorizontal,
   Tag,
   Download,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Save
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
@@ -87,6 +88,7 @@ interface Work {
 
 interface WorkStats {
   pending: number;
+  validated: number;
   published: number;
   suspended: number;
   total: number;
@@ -102,6 +104,7 @@ export default function ValidationOeuvresPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [workStats, setWorkStats] = useState<WorkStats>({
     pending: 0,
+    validated: 0,
     published: 0,
     suspended: 0,
     total: 0
@@ -114,6 +117,9 @@ export default function ValidationOeuvresPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [workToDelete, setWorkToDelete] = useState<Work | null>(null);
   const [activeTab, setActiveTab] = useState("pending");
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingWork, setEditingWork] = useState<Partial<Work> | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Charger les données
   useEffect(() => {
@@ -136,6 +142,9 @@ export default function ValidationOeuvresPage() {
       switch (activeTab) {
         case "pending":
           params.append("status", "PENDING");
+          break;
+        case "validated":
+          params.append("status", "VALIDATED");
           break;
         case "published":
           params.append("status", "PUBLISHED");
@@ -160,11 +169,12 @@ export default function ValidationOeuvresPage() {
         // Calculer les statistiques
         const total = data.stats?.total || 0;
         const pending = data.stats?.pending || 0;
+        const validated = data.stats?.validated || 0;
         const published = data.stats?.published || 0;
         const suspended = data.stats?.suspended || 0;
 
-        console.log("🔍 Statistiques calculées:", { total, pending, published, suspended });
-        setWorkStats({ total, pending, published, suspended });
+        console.log("🔍 Statistiques calculées:", { total, pending, validated, published, suspended });
+        setWorkStats({ total, pending, validated, published, suspended });
       } else {
         console.error("❌ Erreur API:", data.error);
         toast.error(data.error || "Erreur lors du chargement des œuvres");
@@ -192,19 +202,25 @@ export default function ValidationOeuvresPage() {
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      PENDING: { label: "En attente", variant: "secondary" as const },
-      PUBLISHED: { label: "Publiée", variant: "default" as const },
-      SUSPENDED: { label: "Suspendue", variant: "destructive" as const },
-      DRAFT: { label: "Brouillon", variant: "outline" as const }
+      PENDING: { label: "En attente", variant: "secondary" as const, className: "bg-yellow-100 text-yellow-800" },
+      VALIDATED: { label: "Validée", variant: "default" as const, className: "bg-green-100 text-green-800" },
+      PUBLISHED: { label: "Publiée", variant: "default" as const, className: "bg-green-100 text-green-800" },
+      SUSPENDED: { label: "Suspendue", variant: "destructive" as const, className: "bg-red-100 text-red-800" },
+      REJECTED: { label: "Refusée", variant: "destructive" as const, className: "bg-red-100 text-red-800" },
+      DRAFT: { label: "Brouillon", variant: "outline" as const, className: "bg-gray-100 text-gray-800" },
+      ON_SALE: { label: "En vente", variant: "default" as const, className: "bg-blue-100 text-blue-800" },
+      OUT_OF_STOCK: { label: "Rupture de stock", variant: "destructive" as const, className: "bg-red-100 text-red-800" },
+      DISCONTINUED: { label: "Arrêté", variant: "outline" as const, className: "bg-gray-100 text-gray-800" }
     };
 
     const config = statusConfig[status as keyof typeof statusConfig] || {
       label: status,
-      variant: "secondary" as const
+      variant: "secondary" as const,
+      className: "bg-gray-100 text-gray-800"
     };
 
     return (
-      <Badge variant={config.variant} className="text-xs">
+      <Badge variant={config.variant} className={`text-xs ${config.className || ''}`}>
         {config.label}
       </Badge>
     );
@@ -232,25 +248,24 @@ export default function ValidationOeuvresPage() {
     return keywordsString.split(',').map(k => k.trim()).filter(k => k);
   };
 
-  const handleValidateWork = async (workId: string, status: string, reason?: string) => {
+  const handleValidateWork = async (workId: string, authorId?: string) => {
     try {
-      const response = await fetch("/api/works", {
-        method: "PUT",
+      const response = await fetch("/api/works/publish", {
+        method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
           workId: workId,
-          status,
-          validationComment: reason || null
+          action: "validate",
+          authorId: authorId || undefined
         })
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        const action = status === "PUBLISHED" ? "publiée" : "suspendue";
-        toast.success(`Œuvre ${action} avec succès`);
+        toast.success("Œuvre validée avec succès");
         fetchWorks();
         setIsStatusDialogOpen(false);
         setNewStatus("");
@@ -262,6 +277,34 @@ export default function ValidationOeuvresPage() {
     } catch (error) {
       console.error("Error validating work:", error);
       toast.error("Erreur lors de la validation");
+    }
+  };
+
+  const handlePublishWork = async (workId: string) => {
+    try {
+      const response = await fetch("/api/works/publish", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          workId: workId,
+          action: "publish"
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success("Œuvre publiée avec succès");
+        fetchWorks();
+        setSelectedWork(null);
+      } else {
+        toast.error(data.error || "Erreur lors de la publication");
+      }
+    } catch (error) {
+      console.error("Error publishing work:", error);
+      toast.error("Erreur lors de la publication");
     }
   };
 
@@ -286,6 +329,63 @@ export default function ValidationOeuvresPage() {
     } catch (error) {
       console.error("Error deleting work:", error);
       toast.error("Erreur lors de la suppression");
+    }
+  };
+
+  const handleEditWork = (work: Work) => {
+    setEditingWork({
+      ...work,
+      keywords: work.keywords ? parseKeywords(work.keywords).join(',') : ''
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingWork || !editingWork.id) return;
+
+    try {
+      setIsSaving(true);
+      
+      // Préparer les données à mettre à jour (sans modifier le stock)
+      const updateData: any = {
+        workId: editingWork.id,
+        title: editingWork.title,
+        description: editingWork.description || null,
+        price: editingWork.price || 0,
+        tva: editingWork.tva || 0.18,
+        category: editingWork.category || null,
+        targetAudience: editingWork.targetAudience || null,
+        educationalObjectives: editingWork.educationalObjectives || null,
+        contentType: editingWork.contentType || null,
+        keywords: editingWork.keywords || null,
+        internalCode: editingWork.internalCode || null,
+        // Ne pas modifier le stock lors de l'édition avant publication
+        // Le stock sera géré via les mouvements de stock après publication
+      };
+
+      const response = await fetch("/api/works", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(updateData)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success("Œuvre modifiée avec succès");
+        fetchWorks();
+        setIsEditDialogOpen(false);
+        setEditingWork(null);
+      } else {
+        toast.error(data.error || "Erreur lors de la modification");
+      }
+    } catch (error) {
+      console.error("Error updating work:", error);
+      toast.error("Erreur lors de la modification");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -347,6 +447,10 @@ export default function ValidationOeuvresPage() {
             <TabsTrigger value="pending" className="flex items-center space-x-2">
               <AlertTriangle className="h-4 w-4" />
               <span>À Valider ({workStats.pending})</span>
+            </TabsTrigger>
+            <TabsTrigger value="validated" className="flex items-center space-x-2">
+              <CheckCircle className="h-4 w-4 text-blue-600" />
+              <span>Validées ({workStats.validated})</span>
             </TabsTrigger>
             <TabsTrigger value="published" className="flex items-center space-x-2">
               <CheckCircle className="h-4 w-4" />
@@ -506,33 +610,64 @@ export default function ValidationOeuvresPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                                  onClick={() => {
-                                    setSelectedWork(work);
-                                    setIsDetailsOpen(true);
-                                  }}
+                        onClick={() => {
+                          setSelectedWork(work);
+                          setIsDetailsOpen(true);
+                        }}
+                        title="Voir les détails"
+                        className="border-gray-300 hover:bg-gray-50"
                       >
-                                  <Eye className="h-4 w-4" />
+                        <Eye className="h-4 w-4 mr-1.5" />
+                        <span className="text-xs font-medium">Voir</span>
                       </Button>
                       
-                                {activeTab === "pending" && (
+                                {activeTab === "pending" && work.status === "PENDING" && (
                         <>
                           <Button
-                                      variant="outline"
                             size="sm"
-                                      onClick={() => handleValidateWork(work.id, "PUBLISHED")}
+                            onClick={() => handleValidateWork(work.id)}
+                            title="Valider l'œuvre"
+                            className="bg-green-600 hover:bg-green-700 text-white border-0 hover:border-0"
                           >
-                                      <CheckCircle className="h-4 w-4" />
+                            <CheckCircle className="h-4 w-4 mr-1.5" />
+                            <span className="text-xs font-medium">Valider</span>
                           </Button>
                           <Button
-                                      variant="outline"
                             size="sm"
-                                      onClick={() => {
-                                        setSelectedWork(work);
-                                        setNewStatus("SUSPENDED");
-                                        setIsStatusDialogOpen(true);
-                                      }}
-                                    >
-                                      <XCircle className="h-4 w-4" />
+                            onClick={() => {
+                              setSelectedWork(work);
+                              setNewStatus("REJECTED");
+                              setIsStatusDialogOpen(true);
+                            }}
+                            title="Refuser"
+                            className="bg-red-600 hover:bg-red-700 text-white border-0 hover:border-0"
+                          >
+                            <XCircle className="h-4 w-4 mr-1.5" />
+                            <span className="text-xs font-medium">Refuser</span>
+                          </Button>
+                        </>
+                      )}
+
+                      {activeTab === "validated" && work.status === "VALIDATED" && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditWork(work)}
+                            title="Modifier l'œuvre"
+                            className="border-blue-300 hover:bg-blue-50 text-blue-700"
+                          >
+                            <Edit className="h-4 w-4 mr-1.5" />
+                            <span className="text-xs font-medium">Modifier</span>
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => handlePublishWork(work.id)}
+                            title="Publier l'œuvre"
+                            className="bg-green-600 hover:bg-green-700 text-white border-0 hover:border-0"
+                          >
+                            <CheckCircle className="h-4 w-4 mr-1.5" />
+                            <span className="text-xs font-medium">Publier</span>
                           </Button>
                         </>
                       )}
@@ -915,6 +1050,127 @@ export default function ValidationOeuvresPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Dialog d'édition */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Modifier l'œuvre</DialogTitle>
+            </DialogHeader>
+            {editingWork && (
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="edit-title">Titre *</Label>
+                  <Input
+                    id="edit-title"
+                    value={editingWork.title || ''}
+                    onChange={(e) => setEditingWork({...editingWork, title: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-description">Description</Label>
+                  <Textarea
+                    id="edit-description"
+                    value={editingWork.description || ''}
+                    onChange={(e) => setEditingWork({...editingWork, description: e.target.value})}
+                    rows={4}
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-price">Prix (FCFA)</Label>
+                    <Input
+                      id="edit-price"
+                      type="number"
+                      step="0.01"
+                      value={editingWork.price || ''}
+                      onChange={(e) => setEditingWork({...editingWork, price: parseFloat(e.target.value) || 0})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-category">Catégorie</Label>
+                    <Input
+                      id="edit-category"
+                      value={editingWork.category || ''}
+                      onChange={(e) => setEditingWork({...editingWork, category: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-contentType">Type de contenu</Label>
+                    <Input
+                      id="edit-contentType"
+                      value={editingWork.contentType || ''}
+                      onChange={(e) => setEditingWork({...editingWork, contentType: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-targetAudience">Public cible</Label>
+                    <Input
+                      id="edit-targetAudience"
+                      value={editingWork.targetAudience || ''}
+                      onChange={(e) => setEditingWork({...editingWork, targetAudience: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-internalCode">Code interne</Label>
+                    <Input
+                      id="edit-internalCode"
+                      value={editingWork.internalCode || ''}
+                      onChange={(e) => setEditingWork({...editingWork, internalCode: e.target.value})}
+                      className="font-mono"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="edit-educationalObjectives">Objectifs pédagogiques</Label>
+                  <Textarea
+                    id="edit-educationalObjectives"
+                    value={editingWork.educationalObjectives || ''}
+                    onChange={(e) => setEditingWork({...editingWork, educationalObjectives: e.target.value})}
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-keywords">Mots-clés (séparés par des virgules)</Label>
+                  <Input
+                    id="edit-keywords"
+                    value={editingWork.keywords || ''}
+                    onChange={(e) => setEditingWork({...editingWork, keywords: e.target.value})}
+                    placeholder="mot-clé1, mot-clé2, mot-clé3"
+                  />
+                </div>
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsEditDialogOpen(false);
+                      setEditingWork(null);
+                    }}
+                    disabled={isSaving}
+                  >
+                    Annuler
+                  </Button>
+                  <Button
+                    onClick={handleSaveEdit}
+                    disabled={isSaving || !editingWork.title}
+                  >
+                    {isSaving ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Enregistrement...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        Enregistrer les modifications
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
   );
 }

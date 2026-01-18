@@ -856,6 +856,7 @@ export async function GET(request: NextRequest) {
     const statsFormatted = {
       total: totalGlobal,
       pending: globalStats.find(s => s.status === 'PENDING')?._count.status || 0,
+      validated: globalStats.find(s => s.status === 'VALIDATED')?._count.status || 0,
       published: globalStats.find(s => s.status === 'PUBLISHED')?._count.status || 0,
       rejected: globalStats.find(s => s.status === 'REJECTED')?._count.status || 0,
       draft: globalStats.find(s => s.status === 'DRAFT')?._count.status || 0,

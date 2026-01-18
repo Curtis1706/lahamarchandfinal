@@ -22,11 +22,6 @@ model User {
   lastLoginAt                      DateTime? // Dernière connexion
   createdAt                        DateTime                 @default(now())
   updatedAt                        DateTime                 @updatedAt
-
-  @@index([role])
-  @@index([status])
-  @@index([representantId])
-  @@index([disciplineId])
   accounts                         Account[]
   receivedMessages                 Message[]                @relation("ReceivedMessages")
   sentMessages                     Message[]                @relation("SentMessages")
@@ -72,6 +67,11 @@ model User {
   representantWithdrawals          RepresentantWithdrawal[] @relation("RepresentantWithdrawals")
   validatedRepresentantWithdrawals RepresentantWithdrawal[] @relation("ValidatedRepresentantWithdrawals")
   recordedPayments                 Payment[]                @relation("RecordedPayments")
+
+  @@index([role])
+  @@index([status])
+  @@index([representantId])
+  @@index([disciplineId])
 }
 
 model Account {
@@ -1023,6 +1023,7 @@ enum ProjectStatus {
 enum WorkStatus {
   DRAFT
   PENDING
+  VALIDATED
   PUBLISHED
   REJECTED
   ON_SALE

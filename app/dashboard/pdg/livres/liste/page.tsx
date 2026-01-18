@@ -188,7 +188,7 @@ export default function LivresListePage() {
             libelle: work.title,
             categorie: work.discipline?.name || "Non définie",
             collection: collectionName,
-            statut: work.status === 'PUBLISHED' ? 'Disponible' : work.status === 'PENDING' ? 'En attente' : work.status === 'DRAFT' ? 'Brouillon' : work.status === 'REJECTED' ? 'Refusé' : work.status,
+            statut: work.status === 'PUBLISHED' ? 'Disponible' : work.status === 'PENDING' ? 'En attente' : work.status === 'VALIDATED' ? 'Validée' : work.status === 'SUSPENDED' ? 'Suspendue' : work.status === 'DRAFT' ? 'Brouillon' : work.status === 'REJECTED' ? 'Refusé' : work.status === 'ON_SALE' ? 'En vente' : work.status === 'OUT_OF_STOCK' ? 'Rupture de stock' : work.status === 'DISCONTINUED' ? 'Arrêté' : work.status,
             ajouteLe: new Date(work.createdAt).toLocaleDateString('fr-FR'),
             classes: work.targetAudience || "-",
             matiere: work.discipline?.name || "Non définie",
@@ -894,15 +894,17 @@ export default function LivresListePage() {
                         </td>
                         <td className="py-3 px-2">
                           <Badge
-                            variant={livre.statut === "Disponible" ? "default" : "secondary"}
+                            variant={livre.statut === "Disponible" || livre.statut === "Validée" ? "default" : "secondary"}
                             className={
-                              livre.statut === "Disponible"
+                              livre.statut === "Disponible" || livre.statut === "Validée"
                                 ? "bg-green-100 text-green-800"
                                 : livre.statut === "En attente"
                                 ? "bg-yellow-100 text-yellow-800"
                                 : livre.statut === "Brouillon"
                                 ? "bg-gray-100 text-gray-800"
-                                : "bg-red-100 text-red-800"
+                                : livre.statut === "Suspendue" || livre.statut === "Refusé"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-gray-100 text-gray-800"
                             }
                           >
                             {livre.statut}

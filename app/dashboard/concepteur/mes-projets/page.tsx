@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { apiClient } from "@/lib/api-client";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useDisciplines } from "@/hooks/use-disciplines";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
 interface Project {
@@ -30,6 +30,7 @@ export default function MesProjetsPage() {
   const { user } = useCurrentUser();
   const { disciplines, isLoading: disciplinesLoading } = useDisciplines();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -50,6 +51,19 @@ export default function MesProjetsPage() {
   useEffect(() => {
     loadProjects();
   }, [user]);
+
+  // Recharger les données quand on revient sur la page (ex: après modification)
+  useEffect(() => {
+    // Recharger si on vient d'une modification (paramètre refreshed)
+    const refreshed = searchParams.get('refreshed');
+    if (refreshed === 'true' && user) {
+      loadProjects();
+      // Nettoyer l'URL après rechargement
+      setTimeout(() => {
+        router.replace('/dashboard/concepteur/mes-projets');
+      }, 100);
+    }
+  }, [searchParams, user, router]);
 
   const loadProjects = async () => {
     if (!user) return;

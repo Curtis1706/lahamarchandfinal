@@ -41,7 +41,8 @@ import {
   AlertTriangle,
   Info,
   Search,
-  Filter
+  Filter,
+  Pencil
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api-client";
@@ -103,12 +104,15 @@ export default function ValidationOeuvresV2Page() {
   const [selectedWork, setSelectedWork] = useState<Work | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showValidationModal, setShowValidationModal] = useState(false);
+  const [isEditingWork, setIsEditingWork] = useState(false);
+  const [editingWork, setEditingWork] = useState<Partial<Work>>({});
   const [validationAction, setValidationAction] = useState<'approve' | 'reject'>('approve');
   const [validationComment, setValidationComment] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedAuthorId, setSelectedAuthorId] = useState<string>("");
   const [authors, setAuthors] = useState<any[]>([]);
+  const [disciplines, setDisciplines] = useState<any[]>([]);
   
   // Filtres
   const [statusFilter, setStatusFilter] = useState("PENDING");
@@ -180,17 +184,40 @@ export default function ValidationOeuvresV2Page() {
     }
   };
 
+  const loadDisciplines = async () => {
+    try {
+      const response = await fetch('/api/disciplines');
+      if (response.ok) {
+        const data = await response.json();
+        setDisciplines(Array.isArray(data) ? data : []);
+      }
+    } catch (error) {
+      console.error("Error loading disciplines:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      loadDisciplines();
+    }
+  }, [user]);
+
   const getStatusBadge = (status: string) => {
     const variants = {
-      PENDING: { variant: "secondary" as const, label: "En attente", icon: <Clock className="w-3 h-3 mr-1" /> },
-      PUBLISHED: { variant: "default" as const, label: "Publié", icon: <CheckCircle className="w-3 h-3 mr-1" /> },
-      REJECTED: { variant: "destructive" as const, label: "Refusé", icon: <XCircle className="w-3 h-3 mr-1" /> },
-      DRAFT: { variant: "outline" as const, label: "Brouillon", icon: <FileText className="w-3 h-3 mr-1" /> }
+      PENDING: { variant: "secondary" as const, label: "En attente", icon: <Clock className="w-3 h-3 mr-1" />, className: "bg-yellow-100 text-yellow-800" },
+      VALIDATED: { variant: "default" as const, label: "Validée", icon: <CheckCircle className="w-3 h-3 mr-1" />, className: "bg-green-100 text-green-800" },
+      PUBLISHED: { variant: "default" as const, label: "Publiée", icon: <CheckCircle className="w-3 h-3 mr-1" />, className: "bg-green-100 text-green-800" },
+      REJECTED: { variant: "destructive" as const, label: "Refusée", icon: <XCircle className="w-3 h-3 mr-1" />, className: "bg-red-100 text-red-800" },
+      SUSPENDED: { variant: "destructive" as const, label: "Suspendue", icon: <XCircle className="w-3 h-3 mr-1" />, className: "bg-red-100 text-red-800" },
+      DRAFT: { variant: "outline" as const, label: "Brouillon", icon: <FileText className="w-3 h-3 mr-1" />, className: "bg-gray-100 text-gray-800" },
+      ON_SALE: { variant: "default" as const, label: "En vente", icon: <CheckCircle className="w-3 h-3 mr-1" />, className: "bg-blue-100 text-blue-800" },
+      OUT_OF_STOCK: { variant: "destructive" as const, label: "Rupture de stock", icon: <XCircle className="w-3 h-3 mr-1" />, className: "bg-red-100 text-red-800" },
+      DISCONTINUED: { variant: "outline" as const, label: "Arrêté", icon: <FileText className="w-3 h-3 mr-1" />, className: "bg-gray-100 text-gray-800" }
     };
 
-    const config = variants[status as keyof typeof variants] || variants.PENDING;
+    const config = variants[status as keyof typeof variants] || { ...variants.PENDING, label: status };
     return (
-      <Badge variant={config.variant}>
+      <Badge variant={config.variant} className={config.className || ""}>
         {config.icon}
         {config.label}
       </Badge>
@@ -213,7 +240,65 @@ export default function ValidationOeuvresV2Page() {
 
   const handleViewDetails = (work: Work) => {
     setSelectedWork(work);
+    setEditingWork({});
+    setIsEditingWork(false);
     setShowDetailsModal(true);
+  };
+
+  const handleStartEdit = () => {
+    if (selectedWork) {
+      setEditingWork({
+        title: selectedWork.title,
+        description: selectedWork.description,
+        price: selectedWork.price,
+        category: selectedWork.category,
+        targetAudience: selectedWork.targetAudience,
+        educationalObjectives: selectedWork.educationalObjectives,
+        contentType: selectedWork.contentType,
+        keywords: selectedWork.keywords,
+      });
+      setIsEditingWork(true);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingWork({});
+    setIsEditingWork(false);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedWork) return;
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`/api/works`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workId: selectedWork.id,
+          ...editingWork,
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erreur lors de la modification');
+      }
+
+      toast.success("Œuvre modifiée avec succès");
+      setIsEditingWork(false);
+      setEditingWork({});
+      fetchWorks(); // Recharger la liste
+      
+      // Mettre à jour selectedWork avec les nouvelles données
+      const updatedData = await response.json();
+      setSelectedWork(updatedData);
+    } catch (error: any) {
+      console.error("Erreur lors de la modification:", error);
+      toast.error(error.message || "Erreur lors de la modification");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleValidate = (work: Work, action: 'approve' | 'reject') => {
@@ -480,26 +565,32 @@ export default function ValidationOeuvresV2Page() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleViewDetails(work)}
+                        title="Voir les détails"
                       >
-                        <Eye className="h-4 w-4" />
+                        <Eye className="h-4 w-4 mr-1" />
+                        <span className="hidden sm:inline">Voir</span>
                       </Button>
                       {work.status === "PENDING" && (
                         <>
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-green-600 hover:text-green-700"
+                            className="text-green-600 hover:text-green-700 hover:bg-green-50"
                             onClick={() => handleValidate(work, 'approve')}
+                            title="Valider et publier"
                           >
-                            <CheckCircle className="h-4 w-4" />
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            <span className="hidden sm:inline">Valider</span>
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-red-600 hover:text-red-700"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
                             onClick={() => handleValidate(work, 'reject')}
+                            title="Refuser"
                           >
-                            <XCircle className="h-4 w-4" />
+                            <XCircle className="h-4 w-4 mr-1" />
+                            <span className="hidden sm:inline">Refuser</span>
                           </Button>
                         </>
                       )}
@@ -533,51 +624,131 @@ export default function ValidationOeuvresV2Page() {
             const filesData = parseFiles(selectedWork.files);
             return (
             <div className="space-y-6">
-              {/* Informations générales */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium">Auteur</Label>
-                  <p className="text-sm">{selectedWork.concepteur?.name || selectedWork.author?.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {selectedWork.concepteur ? 'Concepteur' : 'Auteur'} - {selectedWork.concepteur?.email || selectedWork.author?.email}
-                  </p>
+              {isEditingWork ? (
+                /* Formulaire d'édition */
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="edit-title">Titre *</Label>
+                    <Input
+                      id="edit-title"
+                      value={editingWork.title || ''}
+                      onChange={(e) => setEditingWork({...editingWork, title: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-description">Description</Label>
+                    <Textarea
+                      id="edit-description"
+                      value={editingWork.description || ''}
+                      onChange={(e) => setEditingWork({...editingWork, description: e.target.value})}
+                      rows={4}
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="edit-price">Prix (FCFA)</Label>
+                      <Input
+                        id="edit-price"
+                        type="number"
+                        step="0.01"
+                        value={editingWork.price || ''}
+                        onChange={(e) => setEditingWork({...editingWork, price: parseFloat(e.target.value) || 0})}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-category">Catégorie</Label>
+                      <Input
+                        id="edit-category"
+                        value={editingWork.category || ''}
+                        onChange={(e) => setEditingWork({...editingWork, category: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-contentType">Type de contenu</Label>
+                      <Input
+                        id="edit-contentType"
+                        value={editingWork.contentType || ''}
+                        onChange={(e) => setEditingWork({...editingWork, contentType: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-targetAudience">Public cible</Label>
+                      <Input
+                        id="edit-targetAudience"
+                        value={editingWork.targetAudience || ''}
+                        onChange={(e) => setEditingWork({...editingWork, targetAudience: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-educationalObjectives">Objectifs pédagogiques</Label>
+                    <Textarea
+                      id="edit-educationalObjectives"
+                      value={editingWork.educationalObjectives || ''}
+                      onChange={(e) => setEditingWork({...editingWork, educationalObjectives: e.target.value})}
+                      rows={3}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-keywords">Mots-clés (séparés par des virgules)</Label>
+                    <Input
+                      id="edit-keywords"
+                      value={editingWork.keywords || ''}
+                      onChange={(e) => setEditingWork({...editingWork, keywords: e.target.value})}
+                      placeholder="mot-clé1, mot-clé2, mot-clé3"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <Label className="text-sm font-medium">Discipline</Label>
-                  <p className="text-sm">{selectedWork.discipline.name}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Catégorie</Label>
-                  <p className="text-sm">{selectedWork.category || 'Non spécifié'}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Type de contenu</Label>
-                  <p className="text-sm">{selectedWork.contentType || 'Non spécifié'}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Public cible</Label>
-                  <p className="text-sm">{selectedWork.targetAudience || 'Non spécifié'}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Prix suggéré</Label>
-                  <p className="text-sm">{selectedWork.price ? `${selectedWork.price.toFixed(2)} FCFA` : 'Non spécifié'}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Code interne</Label>
-                  <p className="text-sm font-mono">{selectedWork.internalCode || 'Non spécifié'}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Collection</Label>
-                  <p className="text-sm">{filesData.collectionId ? `ID: ${filesData.collectionId}` : 'Aucune collection'}</p>
-                </div>
-              </div>
+              ) : (
+                /* Vue en lecture seule */
+                <>
+                  {/* Informations générales */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium">Auteur</Label>
+                      <p className="text-sm">{selectedWork.concepteur?.name || selectedWork.author?.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {selectedWork.concepteur ? 'Concepteur' : 'Auteur'} - {selectedWork.concepteur?.email || selectedWork.author?.email}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Discipline</Label>
+                      <p className="text-sm">{selectedWork.discipline.name}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Catégorie</Label>
+                      <p className="text-sm">{selectedWork.category || 'Non spécifié'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Type de contenu</Label>
+                      <p className="text-sm">{selectedWork.contentType || 'Non spécifié'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Public cible</Label>
+                      <p className="text-sm">{selectedWork.targetAudience || 'Non spécifié'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Prix suggéré</Label>
+                      <p className="text-sm">{selectedWork.price ? `${selectedWork.price.toFixed(2)} FCFA` : 'Non spécifié'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Code interne</Label>
+                      <p className="text-sm font-mono">{selectedWork.internalCode || 'Non spécifié'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Collection</Label>
+                      <p className="text-sm">{filesData.collectionId ? `ID: ${filesData.collectionId}` : 'Aucune collection'}</p>
+                    </div>
+                  </div>
 
-              {/* Description */}
-              {selectedWork.description && (
-                <div>
-                  <Label className="text-sm font-medium">Description</Label>
-                  <p className="text-sm mt-1 whitespace-pre-wrap">{selectedWork.description}</p>
-                </div>
+                  {/* Description */}
+                  {selectedWork.description && (
+                    <div>
+                      <Label className="text-sm font-medium">Description</Label>
+                      <p className="text-sm mt-1 whitespace-pre-wrap">{selectedWork.description}</p>
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Objectifs pédagogiques */}
@@ -705,21 +876,48 @@ export default function ValidationOeuvresV2Page() {
           <DialogFooter>
             {selectedWork?.status === "PENDING" && (
               <>
-                <Button
-                  variant="outline"
-                  className="text-red-600 hover:text-red-700"
-                  onClick={() => handleValidate(selectedWork, 'reject')}
-                >
-                  <XCircle className="h-4 w-4 mr-2" />
-                  Refuser
-                </Button>
-                <Button
-                  className="bg-green-600 hover:bg-green-700"
-                  onClick={() => handleValidate(selectedWork, 'approve')}
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Valider et publier
-                </Button>
+                {!isEditingWork ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={handleStartEdit}
+                    >
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Modifier
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="text-red-600 hover:text-red-700"
+                      onClick={() => handleValidate(selectedWork, 'reject')}
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Refuser
+                    </Button>
+                    <Button
+                      className="bg-green-600 hover:bg-green-700"
+                      onClick={() => handleValidate(selectedWork, 'approve')}
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Valider et publier
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={handleCancelEdit}
+                      disabled={isSubmitting}
+                    >
+                      Annuler
+                    </Button>
+                    <Button
+                      onClick={handleSaveEdit}
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? "Enregistrement..." : "Enregistrer les modifications"}
+                    </Button>
+                  </>
+                )}
               </>
             )}
           </DialogFooter>

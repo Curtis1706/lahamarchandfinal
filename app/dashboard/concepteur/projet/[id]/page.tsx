@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -80,6 +80,7 @@ interface Work {
 export default function ProjectDetailsPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useCurrentUser();
   const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -92,6 +93,19 @@ export default function ProjectDetailsPage() {
       fetchProject();
     }
   }, [projectId]);
+
+  // Recharger les données quand on revient sur la page (ex: après modification)
+  useEffect(() => {
+    // Si on vient d'une modification (paramètre refreshed)
+    const refreshed = searchParams.get('refreshed');
+    if (refreshed === 'true' && projectId) {
+      fetchProject();
+      // Nettoyer l'URL après rechargement
+      setTimeout(() => {
+        router.replace(`/dashboard/concepteur/projet/${projectId}`);
+      }, 100);
+    }
+  }, [searchParams, projectId, router]);
 
   const fetchProject = async () => {
     try {
