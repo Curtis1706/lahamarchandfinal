@@ -26,12 +26,18 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({
+  // En développement, on log tout pour le debug
+  // En production, on log uniquement les erreurs critiques
   log: process.env.NODE_ENV === 'development' 
     ? ['query', 'error', 'warn'] 
     : ['error'],
   
   // Configuration du pool (les paramètres sont dans DATABASE_URL)
   // connection_limit, pool_timeout, connect_timeout sont gérés via l'URL
+  
+  // Note: Les erreurs "Connection Closed" sont normales avec PostgreSQL cloud (Neon)
+  // Prisma reconnexe automatiquement lors de la prochaine requête via le pool de connexions
+  errorFormat: 'minimal',
 })
 
 if (process.env.NODE_ENV !== 'production') {

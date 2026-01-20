@@ -810,26 +810,56 @@ export default function CreerOeuvrePage() {
             </div>
 
             <div className="space-y-2">
-                    <Label>Contenu principal</Label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                      <FileText className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-                      <Button type="button" variant="outline" size="sm">
-                        <Upload className="h-4 w-4 mr-2" />
-                        Choisir un fichier
+              <Label>Contenu principal</Label>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                <FileText className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                <label htmlFor="mainContentInput">
+                  <Button type="button" variant="outline" size="sm" asChild>
+                    <span>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Choisir un fichier
+                    </span>
                   </Button>
-                </div>
+                </label>
+                <input
+                  id="mainContentInput"
+                  type="file"
+                  accept=".pdf,.doc,.docx,.ppt,.pptx,.zip,.rar,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  multiple
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                <p className="mt-2 text-xs text-gray-500">
+                  Formats acceptés : PDF, Word, PowerPoint, ZIP (plusieurs fichiers possibles)
+                </p>
               </div>
+            </div>
 
-              <div className="space-y-2">
-                    <Label>Aperçu/Extrait</Label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                      <FileText className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-                      <Button type="button" variant="outline" size="sm">
-                        <Upload className="h-4 w-4 mr-2" />
-                        Choisir un aperçu
+            <div className="space-y-2">
+              <Label>Aperçu/Extrait</Label>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                <FileText className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                <label htmlFor="previewInput">
+                  <Button type="button" variant="outline" size="sm" asChild>
+                    <span>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Choisir un aperçu
+                    </span>
                   </Button>
-                    </div>
-                </div>
+                </label>
+                <input
+                  id="previewInput"
+                  type="file"
+                  accept=".pdf,.doc,.docx,.ppt,.pptx,image/*"
+                  multiple={false}
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                <p className="mt-2 text-xs text-gray-500">
+                  Un court extrait ou quelques pages pour que le PDG puisse prévisualiser l&apos;œuvre.
+                </p>
+              </div>
+            </div>
               </div>
 
                 {attachedFiles.length > 0 && (
