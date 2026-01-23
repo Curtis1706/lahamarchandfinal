@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -250,7 +251,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(defaultDepartments)
 
   } catch (error) {
-    console.error("Error fetching departments:", error)
+    logger.error("Error fetching departments:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
@@ -292,7 +293,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(newDepartment, { status: 201 })
 
   } catch (error) {
-    console.error("Error creating department:", error)
+    logger.error("Error creating department:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
@@ -332,7 +333,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(updatedDepartment)
 
   } catch (error) {
-    console.error("Error updating department:", error)
+    logger.error("Error updating department:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
@@ -359,7 +360,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true, message: "Département supprimé" })
 
   } catch (error) {
-    console.error("Error deleting department:", error)
+    logger.error("Error deleting department:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }

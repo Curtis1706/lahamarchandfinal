@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(userProfile)
 
   } catch (error: any) {
-    console.error('❌ Erreur lors de la récupération du profil:', error)
+    logger.error('❌ Erreur lors de la récupération du profil:', error)
     return NextResponse.json({ 
       error: 'Erreur lors de la récupération du profil: ' + error.message 
     }, { status: 500 })
@@ -94,7 +95,7 @@ export async function PUT(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ Erreur lors de la mise à jour du profil:', error)
+    logger.error('❌ Erreur lors de la mise à jour du profil:', error)
     return NextResponse.json({ 
       error: 'Erreur lors de la mise à jour du profil: ' + error.message 
     }, { status: 500 })

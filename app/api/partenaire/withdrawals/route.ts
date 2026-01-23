@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 /**
  * API Route pour les retraits des partenaires
  */
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
       message: "À implémenter avec le modèle PartnerWithdrawal dans Prisma"
     });
   } catch (error: any) {
-    console.error("Error fetching partner withdrawals:", error);
+    logger.error("Error fetching partner withdrawals:", error);
     return NextResponse.json(
       { error: "Erreur serveur", message: error.message },
       { status: 500 }
@@ -150,7 +151,7 @@ export async function POST(request: NextRequest) {
       withdrawal,
     });
   } catch (error: any) {
-    console.error("Error creating partner withdrawal:", error);
+    logger.error("Error creating partner withdrawal:", error);
     return NextResponse.json(
       { error: "Erreur serveur", message: error.message },
       { status: 500 }

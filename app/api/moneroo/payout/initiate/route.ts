@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 /**
  * Route API pour initier un retrait (payout) via Moneroo
  * 
@@ -138,7 +139,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!payoutResponse.success || !payoutResponse.data) {
-      console.error("❌ Failed to initiate Moneroo payout:", payoutResponse.error);
+      logger.error("❌ Failed to initiate Moneroo payout:", payoutResponse.error);
       
       // Marquer le retrait comme rejeté
       if (withdrawalType === "author") {
@@ -172,7 +173,7 @@ export async function POST(request: NextRequest) {
     // Le webhook Moneroo mettra à jour à "PAID" quand le paiement sera confirmé
     // Note: on ne met pas encore à PAID ici, on attend le webhook
     
-    console.log(`✅ Payout initiated for ${withdrawalType} withdrawal ${withdrawalId}: ${payoutResponse.data.payout_id}`);
+    logger.debug(`✅ Payout initiated for ${withdrawalType} withdrawal ${withdrawalId}: ${payoutResponse.data.payout_id}`);
 
     // Créer une notification pour le bénéficiaire
     await prisma.notification.create({
@@ -197,7 +198,7 @@ export async function POST(request: NextRequest) {
       beneficiary_name: payoutResponse.data.beneficiary_name,
     });
   } catch (error: any) {
-    console.error("❌ Error initiating payout:", error);
+    logger.error("❌ Error initiating payout:", error);
     return NextResponse.json(
       { error: "Internal server error", message: error.message },
       { status: 500 }
@@ -257,7 +258,7 @@ export async function GET(request: NextRequest) {
       payout: payoutDetails,
     });
   } catch (error: any) {
-    console.error("❌ Error getting payout status:", error);
+    logger.error("❌ Error getting payout status:", error);
     return NextResponse.json(
       { error: "Internal server error", message: error.message },
       { status: 500 }

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -87,7 +88,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(defaultZones)
 
   } catch (error) {
-    console.error("Error fetching zones:", error)
+    logger.error("Error fetching zones:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
@@ -129,7 +130,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(newZone, { status: 201 })
 
   } catch (error) {
-    console.error("Error creating zone:", error)
+    logger.error("Error creating zone:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
@@ -169,7 +170,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(updatedZone)
 
   } catch (error) {
-    console.error("Error updating zone:", error)
+    logger.error("Error updating zone:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
@@ -196,7 +197,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true, message: "Zone supprimée" })
 
   } catch (error) {
-    console.error("Error deleting zone:", error)
+    logger.error("Error deleting zone:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }

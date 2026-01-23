@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -6,7 +7,7 @@ import { Role } from "@prisma/client"
 
 export async function GET(req: Request) {
   try {
-    console.log("🔔 Starting partenaire notifications fetch...")
+    logger.debug("🔔 Starting partenaire notifications fetch...")
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
@@ -40,14 +41,14 @@ export async function GET(req: Request) {
             contact: user.name,
           }
         })
-        console.log("✅ Partenaire créé automatiquement pour l'utilisateur existant:", user.name)
+        logger.debug("✅ Partenaire créé automatiquement pour l'utilisateur existant:", user.name)
       } catch (partnerError: any) {
-        console.error("❌ Erreur lors de la création automatique du partenaire:", partnerError)
+        logger.error("❌ Erreur lors de la création automatique du partenaire:", partnerError)
         return NextResponse.json({ error: "Erreur lors de la création du partenaire" }, { status: 500 })
       }
     }
 
-    console.log("✅ User found:", user.name, user.role)
+    logger.debug("✅ User found:", user.name, user.role)
 
     // Récupérer les vraies notifications de la base de données
     const notifications = await prisma.notification.findMany({
@@ -79,12 +80,12 @@ export async function GET(req: Request) {
       highPriority: formattedNotifications.filter(n => n.priority === "high").length
     }
 
-    console.log("✅ Notifications prepared:", summary)
+    logger.debug("✅ Notifications prepared:", summary)
 
     return NextResponse.json({ notifications: formattedNotifications, summary })
 
   } catch (error) {
-    console.error("❌ Error fetching partenaire notifications:", error)
+    logger.error("❌ Error fetching partenaire notifications:", error)
     return NextResponse.json(
       { error: "Erreur lors du chargement des notifications" },
       { status: 500 }
@@ -94,7 +95,7 @@ export async function GET(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    console.log("🔔 Marking partenaire notifications as read...")
+    logger.debug("🔔 Marking partenaire notifications as read...")
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
@@ -128,7 +129,7 @@ export async function PATCH(req: Request) {
       }
     })
 
-    console.log(`✅ ${updateResult.count} notifications marquées comme lues`)
+    logger.debug(`✅ ${updateResult.count} notifications marquées comme lues`)
 
     return NextResponse.json({ 
       success: true, 
@@ -136,7 +137,7 @@ export async function PATCH(req: Request) {
     })
 
   } catch (error) {
-    console.error("❌ Error marking notifications as read:", error)
+    logger.error("❌ Error marking notifications as read:", error)
     return NextResponse.json(
       { error: "Erreur lors de la mise à jour des notifications" },
       { status: 500 }

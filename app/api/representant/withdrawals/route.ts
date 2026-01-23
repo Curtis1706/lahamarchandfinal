@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -83,7 +84,7 @@ export async function GET(request: NextRequest) {
     }, { status: 200 })
 
   } catch (error: any) {
-    console.error("Error fetching withdrawals:", error)
+    logger.error("Error fetching withdrawals:", error)
     return NextResponse.json(
       { error: "Erreur lors du chargement des retraits" },
       { status: 500 }
@@ -243,7 +244,7 @@ export async function POST(request: NextRequest) {
     }, { status: 201 })
 
   } catch (error: any) {
-    console.error("Error creating withdrawal:", error)
+    logger.error("Error creating withdrawal:", error)
     return NextResponse.json(
       { error: "Erreur lors de la création de la demande de retrait: " + error.message },
       { status: 500 }

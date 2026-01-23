@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from "next/server"
@@ -7,7 +8,7 @@ import { prisma } from "@/lib/prisma"
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("🔍 Getting current user...")
+    logger.debug("🔍 Getting current user...")
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
     }
 
-    console.log("✅ User found:", user.name, user.role)
+    logger.debug("✅ User found:", user.name, user.role)
 
     // Récupérer les commandes validées du représentant
     const validatedOrders = await prisma.order.findMany({
@@ -113,7 +114,7 @@ export async function GET(request: NextRequest) {
       recentCommissions: commissions.slice(0, 5) // 5 plus récentes
     }
 
-    console.log("✅ Commissions data prepared:", {
+    logger.debug("✅ Commissions data prepared:", {
       totalCommissions: Math.round(totalCommissions),
       paidCommissions: Math.round(paidCommissions),
       pendingCommissions: Math.round(pendingCommissions)
@@ -122,7 +123,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(response)
 
   } catch (error) {
-    console.error("❌ Error fetching commissions:", error)
+    logger.error("❌ Error fetching commissions:", error)
     return NextResponse.json(
       { error: "Erreur lors du chargement des commissions" },
       { status: 500 }

@@ -11,7 +11,7 @@ export class ApiClient {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`
-    
+
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
@@ -22,7 +22,7 @@ export class ApiClient {
 
     try {
       const response = await fetch(url, config)
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Erreur inconnue' }))
         const errorMessage = errorData.error || errorData.message || `HTTP ${response.status}`
@@ -50,13 +50,13 @@ export class ApiClient {
     return this.request('/users/profile')
   }
 
-  async createUser(data: { 
-    name: string, 
-    email: string, 
-    phone?: string, 
-    role: string, 
-    disciplineId?: string, 
-    password?: string 
+  async createUser(data: {
+    name: string,
+    email: string,
+    phone?: string,
+    role: string,
+    disciplineId?: string,
+    password?: string
   }) {
     return this.request('/users', {
       method: 'POST',
@@ -65,13 +65,13 @@ export class ApiClient {
   }
 
   // Inscription publique (pour les utilisateurs)
-  async signup(data: { 
-    name: string, 
-    email: string, 
-    phone: string, 
-    role: string, 
-    disciplineId?: string, 
-    password: string 
+  async signup(data: {
+    name: string,
+    email: string,
+    phone: string,
+    role: string,
+    disciplineId?: string,
+    password: string
   }) {
     return this.request('/auth/signup', {
       method: 'POST',
@@ -101,7 +101,7 @@ export class ApiClient {
     const params = new URLSearchParams()
     if (role) params.append('role', role)
     if (search) params.append('search', search)
-    
+
     return this.request(`/users/list?${params.toString()}`)
   }
 
@@ -118,13 +118,13 @@ export class ApiClient {
     if (params?.status) queryParams.append('status', params.status)
     if (params?.startDate) queryParams.append('startDate', params.startDate)
     if (params?.endDate) queryParams.append('endDate', params.endDate)
-    
+
     const queryString = queryParams.toString()
     return this.request(`/orders${queryString ? `?${queryString}` : ''}`)
   }
 
-  async createOrder(data: { 
-    userId: string, 
+  async createOrder(data: {
+    userId: string,
     items: Array<{ workId: string, quantity: number, price: number }>,
     promoCode?: string | null,
     discountAmount?: number
@@ -158,7 +158,7 @@ export class ApiClient {
     if (params?.startDate) queryParams.append('startDate', params.startDate)
     if (params?.endDate) queryParams.append('endDate', params.endDate)
     if (params?.type) queryParams.append('movementType', params.type)
-    
+
     return this.request(`/stock?${queryParams}`)
   }
 
@@ -193,7 +193,7 @@ export class ApiClient {
     if (params?.startDate) queryParams.append('startDate', params.startDate)
     if (params?.endDate) queryParams.append('endDate', params.endDate)
     if (params?.format) queryParams.append('format', params.format)
-    
+
     const queryString = queryParams.toString()
     return this.request(`/stock/export${queryString ? `?${queryString}` : ''}`)
   }
@@ -206,10 +206,10 @@ export class ApiClient {
     if (params?.search) queryParams.append('search', params.search)
     if (params?.page) queryParams.append('page', params.page.toString())
     if (params?.limit) queryParams.append('limit', params.limit.toString())
-    
+
     const queryString = queryParams.toString()
     const response = await this.request(`/works${queryString ? `?${queryString}` : ''}`)
-    
+
     // L'API retourne { works, pagination, stats }, on extrait juste works
     return response.works || response || []
   }
@@ -237,12 +237,12 @@ export class ApiClient {
     return this.request('/projects?status=ACCEPTED')
   }
 
-  async createProject(data: { 
-    title: string, 
-    disciplineId: string, 
-    concepteurId: string, 
+  async createProject(data: {
+    title: string,
+    disciplineId: string,
+    concepteurId: string,
     description?: string,
-    status?: string 
+    status?: string
   }) {
     return this.request('/projects', {
       method: 'POST',
@@ -432,7 +432,7 @@ export class ApiClient {
     const params = new URLSearchParams()
     if (type) params.append('type', type)
     if (entityId) params.append('entityId', entityId)
-    
+
     return this.request(`/upload?${params.toString()}`)
   }
 
@@ -441,7 +441,7 @@ export class ApiClient {
     const queryParams = new URLSearchParams()
     if (params?.search) queryParams.append('search', params.search)
     if (params?.includeInactive) queryParams.append('includeInactive', 'true')
-    
+
     const queryString = queryParams.toString()
     return this.request(`/disciplines${queryString ? `?${queryString}` : ''}`)
   }
@@ -480,7 +480,7 @@ export class ApiClient {
     if (params?.status) queryParams.append('status', params.status)
     if (params?.page) queryParams.append('page', params.page.toString())
     if (params?.limit) queryParams.append('limit', params.limit.toString())
-    
+
     const queryString = queryParams.toString()
     return this.request(`/partners${queryString ? `?${queryString}` : ''}`)
   }
@@ -503,7 +503,7 @@ export class ApiClient {
     const params = new URLSearchParams({ type: 'overview' })
     if (startDate) params.append('startDate', startDate)
     if (endDate) params.append('endDate', endDate)
-    
+
     return this.request(`/finance?${params}`)
   }
 
@@ -513,7 +513,7 @@ export class ApiClient {
     if (endDate) params.append('endDate', endDate)
     if (disciplineId) params.append('disciplineId', disciplineId)
     if (partnerId) params.append('partnerId', partnerId)
-    
+
     return this.request(`/finance?${params}`)
   }
 
@@ -521,7 +521,7 @@ export class ApiClient {
     const params = new URLSearchParams({ type: 'royalties' })
     if (startDate) params.append('startDate', startDate)
     if (endDate) params.append('endDate', endDate)
-    
+
     return this.request(`/finance?${params}`)
   }
 
@@ -529,7 +529,7 @@ export class ApiClient {
     const params = new URLSearchParams({ type: 'partner_performance' })
     if (startDate) params.append('startDate', startDate)
     if (endDate) params.append('endDate', endDate)
-    
+
     return this.request(`/finance?${params}`)
   }
 
@@ -539,7 +539,7 @@ export class ApiClient {
     if (params?.startDate) queryParams.append('startDate', params.startDate)
     if (params?.endDate) queryParams.append('endDate', params.endDate)
     if (params?.format) queryParams.append('format', params.format)
-    
+
     const queryString = queryParams.toString()
     return this.request(`/finance/export${queryString ? `?${queryString}` : ''}`)
   }
@@ -809,7 +809,7 @@ export class ApiClient {
     const params = new URLSearchParams()
     if (filters?.status) params.append('status', filters.status)
     if (filters?.disciplineId) params.append('disciplineId', filters.disciplineId)
-    
+
     const queryString = params.toString()
     return this.request(`/representant/authors${queryString ? `?${queryString}` : ''}`)
   }
@@ -842,7 +842,7 @@ export class ApiClient {
     const params = new URLSearchParams()
     if (filters?.status) params.append('status', filters.status)
     if (filters?.disciplineId) params.append('disciplineId', filters.disciplineId)
-    
+
     const queryString = params.toString()
     return this.request(`/representant/works${queryString ? `?${queryString}` : ''}`)
   }
@@ -906,6 +906,19 @@ export class ApiClient {
     return this.request(`/concepteur/works?${params}`)
   }
 
+  async updateConcepteurWork(workId: string, data: any) {
+    return this.request('/concepteur/works', {
+      method: 'PUT',
+      body: JSON.stringify({ workId, ...data })
+    })
+  }
+
+  async deleteConcepteurWork(workId: string) {
+    return this.request(`/concepteur/works?id=${workId}`, {
+      method: 'DELETE'
+    })
+  }
+
   // Représentant - Partenaires
   async getRepresentantPartners(filters?: { status?: string; type?: string; search?: string }) {
     const params = new URLSearchParams()
@@ -915,14 +928,14 @@ export class ApiClient {
     return this.request(`/representant/partners?${params}`)
   }
 
-  async createRepresentantPartner(data: { 
-    name: string; 
-    type: string; 
-    contact: string; 
-    email?: string; 
-    phone?: string; 
-    address?: string; 
-    website?: string; 
+  async createRepresentantPartner(data: {
+    name: string;
+    type: string;
+    contact: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    website?: string;
     description?: string;
     userData: { name: string; email: string; phone?: string; password: string }
   }) {
@@ -1171,7 +1184,7 @@ export class ApiClient {
     if (params?.status) queryParams.append('status', params.status)
     if (params?.page) queryParams.append('page', params.page.toString())
     if (params?.limit) queryParams.append('limit', params.limit.toString())
-    
+
     const query = queryParams.toString()
     return this.request(`/pdg/proforma${query ? `?${query}` : ''}`)
   }

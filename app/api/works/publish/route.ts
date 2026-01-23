@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -109,7 +110,7 @@ export async function POST(request: NextRequest) {
           }
         })
       } catch (notifError) {
-        console.error("Erreur lors de la création de la notification:", notifError)
+        logger.error("Erreur lors de la création de la notification:", notifError)
       }
 
       return NextResponse.json({
@@ -168,7 +169,7 @@ export async function POST(request: NextRequest) {
           }
         })
       } catch (notifError) {
-        console.error("Erreur lors de la création de la notification:", notifError)
+        logger.error("Erreur lors de la création de la notification:", notifError)
       }
 
       return NextResponse.json({
@@ -220,7 +221,7 @@ export async function POST(request: NextRequest) {
           }
         })
       } catch (notifError) {
-        console.error("Erreur lors de la création de la notification:", notifError)
+        logger.error("Erreur lors de la création de la notification:", notifError)
       }
 
       return NextResponse.json({
@@ -234,7 +235,7 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error: any) {
-    console.error("Error publishing/rejecting work:", error)
+    logger.error("Error publishing/rejecting work:", error)
     return NextResponse.json({ 
       error: error.message || "Erreur lors de la publication/refus du livre" 
     }, { status: 500 })

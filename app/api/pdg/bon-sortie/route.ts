@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -115,7 +116,7 @@ export async function GET(request: NextRequest) {
           prisma.deliveryNote.count({ where })
         ])
       } catch (includeError: any) {
-        console.error('Error with includes, trying without relations:', includeError)
+        logger.error('Error with includes, trying without relations:', includeError)
         // Si l'inclusion des relations échoue, essayer sans relations
         try {
           [deliveryNotes, total] = await Promise.all([
@@ -128,16 +129,16 @@ export async function GET(request: NextRequest) {
             prisma.deliveryNote.count({ where })
           ])
         } catch (simpleError: any) {
-          console.error('Error even without includes:', simpleError)
+          logger.error('Error even without includes:', simpleError)
           // En dernier recours, retourner un tableau vide
           deliveryNotes = []
           total = 0
         }
       }
     } catch (dbError: any) {
-      console.error('Database error in bon-sortie GET:', dbError)
-      console.error('Error message:', dbError.message)
-      console.error('Error code:', dbError.code)
+      logger.error('Database error in bon-sortie GET:', dbError)
+      logger.error('Error message:', dbError.message)
+      logger.error('Error code:', dbError.code)
       
       // Pour toute erreur de base de données, retourner un tableau vide
       return NextResponse.json({
@@ -186,7 +187,7 @@ export async function GET(request: NextRequest) {
               }))
             }
           } catch (orderError: any) {
-            console.error('Error processing order data:', orderError)
+            logger.error('Error processing order data:', orderError)
             orderData = {
               id: note.order?.id || '',
               reference: 'N/A',
@@ -232,9 +233,9 @@ export async function GET(request: NextRequest) {
           })()
         }
       } catch (mapError: any) {
-        console.error('Error mapping delivery note:', mapError)
-        console.error('Note ID:', note?.id)
-        console.error('Note data:', JSON.stringify(note, null, 2))
+        logger.error('Error mapping delivery note:', mapError)
+        logger.error('Note ID:', note?.id)
+        logger.error('Note data:', JSON.stringify(note, null, 2))
         return {
           id: note?.id || 'unknown',
           reference: note?.reference || 'N/A',
@@ -267,8 +268,8 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error: any) {
-    console.error('Error fetching delivery notes:', error)
-    console.error('Error details:', error.message, error.stack)
+    logger.error('Error fetching delivery notes:', error)
+    logger.error('Error details:', error.message, error.stack)
     return NextResponse.json(
       { 
         error: 'Erreur lors de la récupération des bons de sortie',
@@ -371,7 +372,7 @@ export async function POST(request: NextRequest) {
       }
     })
   } catch (error: any) {
-    console.error('Error creating delivery note:', error)
+    logger.error('Error creating delivery note:', error)
     return NextResponse.json(
       { error: error.message || 'Erreur lors de la création du bon de sortie' },
       { status: 500 }
@@ -466,7 +467,7 @@ export async function PUT(request: NextRequest) {
       }
     })
   } catch (error: any) {
-    console.error('Error updating delivery note:', error)
+    logger.error('Error updating delivery note:', error)
     return NextResponse.json(
       { error: error.message || 'Erreur lors de la mise à jour du bon de sortie' },
       { status: 500 }

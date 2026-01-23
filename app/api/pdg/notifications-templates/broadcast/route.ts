@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
       // Envoyer à des utilisateurs spécifiques
       recipients = targetUserIds.map((id: string) => ({ id }))
     } else if (targetRoles && Array.isArray(targetRoles) && targetRoles.length > 0) {
-      // Envoyer à des rôles spécifiques
+      // Envoyer à des rôles spécifiques (limité pour éviter surcharge)
       const users = await prisma.user.findMany({
         where: {
           role: {
@@ -53,18 +54,22 @@ export async function POST(request: NextRequest) {
         },
         select: {
           id: true
-        }
+        },
+        take: 1000, // Limiter à 1000 utilisateurs max par rôle
+        orderBy: { createdAt: 'desc' }
       })
       recipients = users
     } else {
-      // Par défaut, envoyer à tous les utilisateurs actifs
+      // Par défaut, envoyer à tous les utilisateurs actifs (LIMITÉ pour éviter surcharge)
       const users = await prisma.user.findMany({
         where: {
           status: 'ACTIVE'
         },
         select: {
           id: true
-        }
+        },
+        take: 1000, // CRITIQUE: Limiter à 1000 pour éviter surcharge mémoire
+        orderBy: { createdAt: 'desc' }
       })
       recipients = users
     }
@@ -106,7 +111,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error("Error broadcasting notification template:", error)
+    logger.error("Error broadcasting notification template:", error)
     return NextResponse.json({ error: "Internal Server Error", message: error.message }, { status: 500 })
   }
 }

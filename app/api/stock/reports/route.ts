@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -84,7 +85,7 @@ export async function GET(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error("Erreur lors de la récupération des rapports:", error)
+    logger.error("Erreur lors de la récupération des rapports:", error)
     return NextResponse.json(
       { error: "Erreur interne du serveur" },
       { status: 500 }
@@ -144,7 +145,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(newReport, { status: 201 })
 
   } catch (error) {
-    console.error("Erreur lors de la création du rapport:", error)
+    logger.error("Erreur lors de la création du rapport:", error)
     return NextResponse.json(
       { error: "Erreur interne du serveur" },
       { status: 500 }
@@ -202,7 +203,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(updatedReport)
 
   } catch (error) {
-    console.error("Erreur lors de la mise à jour du rapport:", error)
+    logger.error("Erreur lors de la mise à jour du rapport:", error)
     return NextResponse.json(
       { error: "Erreur interne du serveur" },
       { status: 500 }
@@ -250,7 +251,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ message: "Rapport supprimé avec succès" })
 
   } catch (error) {
-    console.error("Erreur lors de la suppression du rapport:", error)
+    logger.error("Erreur lors de la suppression du rapport:", error)
     return NextResponse.json(
       { error: "Erreur interne du serveur" },
       { status: 500 }

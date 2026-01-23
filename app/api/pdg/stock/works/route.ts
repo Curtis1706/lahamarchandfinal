@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -130,7 +131,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('Erreur lors de la récupération des œuvres:', error)
+    logger.error('Erreur lors de la récupération des œuvres:', error)
     return NextResponse.json(
       { error: 'Erreur interne du serveur' },
       { status: 500 }
@@ -331,7 +332,7 @@ export async function POST(request: NextRequest) {
     }, { status: id ? 200 : 201 })
 
   } catch (error: any) {
-    console.error('Erreur lors de la création/modification de l\'œuvre:', error)
+    logger.error('Erreur lors de la création/modification de l\'œuvre:', error)
     return NextResponse.json(
       { error: 'Erreur interne du serveur' },
       { status: 500 }

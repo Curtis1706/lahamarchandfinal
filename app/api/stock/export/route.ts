@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -249,7 +250,7 @@ export async function GET(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error("Erreur lors de l'export:", error)
+    logger.error("Erreur lors de l'export:", error)
     return NextResponse.json(
       { error: "Erreur interne du serveur" },
       { status: 500 }

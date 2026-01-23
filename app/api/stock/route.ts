@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -414,7 +415,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Type parameter required" }, { status: 400 })
     }
   } catch (error) {
-    console.error("Error fetching stock data:", error)
+    logger.error("Error fetching stock data:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
@@ -474,7 +475,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(movement, { status: 201 })
   } catch (error) {
-    console.error("Error creating stock movement:", error)
+    logger.error("Error creating stock movement:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
@@ -494,9 +495,9 @@ export async function PUT(request: NextRequest) {
     if (approved) {
       // Créer un mouvement de stock approuvé
       // Cette logique dépendra de votre implémentation spécifique
-      console.log(`Operation ${operationId} approved by user ${userId}`)
+      logger.debug(`Operation ${operationId} approved by user ${userId}`)
     } else {
-      console.log(`Operation ${operationId} rejected by user ${userId}`)
+      logger.debug(`Operation ${operationId} rejected by user ${userId}`)
     }
 
     return NextResponse.json({ 
@@ -504,7 +505,7 @@ export async function PUT(request: NextRequest) {
       message: approved ? "Operation approved" : "Operation rejected" 
     })
   } catch (error) {
-    console.error("Error validating operation:", error)
+    logger.error("Error validating operation:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
@@ -543,7 +544,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true, message: "Movement deleted and stock adjusted" })
   } catch (error) {
-    console.error("Error deleting movement:", error)
+    logger.error("Error deleting movement:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden - PDG role required" }, { status: 403 })
     }
 
-    // Récupérer les templates depuis la base de données
+    // Récupérer les templates depuis la base de données (limité à 50)
     const templates = await prisma.notificationTemplate.findMany({
       include: {
         createdBy: {
@@ -37,7 +38,8 @@ export async function GET(request: NextRequest) {
       },
       orderBy: {
         createdAt: 'desc'
-      }
+      },
+      take: 50 // Limiter à 50 templates (largement suffisant)
     })
 
     // Formater les templates pour le frontend
@@ -56,13 +58,13 @@ export async function GET(request: NextRequest) {
       }),
       dateModification: template.updatedAt.getTime() !== template.createdAt.getTime()
         ? template.updatedAt.toLocaleString('fr-FR', {
-            weekday: 'short',
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })
+          weekday: 'short',
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        })
         : "Pas de modification",
       creePar: template.createdBy.name || "PDG Administrateur",
       texte: template.texte,
@@ -119,7 +121,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(formattedTemplates)
 
   } catch (error: any) {
-    console.error("Error fetching notification templates:", error)
+    logger.error("Error fetching notification templates:", error)
     return NextResponse.json({ error: "Internal Server Error", message: error.message }, { status: 500 })
   }
 }
@@ -194,7 +196,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(formattedTemplate, { status: 201 })
 
   } catch (error: any) {
-    console.error("Error creating notification template:", error)
+    logger.error("Error creating notification template:", error)
     return NextResponse.json({ error: "Internal Server Error", message: error.message }, { status: 500 })
   }
 }
@@ -283,7 +285,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(formattedTemplate)
 
   } catch (error: any) {
-    console.error("Error updating notification template:", error)
+    logger.error("Error updating notification template:", error)
     return NextResponse.json({ error: "Internal Server Error", message: error.message }, { status: 500 })
   }
 }
@@ -315,7 +317,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true, message: "Template supprimé" })
 
   } catch (error: any) {
-    console.error("Error deleting template:", error)
+    logger.error("Error deleting template:", error)
     if (error.code === 'P2025') {
       return NextResponse.json({ error: "Template non trouvé" }, { status: 404 })
     }

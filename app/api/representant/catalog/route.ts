@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from "next/server"
@@ -7,7 +8,7 @@ import { prisma } from "@/lib/prisma"
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("🔍 Getting current user...")
+    logger.debug("🔍 Getting current user...")
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
     }
 
-    console.log("✅ User found:", user.name, user.role)
+    logger.debug("✅ User found:", user.name, user.role)
 
     // Récupérer les œuvres publiées
     // Le représentant doit voir les mêmes livres que les clients (statut PUBLISHED)
@@ -112,7 +113,7 @@ export async function GET(request: NextRequest) {
       }))
     }
 
-    console.log("✅ Catalog data prepared:", {
+    logger.debug("✅ Catalog data prepared:", {
       totalWorks,
       totalValue: Math.round(totalValue),
       disciplines: disciplines.length
@@ -121,7 +122,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(response)
 
   } catch (error) {
-    console.error("❌ Error fetching catalog:", error)
+    logger.error("❌ Error fetching catalog:", error)
     return NextResponse.json(
       { error: "Erreur lors du chargement du catalogue" },
       { status: 500 }

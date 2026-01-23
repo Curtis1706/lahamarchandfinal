@@ -70,14 +70,7 @@ const contentTypes = [
   { value: "AUTRE", label: "Autre" },
 ];
 
-const categories = [
-  { value: "FICTION", label: "Fiction" },
-  { value: "NON_FICTION", label: "Non-Fiction" },
-  { value: "PEDAGOGIE", label: "Pédagogie" },
-  { value: "RECHERCHE", label: "Recherche" },
-  { value: "ART", label: "Art" },
-  { value: "TECHNIQUE", label: "Technique" },
-];
+// Les catégories seront chargées dynamiquement depuis l'API
 
 export default function NouvelleOeuvrePage() {
   const { user, isLoading: userLoading } = useCurrentUser();
@@ -89,6 +82,7 @@ export default function NouvelleOeuvrePage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [authors, setAuthors] = useState<Author[]>([]);
   const [collections, setCollections] = useState<Array<{ id: string; name: string }>>([]);
+  const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
@@ -119,13 +113,14 @@ export default function NouvelleOeuvrePage() {
       loadProjects();
       loadAuthors();
       loadCollections();
+      loadCategories();
     }
   }, [user]);
 
   const loadDisciplines = async () => {
     try {
       const data = await apiClient.getDisciplines();
-      setDisciplines(data || []);
+      setDisciplines((data as any[]) || []);
     } catch (error) {
       console.error("Error loading disciplines:", error);
     }
@@ -135,12 +130,15 @@ export default function NouvelleOeuvrePage() {
     try {
       setIsLoadingProjects(true);
       const data = await apiClient.getConcepteurProjects(user?.id || "");
+      // Gérer le cas où l'API retourne un objet avec une propriété projects
+      const projectsArray = Array.isArray(data) ? data : ((data as any)?.projects || []);
       // Filtrer uniquement les projets acceptés
-      const acceptedProjects = (data || []).filter((p: Project) => p.status === "ACCEPTED");
+      const acceptedProjects = projectsArray.filter((p: Project) => p.status === "ACCEPTED");
       setProjects(acceptedProjects);
     } catch (error) {
       console.error("Error loading projects:", error);
       toast.error("Erreur lors du chargement des projets");
+      setProjects([]); // Set empty array on error
     } finally {
       setIsLoadingProjects(false);
     }
@@ -148,10 +146,10 @@ export default function NouvelleOeuvrePage() {
 
   const loadAuthors = async () => {
     try {
-      const response = await fetch("/api/pdg/users?role=AUTEUR");
+      const response = await fetch("/api/concepteur/authors");
       if (response.ok) {
         const data = await response.json();
-        setAuthors(data.users || []);
+        setAuthors(Array.isArray(data) ? data : (data.users || []));
       }
     } catch (error) {
       console.error("Error loading authors:", error);
@@ -160,13 +158,25 @@ export default function NouvelleOeuvrePage() {
 
   const loadCollections = async () => {
     try {
-      const response = await fetch("/api/pdg/collections");
+      const response = await fetch("/api/concepteur/collections");
       if (response.ok) {
         const data = await response.json();
-        setCollections(data || []);
+        setCollections(Array.isArray(data) ? data : []);
       }
     } catch (error) {
       console.error("Error loading collections:", error);
+    }
+  };
+
+  const loadCategories = async () => {
+    try {
+      const response = await fetch("/api/concepteur/categories");
+      if (response.ok) {
+        const data = await response.json();
+        setCategories(Array.isArray(data) ? data : []);
+      }
+    } catch (error) {
+      console.error("Error loading categories:", error);
     }
   };
 
@@ -262,12 +272,12 @@ export default function NouvelleOeuvrePage() {
         const formDataImage = new FormData();
         formDataImage.append('file', coverImage);
         formDataImage.append('type', 'cover');
-        
+
         const uploadResponse = await fetch('/api/upload', {
           method: 'POST',
           body: formDataImage
         });
-        
+
         if (uploadResponse.ok) {
           const uploadData = await uploadResponse.json();
           coverImageUrl = uploadData.url;
@@ -472,7 +482,6 @@ export default function NouvelleOeuvrePage() {
                         <SelectValue placeholder="Sélectionner un projet (optionnel)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Aucun projet</SelectItem>
                         {projects.map((project) => (
                           <SelectItem key={project.id} value={project.id}>
                             {project.title}
@@ -491,7 +500,6 @@ export default function NouvelleOeuvrePage() {
                         <SelectValue placeholder="Sélectionner une collection (optionnel)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Aucune collection</SelectItem>
                         {collections.map((collection) => (
                           <SelectItem key={collection.id} value={collection.id}>
                             {collection.name}
@@ -558,8 +566,8 @@ export default function NouvelleOeuvrePage() {
                       </SelectTrigger>
                       <SelectContent>
                         {categories.map((cat) => (
-                          <SelectItem key={cat.value} value={cat.value}>
-                            {cat.label}
+                          <SelectItem key={cat.id} value={cat.name}>
+                            {cat.name}
                           </SelectItem>
                         ))}
                       </SelectContent>

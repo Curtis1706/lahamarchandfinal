@@ -6,7 +6,7 @@ import { authOptions } from '@/lib/auth';
 // POST /api/works - Créer une œuvre (nouveau workflow)
 export async function POST(request: NextRequest) {
   console.log("🔍 API POST /works - Création d'œuvre par Concepteur");
-  
+
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     console.log("🔍 Body reçu:", body);
-    
+
     const {
       title,
       description,
@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
       educationalObjectives,
       contentType,
       estimatedPrice = 0,
+      price, // Support du champ 'price' envoyé par le CONCEPTEUR
       keywords = [],
       files = [],
       status = "PENDING",
@@ -35,17 +36,20 @@ export async function POST(request: NextRequest) {
       isbn,
       internalCode
     } = body;
-    
-    console.log("🔍 Données extraites:", { 
-      title, 
+
+    // Utiliser 'price' si fourni, sinon 'estimatedPrice'
+    const finalPrice = price !== undefined && price !== null ? price : estimatedPrice;
+
+    console.log("🔍 Données extraites:", {
+      title,
       description,
-      disciplineId, 
-      authorId, 
+      disciplineId,
+      authorId,
       projectId,
       contentType,
-      status 
+      status
     });
-    
+
     console.log("🔍 Description reçue:", {
       description,
       type: typeof description,
@@ -58,7 +62,7 @@ export async function POST(request: NextRequest) {
     if (!title?.trim()) {
       return NextResponse.json({ error: "Le titre de l'œuvre est obligatoire" }, { status: 400 });
     }
-    
+
     if (!description?.trim()) {
       return NextResponse.json({ error: "La description de l'œuvre est obligatoire" }, { status: 400 });
     }
@@ -78,7 +82,8 @@ export async function POST(request: NextRequest) {
     // Les auteurs ne peuvent créer que pour eux-mêmes
     // Les PDG peuvent créer pour n'importe qui
     const concepteurId = body.concepteurId || null;
-    if (session.user.role === "AUTEUR" && session.user.id !== authorId && session.user.role !== "PDG") {
+    if (session.user.role === "AUTEUR" && session.user.id !== authorId) {
+      // Les PDG et CONCEPTEUR ne sont pas concernés par cette condition car role === "AUTEUR" filtre déjà
       return NextResponse.json({ error: "Vous ne pouvez créer une œuvre que pour vous-même" }, { status: 403 });
     }
 
@@ -111,10 +116,10 @@ export async function POST(request: NextRequest) {
     if (projectId) {
       project = await prisma.project.findUnique({
         where: { id: projectId },
-        select: { 
-          id: true, 
-          title: true, 
-          status: true, 
+        select: {
+          id: true,
+          title: true,
+          status: true,
           concepteurId: true,
           concepteur: { select: { id: true, name: true, email: true } },
           discipline: { select: { name: true } }
@@ -141,8 +146,26 @@ export async function POST(request: NextRequest) {
       finalConcepteurId = session.user.id;
     }
 
-    // Générer un ISBN unique temporaire si non fourni
-    const workIsbn = isbn || `978-${Date.now().toString().slice(-9)}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+    // Générer un ISBN unique si non fourni
+    let workIsbn = isbn;
+
+    if (!workIsbn) {
+      // Boucle jusqu'à trouver un ISBN unique
+      let isUnique = false;
+      while (!isUnique) {
+        // Générer un ISBN plus unique avec timestamp + random
+        const timestamp = Date.now();
+        const random = Math.floor(Math.random() * 100000);
+        workIsbn = `978-${timestamp.toString().slice(-9)}-${random.toString().padStart(5, '0')}`;
+
+        // Vérifier si cet ISBN existe déjà
+        const existing = await prisma.work.findUnique({
+          where: { isbn: workIsbn }
+        });
+
+        isUnique = !existing;
+      }
+    }
 
     // Créer l'œuvre
     const work = await prisma.work.create({
@@ -151,27 +174,27 @@ export async function POST(request: NextRequest) {
         description: description.trim(),
         isbn: workIsbn,
         internalCode: internalCode?.trim() || null,
-        price: estimatedPrice,
+        price: finalPrice || 0,
         tva: 0.18,
         stock: 0,
         minStock: 0,
-        
+
         // Nouveaux champs
         category: category || null,
         targetAudience: targetAudience || null,
         educationalObjectives: educationalObjectives?.trim() || null,
         contentType: contentType,
         keywords: keywords.length > 0 ? keywords.join(',') : null,
-        files: files.length > 0 || coverImage || collectionId ? JSON.stringify({ 
+        files: files.length > 0 || coverImage || collectionId ? JSON.stringify({
           files: files.length > 0 ? files : [],
           coverImage: coverImage || null,
           collectionId: collectionId || null
         }) : null,
-        
+
         // Statut et dates
         status: status,
         submittedAt: status === "PENDING" ? new Date() : null,
-        
+
         // Relations
         discipline: { connect: { id: disciplineId } },
         author: { connect: { id: authorId } },
@@ -296,7 +319,7 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     console.log("🔍 GET /api/works - Session:", session?.user ? { id: session.user.id, role: session.user.role, email: session.user.email } : "Non authentifié");
-    
+
     if (!session?.user) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
@@ -348,7 +371,7 @@ export async function GET(request: NextRequest) {
       // (pour l'instant, on laisse le PDG voir tout)
       console.log("🔍 PDG - Pas de restriction, récupération de tous les works");
     }
-    
+
     console.log("🔍 Where clause construite:", JSON.stringify(whereClause, null, 2));
 
     // Pour le PDG, si la clause WHERE est vide, on récupère tous les works
@@ -360,64 +383,64 @@ export async function GET(request: NextRequest) {
     let total = 0
 
     try {
-      
+
       // Essayer d'abord avec les relations
       try {
         [works, total] = await Promise.all([
-      prisma.work.findMany({
+          prisma.work.findMany({
             where: whereForQuery,
-        include: {
-          author: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              role: true
-            }
-          },
-          discipline: {
-            select: {
-              id: true,
-              name: true
-            }
-          },
-          project: {
-            select: {
-              id: true,
-              title: true,
-              status: true
-            }
-          },
-          concepteur: {
-            select: {
-              id: true,
-              name: true,
-              email: true
-            }
-          },
-          reviewer: {
-            select: {
-              id: true,
-              name: true,
-              email: true
-            }
-          }
-        },
-        orderBy: {
-          createdAt: 'desc'
-        },
-        skip,
-        take: limit
-      }),
+            include: {
+              author: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  role: true
+                }
+              },
+              discipline: {
+                select: {
+                  id: true,
+                  name: true
+                }
+              },
+              project: {
+                select: {
+                  id: true,
+                  title: true,
+                  status: true
+                }
+              },
+              concepteur: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true
+                }
+              },
+              reviewer: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true
+                }
+              }
+            },
+            orderBy: {
+              createdAt: 'desc'
+            },
+            skip,
+            take: limit
+          }),
           prisma.work.count({ where: whereForQuery })
         ])
       } catch (relationError: any) {
         console.error('❌ Erreur avec les relations:', relationError);
         console.error('❌ Message:', relationError.message);
         // Si l'erreur vient des relations, essayer sans relations
-        if (relationError.message?.includes('Record to update not found') || 
-            relationError.message?.includes('Foreign key constraint') ||
-            relationError.code === 'P2025') {
+        if (relationError.message?.includes('Record to update not found') ||
+          relationError.message?.includes('Foreign key constraint') ||
+          relationError.code === 'P2025') {
           console.warn('⚠️ Problème de relation détecté, tentative sans relations');
           [works, total] = await Promise.all([
             prisma.work.findMany({
@@ -450,14 +473,14 @@ export async function GET(request: NextRequest) {
           throw relationError;
         }
       }
-      
+
       console.log(`🔍 Requête réussie: ${works.length} works trouvés sur ${total} total`);
-      
+
       // Si aucun work n'est retourné mais que total > 0, il y a un problème
       if (works.length === 0 && total > 0) {
         console.warn(`⚠️ PROBLÈME: total=${total} mais works.length=0`);
         console.warn(`⚠️ Skip=${skip}, Take=${limit}, Page=${page}`);
-        
+
         // Essayer une requête sans relations pour voir si le problème vient des relations
         try {
           const worksWithoutRelations = await prisma.work.findMany({
@@ -505,7 +528,7 @@ export async function GET(request: NextRequest) {
           console.error("❌ Erreur requête sans relations:", noRelError);
         }
       }
-      
+
       // Si toujours 0 works, essayer une requête complètement sans filtres avec SQL brut
       if (works.length === 0 && session.user.role === "PDG") {
         console.warn(`⚠️ PDG: Aucun work trouvé, tentative avec SQL brut sans filtres`);
@@ -529,7 +552,7 @@ export async function GET(request: NextRequest) {
             LIMIT $1`,
             limit
           );
-          
+
           // Transformer les résultats SQL en format Prisma
           works = allWorksRaw.map((row: any) => ({
             id: row.id,
@@ -591,7 +614,7 @@ export async function GET(request: NextRequest) {
               status: row.project_status
             } : null
           }));
-          
+
           console.log(`🔍 Requête PDG SQL brut: ${works.length} works trouvés`);
           if (works.length > 0) {
             const countResult = await prisma.$queryRawUnsafe<Array<{ count: bigint }>>(
@@ -609,20 +632,20 @@ export async function GET(request: NextRequest) {
       console.error('❌ Error message:', findManyError.message)
       console.error('❌ Error code:', findManyError.code)
       console.error('❌ Stack:', findManyError.stack)
-      
+
       // Si l'erreur est liée à un statut invalide (SUSPENDED), utiliser une approche alternative
       if (findManyError.message?.includes('not found in enum') || findManyError.message?.includes('SUSPENDED')) {
         console.warn('⚠️ Statut invalide détecté, utilisation d\'une approche alternative')
-        
+
         try {
           // Utiliser une requête SQL brute pour récupérer uniquement les IDs
           // Cela évite les problèmes d'enum Prisma
           const validStatuses = ['DRAFT', 'PENDING', 'PUBLISHED', 'REJECTED', 'ON_SALE', 'OUT_OF_STOCK', 'DISCONTINUED', 'SUSPENDED']
-          
+
           // Construire la clause WHERE en SQL
           let sqlConditions: string[] = []
           const sqlParams: any[] = []
-          
+
           // Pour le PDG, si whereClause est vide, on ne filtre pas par statut
           if (whereClause.status && validStatuses.includes(whereClause.status)) {
             sqlConditions.push(`status = $${sqlParams.length + 1}`)
@@ -633,42 +656,42 @@ export async function GET(request: NextRequest) {
             sqlParams.push(...validStatuses)
           }
           // Si pas de statut dans whereClause, on ne filtre pas (PDG voit tout)
-          
+
           if (whereClause.authorId) {
             sqlConditions.push(`"authorId" = $${sqlParams.length + 1}`)
             sqlParams.push(whereClause.authorId)
           }
-          
+
           if (whereClause.disciplineId) {
             sqlConditions.push(`"disciplineId" = $${sqlParams.length + 1}`)
             sqlParams.push(whereClause.disciplineId)
           }
-          
+
           if (whereClause.projectId) {
             sqlConditions.push(`"projectId" = $${sqlParams.length + 1}`)
             sqlParams.push(whereClause.projectId)
           }
-          
+
           const whereSQL = sqlConditions.length > 0 ? `WHERE ${sqlConditions.join(' AND ')}` : ''
           console.log(`🔍 SQL fallback - WHERE clause: ${whereSQL || 'Aucune (tous les works)'}`)
-          
+
           // Récupérer les IDs avec SQL brut
           const limitParam = sqlParams.length + 1;
           const offsetParam = sqlParams.length + 2;
           const query = `SELECT id FROM "Work" ${whereSQL} ORDER BY "createdAt" DESC LIMIT $${limitParam} OFFSET $${offsetParam}`;
           console.log(`🔍 SQL query: ${query}`);
           console.log(`🔍 SQL params:`, [...sqlParams, limit, skip]);
-          
+
           const workIdsResult = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
             query,
             ...sqlParams,
             limit,
             skip
           )
-          
+
           const ids = workIdsResult.map(w => w.id)
           console.log(`🔍 IDs récupérés: ${ids.length}`, ids);
-          
+
           // Compter le total
           const countQuery = `SELECT COUNT(*) as count FROM "Work" ${whereSQL}`;
           console.log(`🔍 Count query: ${countQuery}`);
@@ -678,11 +701,11 @@ export async function GET(request: NextRequest) {
           )
           total = Number(countResult[0]?.count || 0)
           console.log(`🔍 Total works: ${total}`);
-          
+
           // Si on a des IDs, récupérer les works complets avec SQL brut pour éviter les problèmes d'enum
           if (ids.length > 0) {
             console.log(`🔍 Récupération des works complets pour ${ids.length} IDs (SQL brut)`);
-            
+
             // Utiliser SQL brut pour récupérer les works complets
             // Construire la requête avec les IDs directement (sécurisé car les IDs viennent de notre propre DB)
             const idsList = ids.map(id => `'${id.replace(/'/g, "''")}'`).join(', ');
@@ -703,7 +726,7 @@ export async function GET(request: NextRequest) {
               WHERE w.id IN (${idsList})
               ORDER BY w."createdAt" DESC`
             );
-            
+
             // Transformer les résultats SQL en format Prisma
             works = worksRaw.map((row: any) => ({
               id: row.id,
@@ -765,7 +788,7 @@ export async function GET(request: NextRequest) {
                 status: row.project_status
               } : null
             }));
-            
+
             console.log(`🔍 Works récupérés avec SQL brut: ${works.length}`);
           } else {
             console.log(`⚠️ Aucun ID trouvé, works = []`);
@@ -787,16 +810,16 @@ export async function GET(request: NextRequest) {
     let globalStats: any[] = []
     try {
       globalStats = await prisma.work.groupBy({
-      by: ['status'],
-      _count: {
-        status: true
-      }
-      })
+        by: ['status'],
+        _count: {
+          status: true
+        }
+      } as any)
     } catch (groupByError: any) {
       console.error('Error in groupBy:', groupByError)
       console.error('Error message:', groupByError.message)
       console.error('Error code:', groupByError.code)
-      
+
       // Si l'erreur est liée à un statut invalide, récupérer les stats manuellement
       if (groupByError.message?.includes('not found in enum') || groupByError.message?.includes('SUSPENDED')) {
         console.warn('Statut invalide détecté dans la base, calcul manuel des statistiques')
@@ -805,7 +828,7 @@ export async function GET(request: NextRequest) {
           const allWorks = await prisma.$queryRaw<Array<{ status: string }>>`
             SELECT status FROM "Work"
           `
-          
+
           const statusCounts: Record<string, number> = {}
           allWorks.forEach(work => {
             const status = work.status as string
@@ -817,7 +840,7 @@ export async function GET(request: NextRequest) {
               console.warn(`Statut invalide ignoré: ${status}`)
             }
           })
-          
+
           globalStats = Object.entries(statusCounts).map(([status, count]) => ({
             status,
             _count: { status: count }
@@ -834,12 +857,12 @@ export async function GET(request: NextRequest) {
           const statusCountsRaw = await prisma.$queryRawUnsafe<Array<{ status: string, count: bigint }>>(
             `SELECT status, COUNT(*) as count FROM "Work" GROUP BY status`
           )
-          
+
           const statusCounts: Record<string, number> = {}
           statusCountsRaw.forEach(row => {
             statusCounts[row.status] = Number(row.count)
           })
-          
+
           globalStats = Object.entries(statusCounts).map(([status, count]) => ({
             status,
             _count: { status: count }
@@ -870,13 +893,13 @@ export async function GET(request: NextRequest) {
     try {
       const totalWorksInDb = await prisma.work.count();
       console.log(`🔍 Total works dans la base de données: ${totalWorksInDb}`);
-      
+
       // Si des works existent mais ne sont pas retournés, faire une requête directe sans filtres
       if (totalWorksInDb > 0 && works.length === 0) {
         console.warn(`⚠️ ATTENTION: ${totalWorksInDb} works existent dans la DB mais 0 ont été retournés par la requête`);
         const whereUsed = (typeof whereForQuery !== 'undefined') ? whereForQuery : whereClause;
         console.warn(`⚠️ Where clause utilisée:`, JSON.stringify(whereUsed, null, 2));
-        
+
         // Requête directe avec SQL brut pour voir tous les works (pour éviter les erreurs d'enum)
         try {
           const allWorksDirect = await prisma.$queryRawUnsafe<any[]>(
@@ -912,7 +935,7 @@ export async function GET(request: NextRequest) {
       },
       stats: statsFormatted
     };
-    
+
     console.log("🔍 Réponse finale:", {
       worksCount: response.works.length,
       total: response.pagination.total,
@@ -975,7 +998,7 @@ export async function PUT(request: NextRequest) {
       let pdgUser = await prisma.user.findUnique({
         where: { id: session.user.id }
       });
-      
+
       // Si l'utilisateur n'existe pas avec cet ID, chercher par email
       if (!pdgUser) {
         pdgUser = await prisma.user.findUnique({
@@ -983,24 +1006,24 @@ export async function PUT(request: NextRequest) {
         });
         console.log(`🔍 Utilisateur PDG trouvé par email: ${pdgUser ? pdgUser.name : 'Non trouvé'}`);
       }
-      
+
       if (pdgUser) {
         dataToUpdate.reviewerId = pdgUser.id;
         console.log(`✅ Reviewer assigné: ${pdgUser.name} (${pdgUser.id})`);
       } else {
         console.log("⚠️ Utilisateur PDG non trouvé, validation sans reviewerId");
       }
-      
+
       dataToUpdate.reviewedAt = new Date();
-      
+
       if (status === "PUBLISHED") {
         dataToUpdate.publishedAt = new Date();
       }
-      
+
       if (validationComment) {
         dataToUpdate.validationComment = validationComment;
       }
-      
+
       if (status === "REJECTED" && rejectionReason) {
         dataToUpdate.rejectionReason = rejectionReason;
       }
@@ -1068,7 +1091,7 @@ export async function PUT(request: NextRequest) {
             data: {
               userId: recipientId,
               title: status === "PUBLISHED" ? "🎉 Œuvre validée !" : "❌ Œuvre refusée",
-              message: status === "PUBLISHED" 
+              message: status === "PUBLISHED"
                 ? `Votre œuvre "${updatedWork.title}" a été validée et est maintenant publiée ! ${validationComment ? `Commentaire: ${validationComment}` : ''}`
                 : `Votre œuvre "${updatedWork.title}" a été refusée. ${rejectionReason ? `Motif: ${rejectionReason}` : ''} Vous pouvez la modifier et la resoumetre.`,
               type: status === "PUBLISHED" ? "WORK_APPROVED" : "WORK_REJECTED",

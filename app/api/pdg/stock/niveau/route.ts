@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -190,7 +191,7 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('Error fetching stock levels:', error)
+    logger.error('Error fetching stock levels:', error)
     return NextResponse.json(
       { error: 'Erreur lors de la récupération des niveaux de stock' },
       { status: 500 }

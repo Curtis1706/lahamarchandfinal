@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -210,7 +211,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('Error fetching proformas:', error)
+    logger.error('Error fetching proformas:', error)
     return NextResponse.json(
       { 
         error: 'Erreur lors de la récupération des proformas',
@@ -518,7 +519,7 @@ export async function POST(request: NextRequest) {
     // (génération PDF, notification, etc.) mais EN DEHORS de la transaction
     
     // Journal d'audit (log de création)
-    console.log(`[AUDIT] Proforma créé: ${result.proformaNumber} par ${session.user.email} (${session.user.name}) - Statut: ${result.status}`)
+    logger.debug(`[AUDIT] Proforma créé: ${result.proformaNumber} par ${session.user.email} (${session.user.name}) - Statut: ${result.status}`)
 
     return NextResponse.json({
       message: result.status === 'SENT' 
@@ -535,9 +536,9 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ CREATE PROFORMA ERROR:', error)
-    console.error('Error stack:', error.stack)
-    console.error('Error details:', {
+    logger.error('❌ CREATE PROFORMA ERROR:', error)
+    logger.error('Error stack:', error.stack)
+    logger.error('Error details:', {
       message: error.message,
       code: error.code,
       meta: error.meta,
@@ -674,7 +675,7 @@ export async function PUT(request: NextRequest) {
         })
 
         // Journal d'audit (log d'envoi)
-        console.log(`[AUDIT] Proforma envoyé: ${updatedProforma.proformaNumber} par ${session.user.email} (${session.user.name}) - Statut: DRAFT → SENT`)
+        logger.debug(`[AUDIT] Proforma envoyé: ${updatedProforma.proformaNumber} par ${session.user.email} (${session.user.name}) - Statut: DRAFT → SENT`)
 
         // Déterminer le destinataire pour la notification
         let recipientId: string | null = null
@@ -695,7 +696,7 @@ export async function PUT(request: NextRequest) {
               recipientName = partner.name || updatedProforma.partner.name || 'Partenaire'
             }
           } catch (partnerError: any) {
-            console.error('[WARNING] Erreur lors de la récupération du partenaire:', partnerError)
+            logger.error('[WARNING] Erreur lors de la récupération du partenaire:', partnerError)
           }
         }
 
@@ -717,13 +718,13 @@ export async function PUT(request: NextRequest) {
                 read: false
               }
             })
-            console.log(`[NOTIFICATION] Notification envoyée à ${recipientName} (${recipientId})`)
+            logger.debug(`[NOTIFICATION] Notification envoyée à ${recipientName} (${recipientId})`)
           } catch (notifError: any) {
             // Ne pas faire échouer l'envoi si la notification échoue
-            console.error('[WARNING] Erreur lors de la création de la notification:', notifError)
+            logger.error('[WARNING] Erreur lors de la création de la notification:', notifError)
           }
         } else {
-          console.log(`[INFO] Aucune notification envoyée pour ${updatedProforma.proformaNumber} (destinataire invité ou sans userId)`)
+          logger.debug(`[INFO] Aucune notification envoyée pour ${updatedProforma.proformaNumber} (destinataire invité ou sans userId)`)
         }
 
         // TODO: Envoyer un email/SMS/WhatsApp au client (intégration externe)
@@ -750,7 +751,7 @@ export async function PUT(request: NextRequest) {
         }
 
         // Journal d'audit (log de conversion avant transaction)
-        console.log(`[AUDIT] Conversion proforma en commande: ${proforma.proformaNumber} par ${session.user.email} (${session.user.name})`)
+        logger.debug(`[AUDIT] Conversion proforma en commande: ${proforma.proformaNumber} par ${session.user.email} (${session.user.name})`)
 
         const order = await prisma.$transaction(async (tx) => {
           // Déterminer le userId pour la commande (priorité : userId du proforma > userId du partner > session user)
@@ -814,7 +815,7 @@ export async function PUT(request: NextRequest) {
         })
 
         // Journal d'audit (log de conversion réussie)
-        console.log(`[AUDIT] Proforma converti: ${proforma.proformaNumber} → Commande ${order.id} par ${session.user.email} (${session.user.name})`)
+        logger.debug(`[AUDIT] Proforma converti: ${proforma.proformaNumber} → Commande ${order.id} par ${session.user.email} (${session.user.name})`)
 
         return NextResponse.json({
           message: 'Proforma converti en commande avec succès',
@@ -867,7 +868,7 @@ export async function PUT(request: NextRequest) {
         })
 
         // Journal d'audit (log d'acceptation)
-        console.log(`[AUDIT] Proforma accepté: ${updatedProforma.proformaNumber} par ${session.user.email} (${session.user.name}) - Statut: SENT → ACCEPTED`)
+        logger.debug(`[AUDIT] Proforma accepté: ${updatedProforma.proformaNumber} par ${session.user.email} (${session.user.name}) - Statut: SENT → ACCEPTED`)
 
         // Notifier le PDG de l'acceptation (créateur du proforma)
         if (proforma.createdById) {
@@ -887,9 +888,9 @@ export async function PUT(request: NextRequest) {
                 read: false
               }
             })
-            console.log(`[NOTIFICATION] Notification envoyée au PDG (${proforma.createdById})`)
+            logger.debug(`[NOTIFICATION] Notification envoyée au PDG (${proforma.createdById})`)
           } catch (notifError: any) {
-            console.error('[WARNING] Erreur lors de la création de la notification:', notifError)
+            logger.error('[WARNING] Erreur lors de la création de la notification:', notifError)
           }
         }
 
@@ -935,7 +936,7 @@ export async function PUT(request: NextRequest) {
         })
 
         // Journal d'audit (log d'expiration)
-        console.log(`[AUDIT] Proforma expiré: ${updatedProforma.proformaNumber} par ${session.user.email} (${session.user.name}) - Statut: ${proforma.status} → EXPIRED`)
+        logger.debug(`[AUDIT] Proforma expiré: ${updatedProforma.proformaNumber} par ${session.user.email} (${session.user.name}) - Statut: ${proforma.status} → EXPIRED`)
 
         // TODO: Notifier le destinataire de l'expiration (optionnel)
         return NextResponse.json({
@@ -1015,7 +1016,7 @@ export async function PUT(request: NextRequest) {
         })
 
         // Journal d'audit (log d'annulation)
-        console.log(`[AUDIT] Proforma annulé: ${updatedProforma.proformaNumber} par ${session.user.email} (${session.user.name}) - Raison: ${cancellationReason || 'Non spécifiée'}`)
+        logger.debug(`[AUDIT] Proforma annulé: ${updatedProforma.proformaNumber} par ${session.user.email} (${session.user.name}) - Raison: ${cancellationReason || 'Non spécifiée'}`)
 
         // TODO: Notifier le destinataire de l'annulation
         return NextResponse.json({
@@ -1028,9 +1029,9 @@ export async function PUT(request: NextRequest) {
     }
 
   } catch (error: any) {
-    console.error('❌ UPDATE PROFORMA ERROR:', error)
-    console.error('Error stack:', error.stack)
-    console.error('Error details:', {
+    logger.error('❌ UPDATE PROFORMA ERROR:', error)
+    logger.error('Error stack:', error.stack)
+    logger.error('Error details:', {
       message: error.message,
       code: error.code,
       meta: error.meta,
@@ -1099,7 +1100,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ message: 'Proforma supprimé avec succès' })
 
   } catch (error: any) {
-    console.error('Error deleting proforma:', error)
+    logger.error('Error deleting proforma:', error)
     return NextResponse.json(
       { 
         error: 'Erreur lors de la suppression du proforma',

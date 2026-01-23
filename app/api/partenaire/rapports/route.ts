@@ -1,10 +1,11 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
-import { getPaginationParams, paginateQuery } from "@/lib/pagination"
+import { getPaginationParams } from "@/lib/pagination"
 
 export const dynamic = 'force-dynamic'
 
@@ -49,9 +50,9 @@ export async function GET(request: NextRequest) {
             contact: user.name,
           }
         })
-        console.log("✅ Partenaire créé automatiquement pour l'utilisateur existant:", user.name)
+        logger.debug("✅ Partenaire créé automatiquement pour l'utilisateur existant:", user.name)
       } catch (partnerError: any) {
-        console.error("❌ Erreur lors de la création automatique du partenaire:", partnerError)
+        logger.error("❌ Erreur lors de la création automatique du partenaire:", partnerError)
         return NextResponse.json({ error: 'Erreur lors de la création du partenaire' }, { status: 500 })
       }
     }
@@ -71,43 +72,50 @@ export async function GET(request: NextRequest) {
     // Si type === 'detailed', utiliser la pagination (pas de cache car pagination change)
     // Sinon (summary), utiliser aggregate avec cache pour les stats
     let salesMovements: any[] = []
-    
+
     if (type === 'detailed') {
       // Pagination pour le type detailed
-      const paginationParams = getPaginationParams(searchParams, 50)
-      const paginatedResult = await paginateQuery(
-        paginationParams,
-        {
-          where: whereClause,
-          include: {
-            work: {
-              select: {
-                id: true,
-                title: true,
-                isbn: true,
-                price: true,
-                discipline: {
-                  select: {
-                    id: true,
-                    name: true
-                  }
+      const paginationParams = getPaginationParams(searchParams)
+
+      const queryOptions: any = {
+        where: whereClause,
+        include: {
+          work: {
+            select: {
+              id: true,
+              title: true,
+              isbn: true,
+              price: true,
+              discipline: {
+                select: {
+                  id: true,
+                  name: true
                 }
               }
             }
-          },
-          orderBy: { createdAt: 'desc' }
+          }
         },
-        prisma.stockMovement
-      )
-      salesMovements = paginatedResult.data
-      
+        orderBy: { createdAt: 'desc' },
+        take: paginationParams.take + 1
+      }
+
+      if (paginationParams.cursor) {
+        queryOptions.cursor = { id: paginationParams.cursor }
+        queryOptions.skip = 1
+      }
+
+      const movementResults = await prisma.stockMovement.findMany(queryOptions)
+      const hasMore = movementResults.length > paginationParams.take
+      salesMovements = hasMore ? movementResults.slice(0, -1) : movementResults
+      const nextCursor = hasMore ? salesMovements[salesMovements.length - 1].id : null
+
       // Calculer les stats totales avec aggregate
       const statsAggregate = await prisma.stockMovement.aggregate({
         where: whereClause,
         _count: { id: true },
         _sum: { quantity: true }
       })
-      
+
       // Calculer le total des ventes
       const totalVentesAggregate = await prisma.stockMovement.findMany({
         where: whereClause,
@@ -119,20 +127,20 @@ export async function GET(request: NextRequest) {
         },
         take: 1000 // Limiter pour éviter timeout, mais suffisant pour les stats
       })
-      
+
       const totalVentes = totalVentesAggregate.reduce((sum, movement) => {
         return sum + (movement.totalAmount ?? (movement.unitPrice ?? movement.work.price ?? 0) * Math.abs(movement.quantity))
       }, 0)
       const totalLivres = Math.abs(statsAggregate._sum.quantity || 0)
       const totalCommandes = statsAggregate._count.id
-      
+
       // Retourner les résultats paginés avec summary
       return NextResponse.json({
         orders: salesMovements.map(movement => {
           const quantity = Math.abs(movement.quantity)
           const unitPrice = movement.unitPrice ?? movement.work.price ?? 0
           const total = movement.totalAmount ?? (unitPrice * quantity)
-          
+
           return {
             id: movement.id,
             reference: movement.reference ?? `SALE-${movement.id.slice(-8)}`,
@@ -154,8 +162,8 @@ export async function GET(request: NextRequest) {
           totalLivres: totalLivres
         },
         pagination: {
-          nextCursor: paginatedResult.nextCursor,
-          hasMore: paginatedResult.hasMore
+          nextCursor: nextCursor,
+          hasMore: hasMore
         }
       })
     } else {
@@ -291,7 +299,7 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('Error fetching partner reports:', error)
+    logger.error('Error fetching partner reports:', error)
     return NextResponse.json(
       { error: 'Erreur lors de la récupération des rapports' },
       { status: 500 }
@@ -322,7 +330,7 @@ export async function POST(request: NextRequest) {
       endDate
     })
   } catch (error: any) {
-    console.error('Error generating report:', error)
+    logger.error('Error generating report:', error)
     return NextResponse.json(
       { error: error.message || 'Erreur lors de la génération du rapport' },
       { status: 500 }

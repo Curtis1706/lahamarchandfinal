@@ -1,9 +1,10 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { calculateAvailableStock } from "@/lib/partner-stock"
-import { getPaginationParams, paginateQuery } from "@/lib/pagination"
+import { getPaginationParams } from "@/lib/pagination"
 
 export const dynamic = 'force-dynamic'
 
@@ -11,7 +12,7 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user || session.user.role !== 'PARTENAIRE') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Paramètres de pagination
-    const paginationParams = getPaginationParams(searchParams, 50)
+    const paginationParams = getPaginationParams(searchParams)
 
     let works: any[] = []
     let partnerStocks: any[] = []
@@ -44,50 +45,57 @@ export async function GET(request: NextRequest) {
         partnerId: partner.id
       }
 
-      paginatedResult = await paginateQuery(
-        paginationParams,
-        {
-          where: whereClause,
-          include: {
-            work: {
-              select: {
-                id: true,
-                title: true,
-                isbn: true,
-                price: true,
-                stock: true,
-                createdAt: true,
-                publishedAt: true,
-                discipline: {
-                  select: {
-                    id: true,
-                    name: true
-                  }
-                },
-                author: {
-                  select: {
-                    id: true,
-                    name: true,
-                    email: true
-                  }
-                },
-                project: {
-                  select: {
-                    id: true,
-                    title: true
-                  }
+      const queryOptions: any = {
+        where: whereClause,
+        include: {
+          work: {
+            select: {
+              id: true,
+              title: true,
+              isbn: true,
+              price: true,
+              stock: true,
+              createdAt: true,
+              publishedAt: true,
+              discipline: {
+                select: {
+                  id: true,
+                  name: true
+                }
+              },
+              author: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true
+                }
+              },
+              project: {
+                select: {
+                  id: true,
+                  title: true
                 }
               }
             }
-          },
-          orderBy: {
-            createdAt: 'desc'
           }
         },
-        prisma.partnerStock
-      )
+        orderBy: {
+          createdAt: 'desc'
+        },
+        take: paginationParams.take + 1
+      }
 
-      partnerStocks = paginatedResult.data
+      if (paginationParams.cursor) {
+        queryOptions.cursor = { id: paginationParams.cursor }
+        queryOptions.skip = 1
+      }
+
+      const stockResults = await prisma.partnerStock.findMany(queryOptions)
+      const hasMore = stockResults.length > paginationParams.take
+      partnerStocks = hasMore ? stockResults.slice(0, -1) : stockResults
+      const nextCursor = hasMore ? partnerStocks[partnerStocks.length - 1].id : null
+
+      paginatedResult = { data: partnerStocks, hasMore, nextCursor }
       works = partnerStocks.map((ps: any) => ({ ...ps.work, partnerStock: ps }))
     } else if (view === 'available') {
       // Œuvres disponibles pour allocation
@@ -109,62 +117,69 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      paginatedResult = await paginateQuery(
-        paginationParams,
-        {
-          where: whereClause,
-          select: {
-            id: true,
-            title: true,
-            isbn: true,
-            price: true,
-            stock: true,
-            createdAt: true,
-            publishedAt: true,
-            author: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
-            },
-            discipline: {
-              select: {
-                id: true,
-                name: true
-              }
-            },
-            project: {
-              select: {
-                id: true,
-                title: true
-              }
+      const queryOptions: any = {
+        where: whereClause,
+        select: {
+          id: true,
+          title: true,
+          isbn: true,
+          price: true,
+          stock: true,
+          createdAt: true,
+          publishedAt: true,
+          author: {
+            select: {
+              id: true,
+              name: true,
+              email: true
             }
           },
-          orderBy: {
-            createdAt: 'desc'
+          discipline: {
+            select: {
+              id: true,
+              name: true
+            }
+          },
+          project: {
+            select: {
+              id: true,
+              title: true
+            }
           }
         },
-        prisma.work
-      )
+        orderBy: {
+          createdAt: 'desc'
+        },
+        take: paginationParams.take + 1
+      }
 
-      works = paginatedResult.data
+      if (paginationParams.cursor) {
+        queryOptions.cursor = { id: paginationParams.cursor }
+        queryOptions.skip = 1
+      }
+
+      const workResults = await prisma.work.findMany(queryOptions)
+      const hasMore = workResults.length > paginationParams.take
+      works = hasMore ? workResults.slice(0, -1) : workResults
+      const nextCursor = hasMore ? works[works.length - 1].id : null
+
+      paginatedResult = { data: works, hasMore, nextCursor }
     }
 
     // Transformer les données pour l'affichage
     const stockData = works.map((work: any) => {
       // Trouver le stock alloué pour ce partenaire si disponible
       const partnerStock = work.partnerStock || partnerStocks.find((ps: any) => ps.workId === work.id)
-      
+
       // Calculer le stock disponible si PartnerStock existe
-      const availableQuantity = partnerStock 
+      const availableQuantity = partnerStock
         ? calculateAvailableStock(
-            partnerStock.allocatedQuantity,
-            partnerStock.soldQuantity,
-            partnerStock.returnedQuantity
-          )
+          partnerStock.allocatedQuantity,
+          partnerStock.soldQuantity,
+          partnerStock.returnedQuantity
+        )
         : 0
-      
+
       return {
         id: work.id,
         title: work.title,
@@ -172,7 +187,7 @@ export async function GET(request: NextRequest) {
         discipline: work.discipline?.name || 'Non définie',
         author: work.author?.name || 'Auteur inconnu',
         project: work.project?.title || null,
-        status: partnerStock 
+        status: partnerStock
           ? (availableQuantity > 0 ? 'Disponible' : 'Épuisé')
           : (work.stock > 0 ? 'Disponible' : 'Rupture de stock'),
         stock: partnerStock ? availableQuantity : work.stock || 0,
@@ -195,7 +210,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('Erreur lors de la récupération du stock partenaire:', error)
+    logger.error('Erreur lors de la récupération du stock partenaire:', error)
     return NextResponse.json(
       { error: 'Erreur interne du serveur' },
       { status: 500 }

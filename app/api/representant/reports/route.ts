@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -207,7 +208,7 @@ export async function GET(request: NextRequest) {
             ? JSON.parse(activity.metadata) 
             : activity.metadata
         } catch (e) {
-          console.warn('Failed to parse metadata:', e)
+          logger.warn('Failed to parse metadata:', e)
           metadata = null
         }
       }
@@ -249,8 +250,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(reportData)
 
   } catch (error: any) {
-    console.error('Erreur lors de la génération du rapport:', error)
-    console.error('Stack trace:', error.stack)
+    logger.error('Erreur lors de la génération du rapport:', error)
+    logger.error('Stack trace:', error.stack)
     return NextResponse.json(
       { 
         error: 'Erreur interne du serveur',

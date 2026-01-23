@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -163,7 +164,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error: any) {
-    console.error("❌ Erreur lors de l'enregistrement du retour:", error);
+    logger.error("❌ Erreur lors de l'enregistrement du retour:", error);
     
     if (error.code === 400) {
       return NextResponse.json({ error: error.message }, { status: 400 });

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from "next/server"
@@ -136,7 +137,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error("Error fetching partner rebates:", error)
+    logger.error("Error fetching partner rebates:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }

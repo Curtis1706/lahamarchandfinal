@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -91,7 +92,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(formattedPartners)
 
   } catch (error: any) {
-    console.error('Erreur lors de la récupération des partenaires:', error)
+    logger.error('Erreur lors de la récupération des partenaires:', error)
     return NextResponse.json(
       { error: 'Erreur interne du serveur' },
       { status: 500 }
@@ -205,7 +206,7 @@ export async function POST(request: NextRequest) {
         })
       }
     } catch (notificationError) {
-      console.warn('⚠️ Failed to create notification:', notificationError)
+      logger.warn('⚠️ Failed to create notification:', notificationError)
     }
 
     const response = {
@@ -231,12 +232,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log('✅ Partner created by representant:', partner.id)
+    logger.debug('✅ Partner created by representant:', partner.id)
 
     return NextResponse.json(response, { status: 201 })
 
   } catch (error: any) {
-    console.error('Erreur lors de la création du partenaire:', error)
+    logger.error('Erreur lors de la création du partenaire:', error)
     return NextResponse.json(
       { error: 'Erreur interne du serveur' },
       { status: 500 }

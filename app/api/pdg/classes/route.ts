@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(formattedClasses)
 
   } catch (error) {
-    console.error("Error fetching classes:", error)
+    logger.error("Error fetching classes:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
 
     const { classe, section, statut } = await request.json()
 
-    console.log("🔍 Données reçues:", { classe, section, statut })
+    logger.debug("🔍 Données reçues:", { classe, section, statut })
 
     const newClass = await prisma.schoolClass.create({
       data: {
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    console.log("✅ Classe créée:", newClass)
+    logger.debug("✅ Classe créée:", newClass)
 
     // Audit log
     try {
@@ -101,9 +102,9 @@ export async function POST(request: NextRequest) {
           details: `Classe créée: ${newClass.name} (${newClass.section})`
         }
       })
-      console.log("✅ Audit log créé")
+      logger.debug("✅ Audit log créé")
     } catch (auditError) {
-      console.error("⚠️ Erreur lors de la création de l'audit log:", auditError)
+      logger.error("⚠️ Erreur lors de la création de l'audit log:", auditError)
       // Ne pas bloquer la création de la classe si l'audit log échoue
     }
 
@@ -134,8 +135,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(formattedClass, { status: 201 })
 
   } catch (error: any) {
-    console.error("❌ Error creating class:", error)
-    console.error("❌ Error details:", JSON.stringify(error, null, 2))
+    logger.error("❌ Error creating class:", error)
+    logger.error("❌ Error details:", JSON.stringify(error, null, 2))
     
     // Gérer l'erreur de contrainte unique (P2002)
     if (error.code === 'P2002') {
@@ -203,7 +204,7 @@ export async function PUT(request: NextRequest) {
         }
       })
     } catch (auditError) {
-      console.error("⚠️ Erreur lors de la création de l'audit log:", auditError)
+      logger.error("⚠️ Erreur lors de la création de l'audit log:", auditError)
     }
 
     const formattedClass = {
@@ -233,7 +234,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(formattedClass)
 
   } catch (error: any) {
-    console.error("❌ Error updating class:", error)
+    logger.error("❌ Error updating class:", error)
     
     if (error.code === 'P2002') {
       return NextResponse.json({ 
@@ -298,7 +299,7 @@ export async function PATCH(request: NextRequest) {
         }
       })
     } catch (auditError) {
-      console.error("⚠️ Erreur lors de la création de l'audit log:", auditError)
+      logger.error("⚠️ Erreur lors de la création de l'audit log:", auditError)
     }
 
     const formattedClass = {
@@ -328,7 +329,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json(formattedClass)
 
   } catch (error: any) {
-    console.error("❌ Error toggling class status:", error)
+    logger.error("❌ Error toggling class status:", error)
     return NextResponse.json({ 
       error: "Erreur lors de la modification du statut",
       details: error instanceof Error ? error.message : "Unknown error"

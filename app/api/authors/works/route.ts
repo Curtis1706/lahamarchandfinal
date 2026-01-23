@@ -1,13 +1,14 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 // POST /api/authors/works - Créer une œuvre directement (workflow Auteur)
 export async function POST(request: NextRequest) {
-  console.log("🔍 API POST /authors/works - Création d'œuvre par Auteur");
+  logger.debug("🔍 API POST /authors/works - Création d'œuvre par Auteur");
   
   try {
     const body = await request.json();
-    console.log("🔍 Body reçu:", body);
+    logger.debug("🔍 Body reçu:", body);
     
     const { 
       title, 
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
       status = "PENDING" // Les œuvres d'auteurs sont directement soumises pour validation
     } = body;
     
-    console.log("🔍 Données extraites:", { title, disciplineId, authorId, isbn, status });
+    logger.debug("🔍 Données extraites:", { title, disciplineId, authorId, isbn, status });
 
     // Validation des champs obligatoires
     if (!title || !disciplineId || !authorId || !isbn) {
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("🔍 Tentative de création avec Prisma...");
+    logger.debug("🔍 Tentative de création avec Prisma...");
     
     // Créer l'œuvre directement (pas de projet associé)
     const work = await prisma.work.create({
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    console.log("✅ Œuvre d'auteur créée, ajout des logs et notifications...");
+    logger.debug("✅ Œuvre d'auteur créée, ajout des logs et notifications...");
 
     // Créer une notification pour le PDG
     try {
@@ -128,10 +129,10 @@ export async function POST(request: NextRequest) {
             })
           }
         });
-        console.log("✅ Notification créée pour le PDG");
+        logger.debug("✅ Notification créée pour le PDG");
       }
     } catch (notificationError) {
-      console.error("⚠️ Erreur création notification PDG:", notificationError);
+      logger.error("⚠️ Erreur création notification PDG:", notificationError);
     }
 
     // Créer une notification pour l'auteur
@@ -150,9 +151,9 @@ export async function POST(request: NextRequest) {
           })
         }
       });
-      console.log("✅ Notification créée pour l'auteur");
+      logger.debug("✅ Notification créée pour l'auteur");
     } catch (notificationError) {
-      console.error("⚠️ Erreur création notification auteur:", notificationError);
+      logger.error("⚠️ Erreur création notification auteur:", notificationError);
     }
 
     // Créer un log d'audit
@@ -172,18 +173,18 @@ export async function POST(request: NextRequest) {
           })
         }
       });
-      console.log("✅ Log d'audit créé");
+      logger.debug("✅ Log d'audit créé");
     } catch (auditError) {
-      console.error("⚠️ Erreur création log d'audit:", auditError);
+      logger.error("⚠️ Erreur création log d'audit:", auditError);
     }
 
-    console.log("✅ Œuvre d'auteur créée avec succès:", work);
+    logger.debug("✅ Œuvre d'auteur créée avec succès:", work);
     
     return NextResponse.json(work, { status: 201 });
     
   } catch (error: any) {
-    console.error("❌ Erreur création œuvre d'auteur:", error);
-    console.error("❌ Stack:", error.stack);
+    logger.error("❌ Erreur création œuvre d'auteur:", error);
+    logger.error("❌ Stack:", error.stack);
     
     // Gestion spécifique des erreurs Prisma
     if (error.code === 'P2002') {
@@ -263,12 +264,12 @@ export async function GET(request: NextRequest) {
         }
       })
     } catch (findManyError: any) {
-      console.error('Error in findMany:', findManyError)
-      console.error('Error message:', findManyError.message)
+      logger.error('Error in findMany:', findManyError)
+      logger.error('Error message:', findManyError.message)
       
       // Si l'erreur est liée à un statut invalide, récupérer les IDs d'abord
       if (findManyError.message?.includes('not found in enum') || findManyError.message?.includes('SUSPENDED')) {
-        console.warn('Statut invalide détecté, récupération manuelle des œuvres')
+        logger.warn('Statut invalide détecté, récupération manuelle des œuvres')
         try {
           // Utiliser une requête SQL brute pour récupérer les IDs
           const validStatuses = ['DRAFT', 'PENDING', 'PUBLISHED', 'REJECTED', 'ON_SALE', 'OUT_OF_STOCK', 'DISCONTINUED']
@@ -318,7 +319,7 @@ export async function GET(request: NextRequest) {
             })
           }
         } catch (fallbackError) {
-          console.error('Error in fallback findMany:', fallbackError)
+          logger.error('Error in fallback findMany:', fallbackError)
           works = []
         }
       } else {
@@ -343,12 +344,12 @@ export async function GET(request: NextRequest) {
         return acc;
       }, {} as Record<string, number>)
     } catch (groupByError: any) {
-      console.error('Error in groupBy:', groupByError)
-      console.error('Error message:', groupByError.message)
+      logger.error('Error in groupBy:', groupByError)
+      logger.error('Error message:', groupByError.message)
       
       // Si l'erreur est liée à un statut invalide, calculer manuellement
       if (groupByError.message?.includes('not found in enum') || groupByError.message?.includes('SUSPENDED')) {
-        console.warn('Statut invalide détecté dans la base, calcul manuel des statistiques')
+        logger.warn('Statut invalide détecté dans la base, calcul manuel des statistiques')
         try {
           // Utiliser une requête SQL brute pour éviter les problèmes d'enum
           const allWorks = await prisma.$queryRaw<Array<{ status: string }>>`
@@ -363,7 +364,7 @@ export async function GET(request: NextRequest) {
             }
           })
         } catch (manualError) {
-          console.error('Error in manual stats calculation:', manualError)
+          logger.error('Error in manual stats calculation:', manualError)
           // Calculer à partir des works récupérés
           works.forEach(work => {
             const status = work.status as string
@@ -385,7 +386,7 @@ export async function GET(request: NextRequest) {
       total: works.length
     });
   } catch (error) {
-    console.error("Error fetching author works:", error);
+    logger.error("Error fetching author works:", error);
     return NextResponse.json(
       { error: "Erreur lors de la récupération des œuvres de l'auteur" },
       { status: 500 }

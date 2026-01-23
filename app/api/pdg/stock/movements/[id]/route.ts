@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -74,7 +75,7 @@ export async function GET(
     })
 
   } catch (error: any) {
-    console.error('Erreur lors de la récupération du mouvement:', error)
+    logger.error('Erreur lors de la récupération du mouvement:', error)
     return NextResponse.json(
       { error: 'Erreur interne du serveur' },
       { status: 500 }

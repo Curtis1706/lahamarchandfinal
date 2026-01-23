@@ -1,13 +1,14 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { getPaginationParams, paginateQuery } from "@/lib/pagination"
+import { getPaginationParams } from "@/lib/pagination"
 
 // GET /api/representant/clients - Récupérer les clients du représentant
 export async function GET(request: NextRequest) {
   try {
-    console.log("🔍 Getting current user...")
+    logger.debug("🔍 Getting current user...")
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
     }
 
-    console.log("✅ User found:", user.name, user.role)
+    logger.debug("✅ User found:", user.name, user.role)
 
     // Paramètres de pagination
     const { searchParams } = new URL(request.url)
@@ -137,7 +138,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    console.log("✅ Clients data prepared:", {
+    logger.debug("✅ Clients data prepared:", {
       totalClients,
       activeClients,
       totalRevenue: Math.round(totalRevenue)
@@ -146,7 +147,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(response)
 
   } catch (error) {
-    console.error("❌ Error fetching clients:", error)
+    logger.error("❌ Error fetching clients:", error)
     return NextResponse.json(
       { error: "Erreur lors du chargement des clients" },
       { status: 500 }
@@ -157,7 +158,7 @@ export async function GET(request: NextRequest) {
 // POST /api/representant/clients - Créer un nouveau client
 export async function POST(request: NextRequest) {
   try {
-    console.log("🔍 Creating new client...")
+    logger.debug("🔍 Creating new client...")
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
@@ -200,7 +201,7 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    console.log("✅ Client created:", newClient.id)
+    logger.debug("✅ Client created:", newClient.id)
 
     // Formater la réponse
     const formattedClient = {
@@ -223,7 +224,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ client: formattedClient }, { status: 201 })
 
   } catch (error: any) {
-    console.error("❌ Error creating client:", error)
+    logger.error("❌ Error creating client:", error)
     return NextResponse.json(
       { error: "Erreur lors de la création du client: " + error.message },
       { status: 500 }

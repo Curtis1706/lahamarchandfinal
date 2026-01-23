@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest) {
       type: message.senderId === userId ? 'sent' : 'received'
     }));
 
-    console.log(`✅ ${messages.length} messages récupérés pour ${session.user.name}`);
+    logger.debug(`✅ ${messages.length} messages récupérés pour ${session.user.name}`);
 
     return NextResponse.json({
       messages: messagesWithType,
@@ -90,7 +91,7 @@ export async function GET(request: NextRequest) {
     }, { status: 200 });
 
   } catch (error: any) {
-    console.error("❌ Erreur lors de la récupération des messages:", error);
+    logger.error("❌ Erreur lors de la récupération des messages:", error);
     return NextResponse.json(
       { error: "Erreur lors de la récupération des messages: " + error.message },
       { status: 500 }
@@ -190,7 +191,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    console.log(`✅ Message envoyé de ${session.user.name} vers ${recipient.name}`);
+    logger.debug(`✅ Message envoyé de ${session.user.name} vers ${recipient.name}`);
 
     return NextResponse.json({
       ...message,
@@ -198,7 +199,7 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
 
   } catch (error: any) {
-    console.error("❌ Erreur lors de l'envoi du message:", error);
+    logger.error("❌ Erreur lors de l'envoi du message:", error);
     return NextResponse.json(
       { error: "Erreur lors de l'envoi du message: " + error.message },
       { status: 500 }
@@ -279,7 +280,7 @@ export async function PUT(request: NextRequest) {
       }
     });
 
-    console.log(`✅ Message ${messageId} mis à jour par ${session.user.name}`);
+    logger.debug(`✅ Message ${messageId} mis à jour par ${session.user.name}`);
 
     return NextResponse.json({
       ...updatedMessage,
@@ -287,7 +288,7 @@ export async function PUT(request: NextRequest) {
     }, { status: 200 });
 
   } catch (error: any) {
-    console.error("❌ Erreur lors de la mise à jour du message:", error);
+    logger.error("❌ Erreur lors de la mise à jour du message:", error);
     return NextResponse.json(
       { error: "Erreur lors de la mise à jour du message: " + error.message },
       { status: 500 }
@@ -357,7 +358,7 @@ export async function DELETE(request: NextRequest) {
       }
     });
 
-    console.log(`✅ Message ${messageId} supprimé par ${session.user.name}`);
+    logger.debug(`✅ Message ${messageId} supprimé par ${session.user.name}`);
 
     return NextResponse.json(
       { message: "Message supprimé avec succès" },
@@ -365,7 +366,7 @@ export async function DELETE(request: NextRequest) {
     );
 
   } catch (error: any) {
-    console.error("❌ Erreur lors de la suppression du message:", error);
+    logger.error("❌ Erreur lors de la suppression du message:", error);
     return NextResponse.json(
       { error: "Erreur lors de la suppression du message: " + error.message },
       { status: 500 }

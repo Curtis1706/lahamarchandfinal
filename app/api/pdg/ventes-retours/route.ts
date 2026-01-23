@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -174,7 +175,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error fetching ventes-retours:', error)
+    logger.error('Error fetching ventes-retours:', error)
     return NextResponse.json({ error: 'Erreur interne du serveur' }, { status: 500 })
   }
 }
@@ -318,7 +319,7 @@ export async function POST(request: NextRequest) {
     }, { status: 201 })
 
   } catch (error: any) {
-    console.error('Error creating vente/retour:', error)
+    logger.error('Error creating vente/retour:', error)
     return NextResponse.json({ 
       error: error.message || 'Erreur interne du serveur' 
     }, { status: 500 })

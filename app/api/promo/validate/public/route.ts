@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from "next/server"
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest) {
     }, { status: 200 })
 
   } catch (error: any) {
-    console.error("Error validating promo code:", error)
+    logger.error("Error validating promo code:", error)
     return NextResponse.json(
       { error: "Erreur lors de la validation du code promo: " + error.message },
       { status: 500 }

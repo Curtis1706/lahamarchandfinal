@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
@@ -160,7 +161,7 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error("Error fetching partners:", error);
+    logger.error("Error fetching partners:", error);
     return NextResponse.json(
       { error: "Erreur lors de la récupération des partenaires" },
       { status: 500 }
@@ -305,7 +306,7 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
 
   } catch (error: any) {
-    console.error('Error creating partner:', error);
+    logger.error('Error creating partner:', error);
     return NextResponse.json(
       { error: error.message || 'Erreur lors de la création du partenaire' },
       { status: 500 }
@@ -435,7 +436,7 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json(updatedPartner);
   } catch (error) {
-    console.error("Error updating partner:", error);
+    logger.error("Error updating partner:", error);
     return NextResponse.json(
       { error: "Erreur lors de la mise à jour du partenaire" },
       { status: 500 }
@@ -521,7 +522,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ message: "Partenaire supprimé avec succès" });
   } catch (error) {
-    console.error("Error deleting partner:", error);
+    logger.error("Error deleting partner:", error);
     return NextResponse.json(
       { error: "Erreur lors de la suppression du partenaire" },
       { status: 500 }

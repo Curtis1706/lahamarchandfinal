@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -184,8 +185,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(formattedConversations)
 
   } catch (error: any) {
-    console.error('Erreur lors de la récupération des messages:', error)
-    console.error('Stack trace:', error.stack)
+    logger.error('Erreur lors de la récupération des messages:', error)
+    logger.error('Stack trace:', error.stack)
     return NextResponse.json(
       { 
         error: 'Erreur interne du serveur',
@@ -255,8 +256,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message }, { status: 201 })
 
   } catch (error: any) {
-    console.error('Erreur lors de l\'envoi du message:', error)
-    console.error('Stack trace:', error.stack)
+    logger.error('Erreur lors de l\'envoi du message:', error)
+    logger.error('Stack trace:', error.stack)
     return NextResponse.json(
       { 
         error: 'Erreur interne du serveur',

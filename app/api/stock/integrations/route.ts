@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -140,7 +141,7 @@ export async function GET(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error("Erreur lors de la gestion des intégrations:", error)
+    logger.error("Erreur lors de la gestion des intégrations:", error)
     return NextResponse.json(
       { error: "Erreur interne du serveur" },
       { status: 500 }
@@ -201,7 +202,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(newIntegration, { status: 201 })
 
   } catch (error) {
-    console.error("Erreur lors de la création de l'intégration:", error)
+    logger.error("Erreur lors de la création de l'intégration:", error)
     return NextResponse.json(
       { error: "Erreur interne du serveur" },
       { status: 500 }
@@ -265,7 +266,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(updatedIntegration)
 
   } catch (error) {
-    console.error("Erreur lors de la mise à jour de l'intégration:", error)
+    logger.error("Erreur lors de la mise à jour de l'intégration:", error)
     return NextResponse.json(
       { error: "Erreur interne du serveur" },
       { status: 500 }
@@ -316,7 +317,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ message: "Intégration supprimée avec succès" })
 
   } catch (error) {
-    console.error("Erreur lors de la suppression de l'intégration:", error)
+    logger.error("Erreur lors de la suppression de l'intégration:", error)
     return NextResponse.json(
       { error: "Erreur interne du serveur" },
       { status: 500 }

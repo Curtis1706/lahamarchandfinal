@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
@@ -73,7 +74,7 @@ export async function GET(request: NextRequest) {
       return acc;
     }, {});
 
-    console.log(`✅ ${users.length} utilisateurs récupérés pour ${session.user.name}`);
+    logger.debug(`✅ ${users.length} utilisateurs récupérés pour ${session.user.name}`);
 
     return NextResponse.json({
       users,
@@ -82,7 +83,7 @@ export async function GET(request: NextRequest) {
     }, { status: 200 });
 
   } catch (error: any) {
-    console.error("❌ Erreur lors de la récupération des utilisateurs:", error);
+    logger.error("❌ Erreur lors de la récupération des utilisateurs:", error);
     return NextResponse.json(
       { error: "Erreur lors de la récupération des utilisateurs: " + error.message },
       { status: 500 }

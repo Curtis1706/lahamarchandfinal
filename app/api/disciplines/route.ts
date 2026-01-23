@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from 'next-auth';
@@ -46,11 +47,11 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    console.log(`🔍 ${disciplines.length} discipline(s) trouvée(s)`);
+    logger.debug(`🔍 ${disciplines.length} discipline(s) trouvée(s)`);
 
     return NextResponse.json(disciplines);
   } catch (error) {
-    console.error("Error fetching disciplines:", error);
+    logger.error("Error fetching disciplines:", error);
     return NextResponse.json(
       { error: "Erreur lors de la récupération des disciplines" },
       { status: 500 }
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    console.log(`✅ Discipline créée: "${discipline.name}"`);
+    logger.debug(`✅ Discipline créée: "${discipline.name}"`);
 
     // Créer un log d'audit
     await prisma.auditLog.create({
@@ -126,7 +127,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(discipline, { status: 201 });
   } catch (error: any) {
-    console.error("Error creating discipline:", error);
+    logger.error("Error creating discipline:", error);
     return NextResponse.json(
       { error: "Erreur lors de la création de la discipline: " + error.message },
       { status: 500 }
@@ -216,7 +217,7 @@ export async function PUT(request: NextRequest) {
       }
     });
 
-    console.log(`✅ Discipline mise à jour: "${updatedDiscipline.name}"`);
+    logger.debug(`✅ Discipline mise à jour: "${updatedDiscipline.name}"`);
 
     // Créer un log d'audit
     await prisma.auditLog.create({
@@ -240,7 +241,7 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json(updatedDiscipline);
   } catch (error: any) {
-    console.error("Error updating discipline:", error);
+    logger.error("Error updating discipline:", error);
     return NextResponse.json(
       { error: "Erreur lors de la mise à jour de la discipline: " + error.message },
       { status: 500 }
@@ -317,7 +318,7 @@ export async function DELETE(request: NextRequest) {
       where: { id }
     });
 
-    console.log(`✅ Discipline supprimée: "${existingDiscipline.name}"`);
+    logger.debug(`✅ Discipline supprimée: "${existingDiscipline.name}"`);
 
     // Créer un log d'audit
     await prisma.auditLog.create({
@@ -340,7 +341,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ message: "Discipline supprimée avec succès" });
   } catch (error: any) {
-    console.error("Error deleting discipline:", error);
+    logger.error("Error deleting discipline:", error);
     return NextResponse.json(
       { error: "Erreur lors de la suppression de la discipline: " + error.message },
       { status: 500 }

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 /**
  * Webhook Moneroo
  * 
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const signature = request.headers.get("x-moneroo-signature") || "";
 
-    console.log("🔔 Moneroo Webhook received:", body);
+    logger.debug("🔔 Moneroo Webhook received:", body);
 
     // Vérifier la signature du webhook
     const monerooService = getMonerooService();
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
     const isValid = monerooService.verifyWebhookSignature(rawBody, signature);
 
     if (!isValid) {
-      console.error("❌ Invalid webhook signature");
+      logger.error("❌ Invalid webhook signature");
       return NextResponse.json(
         { error: "Invalid signature" },
         { status: 401 }
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
     // Parser l'événement
     const event = monerooService.parseWebhookEvent(body);
     if (!event) {
-      console.error("❌ Invalid webhook event structure");
+      logger.error("❌ Invalid webhook event structure");
       return NextResponse.json(
         { error: "Invalid event structure" },
         { status: 400 }
@@ -65,12 +66,12 @@ export async function POST(request: NextRequest) {
         break;
       
       default:
-        console.warn(`⚠️ Unhandled webhook event: ${event.event}`);
+        logger.warn(`⚠️ Unhandled webhook event: ${event.event}`);
     }
 
     return NextResponse.json({ success: true, message: "Webhook processed" });
   } catch (error: any) {
-    console.error("❌ Error processing Moneroo webhook:", error);
+    logger.error("❌ Error processing Moneroo webhook:", error);
     return NextResponse.json(
       { error: "Internal server error", message: error.message },
       { status: 500 }
@@ -83,14 +84,14 @@ export async function POST(request: NextRequest) {
  */
 async function handlePaymentSuccess(event: any) {
   try {
-    console.log("✅ Processing payment success:", event.data.transaction_id);
+    logger.debug("✅ Processing payment success:", event.data.transaction_id);
 
     const { transaction_id, amount, metadata } = event.data;
 
     // Récupérer l'ID de la commande depuis les métadonnées
     const orderId = metadata?.order_id;
     if (!orderId) {
-      console.error("❌ No order_id in payment metadata");
+      logger.error("❌ No order_id in payment metadata");
       return;
     }
 
@@ -113,7 +114,7 @@ async function handlePaymentSuccess(event: any) {
     });
 
     if (!order) {
-      console.error(`❌ Order not found: ${orderId}`);
+      logger.error(`❌ Order not found: ${orderId}`);
       return;
     }
 
@@ -205,9 +206,9 @@ async function handlePaymentSuccess(event: any) {
       },
     });
 
-    console.log(`✅ Payment processed successfully for order ${orderId}`);
+    logger.debug(`✅ Payment processed successfully for order ${orderId}`);
   } catch (error: any) {
-    console.error("❌ Error handling payment success:", error);
+    logger.error("❌ Error handling payment success:", error);
     throw error;
   }
 }
@@ -217,13 +218,13 @@ async function handlePaymentSuccess(event: any) {
  */
 async function handlePaymentFailed(event: any) {
   try {
-    console.log("❌ Processing payment failure:", event.data.transaction_id);
+    logger.debug("❌ Processing payment failure:", event.data.transaction_id);
 
     const { transaction_id, metadata } = event.data;
     const orderId = metadata?.order_id;
 
     if (!orderId) {
-      console.error("❌ No order_id in payment metadata");
+      logger.error("❌ No order_id in payment metadata");
       return;
     }
 
@@ -255,9 +256,9 @@ async function handlePaymentFailed(event: any) {
       });
     }
 
-    console.log(`❌ Payment failed for order ${orderId}`);
+    logger.debug(`❌ Payment failed for order ${orderId}`);
   } catch (error: any) {
-    console.error("❌ Error handling payment failure:", error);
+    logger.error("❌ Error handling payment failure:", error);
     throw error;
   }
 }
@@ -267,13 +268,13 @@ async function handlePaymentFailed(event: any) {
  */
 async function handlePaymentCancelled(event: any) {
   try {
-    console.log("⚠️ Processing payment cancellation:", event.data.transaction_id);
+    logger.debug("⚠️ Processing payment cancellation:", event.data.transaction_id);
 
     const { transaction_id, metadata } = event.data;
     const orderId = metadata?.order_id;
 
     if (!orderId) {
-      console.error("❌ No order_id in payment metadata");
+      logger.error("❌ No order_id in payment metadata");
       return;
     }
 
@@ -287,9 +288,9 @@ async function handlePaymentCancelled(event: any) {
       },
     });
 
-    console.log(`⚠️ Payment cancelled for order ${orderId}`);
+    logger.debug(`⚠️ Payment cancelled for order ${orderId}`);
   } catch (error: any) {
-    console.error("❌ Error handling payment cancellation:", error);
+    logger.error("❌ Error handling payment cancellation:", error);
     throw error;
   }
 }
@@ -299,7 +300,7 @@ async function handlePaymentCancelled(event: any) {
  */
 async function handlePayoutSuccess(event: any) {
   try {
-    console.log("✅ Processing payout success:", event.data.payout_id);
+    logger.debug("✅ Processing payout success:", event.data.payout_id);
 
     const { payout_id, amount, metadata } = event.data;
 
@@ -308,7 +309,7 @@ async function handlePayoutSuccess(event: any) {
     const withdrawalType = metadata?.withdrawal_type; // "author", "representant" ou "partner"
 
     if (!withdrawalId) {
-      console.error("❌ No withdrawal_id in payout metadata");
+      logger.error("❌ No withdrawal_id in payout metadata");
       return;
     }
 
@@ -347,7 +348,7 @@ async function handlePayoutSuccess(event: any) {
         },
       });
 
-      console.log(`✅ Author withdrawal ${withdrawalId} marked as paid`);
+      logger.debug(`✅ Author withdrawal ${withdrawalId} marked as paid`);
     } else if (withdrawalType === "representant") {
       // Mettre à jour le retrait représentant
       const withdrawal = await prisma.representantWithdrawal.update({
@@ -370,7 +371,7 @@ async function handlePayoutSuccess(event: any) {
         },
       });
 
-      console.log(`✅ Representant withdrawal ${withdrawalId} marked as paid`);
+      logger.debug(`✅ Representant withdrawal ${withdrawalId} marked as paid`);
     } else if (withdrawalType === "partner") {
       // Mettre à jour le retrait partenaire (stocké dans RepresentantWithdrawal)
       const withdrawal = await prisma.representantWithdrawal.update({
@@ -411,10 +412,10 @@ async function handlePayoutSuccess(event: any) {
         },
       });
 
-      console.log(`✅ Partner withdrawal ${withdrawalId} marked as paid`);
+      logger.debug(`✅ Partner withdrawal ${withdrawalId} marked as paid`);
     }
   } catch (error: any) {
-    console.error("❌ Error handling payout success:", error);
+    logger.error("❌ Error handling payout success:", error);
     throw error;
   }
 }
@@ -424,14 +425,14 @@ async function handlePayoutSuccess(event: any) {
  */
 async function handlePayoutFailed(event: any) {
   try {
-    console.log("❌ Processing payout failure:", event.data.payout_id);
+    logger.debug("❌ Processing payout failure:", event.data.payout_id);
 
     const { payout_id, metadata } = event.data;
     const withdrawalId = metadata?.withdrawal_id;
     const withdrawalType = metadata?.withdrawal_type;
 
     if (!withdrawalId) {
-      console.error("❌ No withdrawal_id in payout metadata");
+      logger.error("❌ No withdrawal_id in payout metadata");
       return;
     }
 
@@ -478,9 +479,9 @@ async function handlePayoutFailed(event: any) {
       });
     }
 
-    console.log(`❌ Withdrawal ${withdrawalId} marked as failed`);
+    logger.debug(`❌ Withdrawal ${withdrawalId} marked as failed`);
   } catch (error: any) {
-    console.error("❌ Error handling payout failure:", error);
+    logger.error("❌ Error handling payout failure:", error);
     throw error;
   }
 }
@@ -523,10 +524,10 @@ async function calculateAndCreateRoyalties(order: any) {
         },
       });
 
-      console.log(`✅ Royalty created: ${royaltyAmount} XOF for author ${author.name}`);
+      logger.debug(`✅ Royalty created: ${royaltyAmount} XOF for author ${author.name}`);
     }
   } catch (error: any) {
-    console.error("❌ Error calculating royalties:", error);
+    logger.error("❌ Error calculating royalties:", error);
     throw error;
   }
 }
@@ -568,10 +569,10 @@ async function calculateAndCreatePartnerRebates(order: any) {
         },
       });
 
-      console.log(`✅ Rebate created: ${rebateAmount} XOF for partner ${order.partner.name}`);
+      logger.debug(`✅ Rebate created: ${rebateAmount} XOF for partner ${order.partner.name}`);
     }
   } catch (error: any) {
-    console.error("❌ Error calculating partner rebates:", error);
+    logger.error("❌ Error calculating partner rebates:", error);
     throw error;
   }
 }

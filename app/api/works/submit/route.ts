@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
         })
       }
     } catch (notifError) {
-      console.error("Erreur lors de la création de la notification:", notifError)
+      logger.error("Erreur lors de la création de la notification:", notifError)
       // Ne pas faire échouer la soumission si la notification échoue
     }
 
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
     }, { status: 200 })
 
   } catch (error: any) {
-    console.error("Error submitting work:", error)
+    logger.error("Error submitting work:", error)
     return NextResponse.json({ 
       error: error.message || "Erreur lors de la soumission du livre" 
     }, { status: 500 })

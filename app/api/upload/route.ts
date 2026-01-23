@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -153,10 +154,10 @@ export async function POST(request: NextRequest) {
 
         uploadedFiles.push(uploadedFile);
 
-        console.log(`✅ Fichier uploadé: ${file.name} → ${uniqueFilename}`);
+        logger.debug(`✅ Fichier uploadé: ${file.name} → ${uniqueFilename}`);
 
       } catch (fileError: any) {
-        console.error(`❌ Erreur upload fichier ${file.name}:`, fileError);
+        logger.error(`❌ Erreur upload fichier ${file.name}:`, fileError);
         errors.push(`${file.name}: ${fileError.message}`);
       }
     }
@@ -172,7 +173,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`✅ ${uploadedFiles.length} fichier(s) uploadé(s) par ${session.user.name}`);
+    logger.debug(`✅ ${uploadedFiles.length} fichier(s) uploadé(s) par ${session.user.name}`);
 
     return NextResponse.json({
       message: `${uploadedFiles.length} fichier(s) uploadé(s) avec succès`,
@@ -181,7 +182,7 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
 
   } catch (error: any) {
-    console.error("❌ Erreur lors de l'upload:", error);
+    logger.error("❌ Erreur lors de l'upload:", error);
     return NextResponse.json(
       { error: "Erreur lors de l'upload: " + error.message },
       { status: 500 }
@@ -217,7 +218,7 @@ export async function GET(request: NextRequest) {
     }, { status: 200 });
 
   } catch (error: any) {
-    console.error("❌ Erreur lors de la récupération des fichiers:", error);
+    logger.error("❌ Erreur lors de la récupération des fichiers:", error);
     return NextResponse.json(
       { error: "Erreur lors de la récupération des fichiers: " + error.message },
       { status: 500 }
@@ -264,14 +265,14 @@ export async function DELETE(request: NextRequest) {
     const fs = require('fs').promises;
     await fs.unlink(filePath);
 
-    console.log(`✅ Fichier supprimé: ${filename} par ${session.user.name}`);
+    logger.debug(`✅ Fichier supprimé: ${filename} par ${session.user.name}`);
 
     return NextResponse.json({
       message: "Fichier supprimé avec succès"
     }, { status: 200 });
 
   } catch (error: any) {
-    console.error("❌ Erreur lors de la suppression du fichier:", error);
+    logger.error("❌ Erreur lors de la suppression du fichier:", error);
     return NextResponse.json(
       { error: "Erreur lors de la suppression du fichier: " + error.message },
       { status: 500 }

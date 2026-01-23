@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -164,7 +165,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('Erreur lors de la récupération du dashboard auteur:', error);
+    logger.error('Erreur lors de la récupération du dashboard auteur:', error);
     return NextResponse.json(
       { error: 'Erreur lors de la récupération du dashboard' },
       { status: 500 }

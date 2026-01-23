@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error("Erreur lors de la récupération des données financières:", error)
+    logger.error("Erreur lors de la récupération des données financières:", error)
     return NextResponse.json(
       { error: "Erreur interne du serveur" },
       { status: 500 }
@@ -162,9 +163,9 @@ async function loadOverviewData() {
       }
     })
     
-    console.log(`📊 Récupération de ${recentOrders.length} commandes récentes`)
+    logger.debug(`📊 Récupération de ${recentOrders.length} commandes récentes`)
     recentOrders.forEach(order => {
-      console.log(`  - Commande ${order.id}: ${order.items?.length || 0} items, user: ${order.user?.name || 'N/A'}, partner: ${order.partner?.name || 'N/A'}`)
+      logger.debug(`  - Commande ${order.id}: ${order.items?.length || 0} items, user: ${order.user?.name || 'N/A'}, partner: ${order.partner?.name || 'N/A'}`)
     })
 
     // Récupérer les œuvres les plus vendues (ventes + commandes livrées)
@@ -334,7 +335,7 @@ async function loadOverviewData() {
     return NextResponse.json(overview)
 
   } catch (error) {
-    console.error("Erreur lors du chargement des données de vue d'ensemble:", error)
+    logger.error("Erreur lors du chargement des données de vue d'ensemble:", error)
     return NextResponse.json(
       { error: "Erreur lors du chargement des données" },
       { status: 500 }
@@ -578,7 +579,7 @@ async function loadSalesData(startDate?: string, endDate?: string) {
     return NextResponse.json(salesReport)
 
   } catch (error) {
-    console.error("Erreur lors du chargement des données de ventes:", error)
+    logger.error("Erreur lors du chargement des données de ventes:", error)
     return NextResponse.json(
       { error: "Erreur lors du chargement des données de ventes" },
       { status: 500 }
@@ -695,8 +696,8 @@ async function loadRoyaltiesData(startDate?: string, endDate?: string) {
     return NextResponse.json(royaltiesData)
 
   } catch (error) {
-    console.error("Erreur lors du chargement des données de royalties:", error)
-    console.error("Stack trace:", error instanceof Error ? error.stack : 'No stack trace')
+    logger.error("Erreur lors du chargement des données de royalties:", error)
+    logger.error("Stack trace:", error instanceof Error ? error.stack : 'No stack trace')
     return NextResponse.json(
       { 
         error: "Erreur lors du chargement des données de royalties",
@@ -849,8 +850,8 @@ async function loadPartnerPerformanceData(startDate?: string, endDate?: string) 
     return NextResponse.json(response)
 
   } catch (error: any) {
-    console.error("❌ Erreur lors du chargement des données de performance des partenaires:", error)
-    console.error("Stack trace:", error.stack)
+    logger.error("❌ Erreur lors du chargement des données de performance des partenaires:", error)
+    logger.error("Stack trace:", error.stack)
     return NextResponse.json(
       { 
         error: "Erreur lors du chargement des données des partenaires",

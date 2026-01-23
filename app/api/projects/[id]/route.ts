@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
@@ -101,12 +102,12 @@ export async function GET(
       );
     }
 
-    console.log(`✅ Projet ${projectId} récupéré par ${session.user.name} (${userRole})`);
+    logger.debug(`✅ Projet ${projectId} récupéré par ${session.user.name} (${userRole})`);
 
     return NextResponse.json(project, { status: 200 });
 
   } catch (error: any) {
-    console.error("❌ Erreur lors de la récupération du projet:", error);
+    logger.error("❌ Erreur lors de la récupération du projet:", error);
     return NextResponse.json(
       { error: "Erreur lors de la récupération du projet: " + error.message },
       { status: 500 }
@@ -188,12 +189,12 @@ export async function PATCH(
       }
     });
 
-    console.log(`✅ Projet ${projectId} mis à jour par ${session.user.name}`);
+    logger.debug(`✅ Projet ${projectId} mis à jour par ${session.user.name}`);
 
     return NextResponse.json(updatedProject, { status: 200 });
 
   } catch (error: any) {
-    console.error("❌ Erreur lors de la mise à jour du projet:", error);
+    logger.error("❌ Erreur lors de la mise à jour du projet:", error);
     return NextResponse.json(
       { error: "Erreur lors de la mise à jour du projet: " + error.message },
       { status: 500 }
@@ -386,12 +387,12 @@ export async function PUT(
       }
     }
 
-    console.log(`✅ Projet ${projectId} mis à jour par ${session.user.name} (${userRole})`);
+    logger.debug(`✅ Projet ${projectId} mis à jour par ${session.user.name} (${userRole})`);
 
     return NextResponse.json(updatedProject, { status: 200 });
 
   } catch (error: any) {
-    console.error("❌ Erreur lors de la mise à jour du projet:", error);
+    logger.error("❌ Erreur lors de la mise à jour du projet:", error);
     return NextResponse.json(
       { error: "Erreur lors de la mise à jour du projet: " + error.message },
       { status: 500 }
@@ -440,7 +441,7 @@ export async function DELETE(
         where: { projectId: projectId }
       });
     } catch (worksError) {
-      console.log("⚠️ Relation works pas encore migrée, continuation sans vérification œuvres");
+      logger.debug("⚠️ Relation works pas encore migrée, continuation sans vérification œuvres");
     }
 
     if (!existingProject) {
@@ -495,7 +496,7 @@ export async function DELETE(
       }
     });
 
-    console.log(`✅ Projet ${projectId} supprimé par ${session.user.name} (${userRole})`);
+    logger.debug(`✅ Projet ${projectId} supprimé par ${session.user.name} (${userRole})`);
 
     return NextResponse.json(
       { message: "Projet supprimé avec succès" },
@@ -503,7 +504,7 @@ export async function DELETE(
     );
 
   } catch (error: any) {
-    console.error("❌ Erreur lors de la suppression du projet:", error);
+    logger.error("❌ Erreur lors de la suppression du projet:", error);
     return NextResponse.json(
       { error: "Erreur lors de la suppression du projet: " + error.message },
       { status: 500 }

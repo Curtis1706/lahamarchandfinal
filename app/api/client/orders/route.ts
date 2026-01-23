@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -99,7 +100,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error("Error fetching client orders:", error)
+    logger.error("Error fetching client orders:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
@@ -271,7 +272,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Invalid action or status" }, { status: 400 })
 
   } catch (error) {
-    console.error("Error updating order:", error)
+    logger.error("Error updating order:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { Role } from "@prisma/client"
+import { logger } from '@/lib/logger'
 
 // POST /api/auth/signup - Inscription publique
 export async function POST(request: NextRequest) {
@@ -8,27 +9,28 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { name, email, password, role, phone, disciplineId } = body
 
-    console.log("🔍 Inscription publique - Données reçues:", { name, email, role, phone, disciplineId })
+    // Ne logger que le rôle, pas les données personnelles
+    logger.info("Nouvelle inscription", { role })
 
     // Validation des champs obligatoires
     if (!name || !email || !password || !role) {
-      return NextResponse.json({ 
-        error: "Les champs nom, email, mot de passe et rôle sont obligatoires" 
+      return NextResponse.json({
+        error: "Les champs nom, email, mot de passe et rôle sont obligatoires"
       }, { status: 400 })
     }
 
     // Validation du mot de passe
     if (password.length < 6) {
-      return NextResponse.json({ 
-        error: "Le mot de passe doit contenir au moins 6 caractères" 
+      return NextResponse.json({
+        error: "Le mot de passe doit contenir au moins 6 caractères"
       }, { status: 400 })
     }
 
     // Validation du rôle
     const validRoles = ['AUTEUR', 'CONCEPTEUR', 'CLIENT', 'PARTENAIRE', 'REPRESENTANT']
     if (!validRoles.includes(role)) {
-      return NextResponse.json({ 
-        error: "Rôle invalide. Rôles autorisés: AUTEUR, CONCEPTEUR, CLIENT, PARTENAIRE, REPRESENTANT" 
+      return NextResponse.json({
+        error: "Rôle invalide. Rôles autorisés: AUTEUR, CONCEPTEUR, CLIENT, PARTENAIRE, REPRESENTANT"
       }, { status: 400 })
     }
 
@@ -38,8 +40,8 @@ export async function POST(request: NextRequest) {
     })
 
     if (existingUser) {
-      return NextResponse.json({ 
-        error: "Un utilisateur avec cet email existe déjà" 
+      return NextResponse.json({
+        error: "Un utilisateur avec cet email existe déjà"
       }, { status: 400 })
     }
 
@@ -49,8 +51,8 @@ export async function POST(request: NextRequest) {
         where: { id: disciplineId }
       })
       if (!discipline) {
-        return NextResponse.json({ 
-          error: "Discipline non trouvée" 
+        return NextResponse.json({
+          error: "Discipline non trouvée"
         }, { status: 400 })
       }
     }
@@ -93,7 +95,7 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    console.log("✅ Utilisateur créé avec succès:", newUser)
+    logger.debug("✅ Utilisateur créé avec succès:", newUser)
 
     // Si c'est un partenaire, créer automatiquement l'entité Partner
     if (role === 'PARTENAIRE') {
@@ -108,9 +110,9 @@ export async function POST(request: NextRequest) {
             contact: newUser.name,
           }
         })
-        console.log("✅ Partenaire créé automatiquement pour:", newUser.name)
+        logger.debug("✅ Partenaire créé automatiquement pour:", newUser.name)
       } catch (partnerError: any) {
-        console.error("⚠️ Erreur création partenaire:", partnerError)
+        logger.error("⚠️ Erreur création partenaire:", partnerError)
         // Si l'erreur est due à un partenaire déjà existant, on continue
         // Sinon, on peut décider de supprimer l'utilisateur ou de continuer
         if (partnerError.code !== 'P2002') {
@@ -144,16 +146,16 @@ export async function POST(request: NextRequest) {
               })
             }
           })
-          console.log("✅ Notification créée pour le PDG")
+          logger.debug("✅ Notification créée pour le PDG")
         }
       } catch (notificationError) {
-        console.error("⚠️ Erreur création notification:", notificationError)
+        logger.error("⚠️ Erreur création notification:", notificationError)
         // Ne pas faire échouer l'inscription pour une erreur de notification
       }
     }
 
     // Message différent selon le statut
-    const successMessage = requiresValidation 
+    const successMessage = requiresValidation
       ? "Inscription réussie ! Votre compte est en attente de validation par l'administrateur."
       : "Inscription réussie ! Votre compte est maintenant actif."
 
@@ -169,17 +171,17 @@ export async function POST(request: NextRequest) {
     }, { status: 201 })
 
   } catch (error: any) {
-    console.error("❌ Erreur inscription:", error)
-    
+    logger.error("❌ Erreur inscription:", error)
+
     // Gestion spécifique des erreurs Prisma
     if (error.code === 'P2002') {
-      return NextResponse.json({ 
-        error: "Un utilisateur avec cet email existe déjà" 
+      return NextResponse.json({
+        error: "Un utilisateur avec cet email existe déjà"
       }, { status: 400 })
     }
-    
-    return NextResponse.json({ 
-      error: "Erreur lors de l'inscription. Veuillez réessayer." 
+
+    return NextResponse.json({
+      error: "Erreur lors de l'inscription. Veuillez réessayer."
     }, { status: 500 })
   }
 }

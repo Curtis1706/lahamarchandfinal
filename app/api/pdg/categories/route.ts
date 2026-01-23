@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(formattedCategories)
 
   } catch (error) {
-    console.error("Error fetching categories:", error)
+    logger.error("Error fetching categories:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest) {
         }
       })
     } catch (auditError) {
-      console.error("⚠️ Erreur lors de la création de l'audit log:", auditError)
+      logger.error("⚠️ Erreur lors de la création de l'audit log:", auditError)
       // Ne pas bloquer la création de la catégorie si l'audit log échoue
     }
 
@@ -133,7 +134,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(formattedCategory, { status: 201 })
 
   } catch (error: any) {
-    console.error("Error creating category:", error)
+    logger.error("Error creating category:", error)
     
     // Gérer l'erreur de contrainte unique (P2002)
     if (error.code === 'P2002') {
@@ -189,7 +190,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(category)
 
   } catch (error) {
-    console.error("Error updating category:", error)
+    logger.error("Error updating category:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }

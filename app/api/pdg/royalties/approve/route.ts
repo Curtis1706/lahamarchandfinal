@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error("❌ Error approving royalties:", error)
+    logger.error("❌ Error approving royalties:", error)
     return NextResponse.json(
       { error: error.message || "Erreur interne du serveur" },
       { status: 500 }

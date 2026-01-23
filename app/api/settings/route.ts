@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
@@ -69,7 +70,7 @@ async function getPricingRatesFromDB() {
 
     // Vérifier que Prisma est disponible
     if (!prisma) {
-      console.warn("Prisma client not available, using default pricing rates");
+      logger.warn("Prisma client not available, using default pricing rates");
       return DEFAULT_SETTINGS.pricing;
     }
 
@@ -78,7 +79,7 @@ async function getPricingRatesFromDB() {
         key: { in: pricingKeys }
       }
     }).catch((error) => {
-      console.error("Prisma error fetching pricing rates:", error);
+      logger.error("Prisma error fetching pricing rates:", error);
       return [];
     });
 
@@ -101,7 +102,7 @@ async function getPricingRatesFromDB() {
 
     return pricing;
   } catch (error: any) {
-    console.error("Error fetching pricing rates from DB:", error?.message || error);
+    logger.error("Error fetching pricing rates from DB:", error?.message || error);
     // Toujours retourner les valeurs par défaut en cas d'erreur
     return DEFAULT_SETTINGS.pricing;
   }
@@ -118,7 +119,7 @@ export async function GET(request: NextRequest) {
     try {
       pricingRates = await getPricingRatesFromDB();
     } catch (pricingError) {
-      console.error("Error fetching pricing rates from DB, using defaults:", pricingError);
+      logger.error("Error fetching pricing rates from DB, using defaults:", pricingError);
       // Continuer avec les valeurs par défaut
     }
 
@@ -148,7 +149,7 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error: any) {
-    console.error("Error fetching settings:", error);
+    logger.error("Error fetching settings:", error);
     // Toujours retourner du JSON, même en cas d'erreur
     return NextResponse.json(
       { 
@@ -193,7 +194,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    console.log(`Updating settings for category: ${category}`, settings);
+    logger.debug(`Updating settings for category: ${category}`, settings);
 
     // Si c'est la catégorie pricing, sauvegarder dans AdvancedSetting et RebateRate
     if (category === "pricing") {
@@ -220,7 +221,7 @@ export async function PUT(request: NextRequest) {
       settings
     });
   } catch (error) {
-    console.error("Error updating settings:", error);
+    logger.error("Error updating settings:", error);
     return NextResponse.json(
       { error: "Erreur lors de la mise à jour des paramètres" },
       { status: 500 }
@@ -305,9 +306,9 @@ async function savePricingSettings(pricing: any, userId: string) {
       });
     }
 
-    console.log("✅ Pricing settings saved successfully");
+    logger.debug("✅ Pricing settings saved successfully");
   } catch (error) {
-    console.error("Error saving pricing settings:", error);
+    logger.error("Error saving pricing settings:", error);
     throw error;
   }
 }
@@ -331,7 +332,7 @@ export async function POST(request: NextRequest) {
         );
     }
   } catch (error) {
-    console.error("Error in settings action:", error);
+    logger.error("Error in settings action:", error);
     return NextResponse.json(
       { error: "Erreur lors de l'exécution de l'action" },
       { status: 500 }

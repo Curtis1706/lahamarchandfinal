@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -9,7 +10,7 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user || session.user.role !== 'PDG') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
     // 4. Les auteurs (AUTEUR)
     // 5. Les concepteurs (CONCEPTEUR)
 
-    // Récupérer tous les utilisateurs actifs avec leurs rôles
+    // Récupérer les utilisateurs actifs avec leurs rôles (limité pour performance)
     const allUsers = await prisma.user.findMany({
       where: {
         status: 'ACTIVE',
@@ -42,7 +43,8 @@ export async function GET(request: NextRequest) {
       orderBy: [
         { role: 'asc' },
         { name: 'asc' }
-      ]
+      ],
+      take: 500 // Limiter à 500 destinataires pour la messagerie
     })
 
     // Pour les utilisateurs CLIENT, vérifier s'ils sont des écoles (via Partner)
@@ -96,7 +98,7 @@ export async function GET(request: NextRequest) {
       AUTRE: recipients.filter(r => r.category === 'AUTRE')
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       recipients,
       recipientsByCategory,
       stats: {
@@ -110,10 +112,10 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('Erreur lors de la récupération des destinataires:', error)
-    console.error('Stack trace:', error.stack)
+    logger.error('Erreur lors de la récupération des destinataires:', error)
+    logger.error('Stack trace:', error.stack)
     return NextResponse.json(
-      { 
+      {
         error: 'Erreur interne du serveur',
         message: process.env.NODE_ENV === 'development' ? error.message : undefined
       },

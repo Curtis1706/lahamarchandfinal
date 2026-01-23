@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -5,7 +6,7 @@ import { prisma } from "@/lib/prisma"
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("🔔 Starting representant notifications fetch...")
+    logger.debug("🔔 Starting representant notifications fetch...")
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
     }
 
-    console.log("✅ User found:", user.name, user.role)
+    logger.debug("✅ User found:", user.name, user.role)
 
     // Récupérer les vraies notifications de la base de données
     const notifications = await prisma.notification.findMany({
@@ -65,7 +66,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    console.log("✅ Notifications prepared:", {
+    logger.debug("✅ Notifications prepared:", {
       total: finalNotifications.length,
       unread: response.summary.unread,
       highPriority: response.summary.highPriority
@@ -74,7 +75,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(response)
 
   } catch (error) {
-    console.error("❌ Error fetching notifications:", error)
+    logger.error("❌ Error fetching notifications:", error)
     return NextResponse.json(
       { error: "Erreur lors du chargement des notifications" },
       { status: 500 }
@@ -105,7 +106,7 @@ export async function PATCH(request: NextRequest) {
             read: true
           }
         })
-        console.log(`✅ ${notificationIds.length} notifications marquées comme lues`)
+        logger.debug(`✅ ${notificationIds.length} notifications marquées comme lues`)
       } else if (notificationId) {
         // Marquer une seule notification comme lue
         await prisma.notification.update({
@@ -116,14 +117,14 @@ export async function PATCH(request: NextRequest) {
             read: true
           }
         })
-        console.log(`✅ Notification ${notificationId} marquée comme lue`)
+        logger.debug(`✅ Notification ${notificationId} marquée comme lue`)
       }
     }
 
     return NextResponse.json({ success: true })
 
   } catch (error) {
-    console.error("❌ Error updating notification:", error)
+    logger.error("❌ Error updating notification:", error)
     return NextResponse.json(
       { error: "Erreur lors de la mise à jour de la notification" },
       { status: 500 }

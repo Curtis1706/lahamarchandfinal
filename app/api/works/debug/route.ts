@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from "next/server"
@@ -105,7 +106,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error("Error fetching works debug:", error)
+    logger.error("Error fetching works debug:", error)
     return NextResponse.json(
       { error: "Erreur lors de la récupération des œuvres de debug" },
       { status: 500 }

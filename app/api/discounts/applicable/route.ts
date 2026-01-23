@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from "next/server"
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
           finalWorkTitle = work.title
         }
       } catch (error) {
-        console.error("Error fetching work title:", error)
+        logger.error("Error fetching work title:", error)
       }
     }
 
@@ -89,7 +90,7 @@ export async function GET(request: NextRequest) {
     }, { status: 200 })
 
   } catch (error: any) {
-    console.error("Error fetching applicable discounts:", error)
+    logger.error("Error fetching applicable discounts:", error)
     return NextResponse.json({ 
       error: error.message || "Erreur lors de la récupération des remises" 
     }, { status: 500 })

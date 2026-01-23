@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from "next/server"
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden - Concepteur role required" }, { status: 403 })
     }
 
-    console.log("🔔 Fetching concepteur notifications for:", user.name)
+    logger.debug("🔔 Fetching concepteur notifications for:", user.name)
 
     const userId = user.id
 
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    console.log("🔔 Found works for notifications:", works.length)
+    logger.debug("🔔 Found works for notifications:", works.length)
 
     // Générer les notifications basées sur les œuvres et leurs statuts
     const notifications = []
@@ -182,7 +183,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    console.log(`🔔 Concepteur notifications: ${summary.total} total, ${summary.urgent} urgent`)
+    logger.debug(`🔔 Concepteur notifications: ${summary.total} total, ${summary.urgent} urgent`)
 
     return NextResponse.json({
       notifications,
@@ -195,7 +196,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error("❌ Error fetching concepteur notifications:", error)
+    logger.error("❌ Error fetching concepteur notifications:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }

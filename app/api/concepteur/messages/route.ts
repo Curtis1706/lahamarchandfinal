@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -148,7 +149,7 @@ export async function GET(request: NextRequest) {
       unreadCount
     })
   } catch (error) {
-    console.error('Error fetching messages:', error)
+    logger.error('Error fetching messages:', error)
     return NextResponse.json(
       { error: 'Erreur lors de la récupération des messages' },
       { status: 500 }
@@ -207,7 +208,7 @@ export async function POST(request: NextRequest) {
       }
     })
   } catch (error: any) {
-    console.error('Error sending message:', error)
+    logger.error('Error sending message:', error)
     return NextResponse.json(
       { error: error.message || 'Erreur lors de l\'envoi du message' },
       { status: 500 }
@@ -255,7 +256,7 @@ export async function PUT(request: NextRequest) {
       }
     })
   } catch (error: any) {
-    console.error('Error updating message:', error)
+    logger.error('Error updating message:', error)
     return NextResponse.json(
       { error: error.message || 'Erreur lors de la mise à jour du message' },
       { status: 500 }
@@ -295,7 +296,7 @@ export async function DELETE(request: NextRequest) {
       message: 'Message supprimé avec succès'
     })
   } catch (error: any) {
-    console.error('Error deleting message:', error)
+    logger.error('Error deleting message:', error)
     return NextResponse.json(
       { error: error.message || 'Erreur lors de la suppression du message' },
       { status: 500 }

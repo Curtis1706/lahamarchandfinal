@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import bcrypt from 'bcryptjs'
@@ -154,7 +155,7 @@ export async function POST(request: NextRequest) {
         })
       }
     } catch (notificationError) {
-      console.warn("⚠️ Failed to create notification for PDG:", notificationError)
+      logger.warn("⚠️ Failed to create notification for PDG:", notificationError)
     }
 
     return NextResponse.json({
@@ -169,7 +170,7 @@ export async function POST(request: NextRequest) {
     }, { status: 201 })
 
   } catch (error: any) {
-    console.error("❌ Error creating guest order:", error)
+    logger.error("❌ Error creating guest order:", error)
     return NextResponse.json(
       { error: "Erreur lors de la création de la commande: " + error.message },
       { status: 500 }

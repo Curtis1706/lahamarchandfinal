@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -103,7 +104,7 @@ export async function POST(request: NextRequest) {
           });
           notifications.push(proforma.proformaNumber);
         } catch (notifError: any) {
-          console.error(
+          logger.error(
             `[WARNING] Erreur lors de la création de la notification pour ${proforma.proformaNumber}:`,
             notifError
           );
@@ -112,7 +113,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Journal d'audit
-    console.log(
+    logger.debug(
       `[AUDIT] ${result.count} proforma(s) automatiquement marqué(s) comme expiré(s) - ${notifications.length} notification(s) envoyée(s)`
     );
 
@@ -123,7 +124,7 @@ export async function POST(request: NextRequest) {
       notificationsSent: notifications.length,
     });
   } catch (error: any) {
-    console.error("❌ ERREUR lors du marquage des proformas expirés:", error);
+    logger.error("❌ ERREUR lors du marquage des proformas expirés:", error);
     return NextResponse.json(
       {
         error: "Erreur lors du marquage des proformas expirés",
@@ -173,7 +174,7 @@ export async function GET(request: NextRequest) {
       proformas: expiredProformas,
     });
   } catch (error: any) {
-    console.error("❌ ERREUR lors de la vérification des proformas expirés:", error);
+    logger.error("❌ ERREUR lors de la vérification des proformas expirés:", error);
     return NextResponse.json(
       {
         error: "Erreur lors de la vérification des proformas expirés",

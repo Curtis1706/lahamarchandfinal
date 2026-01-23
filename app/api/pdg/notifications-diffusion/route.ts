@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(formattedDiffusions)
 
   } catch (error) {
-    console.error("Error fetching notifications diffusion:", error)
+    logger.error("Error fetching notifications diffusion:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
@@ -86,7 +87,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true, message: "Notification supprimée" })
 
   } catch (error) {
-    console.error("Error deleting notification:", error)
+    logger.error("Error deleting notification:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }

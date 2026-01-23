@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -146,7 +147,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('Erreur lors du recalcul des ristournes:', error)
+    logger.error('Erreur lors du recalcul des ristournes:', error)
     return NextResponse.json(
       { error: error.message || 'Erreur interne du serveur' },
       { status: 500 }

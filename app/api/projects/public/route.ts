@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { allowGuest } from "@/lib/auth-guard"
@@ -39,7 +40,7 @@ export const GET = allowGuest(async (request: NextRequest, context) => {
       }))
     })
   } catch (error) {
-    console.error("Error fetching public projects:", error)
+    logger.error("Error fetching public projects:", error)
     return NextResponse.json(
       { error: "Erreur lors de la récupération des projets" },
       { status: 500 }

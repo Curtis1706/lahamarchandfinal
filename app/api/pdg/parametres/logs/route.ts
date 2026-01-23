@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -87,7 +88,7 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('Error fetching logs:', error)
+    logger.error('Error fetching logs:', error)
     return NextResponse.json(
       { error: 'Erreur lors de la récupération des logs' },
       { status: 500 }

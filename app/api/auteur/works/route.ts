@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -128,7 +129,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('Erreur lors de la récupération des œuvres de l\'auteur:', error);
+    logger.error('Erreur lors de la récupération des œuvres de l\'auteur:', error);
     return NextResponse.json(
       { error: 'Erreur lors de la récupération des œuvres' },
       { status: 500 }

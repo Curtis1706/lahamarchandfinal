@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from '@prisma/client';
 import { getServerSession } from 'next-auth';
@@ -7,11 +8,11 @@ const prisma = new PrismaClient();
 
 // POST /api/notifications - Créer une notification
 export async function POST(request: NextRequest) {
-  console.log("🔍 API POST /notifications - Création de notification");
+  logger.debug("🔍 API POST /notifications - Création de notification");
   
   try {
     const body = await request.json();
-    console.log("🔍 Body reçu:", body);
+    logger.debug("🔍 Body reçu:", body);
     
     const { 
       userId, 
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
       data 
     } = body;
     
-    console.log("🔍 Données extraites:", { userId, title, type });
+    logger.debug("🔍 Données extraites:", { userId, title, type });
 
     // Validation des champs obligatoires
     if (!userId || !title || !message) {
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("🔍 Tentative de création avec Prisma...");
+    logger.debug("🔍 Tentative de création avec Prisma...");
     
     // Créer la notification
     const notification = await prisma.notification.create({
@@ -67,13 +68,13 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    console.log("✅ Notification créée:", notification);
+    logger.debug("✅ Notification créée:", notification);
     
     return NextResponse.json(notification, { status: 201 });
     
   } catch (error: any) {
-    console.error("❌ Erreur création notification:", error);
-    console.error("❌ Stack:", error.stack);
+    logger.error("❌ Erreur création notification:", error);
+    logger.error("❌ Stack:", error.stack);
     
     return NextResponse.json(
       { error: "Erreur lors de la création de la notification: " + error.message },
@@ -186,7 +187,7 @@ export async function GET(request: NextRequest) {
       total: deduplicatedNotifications.length
     });
   } catch (error) {
-    console.error("Error fetching notifications:", error);
+    logger.error("Error fetching notifications:", error);
     return NextResponse.json(
       { error: "Erreur lors de la récupération des notifications" },
       { status: 500 }
@@ -255,7 +256,7 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json(updatedNotification);
   } catch (error) {
-    console.error("Error updating notification:", error);
+    logger.error("Error updating notification:", error);
     return NextResponse.json(
       { error: "Erreur lors de la mise à jour de la notification" },
       { status: 500 }
@@ -312,7 +313,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ message: "Notification supprimée avec succès" });
   } catch (error) {
-    console.error("Error deleting notification:", error);
+    logger.error("Error deleting notification:", error);
     return NextResponse.json(
       { error: "Erreur lors de la suppression de la notification" },
       { status: 500 }

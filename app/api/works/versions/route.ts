@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -57,7 +58,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error("Erreur lors de la récupération des versions:", error)
+    logger.error("Erreur lors de la récupération des versions:", error)
     return NextResponse.json(
       { error: "Erreur interne du serveur" },
       { status: 500 }
@@ -146,7 +147,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(newVersion, { status: 201 })
 
   } catch (error) {
-    console.error("Erreur lors de la création de la version:", error)
+    logger.error("Erreur lors de la création de la version:", error)
     return NextResponse.json(
       { error: "Erreur interne du serveur" },
       { status: 500 }
@@ -208,7 +209,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(updatedVersion)
 
   } catch (error) {
-    console.error("Erreur lors de la mise à jour de la version:", error)
+    logger.error("Erreur lors de la mise à jour de la version:", error)
     return NextResponse.json(
       { error: "Erreur interne du serveur" },
       { status: 500 }

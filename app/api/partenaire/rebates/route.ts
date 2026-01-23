@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 /**
  * API Route pour les ristournes des partenaires
  */
@@ -83,7 +84,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error("Error fetching partner rebates:", error);
+    logger.error("Error fetching partner rebates:", error);
     return NextResponse.json(
       { error: "Erreur serveur", message: error.message },
       { status: 500 }

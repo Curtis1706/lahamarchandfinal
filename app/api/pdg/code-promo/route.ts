@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(formattedPromotions)
 
   } catch (error) {
-    console.error("Error fetching promotions:", error)
+    logger.error("Error fetching promotions:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
@@ -147,7 +148,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(formattedPromotion, { status: 201 })
 
   } catch (error: any) {
-    console.error("Error creating promotion:", error)
+    logger.error("Error creating promotion:", error)
     return NextResponse.json({ 
       error: "Erreur lors de la création: " + error.message 
     }, { status: 500 })
@@ -201,7 +202,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ success: true, promotion: updatedPromotion })
 
   } catch (error: any) {
-    console.error("Error updating promotion:", error)
+    logger.error("Error updating promotion:", error)
     return NextResponse.json({ 
       error: "Erreur lors de la mise à jour: " + error.message 
     }, { status: 500 })
@@ -258,7 +259,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true, message: "Promotion supprimée" })
 
   } catch (error: any) {
-    console.error("Error deleting promotion:", error)
+    logger.error("Error deleting promotion:", error)
     return NextResponse.json({ 
       error: "Erreur lors de la suppression: " + error.message 
     }, { status: 500 })

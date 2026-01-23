@@ -37,7 +37,8 @@ import {
   Tag,
   DollarSign,
   Package,
-  TrendingUp
+  TrendingUp,
+  Trash2
 } from "lucide-react"
 import { toast } from "sonner"
 import { format } from "date-fns"
@@ -81,7 +82,20 @@ export default function MesOeuvresPage() {
   const [disciplineFilter, setDisciplineFilter] = useState("all")
   const [selectedWork, setSelectedWork] = useState<Work | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [workToDelete, setWorkToDelete] = useState<Work | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
   const [disciplines, setDisciplines] = useState<Array<{ id: string; name: string }>>([])
+  const [editFormData, setEditFormData] = useState({
+    title: '',
+    description: '',
+    price: '',
+    category: '',
+    targetAudience: '',
+    educationalObjectives: ''
+  })
 
   useEffect(() => {
     if (user && user.role === "CONCEPTEUR") {
@@ -89,6 +103,20 @@ export default function MesOeuvresPage() {
       loadDisciplines()
     }
   }, [user, statusFilter, disciplineFilter])
+
+  // Pré-remplir le formulaire quand on ouvre la modale d'édition
+  useEffect(() => {
+    if (showEditModal && selectedWork) {
+      setEditFormData({
+        title: selectedWork.title || '',
+        description: selectedWork.description || '',
+        price: selectedWork.price?.toString() || '0',
+        category: '', // À récupérer depuis les métadonnées si disponible
+        targetAudience: '',
+        educationalObjectives: ''
+      })
+    }
+  }, [showEditModal, selectedWork])
 
   const loadWorks = async () => {
     try {
@@ -132,13 +160,54 @@ export default function MesOeuvresPage() {
   }
 
   const filteredWorks = works.filter(work => {
-    const matchesSearch = 
+    const matchesSearch =
       work.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       work.isbn.toLowerCase().includes(searchTerm.toLowerCase()) ||
       work.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       work.author.name.toLowerCase().includes(searchTerm.toLowerCase())
     return matchesSearch
   })
+
+  const handleDeleteWork = async () => {
+    if (!workToDelete) return
+
+    try {
+      setIsDeleting(true)
+      await apiClient.deleteConcepteurWork(workToDelete.id)
+      toast.success("Œuvre supprimée avec succès")
+      setShowDeleteDialog(false)
+      setWorkToDelete(null)
+      loadWorks() // Recharger la liste
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de la suppression")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleUpdateWork = async () => {
+    if (!selectedWork) return
+
+    try {
+      setIsUpdating(true)
+
+      const updateData: any = {
+        title: editFormData.title.trim(),
+        description: editFormData.description.trim(),
+        price: editFormData.price && editFormData.price.trim() !== '' ? parseFloat(editFormData.price) : 0,
+      }
+
+      await apiClient.updateConcepteurWork(selectedWork.id, updateData)
+      toast.success("Œuvre modifiée avec succès")
+      setShowEditModal(false)
+      setSelectedWork(null)
+      loadWorks() // Recharger la liste
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de la modification")
+    } finally {
+      setIsUpdating(false)
+    }
+  }
 
   const stats = {
     total: works.length,
@@ -169,6 +238,13 @@ export default function MesOeuvresPage() {
             Consultez les œuvres soumises dans le cadre de vos projets
           </p>
         </div>
+        <Button
+          onClick={() => window.location.href = "/dashboard/concepteur/nouvelle-oeuvre"}
+          className="bg-indigo-600 hover:bg-indigo-700"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Nouvelle œuvre
+        </Button>
       </div>
 
       {/* Statistiques */}
@@ -345,13 +421,33 @@ export default function MesOeuvresPage() {
                       <Eye className="h-4 w-4 mr-2" />
                       Voir détails
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.location.href = `/dashboard/concepteur/livres/liste?edit=${work.id}`}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
+                    {['DRAFT', 'PENDING'].includes(work.status) && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedWork(work)
+                            setShowEditModal(true)
+                          }}
+                          title="Modifier"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => {
+                            setWorkToDelete(work)
+                            setShowDeleteDialog(true)
+                          }}
+                          title="Supprimer"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -451,6 +547,101 @@ export default function MesOeuvresPage() {
                 Modifier
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal d'édition */}
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Modifier l'œuvre</DialogTitle>
+            <DialogDescription>
+              Modifiez les informations de l'œuvre "{selectedWork?.title}"
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-title">Titre *</Label>
+              <Input
+                id="edit-title"
+                value={editFormData.title}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Titre de l'œuvre"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-description">Description *</Label>
+              <Textarea
+                id="edit-description"
+                value={editFormData.description}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Description de l'œuvre"
+                rows={4}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-price">Prix (F CFA)</Label>
+              <Input
+                id="edit-price"
+                type="number"
+                value={editFormData.price}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, price: e.target.value }))}
+                placeholder="0"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowEditModal(false)
+                setSelectedWork(null)
+              }}
+              disabled={isUpdating}
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={handleUpdateWork}
+              disabled={isUpdating || !editFormData.title.trim() || !editFormData.description.trim()}
+            >
+              {isUpdating ? "Modification..." : "Enregistrer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de confirmation de suppression */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmer la suppression</DialogTitle>
+            <DialogDescription>
+              Êtes-vous sûr de vouloir supprimer l'œuvre "{workToDelete?.title}" ?
+              Cette action est irréversible.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDeleteDialog(false)
+                setWorkToDelete(null)
+              }}
+              disabled={isDeleting}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteWork}
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Suppression..." : "Supprimer"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

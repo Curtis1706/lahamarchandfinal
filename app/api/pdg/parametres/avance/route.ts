@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -125,7 +126,7 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('Error fetching advanced settings:', error)
+    logger.error('Error fetching advanced settings:', error)
     return NextResponse.json(
       { error: 'Erreur lors de la récupération des paramètres avancés' },
       { status: 500 }
@@ -180,7 +181,7 @@ export async function PUT(request: NextRequest) {
       }
     })
   } catch (error: any) {
-    console.error('Error updating advanced setting:', error)
+    logger.error('Error updating advanced setting:', error)
     return NextResponse.json(
       { error: error.message || 'Erreur lors de la mise à jour du paramètre' },
       { status: 500 }
@@ -235,7 +236,7 @@ export async function POST(request: NextRequest) {
       }
     })
   } catch (error: any) {
-    console.error('Error creating advanced setting:', error)
+    logger.error('Error creating advanced setting:', error)
     if (error.code === 'P2002') {
       return NextResponse.json({ error: 'Un paramètre avec cette clé existe déjà' }, { status: 400 })
     }
@@ -278,7 +279,7 @@ export async function DELETE(request: NextRequest) {
       message: 'Paramètre supprimé avec succès'
     })
   } catch (error: any) {
-    console.error('Error deleting advanced setting:', error)
+    logger.error('Error deleting advanced setting:', error)
     return NextResponse.json(
       { error: error.message || 'Erreur lors de la suppression du paramètre' },
       { status: 500 }

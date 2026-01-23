@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from "next/server"
@@ -148,7 +149,7 @@ export async function GET(request: NextRequest) {
           parsedDetails = JSON.parse(log.details)
         }
       } catch (e) {
-        console.error("Error parsing log details:", e)
+        logger.error("Error parsing log details:", e)
       }
 
       try {
@@ -156,7 +157,7 @@ export async function GET(request: NextRequest) {
           parsedMetadata = JSON.parse(log.metadata)
         }
       } catch (e) {
-        console.error("Error parsing log metadata:", e)
+        logger.error("Error parsing log metadata:", e)
       }
 
       // Déterminer la catégorie à partir de l'action
@@ -218,8 +219,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(filteredLogs)
 
   } catch (error: any) {
-    console.error("Error fetching audit logs:", error)
-    console.error("Stack trace:", error.stack)
+    logger.error("Error fetching audit logs:", error)
+    logger.error("Stack trace:", error.stack)
     return NextResponse.json(
       { 
         error: "Erreur lors de la récupération des logs d'audit",

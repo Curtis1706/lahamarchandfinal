@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from '@prisma/client';
 import { getServerSession } from 'next-auth';
@@ -61,7 +62,7 @@ export async function GET(request: NextRequest) {
           }
         };
       } catch (worksError) {
-        console.log("⚠️ Relation works non disponible, continuation sans works");
+        logger.debug("⚠️ Relation works non disponible, continuation sans works");
       }
     }
     
@@ -77,9 +78,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Log pour debug
-    console.log("🔍 API Projects - Utilisateur:", session.user.email, "Rôle:", session.user.role);
-    console.log("🔍 API Projects - Paramètres:", { concepteurId, status, includeWorks });
-    console.log("🔍 API Projects - Clause where:", whereClause);
+    logger.debug("🔍 API Projects - Utilisateur:", session.user.email, "Rôle:", session.user.role);
+    logger.debug("🔍 API Projects - Paramètres:", { concepteurId, status, includeWorks });
+    logger.debug("🔍 API Projects - Clause where:", whereClause);
 
     const projects = await prisma.project.findMany({
       where: whereClause,
@@ -89,16 +90,16 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    console.log("🔍 API Projects - Résultat:", projects.length, "projets trouvés");
+    logger.debug("🔍 API Projects - Résultat:", projects.length, "projets trouvés");
     if (projects.length > 0) {
       projects.forEach((project, index) => {
-        console.log(`   ${index + 1}. "${project.title}" (${project.status}) - ${project.concepteur?.name}`);
+        logger.debug(`   ${index + 1}. "${project.title}" (${project.status}) - ${project.concepteur?.name}`);
       });
     }
 
     return NextResponse.json(projects, { status: 200 });
   } catch (error: any) {
-    console.error("Error fetching projects:", error);
+    logger.error("Error fetching projects:", error);
     return NextResponse.json(
       { error: "Erreur lors de la récupération des projets: " + error.message },
       { status: 500 }
@@ -108,7 +109,7 @@ export async function GET(request: NextRequest) {
 
 // POST /api/projects - Créer un nouveau projet
 export async function POST(request: NextRequest) {
-  console.log("🔍 API POST /projects - Début de la requête");
+  logger.debug("🔍 API POST /projects - Début de la requête");
   
   try {
     const session = await getServerSession(authOptions);
@@ -117,7 +118,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    console.log("🔍 Body reçu:", body);
+    logger.debug("🔍 Body reçu:", body);
     
     const { 
       title, 
@@ -131,7 +132,7 @@ export async function POST(request: NextRequest) {
       status = "DRAFT" 
     } = body;
     
-    console.log("🔍 Données extraites:", { title, disciplineId, concepteurId, description, status });
+    logger.debug("🔍 Données extraites:", { title, disciplineId, concepteurId, description, status });
 
     // Validation des champs obligatoires
     if (!title || !disciplineId || !concepteurId) {
@@ -199,7 +200,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("🔍 Tentative de création avec Prisma...");
+    logger.debug("🔍 Tentative de création avec Prisma...");
     
     // Créer le projet dans le modèle Project
     const project = await prisma.project.create({
@@ -232,7 +233,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    console.log("✅ Projet créé, ajout des logs et notifications...");
+    logger.debug("✅ Projet créé, ajout des logs et notifications...");
 
     // Si le statut est SUBMITTED, créer automatiquement une œuvre en attente de validation
     if (status === "SUBMITTED") {
@@ -275,7 +276,7 @@ export async function POST(request: NextRequest) {
           }
         });
 
-        console.log("✅ Œuvre créée automatiquement:", work);
+        logger.debug("✅ Œuvre créée automatiquement:", work);
 
         // Créer une notification pour le PDG
         try {
@@ -300,10 +301,10 @@ export async function POST(request: NextRequest) {
                 })
               }
             });
-            console.log("✅ Notification créée pour le PDG");
+            logger.debug("✅ Notification créée pour le PDG");
           }
         } catch (notificationError) {
-          console.error("⚠️ Erreur création notification PDG:", notificationError);
+          logger.error("⚠️ Erreur création notification PDG:", notificationError);
         }
 
         // Créer une notification pour le concepteur
@@ -322,13 +323,13 @@ export async function POST(request: NextRequest) {
               })
             }
           });
-          console.log("✅ Notification créée pour le concepteur");
+          logger.debug("✅ Notification créée pour le concepteur");
         } catch (notificationError) {
-          console.error("⚠️ Erreur création notification concepteur:", notificationError);
+          logger.error("⚠️ Erreur création notification concepteur:", notificationError);
         }
 
       } catch (workError) {
-        console.error("⚠️ Erreur création œuvre automatique:", workError);
+        logger.error("⚠️ Erreur création œuvre automatique:", workError);
         // Ne pas faire échouer la création du projet pour une erreur d'œuvre
       }
     }
@@ -348,9 +349,9 @@ export async function POST(request: NextRequest) {
           })
         }
       });
-      console.log("✅ Log d'audit créé");
+      logger.debug("✅ Log d'audit créé");
     } catch (auditError) {
-      console.error("⚠️ Erreur création log d'audit:", auditError);
+      logger.error("⚠️ Erreur création log d'audit:", auditError);
     }
 
     // Créer une notification pour le concepteur
@@ -384,18 +385,18 @@ export async function POST(request: NextRequest) {
           })
         }
       });
-      console.log("✅ Notification créée");
+      logger.debug("✅ Notification créée");
     } catch (notificationError) {
-      console.error("⚠️ Erreur création notification:", notificationError);
+      logger.error("⚠️ Erreur création notification:", notificationError);
     }
 
-    console.log("✅ Projet créé avec succès:", project);
+    logger.debug("✅ Projet créé avec succès:", project);
     
     return NextResponse.json(project, { status: 201 });
     
   } catch (error: any) {
-    console.error("❌ Erreur création projet:", error);
-    console.error("❌ Stack:", error.stack);
+    logger.error("❌ Erreur création projet:", error);
+    logger.error("❌ Stack:", error.stack);
     
     // Gestion spécifique des erreurs Prisma
     if (error.code === 'P2002') {
@@ -414,7 +415,7 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/projects - Mettre à jour un projet (soumission pour validation)
 export async function PUT(request: NextRequest) {
-  console.log("🔍 API PUT /projects - Mise à jour de projet");
+  logger.debug("🔍 API PUT /projects - Mise à jour de projet");
   
   try {
     const body = await request.json();
@@ -541,14 +542,14 @@ export async function PUT(request: NextRequest) {
           }
         });
 
-        console.log(`✅ Projet "${updatedProject.title}" validé - Workflow complet déclenché:`);
-        console.log(`   • Concepteur: ${updatedProject.concepteur.name}`);
-        console.log(`   • Discipline: ${updatedProject.discipline.name}`);
-        console.log(`   • Validé par: ${session.user.name}`);
-        console.log(`   • Fonctionnalités œuvres débloquées`);
+        logger.debug(`✅ Projet "${updatedProject.title}" validé - Workflow complet déclenché:`);
+        logger.debug(`   • Concepteur: ${updatedProject.concepteur.name}`);
+        logger.debug(`   • Discipline: ${updatedProject.discipline.name}`);
+        logger.debug(`   • Validé par: ${session.user.name}`);
+        logger.debug(`   • Fonctionnalités œuvres débloquées`);
 
       } catch (workflowError) {
-        console.error("❌ Erreur lors du workflow de validation:", workflowError);
+        logger.error("❌ Erreur lors du workflow de validation:", workflowError);
         // On continue même si une partie du workflow échoue pour ne pas bloquer la validation
       }
     }
@@ -569,18 +570,18 @@ export async function PUT(request: NextRequest) {
             })
           }
         });
-        console.log("✅ Notification créée pour le concepteur (projet refusé)");
+        logger.debug("✅ Notification créée pour le concepteur (projet refusé)");
       } catch (notificationError) {
-        console.error("⚠️ Erreur création notification concepteur (refus):", notificationError);
+        logger.error("⚠️ Erreur création notification concepteur (refus):", notificationError);
       }
     }
 
-    console.log("✅ Projet mis à jour:", updatedProject);
+    logger.debug("✅ Projet mis à jour:", updatedProject);
     
     return NextResponse.json(updatedProject);
     
   } catch (error) {
-    console.error("❌ Erreur mise à jour projet:", error);
+    logger.error("❌ Erreur mise à jour projet:", error);
     
     return NextResponse.json(
       { error: "Erreur lors de la mise à jour du projet: " + error.message },
@@ -591,7 +592,7 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/projects - Supprimer un projet
 export async function DELETE(request: NextRequest) {
-  console.log("🔍 API DELETE /projects - Début de la requête");
+  logger.debug("🔍 API DELETE /projects - Début de la requête");
   
   try {
     const { searchParams } = new URL(request.url);
@@ -604,7 +605,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    console.log("🔍 Suppression du projet:", projectId);
+    logger.debug("🔍 Suppression du projet:", projectId);
 
     // Vérifier que le projet existe
     const existingProject = await prisma.project.findUnique({
@@ -645,7 +646,7 @@ export async function DELETE(request: NextRequest) {
       where: { id: projectId }
     });
 
-    console.log("✅ Projet supprimé avec succès");
+    logger.debug("✅ Projet supprimé avec succès");
 
     // Créer un log d'audit
     try {
@@ -661,9 +662,9 @@ export async function DELETE(request: NextRequest) {
           })
         }
       });
-      console.log("✅ Log d'audit créé");
+      logger.debug("✅ Log d'audit créé");
     } catch (auditError) {
-      console.error("⚠️ Erreur création log d'audit:", auditError);
+      logger.error("⚠️ Erreur création log d'audit:", auditError);
     }
 
     // Créer une notification pour le concepteur
@@ -680,9 +681,9 @@ export async function DELETE(request: NextRequest) {
           })
         }
       });
-      console.log("✅ Notification créée");
+      logger.debug("✅ Notification créée");
     } catch (notificationError) {
-      console.error("⚠️ Erreur création notification:", notificationError);
+      logger.error("⚠️ Erreur création notification:", notificationError);
     }
 
     return NextResponse.json(
@@ -691,7 +692,7 @@ export async function DELETE(request: NextRequest) {
     );
     
   } catch (error: any) {
-    console.error("❌ Erreur suppression projet:", error);
+    logger.error("❌ Erreur suppression projet:", error);
     return NextResponse.json(
       { error: "Erreur lors de la suppression du projet: " + error.message },
       { status: 500 }

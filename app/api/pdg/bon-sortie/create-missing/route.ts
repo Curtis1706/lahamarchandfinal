@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('Error creating missing delivery notes:', error)
+    logger.error('Error creating missing delivery notes:', error)
     return NextResponse.json(
       { 
         error: 'Erreur lors de la création des bons de sortie manquants',

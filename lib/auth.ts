@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import bcryptjs from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { Role } from "@prisma/client"
+import { logger } from "@/lib/logger"
 
 // Force loading environment variables
 if (!process.env.DATABASE_URL) {
@@ -19,15 +20,14 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        console.log("🔍 NextAuth authorize called with:", { email: credentials?.email, hasPassword: !!credentials?.password });
-        
+        // Ne JAMAIS logger les credentials (email/password)
+
         if (!credentials?.email || !credentials?.password) {
-          console.log("❌ Missing credentials");
+          logger.debug("Missing credentials");
           return null
         }
 
         try {
-          console.log("🔍 Looking for user:", credentials.email);
           const user = await prisma.user.findUnique({
             where: {
               email: credentials.email
@@ -35,21 +35,19 @@ export const authOptions: NextAuthOptions = {
           })
 
           if (!user) {
-            console.log("❌ User not found in database");
+            logger.debug("User not found");
             return null
           }
 
-          console.log("✅ User found:", { id: user.id, email: user.email, role: user.role });
+          logger.debug("User found", { userId: user.id, role: user.role });
 
           const isPasswordValid = await bcryptjs.compare(
             credentials.password,
             user.password
           )
 
-          console.log("🔐 Password valid:", isPasswordValid);
-
           if (!isPasswordValid) {
-            console.log("❌ Invalid password");
+            logger.debug("Invalid password");
             return null
           }
 
@@ -59,13 +57,13 @@ export const authOptions: NextAuthOptions = {
               where: { id: user.id },
               data: { lastLoginAt: new Date() }
             })
-            console.log("✅ Last login updated for:", user.email);
+            logger.debug("Last login updated", { userId: user.id });
           } catch (updateError) {
-            console.error("⚠️ Error updating lastLoginAt:", updateError);
+            logger.error("Error updating lastLoginAt", updateError);
             // Ne pas bloquer la connexion si la mise à jour échoue
           }
 
-          console.log("✅ Authentication successful for:", user.email);
+          logger.info("Authentication successful", { userId: user.id, role: user.role });
           return {
             id: user.id,
             email: user.email,
@@ -73,7 +71,7 @@ export const authOptions: NextAuthOptions = {
             role: user.role,
           }
         } catch (error) {
-          console.error("❌ NextAuth authorize error:", error);
+          logger.error("NextAuth authorize error", error);
           return null;
         }
       }

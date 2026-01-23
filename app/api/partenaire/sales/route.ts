@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -70,7 +71,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ sales, total: sales.length })
 
   } catch (error: any) {
-    console.error('Erreur lors de la récupération des ventes:', error)
+    logger.error('Erreur lors de la récupération des ventes:', error)
     return NextResponse.json(
       { error: 'Erreur interne du serveur' },
       { status: 500 }

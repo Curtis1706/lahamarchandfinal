@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
@@ -5,7 +6,7 @@ import { authOptions } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("🔍 API POST /concepteurs/projects - Création de projet par Concepteur");
+    logger.debug("🔍 API POST /concepteurs/projects - Création de projet par Concepteur");
     
     const session = await getServerSession(authOptions);
     if (!session?.user) {
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    console.log("🔍 Body reçu:", body);
+    logger.debug("🔍 Body reçu:", body);
 
     const {
       title,
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
       status = "DRAFT"
     } = body;
 
-    console.log("🔍 Données extraites:", {
+    logger.debug("🔍 Données extraites:", {
       title,
       disciplineId,
       concepteurId,
@@ -115,7 +116,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    console.log("✅ Projet créé avec succès:", {
+    logger.debug("✅ Projet créé avec succès:", {
       id: project.id,
       title: project.title,
       status: project.status,
@@ -140,16 +141,16 @@ export async function POST(request: NextRequest) {
           })
         }
       });
-      console.log("✅ Audit log créé pour la création du projet");
+      logger.debug("✅ Audit log créé pour la création du projet");
     } catch (auditError) {
-      console.error("⚠️ Erreur création audit log:", auditError);
+      logger.error("⚠️ Erreur création audit log:", auditError);
       // Ne pas faire échouer la création du projet pour une erreur d'audit
     }
 
     return NextResponse.json(project, { status: 201 });
 
   } catch (error: any) {
-    console.error("❌ Erreur lors de la création du projet:", error);
+    logger.error("❌ Erreur lors de la création du projet:", error);
     return NextResponse.json(
       { error: "Erreur lors de la création du projet: " + error.message },
       { status: 500 }
@@ -217,12 +218,12 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    console.log(`🔍 ${projects.length} projet(s) trouvé(s) pour concepteurId: ${concepteurId}`);
+    logger.debug(`🔍 ${projects.length} projet(s) trouvé(s) pour concepteurId: ${concepteurId}`);
 
     return NextResponse.json({ projects }, { status: 200 });
 
   } catch (error: any) {
-    console.error("❌ Erreur lors de la récupération des projets:", error);
+    logger.error("❌ Erreur lors de la récupération des projets:", error);
     return NextResponse.json(
       { error: "Erreur lors de la récupération des projets: " + error.message },
       { status: 500 }
@@ -364,16 +365,16 @@ export async function PUT(request: NextRequest) {
           });
         }
 
-        console.log("✅ Notifications créées pour les PDG");
+        logger.debug("✅ Notifications créées pour les PDG");
       } catch (auditError) {
-        console.error("⚠️ Erreur création audit/notifications:", auditError);
+        logger.error("⚠️ Erreur création audit/notifications:", auditError);
       }
     }
 
     return NextResponse.json(updatedProject, { status: 200 });
 
   } catch (error: any) {
-    console.error("❌ Erreur lors de la mise à jour du projet:", error);
+    logger.error("❌ Erreur lors de la mise à jour du projet:", error);
     return NextResponse.json(
       { error: "Erreur lors de la mise à jour du projet: " + error.message },
       { status: 500 }

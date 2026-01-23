@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(formattedDiscounts)
 
   } catch (error) {
-    console.error("Error fetching remises:", error)
+    logger.error("Error fetching remises:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
@@ -109,7 +110,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(formattedDiscount, { status: 201 })
 
   } catch (error) {
-    console.error("Error creating remise:", error)
+    logger.error("Error creating remise:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
@@ -180,7 +181,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(formattedDiscount)
 
   } catch (error) {
-    console.error("Error updating remise:", error)
+    logger.error("Error updating remise:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
@@ -212,7 +213,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true, message: "Remise supprimée" })
 
   } catch (error) {
-    console.error("Error deleting remise:", error)
+    logger.error("Error deleting remise:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }

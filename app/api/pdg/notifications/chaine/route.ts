@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -100,8 +101,8 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error: any) {
-    console.error('Error fetching notification chains:', error)
-    console.error('Stack trace:', error.stack)
+    logger.error('Error fetching notification chains:', error)
+    logger.error('Stack trace:', error.stack)
     return NextResponse.json(
       { 
         error: 'Erreur lors de la récupération des chaînes de notifications',
@@ -173,7 +174,7 @@ export async function POST(request: NextRequest) {
       }
     })
   } catch (error: any) {
-    console.error('Error creating notification chain:', error)
+    logger.error('Error creating notification chain:', error)
     return NextResponse.json(
       { error: error.message || 'Erreur lors de la création de la chaîne de notifications' },
       { status: 500 }
@@ -235,7 +236,7 @@ export async function PUT(request: NextRequest) {
       }
     })
   } catch (error: any) {
-    console.error('Error updating notification chain:', error)
+    logger.error('Error updating notification chain:', error)
     return NextResponse.json(
       { error: error.message || 'Erreur lors de la mise à jour de la chaîne de notifications' },
       { status: 500 }
@@ -266,7 +267,7 @@ export async function DELETE(request: NextRequest) {
       message: 'Chaîne de notifications supprimée avec succès'
     })
   } catch (error: any) {
-    console.error('Error deleting notification chain:', error)
+    logger.error('Error deleting notification chain:', error)
     return NextResponse.json(
       { error: error.message || 'Erreur lors de la suppression de la chaîne de notifications' },
       { status: 500 }

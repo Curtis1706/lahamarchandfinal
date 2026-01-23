@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -237,7 +238,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Type de rapport non supporté' }, { status: 400 })
 
   } catch (error: any) {
-    console.error('Erreur lors de la génération du rapport partenaire:', error)
+    logger.error('Erreur lors de la génération du rapport partenaire:', error)
     return NextResponse.json(
       { error: 'Erreur interne du serveur' },
       { status: 500 }

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getCurrentUser } from "@/lib/get-current-user"
 import { prisma } from "@/lib/prisma"
@@ -6,23 +7,23 @@ import { Role } from "@prisma/client"
 // GET - Récupérer les notifications de l'auteur
 export async function GET(request: NextRequest) {
   try {
-    console.log("🔔 Starting author notifications fetch...")
+    logger.debug("🔔 Starting author notifications fetch...")
     
     const user = await getCurrentUser(request)
     if (!user) {
-      console.log("❌ No user found")
+      logger.debug("❌ No user found")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    console.log("✅ User found:", user.name, user.role)
+    logger.debug("✅ User found:", user.name, user.role)
 
     // Vérifier que l'utilisateur est un auteur
     if (user.role !== Role.AUTEUR) {
-      console.log("❌ User is not an author:", user.role)
+      logger.debug("❌ User is not an author:", user.role)
       return NextResponse.json({ error: "Forbidden - Author role required" }, { status: 403 })
     }
 
-    console.log("🔔 Fetching author notifications for:", user.name)
+    logger.debug("🔔 Fetching author notifications for:", user.name)
 
     const { searchParams } = new URL(request.url)
     const category = searchParams.get("category")
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
 
     const authorId = user.id
 
-    console.log("🔍 Fetching works for author:", authorId)
+    logger.debug("🔍 Fetching works for author:", authorId)
 
     // Récupérer les œuvres de l'auteur pour générer des notifications
     const authorWorks = await prisma.work.findMany({
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    console.log("✅ Found works:", authorWorks.length)
+    logger.debug("✅ Found works:", authorWorks.length)
 
     // Récupérer les paiements récents
     const recentPayments = await prisma.royalty.findMany({
@@ -59,11 +60,11 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    console.log("✅ Found payments:", recentPayments.length)
+    logger.debug("✅ Found payments:", recentPayments.length)
 
     let notifications: any[] = []
 
-    console.log("🔍 Generating notifications...")
+    logger.debug("🔍 Generating notifications...")
 
     // Notification de bienvenue
     notifications.push({
@@ -80,7 +81,7 @@ export async function GET(request: NextRequest) {
 
     // Notifications basées sur les œuvres
     authorWorks.forEach((work) => {
-      console.log(`🔍 Processing work: ${work.title}`)
+      logger.debug(`🔍 Processing work: ${work.title}`)
       
       const sales = work.orderItems.reduce((sum, item) => {
         return sum + (item.order && item.order.status !== "CANCELLED" ? item.quantity : 0)
@@ -89,7 +90,7 @@ export async function GET(request: NextRequest) {
       const royalties = work.royalties.reduce((sum, royalty) => sum + royalty.amount, 0)
       const royaltiesPaid = work.royalties.reduce((sum, royalty) => sum + (royalty.paid ? royalty.amount : 0), 0)
 
-      console.log(`📊 Work stats - Sales: ${sales}, Royalties: ${royalties}, Paid: ${royaltiesPaid}`)
+      logger.debug(`📊 Work stats - Sales: ${sales}, Royalties: ${royalties}, Paid: ${royaltiesPaid}`)
 
       // Notification de nouvelles ventes
       if (sales > 0) {
@@ -124,11 +125,11 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    console.log("✅ Generated work notifications:", notifications.length)
+    logger.debug("✅ Generated work notifications:", notifications.length)
 
     // Notifications de paiements
     recentPayments.forEach((payment) => {
-      console.log(`🔍 Processing payment: ${payment.id}`)
+      logger.debug(`🔍 Processing payment: ${payment.id}`)
       
       if (payment.paid) {
         notifications.push({
@@ -159,7 +160,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    console.log("✅ Generated payment notifications")
+    logger.debug("✅ Generated payment notifications")
 
     // Notifications de milestones
     const totalSales = authorWorks.reduce((sum, work) => {
@@ -168,7 +169,7 @@ export async function GET(request: NextRequest) {
       }, 0)
     }, 0)
 
-    console.log("📊 Total sales:", totalSales)
+    logger.debug("📊 Total sales:", totalSales)
 
     if (totalSales >= 100) {
       notifications.push({
@@ -195,16 +196,16 @@ export async function GET(request: NextRequest) {
       filteredNotifications = notifications.filter((n) => n.type === category)
     }
 
-    console.log("✅ Generated milestone notifications")
+    logger.debug("✅ Generated milestone notifications")
 
-    console.log("✅ Sorted notifications")
+    logger.debug("✅ Sorted notifications")
 
-    console.log("✅ Filtered notifications:", filteredNotifications.length)
+    logger.debug("✅ Filtered notifications:", filteredNotifications.length)
 
     // Calculer les statistiques
     const unreadCount = filteredNotifications.filter((n) => !n.read).length
 
-    console.log("📊 Stats - Unread:", unreadCount)
+    logger.debug("📊 Stats - Unread:", unreadCount)
 
     const response = {
       notifications: filteredNotifications.slice(0, limit),
@@ -221,14 +222,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    console.log("✅ Final response prepared:", response.summary)
+    logger.debug("✅ Final response prepared:", response.summary)
 
     return NextResponse.json(response)
 
   } catch (error) {
-    console.error("❌ Error fetching author notifications:", error)
-    console.error("❌ Error stack:", error instanceof Error ? error.stack : "No stack trace")
-    console.error("❌ Error message:", error instanceof Error ? error.message : "Unknown error")
+    logger.error("❌ Error fetching author notifications:", error)
+    logger.error("❌ Error stack:", error instanceof Error ? error.stack : "No stack trace")
+    logger.error("❌ Error message:", error instanceof Error ? error.message : "Unknown error")
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
@@ -251,12 +252,12 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Notification ID required" }, { status: 400 })
     }
 
-    console.log(`📖 Marking notification ${notificationId} as read for author ${user.name}`)
+    logger.debug(`📖 Marking notification ${notificationId} as read for author ${user.name}`)
 
     return NextResponse.json({ success: true })
 
   } catch (error) {
-    console.error("Error marking notification as read:", error)
+    logger.error("Error marking notification as read:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }

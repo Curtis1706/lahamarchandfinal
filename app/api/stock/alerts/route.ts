@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -227,7 +228,7 @@ export async function GET(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error("Erreur lors de la récupération des alertes:", error)
+    logger.error("Erreur lors de la récupération des alertes:", error)
     return NextResponse.json(
       { error: "Erreur interne du serveur" },
       { status: 500 }
@@ -331,7 +332,7 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error("Erreur lors de la création/gestion des alertes:", error)
+    logger.error("Erreur lors de la création/gestion des alertes:", error)
     return NextResponse.json(
       { error: "Erreur interne du serveur" },
       { status: 500 }
@@ -388,7 +389,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(updatedRule)
 
   } catch (error) {
-    console.error("Erreur lors de la mise à jour de la règle:", error)
+    logger.error("Erreur lors de la mise à jour de la règle:", error)
     return NextResponse.json(
       { error: "Erreur interne du serveur" },
       { status: 500 }
@@ -436,7 +437,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ message: "Règle supprimée avec succès" })
 
   } catch (error) {
-    console.error("Erreur lors de la suppression de la règle:", error)
+    logger.error("Erreur lors de la suppression de la règle:", error)
     return NextResponse.json(
       { error: "Erreur interne du serveur" },
       { status: 500 }

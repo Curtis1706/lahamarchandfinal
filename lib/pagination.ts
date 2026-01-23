@@ -1,80 +1,56 @@
-/**
- * Helpers pour la pagination cursor-based
- * 
- * Utilise un cursor (ID) pour paginer efficacement les résultats
- * Plus performant que offset/limit pour les grandes tables
- */
+export const DEFAULT_PAGE_SIZE = 50
+export const MAX_PAGE_SIZE = 100
 
 export interface PaginationParams {
-  cursor?: string
-  limit: number
+  page?: number
+  limit?: number
 }
 
-export interface PaginatedResult<T> {
+export interface PaginatedResponse<T> {
   data: T[]
-  nextCursor?: string
-  hasMore: boolean
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+    hasNext: boolean
+    hasPrev: boolean
+  }
 }
 
-/**
- * Extrait les paramètres de pagination depuis les searchParams
- * 
- * @param searchParams - URLSearchParams de la requête
- * @param defaultLimit - Limite par défaut (défaut: 50)
- * @returns Paramètres de pagination
- */
 export function getPaginationParams(
-  searchParams: URLSearchParams,
-  defaultLimit: number = 50
-): PaginationParams {
-  const cursor = searchParams.get('cursor') || undefined
-  const limitParam = searchParams.get('limit')
-  const limit = limitParam 
-    ? Math.min(Math.max(1, parseInt(limitParam, 10)), 100) // Entre 1 et 100
-    : defaultLimit
+  searchParams: URLSearchParams
+): { skip: number; take: number; page: number } {
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
+  const limit = Math.min(
+    MAX_PAGE_SIZE,
+    Math.max(1, parseInt(searchParams.get('limit') || String(DEFAULT_PAGE_SIZE)))
+  )
 
   return {
-    cursor,
-    limit
+    page,
+    take: limit,
+    skip: (page - 1) * limit,
   }
 }
 
-/**
- * Pagine une requête Prisma avec cursor-based pagination
- * 
- * @param paginationParams - Paramètres de pagination
- * @param query - Objet de requête Prisma (where, include, select, orderBy, etc.)
- * @param model - Modèle Prisma (ex: prisma.stockMovement)
- * @returns Résultats paginés
- */
-export async function paginateQuery<T extends { id: string }>(
-  paginationParams: PaginationParams,
-  query: any,
-  model: any
-): Promise<PaginatedResult<T>> {
-  const { cursor, limit } = paginationParams
-  const take = limit + 1
-  
-  // Ajouter cursor et take à la requête
-  const paginatedQuery = {
-    ...query,
-    cursor: cursor ? { id: cursor } : undefined,
-    take,
-    skip: cursor ? 1 : 0
-  }
-  
-  const items = await model.findMany(paginatedQuery)
-  
-  const hasMore = items.length > limit
-  const data = hasMore ? items.slice(0, -1) as T[] : items as T[]
-  const nextCursor = hasMore && data.length > 0 
-    ? data[data.length - 1].id 
-    : undefined
-  
+export function createPaginatedResponse<T>(
+  data: T[],
+  total: number,
+  page: number,
+  limit: number
+): PaginatedResponse<T> {
+  const totalPages = Math.ceil(total / limit)
+
   return {
     data,
-    nextCursor,
-    hasMore
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1,
+    },
   }
 }
-

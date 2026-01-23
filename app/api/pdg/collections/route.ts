@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -109,7 +110,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(formattedCollections)
 
   } catch (error) {
-    console.error("Error fetching collections:", error)
+    logger.error("Error fetching collections:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
@@ -140,7 +141,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(collection, { status: 201 })
 
   } catch (error: any) {
-    console.error("Error creating collection:", error)
+    logger.error("Error creating collection:", error)
     
     // Gérer l'erreur de contrainte unique (P2002)
     if (error.code === 'P2002') {

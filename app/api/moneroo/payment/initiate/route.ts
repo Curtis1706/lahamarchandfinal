@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 /**
  * Route API pour initier un paiement Moneroo
  * 
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!paymentResponse.success || !paymentResponse.data) {
-      console.error("❌ Failed to initiate Moneroo payment:", paymentResponse.error);
+      logger.error("❌ Failed to initiate Moneroo payment:", paymentResponse.error);
       return NextResponse.json(
         { 
           error: "Failed to initiate payment", 
@@ -118,7 +119,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    console.log(`✅ Payment initiated for order ${orderId}: ${paymentResponse.data.payment_id}`);
+    logger.debug(`✅ Payment initiated for order ${orderId}: ${paymentResponse.data.payment_id}`);
 
     return NextResponse.json({
       success: true,
@@ -128,7 +129,7 @@ export async function POST(request: NextRequest) {
       currency: paymentResponse.data.currency,
     });
   } catch (error: any) {
-    console.error("❌ Error initiating payment:", error);
+    logger.error("❌ Error initiating payment:", error);
     return NextResponse.json(
       { error: "Internal server error", message: error.message },
       { status: 500 }
@@ -167,7 +168,7 @@ export async function GET(request: NextRequest) {
       payment: paymentDetails,
     });
   } catch (error: any) {
-    console.error("❌ Error getting payment status:", error);
+    logger.error("❌ Error getting payment status:", error);
     return NextResponse.json(
       { error: "Internal server error", message: error.message },
       { status: 500 }

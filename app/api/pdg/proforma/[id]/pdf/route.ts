@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { getServerSession } from "next-auth";
@@ -184,7 +185,7 @@ export async function GET(
       },
     });
   } catch (error: any) {
-    console.error("Erreur lors de la génération du PDF:", error);
+    logger.error("Erreur lors de la génération du PDF:", error);
     return NextResponse.json(
       {
         error: "Erreur lors de la génération du PDF",

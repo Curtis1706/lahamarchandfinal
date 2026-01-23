@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -6,7 +7,7 @@ import { prisma } from "@/lib/prisma"
 // GET /api/representant/orders - Récupérer les commandes créées par le représentant
 export async function GET(request: NextRequest) {
   try {
-    console.log("🔍 Getting current user...")
+    logger.debug("🔍 Getting current user...")
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
     }
 
-    console.log("✅ User found:", user.name, user.role)
+    logger.debug("✅ User found:", user.name, user.role)
 
     // Récupérer les commandes créées par le représentant
     const orders = await prisma.order.findMany({
@@ -75,7 +76,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    console.log("✅ Orders data prepared:", {
+    logger.debug("✅ Orders data prepared:", {
       totalOrders: orders.length,
       summary: response.summary
     })
@@ -83,7 +84,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(response)
 
   } catch (error) {
-    console.error("❌ Error fetching representant orders:", error)
+    logger.error("❌ Error fetching representant orders:", error)
     return NextResponse.json(
       { error: "Erreur lors du chargement des commandes" },
       { status: 500 }
@@ -94,7 +95,7 @@ export async function GET(request: NextRequest) {
 // POST /api/representant/orders - Créer une commande pour un client
 export async function POST(request: NextRequest) {
   try {
-    console.log("🔍 Creating new order for client...")
+    logger.debug("🔍 Creating new order for client...")
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
@@ -201,7 +202,7 @@ export async function POST(request: NextRequest) {
           }
         })
       } catch (clientError) {
-        console.warn("⚠️ Erreur lors de la mise à jour du client:", clientError)
+        logger.warn("⚠️ Erreur lors de la mise à jour du client:", clientError)
       }
     }
 
@@ -233,7 +234,7 @@ export async function POST(request: NextRequest) {
         })
       }
     } catch (notificationError) {
-      console.warn("⚠️ Failed to create notification:", notificationError)
+      logger.warn("⚠️ Failed to create notification:", notificationError)
     }
 
     const response = {
@@ -259,12 +260,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log("✅ Order created:", order.id)
+    logger.debug("✅ Order created:", order.id)
 
     return NextResponse.json(response, { status: 201 })
 
   } catch (error: any) {
-    console.error("❌ Error creating order:", error)
+    logger.error("❌ Error creating order:", error)
     return NextResponse.json(
       { error: "Erreur lors de la création de la commande: " + error.message },
       { status: 500 }

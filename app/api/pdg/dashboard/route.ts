@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -145,7 +146,7 @@ export async function GET(request: NextRequest) {
         }
         return 0
       } catch (calcError: any) {
-        console.error('⚠️ Error calculating order total:', calcError.message)
+        logger.error('⚠️ Error calculating order total:', calcError.message)
         return 0
       }
     }
@@ -207,12 +208,12 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error("❌ Error fetching PDG dashboard stats:", error)
-    console.error("Error name:", error?.name)
-    console.error("Error message:", error?.message)
-    console.error("Stack trace:", error?.stack)
+    logger.error("❌ Error fetching PDG dashboard stats:", error)
+    logger.error("Error name:", error?.name)
+    logger.error("Error message:", error?.message)
+    logger.error("Stack trace:", error?.stack)
     if (error?.code) {
-      console.error("Error code:", error.code)
+      logger.error("Error code:", error.code)
     }
     return NextResponse.json(
       { 

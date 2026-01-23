@@ -13,14 +13,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { 
-  Search, 
+import {
+  Search,
   Filter,
-  Eye, 
+  Eye,
   CheckCircle,
   XCircle,
-  AlertTriangle, 
-  Trash2, 
+  AlertTriangle,
+  Trash2,
   Plus,
   BookOpen,
   User,
@@ -34,7 +34,8 @@ import {
   Tag,
   Download,
   Image as ImageIcon,
-  Save
+  Save,
+  Loader2
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
@@ -120,16 +121,19 @@ export default function ValidationOeuvresPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingWork, setEditingWork] = useState<Partial<Work> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loadingActions, setLoadingActions] = useState<Record<string, boolean>>({});
 
   // Charger les données
   useEffect(() => {
-    fetchWorks();
+    fetchWorks(true);
     fetchDisciplines();
   }, [currentPage, searchTerm, disciplineFilter, activeTab]);
 
-  const fetchWorks = async () => {
+  const fetchWorks = async (isInitial = false) => {
     try {
-      setLoading(true);
+      if (isInitial) setLoading(true);
+      setIsRefreshing(true);
       const params = new URLSearchParams({
         page: currentPage.toString(),
         limit: "10"
@@ -137,7 +141,7 @@ export default function ValidationOeuvresPage() {
 
       if (searchTerm) params.append("search", searchTerm);
       if (disciplineFilter && disciplineFilter !== "all") params.append("disciplineId", disciplineFilter);
-      
+
       // Filtrer par statut selon l'onglet actif
       switch (activeTab) {
         case "pending":
@@ -184,6 +188,7 @@ export default function ValidationOeuvresPage() {
       toast.error("Erreur lors du chargement des œuvres");
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -248,7 +253,10 @@ export default function ValidationOeuvresPage() {
     return keywordsString.split(',').map(k => k.trim()).filter(k => k);
   };
 
-  const handleValidateWork = async (workId: string, authorId?: string) => {
+  const handleUpdateWorkStatus = async (workId: string, action: string, reason?: string, authorId?: string) => {
+    const actionKey = `${workId}-${action}`;
+    setLoadingActions(prev => ({ ...prev, [actionKey]: true }));
+
     try {
       const response = await fetch("/api/works/publish", {
         method: "POST",
@@ -256,8 +264,9 @@ export default function ValidationOeuvresPage() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          workId: workId,
-          action: "validate",
+          workId,
+          action,
+          reason,
           authorId: authorId || undefined
         })
       });
@@ -265,51 +274,40 @@ export default function ValidationOeuvresPage() {
       const data = await response.json();
 
       if (response.ok) {
-        toast.success("Œuvre validée avec succès");
+        const messages: Record<string, string> = {
+          validate: "Œuvre validée avec succès",
+          publish: "Œuvre publiée avec succès",
+          reject: "Œuvre refusée avec succès",
+          suspend: "Œuvre suspendue avec succès"
+        };
+        toast.success(messages[action] || "Action effectuée avec succès");
         fetchWorks();
         setIsStatusDialogOpen(false);
         setNewStatus("");
         setNewReason("");
         setSelectedWork(null);
       } else {
-        toast.error(data.error || "Erreur lors de la validation");
+        toast.error(data.error || "Erreur lors de l'opération");
       }
     } catch (error) {
-      console.error("Error validating work:", error);
-      toast.error("Erreur lors de la validation");
+      console.error(`Error with action ${action}:`, error);
+      toast.error("Erreur lors de l'opération");
+    } finally {
+      setLoadingActions(prev => ({ ...prev, [actionKey]: false }));
     }
   };
 
-  const handlePublishWork = async (workId: string) => {
-    try {
-      const response = await fetch("/api/works/publish", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          workId: workId,
-          action: "publish"
-        })
-      });
+  // Maintenir la compatibilité ou remplacer les appels direct
+  const handleValidateWork = (workId: string, authorId?: string) =>
+    handleUpdateWorkStatus(workId, "validate", undefined, authorId);
 
-      const data = await response.json();
-
-      if (response.ok) {
-        toast.success("Œuvre publiée avec succès");
-        fetchWorks();
-        setSelectedWork(null);
-      } else {
-        toast.error(data.error || "Erreur lors de la publication");
-      }
-    } catch (error) {
-      console.error("Error publishing work:", error);
-      toast.error("Erreur lors de la publication");
-    }
-  };
+  const handlePublishWork = (workId: string) =>
+    handleUpdateWorkStatus(workId, "publish");
 
   const handleDeleteWork = async () => {
     if (!workToDelete) return;
+    const actionKey = `${workToDelete.id}-delete`;
+    setLoadingActions(prev => ({ ...prev, [actionKey]: true }));
 
     try {
       const response = await fetch(`/api/works?id=${workToDelete.id}`, {
@@ -329,6 +327,8 @@ export default function ValidationOeuvresPage() {
     } catch (error) {
       console.error("Error deleting work:", error);
       toast.error("Erreur lors de la suppression");
+    } finally {
+      setLoadingActions(prev => ({ ...prev, [actionKey]: false }));
     }
   };
 
@@ -345,7 +345,7 @@ export default function ValidationOeuvresPage() {
 
     try {
       setIsSaving(true);
-      
+
       // Préparer les données à mettre à jour (sans modifier le stock)
       const updateData: any = {
         workId: editingWork.id,
@@ -391,370 +391,400 @@ export default function ValidationOeuvresPage() {
 
   return (
     <div className="space-y-6">
-        {/* Statistiques */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <BookOpen className="h-5 w-5 text-blue-600" />
-          <div>
-                  <p className="text-sm font-medium text-gray-600">Total Œuvres</p>
-                  <p className="text-2xl font-bold">{workStats.total}</p>
-          </div>
-        </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <AlertTriangle className="h-5 w-5 text-yellow-600" />
-                <div>
-                  <p className="text-sm font-medium text-gray-600">À valider</p>
-                  <p className="text-2xl font-bold">{workStats.pending}</p>
-                </div>
+      {/* Statistiques */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <BookOpen className="h-5 w-5 text-blue-600" />
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Œuvres</p>
+                <p className="text-2xl font-bold">{workStats.total}</p>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </CardContent>
+        </Card>
 
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-600" />
+              <div>
+                <p className="text-sm font-medium text-gray-600">À valider</p>
+                <p className="text-2xl font-bold">{workStats.pending}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              <div>
+                <p className="text-sm font-medium text-gray-600">Publiées</p>
+                <p className="text-2xl font-bold">{workStats.published}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <XCircle className="h-5 w-5 text-red-600" />
+              <div>
+                <p className="text-sm font-medium text-gray-600">Suspendues</p>
+                <p className="text-2xl font-bold">{workStats.suspended}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="pending" className="flex items-center space-x-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span>À Valider ({workStats.pending})</span>
+          </TabsTrigger>
+          <TabsTrigger value="validated" className="flex items-center space-x-2">
+            <CheckCircle className="h-4 w-4 text-blue-600" />
+            <span>Validées ({workStats.validated})</span>
+          </TabsTrigger>
+          <TabsTrigger value="published" className="flex items-center space-x-2">
+            <CheckCircle className="h-4 w-4" />
+            <span>Publiées ({workStats.published})</span>
+          </TabsTrigger>
+          <TabsTrigger value="suspended" className="flex items-center space-x-2">
+            <XCircle className="h-4 w-4" />
+            <span>Suspendues ({workStats.suspended})</span>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value={activeTab} className="space-y-4">
+          {/* Filtres et recherche */}
           <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Publiées</p>
-                  <p className="text-2xl font-bold">{workStats.published}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <XCircle className="h-5 w-5 text-red-600" />
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Suspendues</p>
-                  <p className="text-2xl font-bold">{workStats.suspended}</p>
-              </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="pending" className="flex items-center space-x-2">
-              <AlertTriangle className="h-4 w-4" />
-              <span>À Valider ({workStats.pending})</span>
-            </TabsTrigger>
-            <TabsTrigger value="validated" className="flex items-center space-x-2">
-              <CheckCircle className="h-4 w-4 text-blue-600" />
-              <span>Validées ({workStats.validated})</span>
-            </TabsTrigger>
-            <TabsTrigger value="published" className="flex items-center space-x-2">
-              <CheckCircle className="h-4 w-4" />
-              <span>Publiées ({workStats.published})</span>
-            </TabsTrigger>
-            <TabsTrigger value="suspended" className="flex items-center space-x-2">
-              <XCircle className="h-4 w-4" />
-              <span>Suspendues ({workStats.suspended})</span>
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value={activeTab} className="space-y-4">
-            {/* Filtres et recherche */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>Filtres et Recherche</span>
-                  <Button onClick={fetchWorks} variant="outline" size="sm">
-                    <BarChart3 className="h-4 w-4 mr-2" />
-                    Actualiser
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="search">Rechercher</Label>
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-                        id="search"
-                        placeholder="Titre, ISBN, auteur..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Filtres et Recherche</span>
+                <Button onClick={() => fetchWorks(false)} variant="outline" size="sm" disabled={isRefreshing}>
+                  <Loader2 className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  Actualiser
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="search">Rechercher</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      id="search"
+                      placeholder="Titre, ISBN, auteur..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
                   </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="discipline">Discipline</Label>
-          <Select value={disciplineFilter} onValueChange={setDisciplineFilter}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Toutes les disciplines" />
-            </SelectTrigger>
-            <SelectContent>
-                        <SelectItem value="all">Toutes les disciplines</SelectItem>
-                        {disciplines.map((discipline) => (
-                <SelectItem key={discipline.id} value={discipline.id}>
-                  {discipline.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="discipline">Discipline</Label>
+                  <Select value={disciplineFilter} onValueChange={setDisciplineFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Toutes les disciplines" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Toutes les disciplines</SelectItem>
+                      {disciplines.map((discipline) => (
+                        <SelectItem key={discipline.id} value={discipline.id}>
+                          {discipline.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
-            {/* Table des œuvres */}
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  {activeTab === "pending" && "Œuvres en attente de validation"}
-                  {activeTab === "published" && "Œuvres publiées"}
-                  {activeTab === "suspended" && "Œuvres suspendues"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="flex justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  </div>
-        ) : (
-          <div className="space-y-4">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Œuvre</TableHead>
-                          <TableHead>Auteur</TableHead>
-                          <TableHead>Concepteur</TableHead>
-                          <TableHead>Projet</TableHead>
-                          <TableHead>Origine</TableHead>
-                          <TableHead>Discipline</TableHead>
-                          <TableHead>Prix</TableHead>
-                          <TableHead>Stock</TableHead>
-                          <TableHead>Statut</TableHead>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {works.map((work) => (
-                          <TableRow key={work.id}>
-                            <TableCell>
-                        <div>
-                                <div className="font-medium">{work.title}</div>
-                                <div className="text-sm text-gray-500">ISBN: {work.isbn}</div>
-                          </div>
-                            </TableCell>
-                            <TableCell>
+          {/* Table des œuvres */}
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                {activeTab === "pending" && "Œuvres en attente de validation"}
+                {activeTab === "published" && "Œuvres publiées"}
+                {activeTab === "suspended" && "Œuvres suspendues"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Œuvre</TableHead>
+                        <TableHead>Auteur</TableHead>
+                        <TableHead>Concepteur</TableHead>
+                        <TableHead>Projet</TableHead>
+                        <TableHead>Origine</TableHead>
+                        <TableHead>Discipline</TableHead>
+                        <TableHead>Prix</TableHead>
+                        <TableHead>Stock</TableHead>
+                        <TableHead>Statut</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {works.map((work) => (
+                        <TableRow key={work.id}>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{work.title}</div>
+                              <div className="text-sm text-gray-500">ISBN: {work.isbn}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <div className="text-sm">{work.author?.name || work.concepteur?.name || "Non assigné"}</div>
+                              <div className="text-xs text-gray-500">{work.author?.email || work.concepteur?.email || ""}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <div className="text-sm">{work.concepteur?.name || "Non assigné"}</div>
+                              <div className="text-xs text-gray-500">{work.concepteur?.email || ""}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {work.project ? (
                               <div className="space-y-1">
-                                <div className="text-sm">{work.author?.name || work.concepteur?.name || "Non assigné"}</div>
-                                <div className="text-xs text-gray-500">{work.author?.email || work.concepteur?.email || ""}</div>
-                        </div>
-                            </TableCell>
-                            <TableCell>
+                                <div className="text-sm font-medium">{work.project.title}</div>
+                                <div className="text-xs text-gray-500">ID: {work.project.id}</div>
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-500 italic">Aucun projet</div>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {work.project ? (
                               <div className="space-y-1">
-                                <div className="text-sm">{work.concepteur?.name || "Non assigné"}</div>
-                                <div className="text-xs text-gray-500">{work.concepteur?.email || ""}</div>
-                      </div>
-                            </TableCell>
-                            <TableCell>
-                              {work.project ? (
-                                <div className="space-y-1">
-                                  <div className="text-sm font-medium">{work.project.title}</div>
-                                  <div className="text-xs text-gray-500">ID: {work.project.id}</div>
-                                </div>
-                              ) : (
-                                <div className="text-sm text-gray-500 italic">Aucun projet</div>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {work.project ? (
-                                <div className="space-y-1">
-                                  <Badge variant="secondary" className="text-xs">
-                                    <FileText className="h-3 w-3 mr-1" />
-                                    Projet
-                                  </Badge>
-                                  <div className="text-xs text-gray-500">{work.project.title}</div>
-                                </div>
-                              ) : (
-                                <Badge variant="outline" className="text-xs">
-                                  <User className="h-3 w-3 mr-1" />
-                                  Direct
+                                <Badge variant="secondary" className="text-xs">
+                                  <FileText className="h-3 w-3 mr-1" />
+                                  Projet
                                 </Badge>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{work.discipline.name}</Badge>
-                            </TableCell>
-                            <TableCell className="font-medium">
-                              {work.price.toFixed(2)} FCFA
-                            </TableCell>
-                            <TableCell>
-                          <div className="flex items-center space-x-1">
-                                <Package className="h-4 w-4 text-gray-400" />
-                                <span>{work.stock}</span>
-                          </div>
-                            </TableCell>
-                            <TableCell>{getStatusBadge(work.status)}</TableCell>
-                            <TableCell>
-                              {format(new Date(work.createdAt), "dd/MM/yyyy", { locale: fr })}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedWork(work);
-                          setIsDetailsOpen(true);
-                        }}
-                        title="Voir les détails"
-                        className="border-gray-300 hover:bg-gray-50"
-                      >
-                        <Eye className="h-4 w-4 mr-1.5" />
-                        <span className="text-xs font-medium">Voir</span>
-                      </Button>
-                      
-                                {activeTab === "pending" && work.status === "PENDING" && (
-                        <>
-                          <Button
-                            size="sm"
-                            onClick={() => handleValidateWork(work.id)}
-                            title="Valider l'œuvre"
-                            className="bg-green-600 hover:bg-green-700 text-white border-0 hover:border-0"
-                          >
-                            <CheckCircle className="h-4 w-4 mr-1.5" />
-                            <span className="text-xs font-medium">Valider</span>
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => {
-                              setSelectedWork(work);
-                              setNewStatus("REJECTED");
-                              setIsStatusDialogOpen(true);
-                            }}
-                            title="Refuser"
-                            className="bg-red-600 hover:bg-red-700 text-white border-0 hover:border-0"
-                          >
-                            <XCircle className="h-4 w-4 mr-1.5" />
-                            <span className="text-xs font-medium">Refuser</span>
-                          </Button>
-                        </>
-                      )}
+                                <div className="text-xs text-gray-500">{work.project.title}</div>
+                              </div>
+                            ) : (
+                              <Badge variant="outline" className="text-xs">
+                                <User className="h-3 w-3 mr-1" />
+                                Direct
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{work.discipline.name}</Badge>
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {work.price.toFixed(2)} FCFA
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-1">
+                              <Package className="h-4 w-4 text-gray-400" />
+                              <span>{work.stock}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>{getStatusBadge(work.status)}</TableCell>
+                          <TableCell>
+                            {format(new Date(work.createdAt), "dd/MM/yyyy", { locale: fr })}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedWork(work);
+                                  setIsDetailsOpen(true);
+                                }}
+                                title="Voir les détails"
+                                className="border-gray-300 hover:bg-gray-50"
+                              >
+                                <Eye className="h-4 w-4 mr-1.5" />
+                                <span className="text-xs font-medium">Voir</span>
+                              </Button>
 
-                      {activeTab === "validated" && work.status === "VALIDATED" && (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEditWork(work)}
-                            title="Modifier l'œuvre"
-                            className="border-blue-300 hover:bg-blue-50 text-blue-700"
-                          >
-                            <Edit className="h-4 w-4 mr-1.5" />
-                            <span className="text-xs font-medium">Modifier</span>
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => handlePublishWork(work.id)}
-                            title="Publier l'œuvre"
-                            className="bg-green-600 hover:bg-green-700 text-white border-0 hover:border-0"
-                          >
-                            <CheckCircle className="h-4 w-4 mr-1.5" />
-                            <span className="text-xs font-medium">Publier</span>
-                          </Button>
-                        </>
-                      )}
-                      
-                                {activeTab === "published" && (
+                              {activeTab === "pending" && work.status === "PENDING" && (
+                                <>
                                   <Button
-                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleValidateWork(work.id)}
+                                    title="Valider l'œuvre"
+                                    className="bg-green-600 hover:bg-green-700 text-white border-0 hover:border-0"
+                                    disabled={loadingActions[`${work.id}-validate`]}
+                                  >
+                                    {loadingActions[`${work.id}-validate`] ? (
+                                      <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                                    ) : (
+                                      <CheckCircle className="h-4 w-4 mr-1.5" />
+                                    )}
+                                    <span className="text-xs font-medium">Valider</span>
+                                  </Button>
+                                  <Button
                                     size="sm"
                                     onClick={() => {
                                       setSelectedWork(work);
-                                      setNewStatus("SUSPENDED");
+                                      setNewStatus("REJECTED");
                                       setIsStatusDialogOpen(true);
                                     }}
+                                    title="Refuser"
+                                    className="bg-red-600 hover:bg-red-700 text-white border-0 hover:border-0"
+                                    disabled={loadingActions[`${work.id}-reject`]}
                                   >
-                                    <XCircle className="h-4 w-4" />
+                                    {loadingActions[`${work.id}-reject`] ? (
+                                      <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                                    ) : (
+                                      <XCircle className="h-4 w-4 mr-1.5" />
+                                    )}
+                                    <span className="text-xs font-medium">Refuser</span>
                                   </Button>
-                                )}
+                                </>
+                              )}
 
-                                {activeTab === "suspended" && (
-                        <Button
+                              {activeTab === "validated" && work.status === "VALIDATED" && (
+                                <>
+                                  <Button
                                     variant="outline"
-                          size="sm"
-                                    onClick={() => handleValidateWork(work.id, "PUBLISHED")}
-                        >
-                                    <CheckCircle className="h-4 w-4" />
-                        </Button>
-                      )}
+                                    size="sm"
+                                    onClick={() => handleEditWork(work)}
+                                    title="Modifier l'œuvre"
+                                    className="border-blue-300 hover:bg-blue-50 text-blue-700"
+                                  >
+                                    <Edit className="h-4 w-4 mr-1.5" />
+                                    <span className="text-xs font-medium">Modifier</span>
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handlePublishWork(work.id)}
+                                    title="Publier l'œuvre"
+                                    className="bg-green-600 hover:bg-green-700 text-white border-0 hover:border-0"
+                                    disabled={loadingActions[`${work.id}-publish`]}
+                                  >
+                                    {loadingActions[`${work.id}-publish`] ? (
+                                      <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                                    ) : (
+                                      <CheckCircle className="h-4 w-4 mr-1.5" />
+                                    )}
+                                    <span className="text-xs font-medium">Publier</span>
+                                  </Button>
+                                </>
+                              )}
 
+                              {activeTab === "published" && (
                                 <Button
                                   variant="outline"
                                   size="sm"
                                   onClick={() => {
-                                    setWorkToDelete(work);
-                                    setIsDeleteDialogOpen(true);
+                                    setSelectedWork(work);
+                                    setNewStatus("SUSPENDED");
+                                    setIsStatusDialogOpen(true);
                                   }}
+                                  disabled={loadingActions[`${work.id}-suspend`]}
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  {loadingActions[`${work.id}-suspend`] ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <XCircle className="h-4 w-4" />
+                                  )}
                                 </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                              )}
 
-                    {/* Pagination */}
-                    {totalPages > 1 && (
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm text-gray-500">
-                          Page {currentPage} sur {totalPages}
-                        </p>
-                        <div className="flex space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setCurrentPage(currentPage - 1)}
-                            disabled={currentPage === 1}
-                          >
-                            Précédent
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setCurrentPage(currentPage + 1)}
-                            disabled={currentPage === totalPages}
-                          >
-                            Suivant
-                          </Button>
+                              {activeTab === "suspended" && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleValidateWork(work.id)}
+                                  disabled={loadingActions[`${work.id}-validate`]}
+                                >
+                                  {loadingActions[`${work.id}-validate`] ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <CheckCircle className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              )}
+
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setWorkToDelete(work);
+                                  setIsDeleteDialogOpen(true);
+                                }}
+                                disabled={loadingActions[`${work.id}-delete`]}
+                              >
+                                {loadingActions[`${work.id}-delete`] ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-gray-500">
+                        Page {currentPage} sur {totalPages}
+                      </p>
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(currentPage - 1)}
+                          disabled={currentPage === 1}
+                        >
+                          Précédent
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(currentPage + 1)}
+                          disabled={currentPage === totalPages}
+                        >
+                          Suivant
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                    )}
-                  </div>
-                )}
-                </CardContent>
-              </Card>
-          </TabsContent>
-        </Tabs>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
-        {/* Dialog de détails de l'œuvre */}
-        <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Détails de l'œuvre - {selectedWork?.title}</DialogTitle>
-            </DialogHeader>
-            {selectedWork && (() => {
-              const filesData = parseFiles(selectedWork.files);
-              return (
+      {/* Dialog de détails de l'œuvre */}
+      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Détails de l'œuvre - {selectedWork?.title}</DialogTitle>
+          </DialogHeader>
+          {selectedWork && (() => {
+            const filesData = parseFiles(selectedWork.files);
+            return (
               <div className="space-y-6">
                 {/* Étape 1: Informations de base */}
                 <div>
@@ -867,9 +897,9 @@ export default function ValidationOeuvresPage() {
                         <Label className="font-medium text-sm text-gray-600">Image de couverture</Label>
                         <div className="mt-2">
                           <div className="relative w-full max-w-md h-48 border rounded-lg overflow-hidden">
-                            <img 
-                              src={filesData.coverImage} 
-                              alt="Image de couverture" 
+                            <img
+                              src={filesData.coverImage}
+                              alt="Image de couverture"
                               className="w-full h-full object-cover"
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
@@ -877,9 +907,9 @@ export default function ValidationOeuvresPage() {
                               }}
                             />
                           </div>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             className="mt-2"
                             asChild
                           >
@@ -980,197 +1010,205 @@ export default function ValidationOeuvresPage() {
                   )}
                 </div>
               </div>
-              );
-            })()}
-          </DialogContent>
-        </Dialog>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
-        {/* Dialog de modification du statut */}
-        <Dialog open={isStatusDialogOpen} onOpenChange={setIsStatusDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Modifier le statut</DialogTitle>
-            </DialogHeader>
-            {selectedWork && (
-              <div className="space-y-4">
+      {/* Dialog de modification du statut */}
+      <Dialog open={isStatusDialogOpen} onOpenChange={setIsStatusDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Modifier le statut</DialogTitle>
+          </DialogHeader>
+          {selectedWork && (
+            <div className="space-y-4">
+              <div>
+                <Label className="font-medium">Œuvre</Label>
+                <p className="text-sm text-gray-600">{selectedWork.title}</p>
+              </div>
+
+              <div>
+                <Label className="font-medium">Nouveau statut</Label>
+                <p className="text-sm text-gray-600">
+                  {newStatus === "SUSPENDED" ? "Suspendre" : "Publier"}
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="reason">Raison (optionnel)</Label>
+                <Textarea
+                  id="reason"
+                  placeholder="Raison du changement de statut..."
+                  value={newReason}
+                  onChange={(e) => setNewReason(e.target.value)}
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setIsStatusDialogOpen(false)}>
+                  Annuler
+                </Button>
+                <Button
+                  onClick={() => {
+                    const action =
+                      newStatus === "SUSPENDED" ? "suspend" :
+                        newStatus === "REJECTED" ? "reject" : "validate";
+                    handleUpdateWorkStatus(selectedWork.id, action, newReason);
+                  }}
+                  disabled={!newStatus || loadingActions[`${selectedWork.id}-${newStatus === "SUSPENDED" ? "suspend" : newStatus === "REJECTED" ? "reject" : "validate"}`]}
+                >
+                  {loadingActions[`${selectedWork.id}-${newStatus === "SUSPENDED" ? "suspend" : newStatus === "REJECTED" ? "reject" : "validate"}`] ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : null}
+                  Confirmer
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de suppression */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer l'œuvre</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer l'œuvre "{workToDelete?.title}" ?
+              Cette action est irréversible et ne peut être effectuée que si l'œuvre n'a pas de commandes associées.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteWork}>
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog d'édition */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Modifier l'œuvre</DialogTitle>
+          </DialogHeader>
+          {editingWork && (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit-title">Titre *</Label>
+                <Input
+                  id="edit-title"
+                  value={editingWork.title || ''}
+                  onChange={(e) => setEditingWork({ ...editingWork, title: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-description">Description</Label>
+                <Textarea
+                  id="edit-description"
+                  value={editingWork.description || ''}
+                  onChange={(e) => setEditingWork({ ...editingWork, description: e.target.value })}
+                  rows={4}
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label className="font-medium">Œuvre</Label>
-                  <p className="text-sm text-gray-600">{selectedWork.title}</p>
-                </div>
-
-                <div>
-                  <Label className="font-medium">Nouveau statut</Label>
-                  <p className="text-sm text-gray-600">
-                    {newStatus === "SUSPENDED" ? "Suspendre" : "Publier"}
-                  </p>
-                </div>
-
-                <div>
-                  <Label htmlFor="reason">Raison (optionnel)</Label>
-                  <Textarea
-                    id="reason"
-                    placeholder="Raison du changement de statut..."
-                    value={newReason}
-                    onChange={(e) => setNewReason(e.target.value)}
-                    rows={3}
-                  />
-                </div>
-
-                <div className="flex justify-end space-x-2">
-                  <Button variant="outline" onClick={() => setIsStatusDialogOpen(false)}>
-                    Annuler
-                  </Button>
-                  <Button 
-                    onClick={() => handleValidateWork(selectedWork.id, newStatus, newReason)}
-                    disabled={!newStatus}
-                  >
-                    Confirmer
-                  </Button>
-                </div>
-          </div>
-        )}
-          </DialogContent>
-        </Dialog>
-
-        {/* Dialog de suppression */}
-        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Supprimer l'œuvre</AlertDialogTitle>
-              <AlertDialogDescription>
-                Êtes-vous sûr de vouloir supprimer l'œuvre "{workToDelete?.title}" ?
-                Cette action est irréversible et ne peut être effectuée que si l'œuvre n'a pas de commandes associées.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Annuler</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteWork}>
-                Supprimer
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* Dialog d'édition */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Modifier l'œuvre</DialogTitle>
-            </DialogHeader>
-            {editingWork && (
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="edit-title">Titre *</Label>
+                  <Label htmlFor="edit-price">Prix (FCFA)</Label>
                   <Input
-                    id="edit-title"
-                    value={editingWork.title || ''}
-                    onChange={(e) => setEditingWork({...editingWork, title: e.target.value})}
+                    id="edit-price"
+                    type="number"
+                    step="0.01"
+                    value={editingWork.price || ''}
+                    onChange={(e) => setEditingWork({ ...editingWork, price: parseFloat(e.target.value) || 0 })}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="edit-description">Description</Label>
-                  <Textarea
-                    id="edit-description"
-                    value={editingWork.description || ''}
-                    onChange={(e) => setEditingWork({...editingWork, description: e.target.value})}
-                    rows={4}
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="edit-price">Prix (FCFA)</Label>
-                    <Input
-                      id="edit-price"
-                      type="number"
-                      step="0.01"
-                      value={editingWork.price || ''}
-                      onChange={(e) => setEditingWork({...editingWork, price: parseFloat(e.target.value) || 0})}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-category">Catégorie</Label>
-                    <Input
-                      id="edit-category"
-                      value={editingWork.category || ''}
-                      onChange={(e) => setEditingWork({...editingWork, category: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-contentType">Type de contenu</Label>
-                    <Input
-                      id="edit-contentType"
-                      value={editingWork.contentType || ''}
-                      onChange={(e) => setEditingWork({...editingWork, contentType: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-targetAudience">Public cible</Label>
-                    <Input
-                      id="edit-targetAudience"
-                      value={editingWork.targetAudience || ''}
-                      onChange={(e) => setEditingWork({...editingWork, targetAudience: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-internalCode">Code interne</Label>
-                    <Input
-                      id="edit-internalCode"
-                      value={editingWork.internalCode || ''}
-                      onChange={(e) => setEditingWork({...editingWork, internalCode: e.target.value})}
-                      className="font-mono"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="edit-educationalObjectives">Objectifs pédagogiques</Label>
-                  <Textarea
-                    id="edit-educationalObjectives"
-                    value={editingWork.educationalObjectives || ''}
-                    onChange={(e) => setEditingWork({...editingWork, educationalObjectives: e.target.value})}
-                    rows={3}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="edit-keywords">Mots-clés (séparés par des virgules)</Label>
+                  <Label htmlFor="edit-category">Catégorie</Label>
                   <Input
-                    id="edit-keywords"
-                    value={editingWork.keywords || ''}
-                    onChange={(e) => setEditingWork({...editingWork, keywords: e.target.value})}
-                    placeholder="mot-clé1, mot-clé2, mot-clé3"
+                    id="edit-category"
+                    value={editingWork.category || ''}
+                    onChange={(e) => setEditingWork({ ...editingWork, category: e.target.value })}
                   />
                 </div>
-                <div className="flex justify-end space-x-2 pt-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setIsEditDialogOpen(false);
-                      setEditingWork(null);
-                    }}
-                    disabled={isSaving}
-                  >
-                    Annuler
-                  </Button>
-                  <Button
-                    onClick={handleSaveEdit}
-                    disabled={isSaving || !editingWork.title}
-                  >
-                    {isSaving ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Enregistrement...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="h-4 w-4 mr-2" />
-                        Enregistrer les modifications
-                      </>
-                    )}
-                  </Button>
+                <div>
+                  <Label htmlFor="edit-contentType">Type de contenu</Label>
+                  <Input
+                    id="edit-contentType"
+                    value={editingWork.contentType || ''}
+                    onChange={(e) => setEditingWork({ ...editingWork, contentType: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-targetAudience">Public cible</Label>
+                  <Input
+                    id="edit-targetAudience"
+                    value={editingWork.targetAudience || ''}
+                    onChange={(e) => setEditingWork({ ...editingWork, targetAudience: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-internalCode">Code interne</Label>
+                  <Input
+                    id="edit-internalCode"
+                    value={editingWork.internalCode || ''}
+                    onChange={(e) => setEditingWork({ ...editingWork, internalCode: e.target.value })}
+                    className="font-mono"
+                  />
                 </div>
               </div>
-            )}
-          </DialogContent>
-        </Dialog>
-      </div>
+              <div>
+                <Label htmlFor="edit-educationalObjectives">Objectifs pédagogiques</Label>
+                <Textarea
+                  id="edit-educationalObjectives"
+                  value={editingWork.educationalObjectives || ''}
+                  onChange={(e) => setEditingWork({ ...editingWork, educationalObjectives: e.target.value })}
+                  rows={3}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-keywords">Mots-clés (séparés par des virgules)</Label>
+                <Input
+                  id="edit-keywords"
+                  value={editingWork.keywords || ''}
+                  onChange={(e) => setEditingWork({ ...editingWork, keywords: e.target.value })}
+                  placeholder="mot-clé1, mot-clé2, mot-clé3"
+                />
+              </div>
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsEditDialogOpen(false);
+                    setEditingWork(null);
+                  }}
+                  disabled={isSaving}
+                >
+                  Annuler
+                </Button>
+                <Button
+                  onClick={handleSaveEdit}
+                  disabled={isSaving || !editingWork.title}
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Enregistrement...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Enregistrer les modifications
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -45,9 +46,9 @@ export async function GET(request: NextRequest) {
             contact: user.name,
           }
         })
-        console.log("✅ Partenaire créé automatiquement pour l'utilisateur existant:", user.name)
+        logger.debug("✅ Partenaire créé automatiquement pour l'utilisateur existant:", user.name)
       } catch (partnerError: any) {
-        console.error("❌ Erreur lors de la création automatique du partenaire:", partnerError)
+        logger.error("❌ Erreur lors de la création automatique du partenaire:", partnerError)
         return NextResponse.json({ error: 'Erreur lors de la création du partenaire' }, { status: 500 })
       }
     }
@@ -137,7 +138,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('Erreur lors de la récupération des commandes partenaire:', error)
+    logger.error('Erreur lors de la récupération des commandes partenaire:', error)
     return NextResponse.json(
       { error: 'Erreur interne du serveur' },
       { status: 500 }
@@ -204,9 +205,9 @@ export async function POST(request: NextRequest) {
             contact: user.name,
           }
         })
-        console.log("✅ Partenaire créé automatiquement pour l'utilisateur existant:", user.name)
+        logger.debug("✅ Partenaire créé automatiquement pour l'utilisateur existant:", user.name)
       } catch (partnerError: any) {
-        console.error("❌ Erreur lors de la création automatique du partenaire:", partnerError)
+        logger.error("❌ Erreur lors de la création automatique du partenaire:", partnerError)
         return NextResponse.json({ error: 'Erreur lors de la création du partenaire' }, { status: 500 })
       }
     }
@@ -302,7 +303,7 @@ export async function POST(request: NextRequest) {
         }
       })
     } catch (notificationError) {
-      console.warn('⚠️ Failed to create notification:', notificationError)
+      logger.warn('⚠️ Failed to create notification:', notificationError)
     }
 
     return NextResponse.json({
@@ -330,7 +331,7 @@ export async function POST(request: NextRequest) {
     }, { status: 201 })
 
   } catch (error: any) {
-    console.error('Erreur lors de la création de la commande:', error)
+    logger.error('Erreur lors de la création de la commande:', error)
     return NextResponse.json(
       { error: 'Erreur interne du serveur' },
       { status: 500 }

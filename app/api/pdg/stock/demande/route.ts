@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -143,7 +144,7 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('Error fetching stock requests:', error)
+    logger.error('Error fetching stock requests:', error)
     return NextResponse.json(
       { error: 'Erreur lors de la récupération des demandes de stock' },
       { status: 500 }
@@ -230,7 +231,7 @@ export async function POST(request: NextRequest) {
       }
     })
   } catch (error: any) {
-    console.error('Error creating stock request:', error)
+    logger.error('Error creating stock request:', error)
     return NextResponse.json(
       { error: error.message || 'Erreur lors de la création de la demande de stock' },
       { status: 500 }
@@ -326,7 +327,7 @@ export async function PUT(request: NextRequest) {
       }
     })
   } catch (error: any) {
-    console.error('Error updating stock request:', error)
+    logger.error('Error updating stock request:', error)
     return NextResponse.json(
       { error: error.message || 'Erreur lors de la mise à jour de la demande de stock' },
       { status: 500 }

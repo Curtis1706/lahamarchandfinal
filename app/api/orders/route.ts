@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { OrderStatus } from "@prisma/client"
@@ -89,7 +90,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(ordersWithTotal)
   } catch (error) {
-    console.error("Error fetching orders:", error)
+    logger.error("Error fetching orders:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
@@ -191,8 +192,8 @@ export async function POST(request: NextRequest) {
     const discount = discountAmount || 0
     const total = Math.max(0, subtotal + tax - discount)
 
-    console.log(`📦 Création de commande pour l'utilisateur ${finalUserId}`)
-    console.log(`📦 Items: ${items.length}, Subtotal: ${subtotal}, Tax: ${tax}, Total: ${total}`)
+    logger.debug(`📦 Création de commande pour l'utilisateur ${finalUserId}`)
+    logger.debug(`📦 Items: ${items.length}, Subtotal: ${subtotal}, Tax: ${tax}, Total: ${total}`)
 
     // Préparer la date de livraison avec les heures si fournies
     let finalDeliveryDate: Date | null = null
@@ -203,7 +204,7 @@ export async function POST(request: NextRequest) {
         // Pour l'instant, on utilise juste la date
         finalDeliveryDate = date
       } catch (e) {
-        console.warn("Erreur lors du parsing de la date de livraison:", e)
+        logger.warn("Erreur lors du parsing de la date de livraison:", e)
       }
     }
 
@@ -281,12 +282,12 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    console.log(`✅ Commande créée avec succès: ${newOrder.id}`)
+    logger.debug(`✅ Commande créée avec succès: ${newOrder.id}`)
 
     return NextResponse.json(newOrder, { status: 201 })
   } catch (error: any) {
-    console.error("❌ Error creating order:", error)
-    console.error("❌ Error details:", {
+    logger.error("❌ Error creating order:", error)
+    logger.error("❌ Error details:", {
       message: error.message,
       code: error.code,
       meta: error.meta
@@ -522,21 +523,21 @@ export async function PUT(request: NextRequest) {
             }
           }
         } catch (rebateError: any) {
-          console.error("❌ Error calculating rebates:", rebateError)
-          console.warn("⚠️ Order validated but rebate calculation failed:", rebateError.message)
+          logger.error("❌ Error calculating rebates:", rebateError)
+          logger.warn("⚠️ Order validated but rebate calculation failed:", rebateError.message)
         }
       } catch (deliveryNoteError: any) {
-        console.error("❌❌ Error creating delivery note or reducing stock:", deliveryNoteError)
-        console.error("❌❌ Error stack:", deliveryNoteError.stack)
+        logger.error("❌❌ Error creating delivery note or reducing stock:", deliveryNoteError)
+        logger.error("❌❌ Error stack:", deliveryNoteError.stack)
         // Ne pas faire échouer la validation si la création du bon échoue
         // Mais on log l'erreur pour investigation
-        console.warn("⚠️⚠️ Order validated but delivery note creation failed:", deliveryNoteError.message)
+        logger.warn("⚠️⚠️ Order validated but delivery note creation failed:", deliveryNoteError.message)
       }
     }
 
     return NextResponse.json(updatedOrder)
   } catch (error) {
-    console.error("Error updating order:", error)
+    logger.error("Error updating order:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
@@ -572,7 +573,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ message: "Order deleted successfully" })
   } catch (error) {
-    console.error("Error deleting order:", error)
+    logger.error("Error deleting order:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
