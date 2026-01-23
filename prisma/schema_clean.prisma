@@ -786,6 +786,22 @@ model NotificationChain {
   @@index([createdAt])
 }
 
+model AuditLog {
+  id          String   @id @default(cuid())
+  action      String
+  userId      String?
+  performedBy String
+  details     String
+  metadata    String?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt, userId])
+  @@index([createdAt, action])
+}
+
 model AdvancedSetting {
   id          String   @id @default(cuid())
   key         String   @unique
@@ -1362,24 +1378,3 @@ model Setting {
   @@index([category])
 }
 
-
-model AuditLog {
-  id          String   @id @default(cuid())
-  action      String
-  userId      String?
-  userEmail   String?
-  userRole    String?
-  performedBy String
-  details     String
-  metadata    String?
-  entityType  String?
-  entityId    String?
-  createdAt   DateTime @default(now())
-
-  @@index([createdAt])
-  @@index([userId])
-  @@index([action])
-  @@index([createdAt, userId])
-  @@index([createdAt, action])
-  @@index([entityType])
-}
