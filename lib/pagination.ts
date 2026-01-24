@@ -20,17 +20,19 @@ export interface PaginatedResponse<T> {
 
 export function getPaginationParams(
   searchParams: URLSearchParams
-): { skip: number; take: number; page: number } {
+): { skip: number; take: number; page: number; cursor?: string } {
   const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
   const limit = Math.min(
     MAX_PAGE_SIZE,
     Math.max(1, parseInt(searchParams.get('limit') || String(DEFAULT_PAGE_SIZE)))
   )
+  const cursor = searchParams.get('cursor') || undefined
 
   return {
     page,
     take: limit,
     skip: (page - 1) * limit,
+    cursor,
   }
 }
 

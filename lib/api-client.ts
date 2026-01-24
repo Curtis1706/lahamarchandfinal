@@ -42,7 +42,7 @@ export class ApiClient {
 
   // Users API
   async getUsers() {
-    const response = await this.request('/users')
+    const response = await this.request('/users') as any
     return response.users || response || []
   }
 
@@ -93,7 +93,7 @@ export class ApiClient {
   }
 
   async getPendingUsers(status?: string) {
-    const response = await this.request(`/users/validate${status ? `?status=${status}` : ''}`)
+    const response = await this.request(`/users/validate${status ? `?status=${status}` : ''}`) as any
     return response.users || response || []
   }
 
@@ -208,7 +208,7 @@ export class ApiClient {
     if (params?.limit) queryParams.append('limit', params.limit.toString())
 
     const queryString = queryParams.toString()
-    const response = await this.request(`/works${queryString ? `?${queryString}` : ''}`)
+    const response = await this.request(`/works${queryString ? `?${queryString}` : ''}`) as any
 
     // L'API retourne { works, pagination, stats }, on extrait juste works
     return response.works || response || []
@@ -576,10 +576,7 @@ export class ApiClient {
     })
   }
 
-  // Notifications API
-  async getNotifications(userId: string) {
-    return this.request(`/notifications?userId=${userId}`)
-  }
+
 
   // Work Versions API
   async getWorkVersions(workId: string, includeArchived: boolean = false) {
@@ -608,37 +605,7 @@ export class ApiClient {
     })
   }
 
-  // Stock API
-  async getWorksWithStock() {
-    return this.request('/stock?type=works')
-  }
 
-  async getStockMovements() {
-    return this.request('/stock?type=movements')
-  }
-
-  async getStockAlerts() {
-    return this.request('/stock?type=alerts')
-  }
-
-  async getStockStats() {
-    return this.request('/stock?type=stats')
-  }
-
-  async getPendingStockOperations() {
-    return this.request('/stock?type=pending')
-  }
-
-  async exportStockReport(type: 'inventory' | 'movements' | 'alerts') {
-    return this.request(`/stock/export?type=${type}`)
-  }
-
-  async validateStockOperation(operationId: string, approved: boolean) {
-    return this.request('/stock/validate', {
-      method: 'POST',
-      body: JSON.stringify({ operationId, approved }),
-    })
-  }
 
   // Stock Statistics API
   async getStockStatistics(type: 'discipline' | 'sales' | 'popular' | 'overview', options?: {
@@ -652,7 +619,7 @@ export class ApiClient {
   }
 
   // Stock Alerts API
-  async getStockAlerts(type: 'rules' | 'alerts' | 'unread', options?: {
+  async getStockAlertsWithFilters(type: 'rules' | 'alerts' | 'unread', options?: {
     severity?: string
     isResolved?: boolean
     limit?: number

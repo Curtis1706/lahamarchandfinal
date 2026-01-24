@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const { skip, take, page } = getPaginationParams(searchParams);
 
     const whereConditions = {
-      status: "PENDING"
+      status: "PENDING" as const
     };
 
     // Compter le total

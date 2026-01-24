@@ -69,7 +69,11 @@ interface User {
   }
   createdAt: string
   updatedAt?: string
-  status?: 'active' | 'inactive' | 'suspended'
+  status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'PENDING' | 'APPROVED' | 'REJECTED'
+  // Optional work statistics for authors
+  worksCount?: number
+  publishedWorksCount?: number
+  pendingWorksCount?: number
 }
 
 interface Discipline {
@@ -177,7 +181,10 @@ export default function GestionUtilisateursPage() {
   const handleCreateUser = async (userData: any) => {
     try {
       const response = await apiClient.createUser(userData)
-      const newUser = response.user || response
+      // Type guard for response
+      const newUser = (typeof response === 'object' && response !== null && 'user' in response)
+        ? response.user as User
+        : response as User
       setUsers(prev => Array.isArray(prev) ? [newUser, ...prev] : [newUser])
       setIsCreateDialogOpen(false)
 
@@ -192,7 +199,7 @@ export default function GestionUtilisateursPage() {
       const updatedUser = await apiClient.updateUser(userId, updates)
       setUsers(prev =>
         prev.map(u =>
-          u.id === userId
+          u.id === userId && typeof updatedUser === 'object' && updatedUser !== null
             ? { ...u, ...updatedUser }
             : u
         )
@@ -514,9 +521,9 @@ export default function GestionUtilisateursPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Statut</SelectItem>
-              <SelectItem value="active">Actif</SelectItem>
-              <SelectItem value="inactive">Inactif</SelectItem>
-              <SelectItem value="suspended">Suspendu</SelectItem>
+              <SelectItem value="ACTIVE">Actif</SelectItem>
+              <SelectItem value="INACTIVE">Inactif</SelectItem>
+              <SelectItem value="SUSPENDED">Suspendu</SelectItem>
             </SelectContent>
           </Select>
 
@@ -832,7 +839,7 @@ export default function GestionUtilisateursPage() {
                                 <div className="space-y-2">
                                   <label className="text-sm font-medium text-gray-600">Compte principal</label>
                                   <p className="text-sm text-gray-900">
-                                    {user.role === 'PDG' ? 'Compte administrateur' : 'Compte standard'}
+                                    {user.role === 'CONCEPTEUR' ? 'Compte concepteur' : 'Compte standard'}
                                   </p>
                                 </div>
                               </>

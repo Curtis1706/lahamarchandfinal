@@ -90,7 +90,7 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (token) {
-        session.user.id = token.id || token.sub!
+        session.user.id = (token.id as string) || (token.sub as string) || ''
         session.user.role = token.role as Role
       }
       return session
@@ -98,7 +98,6 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: "/auth/login",
-    signUp: "/auth/signup",
     error: "/auth/error"
   },
   debug: process.env.NODE_ENV === "development"
