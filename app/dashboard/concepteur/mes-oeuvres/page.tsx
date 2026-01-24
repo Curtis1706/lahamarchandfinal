@@ -137,7 +137,7 @@ export default function MesOeuvresPage() {
 
   const loadDisciplines = async () => {
     try {
-      const data = await apiClient.getDisciplines() as any
+      const data = await apiClient.getDisciplines() as Array<{ id: string; name: string }>
       setDisciplines(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error("Error loading disciplines:", error)

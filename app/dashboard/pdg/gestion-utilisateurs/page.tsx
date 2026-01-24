@@ -182,7 +182,7 @@ export default function GestionUtilisateursPage() {
     try {
       const response = await apiClient.createUser(userData)
       // Type guard for response
-      const newUser = (typeof response === 'object' && response !== null && 'user' in response)
+      const newUser: User = (typeof response === 'object' && response !== null && 'user' in response)
         ? response.user as User
         : response as User
       setUsers(prev => Array.isArray(prev) ? [newUser, ...prev] : [newUser])
@@ -839,7 +839,7 @@ export default function GestionUtilisateursPage() {
                                 <div className="space-y-2">
                                   <label className="text-sm font-medium text-gray-600">Compte principal</label>
                                   <p className="text-sm text-gray-900">
-                                    {user.role === 'CONCEPTEUR' ? 'Compte concepteur' : 'Compte standard'}
+                                    Compte concepteur
                                   </p>
                                 </div>
                               </>
