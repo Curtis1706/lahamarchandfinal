@@ -1,44 +1,27 @@
-import winston from 'winston'
+// Simple logger compatible avec Vercel (pas de système de fichiers)
+// Utilise uniquement console.log pour éviter les problèmes de permissions
 
 const isProduction = process.env.NODE_ENV === 'production'
 
-// Format personnalisé
-const customFormat = winston.format.combine(
-  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-  winston.format.errors({ stack: true }),
-  winston.format.json()
-)
+// Logger simple basé sur console
+export const logger = {
+  debug: (...args: any[]) => {
+    if (!isProduction) {
+      console.log('[DEBUG]', new Date().toISOString(), ...args)
+    }
+  },
 
-// Créer logger
-export const logger = winston.createLogger({
-  level: isProduction ? 'info' : 'debug',
-  format: customFormat,
-  defaultMeta: { service: 'laha-marchand' },
-  transports: [
-    // Fichier pour erreurs
-    new winston.transports.File({ 
-      filename: 'logs/error.log', 
-      level: 'error',
-      maxsize: 5242880, // 5MB
-      maxFiles: 5,
-    }),
-    // Fichier pour tout
-    new winston.transports.File({ 
-      filename: 'logs/combined.log',
-      maxsize: 5242880,
-      maxFiles: 5,
-    }),
-  ],
-})
+  info: (...args: any[]) => {
+    console.log('[INFO]', new Date().toISOString(), ...args)
+  },
 
-// Console en développement uniquement
-if (!isProduction) {
-  logger.add(new winston.transports.Console({
-    format: winston.format.combine(
-      winston.format.colorize(),
-      winston.format.simple()
-    )
-  }))
+  warn: (...args: any[]) => {
+    console.warn('[WARN]', new Date().toISOString(), ...args)
+  },
+
+  error: (...args: any[]) => {
+    console.error('[ERROR]', new Date().toISOString(), ...args)
+  }
 }
 
 // Helper pour logger sans données sensibles
