@@ -11,7 +11,7 @@ const prisma = new PrismaClient();
 // POST /api/users - Créer un utilisateur (pour le PDG)
 export async function POST(request: NextRequest) {
   console.log("🔍 API POST /users - Création d'utilisateur");
-  
+
   try {
     // Vérifier l'authentification
     const session = await getServerSession(authOptions);
@@ -29,14 +29,14 @@ export async function POST(request: NextRequest) {
     console.log("✅ PDG authentifié:", session.user.email, "Création d'utilisateur autorisée");
     const body = await request.json();
     console.log("🔍 Body reçu:", body);
-    
-    const { 
-      name, 
-      email, 
-      phone, 
-      role, 
-      disciplineId, 
-      password 
+
+    const {
+      name,
+      email,
+      phone,
+      role,
+      disciplineId,
+      password
     } = body;
 
     console.log("🔍 Données extraites:", { name, email, phone, role, disciplineId });
@@ -127,32 +127,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    console.log("✅ Utilisateur créé, ajout des logs et notifications...");
-
-    // Créer un log d'audit
-    try {
-      await prisma.auditLog.create({
-        data: {
-          action: "USER_CREATE",
-          userId: user.id,
-          performedBy: session.user.id, // Créé par le PDG
-          details: `Utilisateur ${user.name} (${user.role}) créé par le PDG ${session.user.name}`,
-          metadata: JSON.stringify({
-            userId: user.id,
-            userName: user.name,
-            userEmail: user.email,
-            userRole: user.role,
-            discipline: user.discipline?.name,
-            status: "ACTIVE",
-            createdBy: session.user.name,
-            createdByEmail: session.user.email
-          })
-        }
-      });
-      console.log("✅ Log d'audit créé");
-    } catch (auditError) {
-      console.error("⚠️ Erreur création log d'audit:", auditError);
-    }
+    console.log("✅ Utilisateur créé, ajout des notifications...");
 
     // Créer une notification pour le PDG (utilisateur créé directement)
     try {
@@ -203,23 +178,23 @@ export async function POST(request: NextRequest) {
     }
 
     console.log("✅ Utilisateur créé avec succès:", user);
-    
+
     // Retourner les données sans le mot de passe
     const { password: _, ...userWithoutPassword } = user;
-    
+
     // Préparer la réponse
     const responseData: any = {
       success: true,
       message: "Compte créé avec succès. Il est en attente de validation par l'administrateur.",
       user: userWithoutPassword
     };
-    
+
     return NextResponse.json(responseData, { status: 201 });
-    
+
   } catch (error: any) {
     console.error("❌ Erreur création utilisateur:", error);
     console.error("❌ Stack:", error.stack);
-    
+
     // Gestion spécifique des erreurs Prisma
     if (error.code === 'P2002') {
       return NextResponse.json(
@@ -227,7 +202,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
     return NextResponse.json(
       { error: "Erreur lors de la création du compte: " + error.message },
       { status: 500 }
@@ -238,7 +213,7 @@ export async function POST(request: NextRequest) {
 // GET /api/users - Récupérer les utilisateurs (pour le PDG)
 export async function GET(request: NextRequest) {
   console.log("🔍 API GET /users - Récupération des utilisateurs");
-  
+
   try {
     // Vérifier l'authentification
     const session = await getServerSession(authOptions);
@@ -261,15 +236,15 @@ export async function GET(request: NextRequest) {
 
     // Construire les filtres
     const where: any = {};
-    
+
     if (role) {
       where.role = role;
     }
-    
+
     if (status) {
       where.status = status;
     }
-    
+
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -282,8 +257,8 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         discipline: {
-      select: {
-        id: true,
+          select: {
+            id: true,
             name: true
           }
         }
@@ -300,15 +275,15 @@ export async function GET(request: NextRequest) {
     });
 
     console.log(`✅ ${usersWithoutPasswords.length} utilisateurs récupérés`);
-    
+
     return NextResponse.json({
       users: usersWithoutPasswords,
       total: usersWithoutPasswords.length
     });
-    
+
   } catch (error: any) {
     console.error("❌ Erreur récupération utilisateurs:", error);
-    
+
     return NextResponse.json(
       { error: "Erreur lors de la récupération des utilisateurs: " + error.message },
       { status: 500 }
@@ -319,7 +294,7 @@ export async function GET(request: NextRequest) {
 // PUT /api/users - Mettre à jour un utilisateur
 export async function PUT(request: NextRequest) {
   console.log("🔍 API PUT /users - Mise à jour d'utilisateur");
-  
+
   try {
     const body = await request.json();
     const { id, ...updateData } = body;
@@ -354,8 +329,8 @@ export async function PUT(request: NextRequest) {
       data: updateData,
       include: {
         discipline: {
-      select: {
-        id: true,
+          select: {
+            id: true,
             name: true
           }
         }
@@ -366,15 +341,15 @@ export async function PUT(request: NextRequest) {
 
     // Retourner sans le mot de passe
     const { password, ...userWithoutPassword } = updatedUser;
-    
+
     return NextResponse.json({
       success: true,
       user: userWithoutPassword
     });
-    
+
   } catch (error: any) {
     console.error("❌ Erreur mise à jour utilisateur:", error);
-    
+
     return NextResponse.json(
       { error: "Erreur lors de la mise à jour: " + error.message },
       { status: 500 }
@@ -385,7 +360,7 @@ export async function PUT(request: NextRequest) {
 // DELETE /api/users - Supprimer un utilisateur
 export async function DELETE(request: NextRequest) {
   console.log("🔍 API DELETE /users - Suppression d'utilisateur");
-  
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -415,15 +390,15 @@ export async function DELETE(request: NextRequest) {
     });
 
     console.log("✅ Utilisateur supprimé:", id);
-    
+
     return NextResponse.json({
       success: true,
       message: "Utilisateur supprimé avec succès"
     });
-    
+
   } catch (error: any) {
     console.error("❌ Erreur suppression utilisateur:", error);
-    
+
     return NextResponse.json(
       { error: "Erreur lors de la suppression: " + error.message },
       { status: 500 }

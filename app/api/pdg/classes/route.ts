@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Filtrer uniquement les classes actives pour les clients
-    const whereClause = session.user.role === "CLIENT" 
+    const whereClause = session.user.role === "CLIENT"
       ? { isActive: true }
       : {}
 
@@ -89,25 +89,6 @@ export async function POST(request: NextRequest) {
 
     logger.debug("✅ Classe créée:", newClass)
 
-    // Audit log
-    try {
-      await prisma.auditLog.create({
-        data: {
-          userId: session.user.id,
-          userEmail: session.user.email || "",
-          userRole: session.user.role,
-          action: 'CREATE_CLASS',
-          entityType: 'SchoolClass',
-          entityId: newClass.id,
-          details: `Classe créée: ${newClass.name} (${newClass.section})`
-        }
-      })
-      logger.debug("✅ Audit log créé")
-    } catch (auditError) {
-      logger.error("⚠️ Erreur lors de la création de l'audit log:", auditError)
-      // Ne pas bloquer la création de la classe si l'audit log échoue
-    }
-
     const formattedClass = {
       id: newClass.id,
       classe: newClass.name,
@@ -137,15 +118,15 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     logger.error("❌ Error creating class:", error)
     logger.error("❌ Error details:", JSON.stringify(error, null, 2))
-    
+
     // Gérer l'erreur de contrainte unique (P2002)
     if (error.code === 'P2002') {
-      return NextResponse.json({ 
-        error: "Cette classe existe déjà dans le système" 
+      return NextResponse.json({
+        error: "Cette classe existe déjà dans le système"
       }, { status: 409 })
     }
-    
-    return NextResponse.json({ 
+
+    return NextResponse.json({
       error: "Erreur lors de la création de la classe",
       details: error instanceof Error ? error.message : "Unknown error"
     }, { status: 500 })
@@ -190,23 +171,6 @@ export async function PUT(request: NextRequest) {
       }
     })
 
-    // Audit log
-    try {
-      await prisma.auditLog.create({
-        data: {
-          userId: session.user.id,
-          userEmail: session.user.email || "",
-          userRole: session.user.role,
-          action: 'UPDATE_CLASS',
-          entityType: 'SchoolClass',
-          entityId: updatedClass.id,
-          details: `Classe mise à jour: ${updatedClass.name} (${updatedClass.section})`
-        }
-      })
-    } catch (auditError) {
-      logger.error("⚠️ Erreur lors de la création de l'audit log:", auditError)
-    }
-
     const formattedClass = {
       id: updatedClass.id,
       classe: updatedClass.name,
@@ -235,14 +199,14 @@ export async function PUT(request: NextRequest) {
 
   } catch (error: any) {
     logger.error("❌ Error updating class:", error)
-    
+
     if (error.code === 'P2002') {
-      return NextResponse.json({ 
-        error: "Cette classe existe déjà dans le système" 
+      return NextResponse.json({
+        error: "Cette classe existe déjà dans le système"
       }, { status: 409 })
     }
-    
-    return NextResponse.json({ 
+
+    return NextResponse.json({
       error: "Erreur lors de la modification de la classe",
       details: error instanceof Error ? error.message : "Unknown error"
     }, { status: 500 })
@@ -285,23 +249,6 @@ export async function PATCH(request: NextRequest) {
       }
     })
 
-    // Audit log
-    try {
-      await prisma.auditLog.create({
-        data: {
-          userId: session.user.id,
-          userEmail: session.user.email || "",
-          userRole: session.user.role,
-          action: 'TOGGLE_CLASS_STATUS',
-          entityType: 'SchoolClass',
-          entityId: updatedClass.id,
-          details: `Statut de la classe ${updatedClass.name} changé: ${updatedClass.isActive ? 'Disponible' : 'Indisponible'}`
-        }
-      })
-    } catch (auditError) {
-      logger.error("⚠️ Erreur lors de la création de l'audit log:", auditError)
-    }
-
     const formattedClass = {
       id: updatedClass.id,
       classe: updatedClass.name,
@@ -330,7 +277,7 @@ export async function PATCH(request: NextRequest) {
 
   } catch (error: any) {
     logger.error("❌ Error toggling class status:", error)
-    return NextResponse.json({ 
+    return NextResponse.json({
       error: "Erreur lors de la modification du statut",
       details: error instanceof Error ? error.message : "Unknown error"
     }, { status: 500 })

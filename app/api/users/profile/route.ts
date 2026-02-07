@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
@@ -33,8 +33,8 @@ export async function GET(request: NextRequest) {
 
   } catch (error: any) {
     logger.error('❌ Erreur lors de la récupération du profil:', error)
-    return NextResponse.json({ 
-      error: 'Erreur lors de la récupération du profil: ' + error.message 
+    return NextResponse.json({
+      error: 'Erreur lors de la récupération du profil: ' + error.message
     }, { status: 500 })
   }
 }
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
@@ -53,7 +53,7 @@ export async function PUT(request: NextRequest) {
 
     // Préparer les données à mettre à jour
     const updateData: any = {}
-    
+
     if (name !== undefined) updateData.name = name
     if (phone !== undefined) updateData.phone = phone
     if (address !== undefined) updateData.address = address
@@ -72,19 +72,6 @@ export async function PUT(request: NextRequest) {
       }
     })
 
-    // Créer un log d'audit
-    await prisma.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: 'PROFILE_UPDATED',
-        description: `Profil mis à jour par ${updatedUser.name}`,
-        performedBy: updatedUser.name || updatedUser.email,
-        details: JSON.stringify({
-          updatedFields: Object.keys(updateData)
-        })
-      }
-    })
-
     // Retourner le profil sans le mot de passe
     const { password: _, ...userProfile } = updatedUser
 
@@ -96,10 +83,9 @@ export async function PUT(request: NextRequest) {
 
   } catch (error: any) {
     logger.error('❌ Erreur lors de la mise à jour du profil:', error)
-    return NextResponse.json({ 
-      error: 'Erreur lors de la mise à jour du profil: ' + error.message 
+    return NextResponse.json({
+      error: 'Erreur lors de la mise à jour du profil: ' + error.message
     }, { status: 500 })
   }
 }
-
 

@@ -107,7 +107,7 @@ export default function GestionDisciplinesPage() {
         console.log("🔍 Disciplines reçues:", disciplinesData)
 
         // Enrichir les disciplines avec les statistiques
-        const enrichedDisciplines = disciplinesData.map((discipline: any) => ({
+        const enrichedDisciplines = (disciplinesData as any[]).map((discipline: any) => ({
           ...discipline,
           concepteurCount: usersData.filter((u: any) => u.disciplineId === discipline.id && u.role === 'CONCEPTEUR').length,
           auteurCount: usersData.filter((u: any) => u.disciplineId === discipline.id && u.role === 'AUTEUR').length,
@@ -197,7 +197,7 @@ export default function GestionDisciplinesPage() {
         apiClient.getUsers()
       ])
 
-      const enrichedDisciplines = disciplinesData.map((discipline: any) => ({
+      const enrichedDisciplines = (disciplinesData as any[]).map((discipline: any) => ({
         ...discipline,
         concepteurCount: usersData.filter((u: any) => u.disciplineId === discipline.id && u.role === 'CONCEPTEUR').length,
         auteurCount: usersData.filter((u: any) => u.disciplineId === discipline.id && u.role === 'AUTEUR').length,
@@ -225,7 +225,7 @@ export default function GestionDisciplinesPage() {
         apiClient.getUsers()
       ])
 
-      const enrichedDisciplines = disciplinesData.map((discipline: any) => ({
+      const enrichedDisciplines = (disciplinesData as any[]).map((discipline: any) => ({
         ...discipline,
         concepteurCount: usersData.filter((u: any) => u.disciplineId === discipline.id && u.role === 'CONCEPTEUR').length,
         auteurCount: usersData.filter((u: any) => u.disciplineId === discipline.id && u.role === 'AUTEUR').length,
@@ -510,7 +510,7 @@ export default function GestionDisciplinesPage() {
                       {/* Section pour les concepteurs et auteurs avec hauteur fixe */}
                       <div className="space-y-3 min-h-[120px]">
                         {/* Concepteurs associés */}
-                        {discipline.concepteurCount && discipline.concepteurCount > 0 && (
+                        {(discipline.concepteurCount || 0) > 0 && (
                           <div>
                             <h4 className="text-sm font-medium mb-2">Concepteurs associés</h4>
                             <div className="space-y-1">
@@ -532,7 +532,7 @@ export default function GestionDisciplinesPage() {
                         )}
 
                         {/* Auteurs assignés */}
-                        {discipline.auteurCount && discipline.auteurCount > 0 && (
+                        {(discipline.auteurCount || 0) > 0 && (
                           <div>
                             <h4 className="text-sm font-medium mb-2">Auteurs associés</h4>
                             <div className="space-y-1">

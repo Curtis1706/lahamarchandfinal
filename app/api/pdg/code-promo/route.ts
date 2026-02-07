@@ -63,15 +63,15 @@ export async function POST(request: NextRequest) {
     }
 
     const { libelle, code, periode, livre, statut, taux, quantiteMinimale, dateDebut, dateFin } = await request.json()
-    
+
     // Utiliser dateDebut/dateFin si fournis, sinon utiliser les noms startDate/endDate
     const startDate = dateDebut ? new Date(dateDebut) : null
     const endDate = dateFin ? new Date(dateFin) : null
 
     // Validation
     if (!libelle || !code || !taux) {
-      return NextResponse.json({ 
-        error: "Le libellé, le code et le taux sont obligatoires" 
+      return NextResponse.json({
+        error: "Le libellé, le code et le taux sont obligatoires"
       }, { status: 400 })
     }
 
@@ -81,8 +81,8 @@ export async function POST(request: NextRequest) {
     })
 
     if (existingPromo) {
-      return NextResponse.json({ 
-        error: "Ce code promo existe déjà" 
+      return NextResponse.json({
+        error: "Ce code promo existe déjà"
       }, { status: 400 })
     }
 
@@ -105,22 +105,6 @@ export async function POST(request: NextRequest) {
         createdBy: session.user.name || session.user.email,
         startDate: startDate,
         endDate: endDate
-      }
-    })
-
-    // Créer un log d'audit
-    await prisma.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: 'PROMOTION_CREATED',
-        performedBy: session.user.name || session.user.email,
-        details: JSON.stringify({
-          promotionId: newPromotion.id,
-          code: newPromotion.code,
-          libelle: newPromotion.libelle,
-          taux: newPromotion.taux,
-          description: `Code promo "${code}" créé`
-        })
       }
     })
 
@@ -149,8 +133,8 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     logger.error("Error creating promotion:", error)
-    return NextResponse.json({ 
-      error: "Erreur lors de la création: " + error.message 
+    return NextResponse.json({
+      error: "Erreur lors de la création: " + error.message
     }, { status: 500 })
   }
 }
@@ -186,25 +170,12 @@ export async function PUT(request: NextRequest) {
       }
     })
 
-    // Log d'audit
-    await prisma.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: 'PROMOTION_UPDATED',
-        performedBy: session.user.name || session.user.email,
-        details: JSON.stringify({ 
-          promotionId: id,
-          description: `Code promo "${updatedPromotion.code}" modifié`
-        })
-      }
-    })
-
     return NextResponse.json({ success: true, promotion: updatedPromotion })
 
   } catch (error: any) {
     logger.error("Error updating promotion:", error)
-    return NextResponse.json({ 
-      error: "Erreur lors de la mise à jour: " + error.message 
+    return NextResponse.json({
+      error: "Erreur lors de la mise à jour: " + error.message
     }, { status: 500 })
   }
 }
@@ -242,26 +213,12 @@ export async function DELETE(request: NextRequest) {
       where: { id }
     })
 
-    // Log d'audit
-    await prisma.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: 'PROMOTION_DELETED',
-        performedBy: session.user.name || session.user.email,
-        details: JSON.stringify({
-          promotionId: id,
-          code: promotion.code,
-          description: `Code promo "${promotion.code}" supprimé`
-        })
-      }
-    })
-
     return NextResponse.json({ success: true, message: "Promotion supprimée" })
 
   } catch (error: any) {
     logger.error("Error deleting promotion:", error)
-    return NextResponse.json({ 
-      error: "Erreur lors de la suppression: " + error.message 
+    return NextResponse.json({
+      error: "Erreur lors de la suppression: " + error.message
     }, { status: 500 })
   }
 }

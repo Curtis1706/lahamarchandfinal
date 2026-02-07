@@ -334,16 +334,6 @@ export async function PUT(
     });
 
     // Créer un log d'audit
-    await prisma.auditLog.create({
-      data: {
-        action: data.status ? `PROJECT_STATUS_CHANGED_${data.status}` : "PROJECT_UPDATED",
-        performedBy: session.user.name || "Utilisateur",
-        details: data.status 
-          ? `Projet "${updatedProject.title}" - statut changé vers ${data.status}`
-          : `Projet "${updatedProject.title}" modifié`,
-        userId: userId
-      }
-    });
 
     // Créer une notification pour le concepteur si changement de statut
     if (data.status && existingProject.status !== data.status) {
@@ -487,14 +477,6 @@ export async function DELETE(
     });
 
     // Créer un log d'audit
-    await prisma.auditLog.create({
-      data: {
-        action: "PROJECT_DELETED",
-        performedBy: session.user.name || "Utilisateur",
-        details: `Projet "${existingProject.title}" supprimé`,
-        userId: userId
-      }
-    });
 
     logger.debug(`✅ Projet ${projectId} supprimé par ${session.user.name} (${userRole})`);
 

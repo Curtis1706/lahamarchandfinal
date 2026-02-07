@@ -148,32 +148,6 @@ export async function PUT(request: NextRequest) {
 
     logger.debug(`✅ Utilisateur ${status === "APPROVED" ? "approuvé" : "rejeté"}:`, updatedUser);
 
-    // Créer un log d'audit
-    try {
-      await prisma.auditLog.create({
-        data: {
-          action: status === "APPROVED" ? "USER_APPROVED" : "USER_REJECTED",
-          userId: userId,
-          performedBy: session.user.name || session.user.email || 'PDG',
-          details: JSON.stringify({
-            userId: userId,
-            userName: user.name,
-            userEmail: user.email,
-            userRole: user.role,
-            discipline: user.discipline?.name,
-            newStatus: updatedUser.status,
-            validationStatus: status,
-            performedById: session.user.id,
-            performedByName: session.user.name,
-            performedAt: new Date().toISOString()
-          })
-        }
-      });
-      logger.debug("✅ Log d'audit créé");
-    } catch (auditError) {
-      logger.error("⚠️ Erreur création log d'audit:", auditError);
-    }
-
     // Créer une notification pour l'utilisateur
     try {
       const notificationTitle = status === "APPROVED"

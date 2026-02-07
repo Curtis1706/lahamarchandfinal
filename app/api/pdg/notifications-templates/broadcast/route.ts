@@ -89,21 +89,6 @@ export async function POST(request: NextRequest) {
       }))
     })
 
-    // Créer un log d'audit
-    await prisma.auditLog.create({
-      data: {
-        action: "NOTIFICATION_TEMPLATE_BROADCAST",
-        performedBy: session.user.id,
-        details: JSON.stringify({
-          templateCode: code,
-          templateTitle: template.titre,
-          recipientsCount: recipients.length,
-          targetRoles: targetRoles || null,
-          targetUserIds: targetUserIds || null
-        })
-      }
-    })
-
     return NextResponse.json({
       success: true,
       message: `Notification diffusée à ${notifications.count} utilisateur(s)`,

@@ -276,29 +276,6 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      // Créer une entrée d'audit
-      await tx.auditLog.create({
-        data: {
-          userId: session.user.id,
-          action: 'STOCK_OPERATION',
-          performedBy: session.user.id,
-          details: JSON.stringify({
-            operationType,
-            subType,
-            workId,
-            workTitle: work.title,
-            quantity,
-            movementId: stockMovement.id,
-            partnerId,
-            reason,
-            notes
-          }),
-          metadata: JSON.stringify({
-            ipAddress: getClientIp(request),
-            userAgent: request.headers.get('user-agent') || 'PDG Dashboard'
-          })
-        }
-      })
 
       return { stockMovement, updatedWork, partnerStockUpdate }
     })

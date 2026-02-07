@@ -73,17 +73,6 @@ export async function POST(request: NextRequest) {
     })
 
     // Audit log
-    await prisma.auditLog.create({
-      data: {
-        userId: session.user.id,
-        userEmail: session.user.email || "",
-        userRole: session.user.role,
-        action: 'CREATE_DISCIPLINE',
-        entityType: 'Discipline',
-        entityId: newDiscipline.id,
-        details: `Matière créée: ${newDiscipline.name}`
-      }
-    })
 
     const formattedMatiere = {
       id: newDiscipline.id,

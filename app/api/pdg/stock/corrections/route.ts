@@ -172,25 +172,6 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      // Créer une entrée d'audit
-      await tx.auditLog.create({
-        data: {
-          userId: session.user.id,
-          action: 'STOCK_CORRECTION',
-          details: JSON.stringify({
-            workId,
-            workTitle: work.title,
-            correctionType,
-            originalValue,
-            correctedValue,
-            correctionReason,
-            movementId: correctionMovement?.id,
-            notes
-          }),
-          ipAddress: getClientIp(request),
-          userAgent: request.headers.get('user-agent') || 'PDG Dashboard'
-        }
-      })
 
       return { correctionMovement, updatedWork }
     })

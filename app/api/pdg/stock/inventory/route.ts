@@ -193,20 +193,6 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      // Créer une entrée d'audit pour l'inventaire
-      await tx.auditLog.create({
-        data: {
-          userId: session.user.id,
-          action: 'INVENTORY_ADJUSTMENT',
-          details: JSON.stringify({
-            totalAdjustments: processedAdjustments.length,
-            adjustments: processedAdjustments,
-            inventoryNotes
-          }),
-          ipAddress: getClientIp(request),
-          userAgent: request.headers.get('user-agent') || 'PDG Dashboard'
-        }
-      })
 
       return processedAdjustments
     })

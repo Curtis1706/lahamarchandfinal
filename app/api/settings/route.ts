@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         category,
         settings: settings[category as keyof typeof settings]
-      }, { 
+      }, {
         status: 200,
         headers: {
           'Content-Type': 'application/json'
@@ -152,11 +152,11 @@ export async function GET(request: NextRequest) {
     logger.error("Error fetching settings:", error);
     // Toujours retourner du JSON, même en cas d'erreur
     return NextResponse.json(
-      { 
+      {
         error: "Erreur lors de la récupération des paramètres",
         message: process.env.NODE_ENV === 'development' ? error?.message : undefined
       },
-      { 
+      {
         status: 500,
         headers: {
           'Content-Type': 'application/json'
@@ -200,20 +200,6 @@ export async function PUT(request: NextRequest) {
     if (category === "pricing") {
       await savePricingSettings(settings, session.user.id);
     }
-
-    // Créer un log d'audit
-    await prisma.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: `SETTINGS_UPDATE_${category.toUpperCase()}`,
-        performedBy: session.user.name || session.user.email || "PDG",
-        details: JSON.stringify({
-          category,
-          settings,
-          timestamp: new Date().toISOString()
-        })
-      }
-    });
 
     return NextResponse.json({
       message: "Paramètres mis à jour avec succès",
@@ -341,18 +327,6 @@ export async function POST(request: NextRequest) {
 }
 
 async function resetToDefaults() {
-  // Créer un log d'audit
-  await prisma.auditLog.create({
-    data: {
-      action: "SETTINGS_RESET_TO_DEFAULTS",
-      performedBy: "PDG", // En production, récupérer l'ID du PDG connecté
-      details: JSON.stringify({
-        timestamp: new Date().toISOString(),
-        reason: "Réinitialisation des paramètres aux valeurs par défaut"
-      })
-    }
-  });
-
   return NextResponse.json({
     message: "Paramètres réinitialisés aux valeurs par défaut",
     settings: DEFAULT_SETTINGS
@@ -360,17 +334,6 @@ async function resetToDefaults() {
 }
 
 async function exportSettings() {
-  // Créer un log d'audit
-  await prisma.auditLog.create({
-    data: {
-      action: "SETTINGS_EXPORT",
-      performedBy: "PDG", // En production, récupérer l'ID du PDG connecté
-      details: JSON.stringify({
-        timestamp: new Date().toISOString()
-      })
-    }
-  });
-
   return NextResponse.json({
     message: "Paramètres exportés avec succès",
     settings: DEFAULT_SETTINGS,
@@ -407,9 +370,9 @@ async function validateSettings(settings: any) {
   // Validation des paramètres de prix
   if (settings.pricing) {
     const totalRates = (settings.pricing.authorRoyaltyRate || 0) +
-                      (settings.pricing.conceptorRoyaltyRate || 0) +
-                      (settings.pricing.partnerCommissionRate || 0) +
-                      (settings.pricing.representantCommissionRate || 0);
+      (settings.pricing.conceptorRoyaltyRate || 0) +
+      (settings.pricing.partnerCommissionRate || 0) +
+      (settings.pricing.representantCommissionRate || 0);
 
     if (totalRates > 0.5) {
       validationErrors.push("Le total des taux de commission ne peut pas dépasser 50%");
@@ -432,7 +395,4 @@ async function validateSettings(settings: any) {
     message: validationErrors.length === 0 ? "Paramètres valides" : "Paramètres invalides"
   });
 }
-
-
-
 

@@ -5,24 +5,24 @@ import { prisma } from "@/lib/prisma";
 // POST /api/authors/works - Créer une œuvre directement (workflow Auteur)
 export async function POST(request: NextRequest) {
   logger.debug("🔍 API POST /authors/works - Création d'œuvre par Auteur");
-  
+
   try {
     const body = await request.json();
     logger.debug("🔍 Body reçu:", body);
-    
-    const { 
-      title, 
-      disciplineId, 
-      authorId, 
-      isbn, 
-      price, 
-      stock, 
+
+    const {
+      title,
+      disciplineId,
+      authorId,
+      isbn,
+      price,
+      stock,
       minStock = 10,
       maxStock,
       description,
       status = "PENDING" // Les œuvres d'auteurs sont directement soumises pour validation
     } = body;
-    
+
     logger.debug("🔍 Données extraites:", { title, disciplineId, authorId, isbn, status });
 
     // Validation des champs obligatoires
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     }
 
     logger.debug("🔍 Tentative de création avec Prisma...");
-    
+
     // Créer l'œuvre directement (pas de projet associé)
     const work = await prisma.work.create({
       data: {
@@ -156,36 +156,16 @@ export async function POST(request: NextRequest) {
       logger.error("⚠️ Erreur création notification auteur:", notificationError);
     }
 
-    // Créer un log d'audit
-    try {
-      await prisma.auditLog.create({
-        data: {
-          action: "WORK_CREATE_BY_AUTHOR",
-          userId: authorId,
-          performedBy: authorId,
-          details: JSON.stringify({
-            workId: work.id,
-            workTitle: work.title,
-            status: status,
-            discipline: work.discipline.name,
-            isbn: work.isbn,
-            source: "AUTHOR_DIRECT_SUBMISSION"
-          })
-        }
-      });
-      logger.debug("✅ Log d'audit créé");
-    } catch (auditError) {
-      logger.error("⚠️ Erreur création log d'audit:", auditError);
-    }
+
 
     logger.debug("✅ Œuvre d'auteur créée avec succès:", work);
-    
+
     return NextResponse.json(work, { status: 201 });
-    
+
   } catch (error: any) {
     logger.error("❌ Erreur création œuvre d'auteur:", error);
     logger.error("❌ Stack:", error.stack);
-    
+
     // Gestion spécifique des erreurs Prisma
     if (error.code === 'P2002') {
       return NextResponse.json(
@@ -193,7 +173,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
     return NextResponse.json(
       { error: "Erreur lors de la création de l'œuvre: " + error.message },
       { status: 500 }
@@ -207,7 +187,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const authorId = searchParams.get('authorId');
     const status = searchParams.get('status');
-    
+
     if (!authorId) {
       return NextResponse.json(
         { error: "ID de l'auteur requis" },
@@ -219,14 +199,14 @@ export async function GET(request: NextRequest) {
     const where: any = {
       authorId: authorId
     };
-    
+
     if (status && status !== "ALL") {
       where.status = status;
     }
 
     // Récupérer les œuvres de l'auteur
     let works: any[] = []
-    
+
     try {
       works = await prisma.work.findMany({
         where,
@@ -266,7 +246,7 @@ export async function GET(request: NextRequest) {
     } catch (findManyError: any) {
       logger.error('Error in findMany:', findManyError)
       logger.error('Error message:', findManyError.message)
-      
+
       // Si l'erreur est liée à un statut invalide, récupérer les IDs d'abord
       if (findManyError.message?.includes('not found in enum') || findManyError.message?.includes('SUSPENDED')) {
         logger.warn('Statut invalide détecté, récupération manuelle des œuvres')
@@ -274,12 +254,12 @@ export async function GET(request: NextRequest) {
           // Utiliser une requête SQL brute pour récupérer les IDs
           const validStatuses = ['DRAFT', 'PENDING', 'PUBLISHED', 'REJECTED', 'ON_SALE', 'OUT_OF_STOCK', 'DISCONTINUED']
           const statusFilter = validStatuses.map(s => `'${s}'`).join(',')
-          
+
           const workIds = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
             `SELECT id FROM "Work" WHERE "authorId" = $1 AND status IN (${statusFilter})`,
             authorId
           )
-          
+
           if (workIds.length > 0) {
             const ids = workIds.map(w => w.id)
             works = await prisma.work.findMany({
@@ -329,7 +309,7 @@ export async function GET(request: NextRequest) {
 
     // Calculer les statistiques avec gestion d'erreur
     let statusCounts: Record<string, number> = {}
-    
+
     try {
       const stats = await prisma.work.groupBy({
         by: ["status"],
@@ -346,7 +326,7 @@ export async function GET(request: NextRequest) {
     } catch (groupByError: any) {
       logger.error('Error in groupBy:', groupByError)
       logger.error('Error message:', groupByError.message)
-      
+
       // Si l'erreur est liée à un statut invalide, calculer manuellement
       if (groupByError.message?.includes('not found in enum') || groupByError.message?.includes('SUSPENDED')) {
         logger.warn('Statut invalide détecté dans la base, calcul manuel des statistiques')
@@ -355,7 +335,7 @@ export async function GET(request: NextRequest) {
           const allWorks = await prisma.$queryRaw<Array<{ status: string }>>`
             SELECT status FROM "Work" WHERE "authorId" = ${authorId}
           `
-          
+
           const validStatuses = ['DRAFT', 'PENDING', 'PUBLISHED', 'REJECTED', 'ON_SALE', 'OUT_OF_STOCK', 'DISCONTINUED', 'SUSPENDED']
           allWorks.forEach(work => {
             const status = work.status as string

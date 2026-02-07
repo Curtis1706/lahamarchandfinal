@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-;
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,11 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
-import { 
-  DollarSign, 
-  TrendingUp, 
+import {
+  DollarSign,
+  TrendingUp,
   TrendingDown,
-  BarChart3, 
+  BarChart3,
   PieChart,
   FileText,
   Download,
@@ -158,7 +157,7 @@ export default function GestionFinancierePage() {
   const loadFinancialData = async () => {
     try {
       setLoading(true);
-      
+
       switch (activeTab) {
         case "overview":
           await loadOverviewData();
@@ -285,7 +284,7 @@ export default function GestionFinancierePage() {
       });
 
       const response = await fetch(`/api/finance/export?${params}`);
-      
+
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
@@ -296,7 +295,7 @@ export default function GestionFinancierePage() {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        
+
         toast.success("Rapport exporté avec succès");
       } else {
         toast.error("Erreur lors de l'export du rapport");
@@ -339,502 +338,502 @@ export default function GestionFinancierePage() {
 
   return (
     <div className="space-y-6">
-        {/* Filtres */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Filtres et Options</span>
-              <div className="flex items-center space-x-2">
-                <Button onClick={loadFinancialData} variant="outline" size="sm">
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Actualiser
-                </Button>
-                <Button onClick={exportReport} variant="outline" size="sm">
-                  <Download className="h-4 w-4 mr-2" />
-                  Exporter
-                </Button>
-              </div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="startDate">Date de début</Label>
-                <Input
-                  id="startDate"
-                  type="date"
-                  value={dateRange.startDate}
-                  onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="endDate">Date de fin</Label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={dateRange.endDate}
-                  onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="discipline">Discipline</Label>
-                <Input
-                  id="discipline"
-                  placeholder="Filtrer par discipline"
-                  value={disciplineFilter}
-                  onChange={(e) => setDisciplineFilter(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="partner">Partenaire</Label>
-                <Input
-                  id="partner"
-                  placeholder="Filtrer par partenaire"
-                  value={partnerFilter}
-                  onChange={(e) => setPartnerFilter(e.target.value)}
-                />
-              </div>
+      {/* Filtres */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Filtres et Options</span>
+            <div className="flex items-center space-x-2">
+              <Button onClick={loadFinancialData} variant="outline" size="sm">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Actualiser
+              </Button>
+              <Button onClick={exportReport} variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-2" />
+                Exporter
+              </Button>
             </div>
-          </CardContent>
-        </Card>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="startDate">Date de début</Label>
+              <Input
+                id="startDate"
+                type="date"
+                value={dateRange.startDate}
+                onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="endDate">Date de fin</Label>
+              <Input
+                id="endDate"
+                type="date"
+                value={dateRange.endDate}
+                onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="discipline">Discipline</Label>
+              <Input
+                id="discipline"
+                placeholder="Filtrer par discipline"
+                value={disciplineFilter}
+                onChange={(e) => setDisciplineFilter(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="partner">Partenaire</Label>
+              <Input
+                id="partner"
+                placeholder="Filtrer par partenaire"
+                value={partnerFilter}
+                onChange={(e) => setPartnerFilter(e.target.value)}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview" className="flex items-center space-x-2">
-              <BarChart3 className="h-4 w-4" />
-              <span className="hidden sm:inline">Vue d'ensemble</span>
-            </TabsTrigger>
-            <TabsTrigger value="sales" className="flex items-center space-x-2">
-              <DollarSign className="h-4 w-4" />
-              <span className="hidden sm:inline">Ventes</span>
-            </TabsTrigger>
-            <TabsTrigger value="royalties" className="flex items-center space-x-2">
-              <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Royalties</span>
-            </TabsTrigger>
-            <TabsTrigger value="partners" className="flex items-center space-x-2">
-              <Building2 className="h-4 w-4" />
-              <span className="hidden sm:inline">Partenaires</span>
-            </TabsTrigger>
-          </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview" className="flex items-center space-x-2">
+            <BarChart3 className="h-4 w-4" />
+            <span className="hidden sm:inline">Vue d'ensemble</span>
+          </TabsTrigger>
+          <TabsTrigger value="sales" className="flex items-center space-x-2">
+            <DollarSign className="h-4 w-4" />
+            <span className="hidden sm:inline">Ventes</span>
+          </TabsTrigger>
+          <TabsTrigger value="royalties" className="flex items-center space-x-2">
+            <Users className="h-4 w-4" />
+            <span className="hidden sm:inline">Royalties</span>
+          </TabsTrigger>
+          <TabsTrigger value="partners" className="flex items-center space-x-2">
+            <Building2 className="h-4 w-4" />
+            <span className="hidden sm:inline">Partenaires</span>
+          </TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="overview" className="space-y-4">
-            {overview && (
-              <>
-                {/* Métriques principales */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center space-x-2">
-                        <DollarSign className="h-5 w-5 text-green-600" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Chiffre d'affaires</p>
-                          <p className="text-2xl font-bold">{(overview?.totalRevenue || 0).toLocaleString()} FCFA</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center space-x-2">
-                        <Package className="h-5 w-5 text-blue-600" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Commandes</p>
-                          <p className="text-2xl font-bold">{overview?.totalOrders || 0}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center space-x-2">
-                        <BookOpen className="h-5 w-5 text-purple-600" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Articles</p>
-                          <p className="text-2xl font-bold">{overview?.totalItemsSold || 0}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center space-x-2">
-                        <TrendingUp className="h-5 w-5 text-orange-600" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Panier moyen</p>
-                          <p className="text-2xl font-bold">{(overview?.avgOrderValue || 0).toFixed(2)} FCFA</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Top œuvres vendues */}
+        <TabsContent value="overview" className="space-y-4">
+          {overview && (
+            <>
+              {/* Métriques principales */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                      <BookOpen className="h-5 w-5" />
-                      <span>Top œuvres vendues</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Œuvre</TableHead>
-                          <TableHead>Discipline</TableHead>
-                          <TableHead>Quantité vendue</TableHead>
-                          <TableHead>Prix unitaire</TableHead>
-                          <TableHead>Chiffre d'affaires</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {topWorks && topWorks.length > 0 ? (
-                          topWorks.map((work, index) => (
-                            <TableRow key={work.work?.id || index}>
-                              <TableCell>
-                                <div>
-                                  <div className="font-medium">{work.work?.title || 'Œuvre inconnue'}</div>
-                                  <div className="text-sm text-gray-500">ISBN: {work.work?.isbn || 'N/A'}</div>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="outline">{work.work?.discipline?.name || 'Non définie'}</Badge>
-                              </TableCell>
-                              <TableCell>{work.totalSold || 0}</TableCell>
-                              <TableCell>{work.work?.price ? work.work.price.toFixed(2) : '0.00'} FCFA</TableCell>
-                              <TableCell className="font-medium">
-                                {(work.totalRevenue || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} FCFA
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell colSpan={5} className="text-center py-8 text-gray-500">
-                              Aucune œuvre vendue pour le moment
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
-
-                {/* Ventes par discipline */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                      <PieChart className="h-5 w-5" />
-                      <span>Ventes par discipline</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {Object.entries(disciplineRevenue).length > 0 ? (
-                        Object.entries(disciplineRevenue).map(([discipline, revenue]) => (
-                          <div key={discipline} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                            <div>
-                              <div className="font-medium">{discipline}</div>
-                              <div className="text-sm text-gray-500">
-                                Revenus de cette discipline
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="font-bold">{(revenue || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} FCFA</div>
-                              <div className="text-sm text-gray-500">
-                                {overview?.totalRevenue && overview.totalRevenue > 0 ? (((revenue || 0) / overview.totalRevenue) * 100).toFixed(1) : 0}%
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-8 text-gray-500">
-                          Aucune donnée de vente par discipline disponible
-                        </div>
-                      )}
+                  <CardContent className="p-4">
+                    <div className="flex items-center space-x-2">
+                      <DollarSign className="h-5 w-5 text-green-600" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Chiffre d'affaires</p>
+                        <p className="text-2xl font-bold">{(overview?.totalRevenue || 0).toLocaleString()} FCFA</p>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* Détail des commandes récentes */}
                 <Card>
-                  <CardHeader>
-                    <CardTitle>Détail des commandes</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Commande</TableHead>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Client</TableHead>
-                          <TableHead>Statut</TableHead>
-                          <TableHead>Articles</TableHead>
-                          <TableHead>Total</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {(overview?.recentOrders || []).length > 0 ? (
-                          overview.recentOrders.map((order) => (
-                            <TableRow key={order.id}>
-                              <TableCell className="font-medium">
-                                #{order.id.substring(0, 8).toUpperCase()}
-                              </TableCell>
-                              <TableCell>
-                                {format(new Date(order.createdAt), "dd/MM/yyyy", { locale: fr })}
-                              </TableCell>
-                              <TableCell>
-                                <div>
-                                  <div className="font-medium">{order.customerName || 'N/A'}</div>
-                                </div>
-                              </TableCell>
-                              <TableCell>{getStatusBadge(order.status)}</TableCell>
-                              <TableCell>{order.itemCount || 0}</TableCell>
-                              <TableCell className="font-medium">
-                                {(order.total || 0).toFixed(2)} FCFA
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                              Aucune commande récente
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
+                  <CardContent className="p-4">
+                    <div className="flex items-center space-x-2">
+                      <Package className="h-5 w-5 text-blue-600" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Commandes</p>
+                        <p className="text-2xl font-bold">{overview?.totalOrders || 0}</p>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
-              </>
-            )}
-          </TabsContent>
 
-          <TabsContent value="sales" className="space-y-4">
-            {salesReport && (
-              <>
-                {/* Résumé des ventes */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center space-x-2">
-                        <DollarSign className="h-5 w-5 text-green-600" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Chiffre d'affaires</p>
-                          <p className="text-2xl font-bold">{(salesReport?.summary?.totalRevenue || 0).toLocaleString()} FCFA</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center space-x-2">
-                        <Package className="h-5 w-5 text-blue-600" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Commandes</p>
-                          <p className="text-2xl font-bold">{salesReport?.summary?.totalOrders || 0}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center space-x-2">
-                        <BookOpen className="h-5 w-5 text-purple-600" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Articles</p>
-                          <p className="text-2xl font-bold">{overview?.totalItemsSold || 0}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center space-x-2">
-                        <TrendingUp className="h-5 w-5 text-orange-600" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Panier moyen</p>
-                          <p className="text-2xl font-bold">{(overview?.avgOrderValue || 0).toFixed(2)} FCFA</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Détail des commandes */}
                 <Card>
-                  <CardHeader>
-                    <CardTitle>Détail des commandes</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Commande</TableHead>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Client</TableHead>
-                          <TableHead>Statut</TableHead>
-                          <TableHead>Articles</TableHead>
-                          <TableHead>Total</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {(salesReport?.orders || []).length > 0 ? (
-                          salesReport.orders.map((order: any) => (
-                            <TableRow key={order.id}>
-                              <TableCell className="font-medium">
-                                #{order.id.substring(0, 8).toUpperCase()}
-                              </TableCell>
-                              <TableCell>
-                                {format(new Date(order.createdAt), "dd/MM/yyyy", { locale: fr })}
-                              </TableCell>
-                              <TableCell>
-                                <div>
-                                  <div className="font-medium">{order.customerName || order.user?.name || order.partner?.name || 'N/A'}</div>
-                                  {(order.user?.email || order.partner?.email) && (
-                                    <div className="text-sm text-gray-500">{order.user?.email || order.partner?.email}</div>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell>{getStatusBadge(order.status)}</TableCell>
-                              <TableCell>{order.itemCount || order.itemsCount || 0}</TableCell>
-                              <TableCell className="font-medium">
-                                {(order.total || 0).toFixed(2)} FCFA
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                              Aucune commande pour cette période
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
+                  <CardContent className="p-4">
+                    <div className="flex items-center space-x-2">
+                      <BookOpen className="h-5 w-5 text-purple-600" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Articles</p>
+                        <p className="text-2xl font-bold">{overview?.totalItemsSold || 0}</p>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
-              </>
-            )}
-          </TabsContent>
 
-          <TabsContent value="royalties" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Users className="h-5 w-5" />
-                  <span>Royalties récentes</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Œuvre</TableHead>
-                      <TableHead>Discipline</TableHead>
-                      <TableHead>Bénéficiaire</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Montant</TableHead>
-                      <TableHead>Statut</TableHead>
-                      <TableHead>Date</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(royalties || []).map((royalty) => (
-                      <TableRow key={royalty.id}>
-                        <TableCell className="font-medium">{royalty.work?.title || 'N/A'}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{royalty.work?.discipline?.name || 'N/A'}</Badge>
-                        </TableCell>
-                        <TableCell>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center space-x-2">
+                      <TrendingUp className="h-5 w-5 text-orange-600" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Panier moyen</p>
+                        <p className="text-2xl font-bold">{(overview?.avgOrderValue || 0).toFixed(2)} FCFA</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Top œuvres vendues */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <BookOpen className="h-5 w-5" />
+                    <span>Top œuvres vendues</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Œuvre</TableHead>
+                        <TableHead>Discipline</TableHead>
+                        <TableHead>Quantité vendue</TableHead>
+                        <TableHead>Prix unitaire</TableHead>
+                        <TableHead>Chiffre d'affaires</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {topWorks && topWorks.length > 0 ? (
+                        topWorks.map((work, index) => (
+                          <TableRow key={work.work?.id || index}>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{work.work?.title || 'Œuvre inconnue'}</div>
+                                <div className="text-sm text-gray-500">ISBN: {work.work?.isbn || 'N/A'}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{work.work?.discipline?.name || 'Non définie'}</Badge>
+                            </TableCell>
+                            <TableCell>{work.totalSold || 0}</TableCell>
+                            <TableCell>{work.work?.price ? work.work.price.toFixed(2) : '0.00'} FCFA</TableCell>
+                            <TableCell className="font-medium">
+                              {(work.totalRevenue || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} FCFA
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                            Aucune œuvre vendue pour le moment
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+
+              {/* Ventes par discipline */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <PieChart className="h-5 w-5" />
+                    <span>Ventes par discipline</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {Object.entries(disciplineRevenue).length > 0 ? (
+                      Object.entries(disciplineRevenue).map(([discipline, revenue]) => (
+                        <div key={discipline} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <div>
-                            <div className="font-medium">{royalty.user?.name || 'N/A'}</div>
-                            <div className="text-sm text-gray-500">{royalty.user?.email || 'N/A'}</div>
+                            <div className="font-medium">{discipline}</div>
+                            <div className="text-sm text-gray-500">
+                              Revenus de cette discipline
+                            </div>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          {royalty.work?.author ? "Auteur" : "Concepteur"}
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {(royalty.amount || 0).toFixed(2)} FCFA
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={royalty.paid ? "default" : "secondary"}>
-                            {royalty.paid ? "Payé" : "En attente"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {format(new Date(royalty.createdAt), "dd/MM/yyyy", { locale: fr })}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="partners" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Building2 className="h-5 w-5" />
-                  <span>Performance des partenaires</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Partenaire</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Statut</TableHead>
-                      <TableHead>Commandes</TableHead>
-                      <TableHead>Chiffre d'affaires</TableHead>
-                      <TableHead>Panier moyen</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {loading ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                          Chargement des données...
-                        </TableCell>
-                      </TableRow>
-                    ) : (partnerPerformance || []).length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                          Aucun partenaire avec des commandes pour cette période
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      partnerPerformance.map((partner) => (
-                        <TableRow key={partner.partnerId}>
-                          <TableCell className="font-medium">{partner.partnerName || 'N/A'}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{partner.partnerType || 'N/A'}</Badge>
-                          </TableCell>
-                          <TableCell>{getStatusBadge(partner.userStatus)}</TableCell>
-                          <TableCell>{partner.ordersCount || 0}</TableCell>
-                          <TableCell className="font-medium">
-                            {(partner.totalRevenue || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} FCFA
-                          </TableCell>
-                          <TableCell>{(partner.avgOrderValue || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} FCFA</TableCell>
-                        </TableRow>
+                          <div className="text-right">
+                            <div className="font-bold">{(revenue || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} FCFA</div>
+                            <div className="text-sm text-gray-500">
+                              {overview?.totalRevenue && overview.totalRevenue > 0 ? (((revenue || 0) / overview.totalRevenue) * 100).toFixed(1) : 0}%
+                            </div>
+                          </div>
+                        </div>
                       ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        Aucune donnée de vente par discipline disponible
+                      </div>
                     )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Détail des commandes récentes */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Détail des commandes</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Commande</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Client</TableHead>
+                        <TableHead>Statut</TableHead>
+                        <TableHead>Articles</TableHead>
+                        <TableHead>Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(overview?.recentOrders || []).length > 0 ? (
+                        overview.recentOrders.map((order) => (
+                          <TableRow key={order.id}>
+                            <TableCell className="font-medium">
+                              #{order.id.substring(0, 8).toUpperCase()}
+                            </TableCell>
+                            <TableCell>
+                              {format(new Date(order.createdAt), "dd/MM/yyyy", { locale: fr })}
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{order.customerName || 'N/A'}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>{getStatusBadge(order.status)}</TableCell>
+                            <TableCell>{order.itemCount || 0}</TableCell>
+                            <TableCell className="font-medium">
+                              {(order.total || 0).toFixed(2)} FCFA
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                            Aucune commande récente
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="sales" className="space-y-4">
+          {salesReport && (
+            <>
+              {/* Résumé des ventes */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center space-x-2">
+                      <DollarSign className="h-5 w-5 text-green-600" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Chiffre d'affaires</p>
+                        <p className="text-2xl font-bold">{(salesReport?.summary?.totalRevenue || 0).toLocaleString()} FCFA</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center space-x-2">
+                      <Package className="h-5 w-5 text-blue-600" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Commandes</p>
+                        <p className="text-2xl font-bold">{salesReport?.summary?.totalOrders || 0}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center space-x-2">
+                      <BookOpen className="h-5 w-5 text-purple-600" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Articles</p>
+                        <p className="text-2xl font-bold">{overview?.totalItemsSold || 0}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center space-x-2">
+                      <TrendingUp className="h-5 w-5 text-orange-600" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Panier moyen</p>
+                        <p className="text-2xl font-bold">{(overview?.avgOrderValue || 0).toFixed(2)} FCFA</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Détail des commandes */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Détail des commandes</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Commande</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Client</TableHead>
+                        <TableHead>Statut</TableHead>
+                        <TableHead>Articles</TableHead>
+                        <TableHead>Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(salesReport?.orders || []).length > 0 ? (
+                        salesReport.orders.map((order: any) => (
+                          <TableRow key={order.id}>
+                            <TableCell className="font-medium">
+                              #{order.id.substring(0, 8).toUpperCase()}
+                            </TableCell>
+                            <TableCell>
+                              {format(new Date(order.createdAt), "dd/MM/yyyy", { locale: fr })}
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{order.customerName || order.user?.name || order.partner?.name || 'N/A'}</div>
+                                {(order.user?.email || order.partner?.email) && (
+                                  <div className="text-sm text-gray-500">{order.user?.email || order.partner?.email}</div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>{getStatusBadge(order.status)}</TableCell>
+                            <TableCell>{order.itemCount || order.itemsCount || 0}</TableCell>
+                            <TableCell className="font-medium">
+                              {(order.total || 0).toFixed(2)} FCFA
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                            Aucune commande pour cette période
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="royalties" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Users className="h-5 w-5" />
+                <span>Royalties récentes</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Œuvre</TableHead>
+                    <TableHead>Discipline</TableHead>
+                    <TableHead>Bénéficiaire</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Montant</TableHead>
+                    <TableHead>Statut</TableHead>
+                    <TableHead>Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(royalties || []).map((royalty) => (
+                    <TableRow key={royalty.id}>
+                      <TableCell className="font-medium">{royalty.work?.title || 'N/A'}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{royalty.work?.discipline?.name || 'N/A'}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{royalty.user?.name || 'N/A'}</div>
+                          <div className="text-sm text-gray-500">{royalty.user?.email || 'N/A'}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {royalty.work?.author ? "Auteur" : "Concepteur"}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {(royalty.amount || 0).toFixed(2)} FCFA
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={royalty.paid ? "default" : "secondary"}>
+                          {royalty.paid ? "Payé" : "En attente"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {format(new Date(royalty.createdAt), "dd/MM/yyyy", { locale: fr })}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="partners" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Building2 className="h-5 w-5" />
+                <span>Performance des partenaires</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Partenaire</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Statut</TableHead>
+                    <TableHead>Commandes</TableHead>
+                    <TableHead>Chiffre d'affaires</TableHead>
+                    <TableHead>Panier moyen</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                        Chargement des données...
+                      </TableCell>
+                    </TableRow>
+                  ) : (partnerPerformance || []).length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                        Aucun partenaire avec des commandes pour cette période
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    partnerPerformance.map((partner) => (
+                      <TableRow key={partner.partnerId}>
+                        <TableCell className="font-medium">{partner.partnerName || 'N/A'}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{partner.partnerType || 'N/A'}</Badge>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(partner.userStatus)}</TableCell>
+                        <TableCell>{partner.ordersCount || 0}</TableCell>
+                        <TableCell className="font-medium">
+                          {(partner.totalRevenue || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} FCFA
+                        </TableCell>
+                        <TableCell>{(partner.avgOrderValue || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} FCFA</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }

@@ -173,28 +173,28 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user || session.user.role !== 'PDG') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
     }
 
     const body = await request.json();
-    const { 
-      name, 
-      type, 
-      contact, 
-      email, 
-      phone, 
-      address, 
-      website, 
+    const {
+      name,
+      type,
+      contact,
+      email,
+      phone,
+      address,
+      website,
       description,
       representantId,
-      userData 
+      userData
     } = body;
 
     if (!name || !type || !contact || !userData?.name || !userData?.email || !userData?.password) {
-      return NextResponse.json({ 
-        error: 'Nom, type, contact et données utilisateur (nom, email, mot de passe) requis' 
+      return NextResponse.json({
+        error: 'Nom, type, contact et données utilisateur (nom, email, mot de passe) requis'
       }, { status: 400 });
     }
 
@@ -204,8 +204,8 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingUser) {
-      return NextResponse.json({ 
-        error: 'Un utilisateur avec cet email existe déjà' 
+      return NextResponse.json({
+        error: 'Un utilisateur avec cet email existe déjà'
       }, { status: 400 });
     }
 
@@ -271,21 +271,6 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Créer un log d'audit
-    await prisma.auditLog.create({
-      data: {
-        action: 'PARTNER_CREATED',
-        userId: user.id,
-        performedBy: session.user.id,
-        details: JSON.stringify({
-          partnerId: partner.id,
-          partnerName: partner.name,
-          partnerType: partner.type,
-          createdBy: session.user.name
-        })
-      }
-    });
-
     // Créer une notification pour le partenaire/école
     await prisma.notification.create({
       data: {
@@ -293,7 +278,7 @@ export async function POST(request: NextRequest) {
         title: 'Votre compte a été créé',
         message: `Votre compte ${type === "école" || type === "École" ? "d'école" : "partenaire"} "${name}" a été créé avec succès. Vous pouvez maintenant vous connecter.`,
         type: 'ACCOUNT_CREATED',
-        data: JSON.stringify({ 
+        data: JSON.stringify({
           partnerId: partner.id,
           partnerType: partner.type
         })
@@ -400,23 +385,6 @@ export async function PUT(request: NextRequest) {
       }
     });
 
-    // Créer un log d'audit
-    await prisma.auditLog.create({
-      data: {
-        action: `PARTNER_STATUS_CHANGE_${status || 'UPDATE'}`,
-        userId: existingPartner.userId,
-        performedBy: "PDG", // En production, récupérer l'ID du PDG connecté
-        details: JSON.stringify({
-          partnerId: id,
-          partnerName: existingPartner.name,
-          oldStatus: existingPartner.user.status,
-          newStatus: status,
-          reason: reason || "Modification par le PDG",
-          representantId
-        })
-      }
-    });
-
     // Créer une notification pour le partenaire
     if (status && status !== existingPartner.user.status) {
       await prisma.notification.create({
@@ -447,7 +415,7 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user || session.user.role !== 'PDG') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
     }
@@ -503,20 +471,6 @@ export async function DELETE(request: NextRequest) {
         await tx.user.delete({
           where: { id: existingPartner.userId }
         });
-      }
-    });
-
-    // Créer un log d'audit
-    await prisma.auditLog.create({
-      data: {
-        action: "PARTNER_DELETE",
-        userId: existingPartner.userId,
-        performedBy: session.user.id,
-        details: JSON.stringify({
-          partnerId: id,
-          partnerName: existingPartner.name,
-          reason: "Suppression par le PDG"
-        })
       }
     });
 

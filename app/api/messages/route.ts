@@ -182,14 +182,6 @@ export async function POST(request: NextRequest) {
     });
 
     // Créer un log d'audit
-    await prisma.auditLog.create({
-      data: {
-        action: "MESSAGE_SENT",
-        performedBy: session.user.name || "Utilisateur",
-        details: `Message envoyé à ${recipient.name}: "${subject.trim()}"`,
-        userId: session.user.id
-      }
-    });
 
     logger.debug(`✅ Message envoyé de ${session.user.name} vers ${recipient.name}`);
 
@@ -349,14 +341,6 @@ export async function DELETE(request: NextRequest) {
     });
 
     // Créer un log d'audit
-    await prisma.auditLog.create({
-      data: {
-        action: "MESSAGE_DELETED",
-        performedBy: session.user.name || "Utilisateur",
-        details: `Message supprimé: "${existingMessage.subject}"`,
-        userId: session.user.id
-      }
-    });
 
     logger.debug(`✅ Message ${messageId} supprimé par ${session.user.name}`);
 

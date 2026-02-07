@@ -14,10 +14,27 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
     }
 
+    logger.info('📊 Finance API - Tentative d\'accès', {
+      userId: session.user.id,
+      role: session.user.role,
+      roleType: typeof session.user.role,
+      email: session.user.email
+    })
+
     // Seul le PDG peut accéder aux données financières
-    if (session.user.role !== 'PDG') {
+    // Vérifier le rôle en tant que string pour éviter les problèmes de type enum
+    const userRole = String(session.user.role)
+    if (userRole !== 'PDG') {
+      logger.warn('⛔ Finance API - Accès refusé', {
+        role: session.user.role,
+        roleString: userRole,
+        comparison: `'${userRole}' !== 'PDG'`
+      })
       return NextResponse.json({ error: "Accès non autorisé" }, { status: 403 })
     }
+
+    logger.info('✅ Finance API - Accès autorisé pour PDG')
+
 
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type') || 'overview'
@@ -162,7 +179,7 @@ async function loadOverviewData() {
         }
       }
     })
-    
+
     logger.debug(`📊 Récupération de ${recentOrders.length} commandes récentes`)
     recentOrders.forEach(order => {
       logger.debug(`  - Commande ${order.id}: ${order.items?.length || 0} items, user: ${order.user?.name || 'N/A'}, partner: ${order.partner?.name || 'N/A'}`)
@@ -196,7 +213,7 @@ async function loadOverviewData() {
 
     // Combiner les données de ventes et commandes
     const combinedSalesData: { [workId: string]: { quantity: number, revenue: number, orderCount: number } } = {}
-    
+
     // Ajouter les ventes
     salesData.forEach(sale => {
       combinedSalesData[sale.workId] = {
@@ -219,7 +236,7 @@ async function loadOverviewData() {
 
     // Trier par revenus et prendre le top 5
     const sortedWorks = Object.entries(combinedSalesData)
-      .sort(([,a], [,b]) => b.revenue - a.revenue)
+      .sort(([, a], [, b]) => b.revenue - a.revenue)
       .slice(0, 5)
 
     const topWorks = await Promise.all(
@@ -304,18 +321,18 @@ async function loadOverviewData() {
       recentOrders: recentOrders.map(order => {
         // Calculer le total de la commande en utilisant la fonction helper
         const calculatedTotal = calculateOrderTotal(order)
-        
+
         // Calculer le nombre total d'articles (somme des quantités)
         const totalItemCount = order.items && Array.isArray(order.items) && order.items.length > 0
           ? order.items.reduce((sum: number, item: any) => {
-              const quantity = Number(item.quantity || 0)
-              return sum + quantity
-            }, 0)
+            const quantity = Number(item.quantity || 0)
+            return sum + quantity
+          }, 0)
           : 0
-        
+
         // Déterminer le nom du client (utilisateur ou partenaire)
         const customerName = order.user?.name || order.partner?.name || 'N/A'
-        
+
         return {
           id: order.id,
           status: order.status,
@@ -447,7 +464,7 @@ async function loadSalesData(startDate?: string, endDate?: string) {
 
     // Ventes par discipline
     const salesByDiscipline: { [key: string]: number } = {}
-    
+
     // Ajouter les commandes
     orders.forEach(order => {
       if (order.items && Array.isArray(order.items) && order.items.length > 0) {
@@ -474,7 +491,7 @@ async function loadSalesData(startDate?: string, endDate?: string) {
 
     // Œuvres les plus vendues
     const workSales: { [key: string]: { work: any, quantity: number, revenue: number } } = {}
-    
+
     // Ajouter les commandes
     orders.forEach(order => {
       if (order.items && Array.isArray(order.items) && order.items.length > 0) {
@@ -525,19 +542,19 @@ async function loadSalesData(startDate?: string, endDate?: string) {
         const orderTotal = order.total && Number(order.total) > 0
           ? Number(order.total)
           : (order.items && Array.isArray(order.items) && order.items.length > 0
-              ? order.items.reduce((sum: number, item: any) => {
-                  return sum + (Number(item.price || 0) * Number(item.quantity || 0))
-                }, 0)
-              : 0)
-        
+            ? order.items.reduce((sum: number, item: any) => {
+              return sum + (Number(item.price || 0) * Number(item.quantity || 0))
+            }, 0)
+            : 0)
+
         // Calculer le nombre total d'articles (somme des quantités)
         const totalItemCount = order.items && Array.isArray(order.items) && order.items.length > 0
           ? order.items.reduce((sum: number, item: any) => sum + Number(item.quantity || 0), 0)
           : 0
-        
+
         // Déterminer le nom du client (utilisateur ou partenaire)
         const customerName = order.user?.name || order.partner?.name || 'Client inconnu'
-        
+
         return {
           id: order.id,
           status: order.status,
@@ -646,7 +663,7 @@ async function loadRoyaltiesData(startDate?: string, endDate?: string) {
         // Gérer les cas où work ou user pourraient être null
         const work = royalty.work;
         const user = royalty.user;
-        
+
         return {
           id: royalty.id,
           amount: royalty.amount,
@@ -676,7 +693,7 @@ async function loadRoyaltiesData(startDate?: string, endDate?: string) {
       pendingPayments: pendingPayments.map(royalty => {
         const work = royalty.work;
         const user = royalty.user;
-        
+
         return {
           id: royalty.id,
           amount: royalty.amount,
@@ -699,7 +716,7 @@ async function loadRoyaltiesData(startDate?: string, endDate?: string) {
     logger.error("Erreur lors du chargement des données de royalties:", error)
     logger.error("Stack trace:", error instanceof Error ? error.stack : 'No stack trace')
     return NextResponse.json(
-      { 
+      {
         error: "Erreur lors du chargement des données de royalties",
         details: error instanceof Error ? error.message : 'Unknown error'
       },
@@ -729,13 +746,13 @@ async function loadPartnerPerformanceData(startDate?: string, endDate?: string) 
         }
       ]
     }
-    
+
     // Filtrer par date seulement si les deux dates sont fournies
     if (startDate && endDate) {
       // Ajouter un jour à la date de fin pour inclure toute la journée
       const endDateObj = new Date(endDate)
       endDateObj.setHours(23, 59, 59, 999)
-      
+
       orderWhere.createdAt = {
         gte: new Date(startDate),
         lte: endDateObj
@@ -790,7 +807,7 @@ async function loadPartnerPerformanceData(startDate?: string, endDate?: string) 
     // Grouper les commandes par partenaire
     const ordersByPartner = orders.reduce((acc, order) => {
       if (!order.partnerId || !order.partner) return acc
-      
+
       const partnerId = order.partnerId
       if (!acc[partnerId]) {
         acc[partnerId] = []
@@ -802,9 +819,9 @@ async function loadPartnerPerformanceData(startDate?: string, endDate?: string) 
     // Calculer les statistiques pour chaque partenaire
     const partnerPerformance = allPartners.map((partner) => {
       const partnerOrders = ordersByPartner[partner.id] || []
-      
+
       const totalOrders = partnerOrders.length
-      
+
       // Calculer le revenu total (utiliser order.total si disponible, sinon calculer depuis items)
       const totalRevenue = partnerOrders.reduce((sum, order) => {
         if (order.total && order.total > 0) {
@@ -853,7 +870,7 @@ async function loadPartnerPerformanceData(startDate?: string, endDate?: string) 
     logger.error("❌ Erreur lors du chargement des données de performance des partenaires:", error)
     logger.error("Stack trace:", error.stack)
     return NextResponse.json(
-      { 
+      {
         error: "Erreur lors du chargement des données des partenaires",
         message: process.env.NODE_ENV === 'development' ? error.message : undefined
       },

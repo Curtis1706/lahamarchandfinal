@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const concepteurId = searchParams.get('concepteurId');
     const includeWorks = searchParams.get('includeWorks') === 'true';
     const status = searchParams.get('status');
-    
+
     // Construire l'include de base
     const baseInclude: any = {
       concepteur: {
@@ -65,13 +65,13 @@ export async function GET(request: NextRequest) {
         logger.debug("⚠️ Relation works non disponible, continuation sans works");
       }
     }
-    
+
     // Construire la clause where
     let whereClause: any = {};
     if (concepteurId) {
       whereClause.concepteurId = concepteurId;
     }
-    
+
     // Filtrer par statut si demandé
     if (status) {
       whereClause.status = status;
@@ -93,7 +93,8 @@ export async function GET(request: NextRequest) {
     logger.debug("🔍 API Projects - Résultat:", projects.length, "projets trouvés");
     if (projects.length > 0) {
       projects.forEach((project, index) => {
-        logger.debug(`   ${index + 1}. "${project.title}" (${project.status}) - ${project.concepteur?.name}`);
+        const concepteurName = project.concepteur && 'name' in project.concepteur ? project.concepteur.name : 'Non défini';
+        logger.debug(`   ${index + 1}. "${project.title}" (${project.status}) - ${concepteurName}`);
       });
     }
 
@@ -110,7 +111,7 @@ export async function GET(request: NextRequest) {
 // POST /api/projects - Créer un nouveau projet
 export async function POST(request: NextRequest) {
   logger.debug("🔍 API POST /projects - Début de la requête");
-  
+
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
@@ -119,19 +120,19 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     logger.debug("🔍 Body reçu:", body);
-    
-    const { 
-      title, 
-      disciplineId, 
-      concepteurId, 
+
+    const {
+      title,
+      disciplineId,
+      concepteurId,
       description,
       objectives,
       expectedDeliverables,
       requiredResources,
       timeline,
-      status = "DRAFT" 
+      status = "DRAFT"
     } = body;
-    
+
     logger.debug("🔍 Données extraites:", { title, disciplineId, concepteurId, description, status });
 
     // Validation des champs obligatoires
@@ -201,7 +202,7 @@ export async function POST(request: NextRequest) {
     }
 
     logger.debug("🔍 Tentative de création avec Prisma...");
-    
+
     // Créer le projet dans le modèle Project
     const project = await prisma.project.create({
       data: {
@@ -240,7 +241,7 @@ export async function POST(request: NextRequest) {
       try {
         // Générer un ISBN unique pour l'œuvre
         const isbn = `978-${Date.now().toString().slice(-9)}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
-        
+
         const work = await prisma.work.create({
           data: {
             title: project.title,
@@ -250,13 +251,18 @@ export async function POST(request: NextRequest) {
             minStock: 10,
             maxStock: null,
             status: "PENDING", // En attente de validation par le PDG
+            author: {
+              connect: { id: concepteurId }
+            },
             discipline: {
               connect: { id: discipline.id }
             },
             concepteur: {
               connect: { id: concepteurId }
             },
-            projectId: project.id
+            project: {
+              connect: { id: project.id }
+            }
           },
           include: {
             concepteur: {
@@ -296,7 +302,7 @@ export async function POST(request: NextRequest) {
                   workTitle: work.title,
                   concepteurId: concepteurId,
                   concepteurName: project.concepteur.name,
-                  discipline: work.discipline.name,
+                  discipline: discipline.name,
                   isbn: work.isbn
                 })
               }
@@ -334,30 +340,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Créer un log d'audit
-    try {
-      await prisma.auditLog.create({
-        data: {
-          action: "PROJECT_CREATE",
-          userId: concepteurId,
-          performedBy: concepteurId,
-          details: JSON.stringify({
-            projectId: project.id,
-            projectTitle: project.title,
-            status: status,
-            discipline: project.discipline.name
-          })
-        }
-      });
-      logger.debug("✅ Log d'audit créé");
-    } catch (auditError) {
-      logger.error("⚠️ Erreur création log d'audit:", auditError);
-    }
-
-    // Créer une notification pour le concepteur
+    // Créer une notification pour le concepteur (pour tous les statuts)
     try {
       let notificationTitle, notificationMessage, notificationType;
-      
+
       if (status === "DRAFT") {
         notificationTitle = "Projet créé en brouillon";
         notificationMessage = `Votre projet "${project.title}" a été sauvegardé en brouillon.`;
@@ -391,13 +377,13 @@ export async function POST(request: NextRequest) {
     }
 
     logger.debug("✅ Projet créé avec succès:", project);
-    
+
     return NextResponse.json(project, { status: 201 });
-    
+
   } catch (error: any) {
     logger.error("❌ Erreur création projet:", error);
     logger.error("❌ Stack:", error.stack);
-    
+
     // Gestion spécifique des erreurs Prisma
     if (error.code === 'P2002') {
       return NextResponse.json(
@@ -405,7 +391,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
     return NextResponse.json(
       { error: "Erreur lors de la création du projet: " + error.message },
       { status: 500 }
@@ -416,7 +402,7 @@ export async function POST(request: NextRequest) {
 // PUT /api/projects - Mettre à jour un projet (soumission pour validation)
 export async function PUT(request: NextRequest) {
   logger.debug("🔍 API PUT /projects - Mise à jour de projet");
-  
+
   try {
     const body = await request.json();
     const { id, status, ...updateData } = body;
@@ -494,13 +480,13 @@ export async function PUT(request: NextRequest) {
     });
 
     // Si le statut est changé en ACCEPTED, déclencher le workflow complet de validation
-    if (status === "ACCEPTED" && existingProject.status !== "ACCEPTED") {
+    if (status === "ACCEPTED" && existingProject.status !== "ACCEPTED" && session?.user) {
       try {
         // 1. Enregistrer la date de validation et le validateur pour traçabilité
         await prisma.project.update({
-          where: { id: projectId },
+          where: { id },
           data: {
-            reviewerId: userId,
+            reviewerId: session.user.id,
             reviewedAt: new Date()
           }
         });
@@ -518,26 +504,6 @@ export async function PUT(request: NextRequest) {
               discipline: updatedProject.discipline.name,
               validatedBy: session.user.name,
               validatedAt: new Date().toISOString()
-            })
-          }
-        });
-
-        // 3. Créer une entrée dans l'historique/audit pour traçabilité complète
-        await prisma.auditLog.create({
-          data: {
-            action: "PROJECT_VALIDATED",
-            performedBy: session.user.name || "PDG",
-            details: `Projet "${updatedProject.title}" validé par ${session.user.name}. Le concepteur ${updatedProject.concepteur.name} peut maintenant créer des œuvres associées. Discipline: ${updatedProject.discipline.name}.`,
-            userId: userId,
-            metadata: JSON.stringify({
-              projectId: updatedProject.id,
-              projectTitle: updatedProject.title,
-              concepteurId: updatedProject.concepteurId,
-              concepteurName: updatedProject.concepteur.name,
-              disciplineId: updatedProject.disciplineId,
-              disciplineName: updatedProject.discipline.name,
-              validationDate: new Date().toISOString(),
-              validatedBy: session.user.name
             })
           }
         });
@@ -577,12 +543,12 @@ export async function PUT(request: NextRequest) {
     }
 
     logger.debug("✅ Projet mis à jour:", updatedProject);
-    
+
     return NextResponse.json(updatedProject);
-    
-  } catch (error) {
+
+  } catch (error: any) {
     logger.error("❌ Erreur mise à jour projet:", error);
-    
+
     return NextResponse.json(
       { error: "Erreur lors de la mise à jour du projet: " + error.message },
       { status: 500 }
@@ -593,11 +559,11 @@ export async function PUT(request: NextRequest) {
 // DELETE /api/projects - Supprimer un projet
 export async function DELETE(request: NextRequest) {
   logger.debug("🔍 API DELETE /projects - Début de la requête");
-  
+
   try {
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('id');
-    
+
     if (!projectId) {
       return NextResponse.json(
         { error: "L'ID du projet est obligatoire" },
@@ -648,25 +614,6 @@ export async function DELETE(request: NextRequest) {
 
     logger.debug("✅ Projet supprimé avec succès");
 
-    // Créer un log d'audit
-    try {
-      await prisma.auditLog.create({
-        data: {
-          action: "PROJECT_DELETE",
-          userId: existingProject.concepteurId,
-          performedBy: existingProject.concepteurId,
-          details: JSON.stringify({
-            projectId: existingProject.id,
-            projectTitle: existingProject.title,
-            discipline: existingProject.discipline.name
-          })
-        }
-      });
-      logger.debug("✅ Log d'audit créé");
-    } catch (auditError) {
-      logger.error("⚠️ Erreur création log d'audit:", auditError);
-    }
-
     // Créer une notification pour le concepteur
     try {
       await prisma.notification.create({
@@ -690,7 +637,7 @@ export async function DELETE(request: NextRequest) {
       { message: "Projet supprimé avec succès" },
       { status: 200 }
     );
-    
+
   } catch (error: any) {
     logger.error("❌ Erreur suppression projet:", error);
     return NextResponse.json(

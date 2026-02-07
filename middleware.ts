@@ -30,6 +30,7 @@ const COMMON_ALLOWED = [
   "/api/upload", // Pour l'upload de fichiers (vérifie les permissions dans la route)
   "/api/orders", // Pour les commandes (vérifie les permissions dans la route)
   "/api/stock", // Pour le stock (vérifie les permissions dans la route - PDG uniquement)
+  "/api/finance", // Pour les données financières (vérifie les permissions dans la route - PDG uniquement)
   "/api/settings", // Pour les paramètres (vérifie les permissions dans la route - PDG uniquement)
   "/api/pdg/categories", // Pour les catégories (accessible aux PDG, CLIENT et AUTEUR - vérifie les permissions dans la route)
   "/api/pdg/collections", // Pour les collections (accessible aux PDG et AUTEUR - vérifie les permissions dans la route)

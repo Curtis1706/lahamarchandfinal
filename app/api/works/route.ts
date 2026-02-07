@@ -244,31 +244,6 @@ export async function POST(request: NextRequest) {
       concepteur: work.concepteur?.name || "Non assigné"
     });
 
-    // Créer un audit log
-    try {
-      await prisma.auditLog.create({
-        data: {
-          action: "WORK_SUBMITTED",
-          performedBy: session.user.name || "Auteur",
-          details: `Nouvelle œuvre soumise: "${work.title}" par ${work.author?.name || "Auteur"} ${work.project ? `(projet: ${work.project.title})` : '(soumission directe)'}`,
-          userId: session.user.id,
-          metadata: JSON.stringify({
-            workId: work.id,
-            workTitle: work.title,
-            concepteurId: work.concepteurId,
-            disciplineId: work.disciplineId,
-            projectId: work.projectId,
-            contentType: work.contentType,
-            status: work.status,
-            submittedAt: work.submittedAt
-          })
-        }
-      });
-      console.log("✅ Audit log créé pour la soumission de l'œuvre");
-    } catch (auditError) {
-      console.error("⚠️ Erreur création audit log:", auditError);
-    }
-
     // Créer des notifications pour les PDG
     try {
       const pdgUsers = await prisma.user.findMany({
@@ -337,7 +312,6 @@ export async function GET(request: NextRequest) {
 
     // Construire les conditions de filtre
     let whereClause: any = {};
-
 
     if (authorId) {
       whereClause.authorId = authorId;
@@ -1068,21 +1042,6 @@ export async function PUT(request: NextRequest) {
     if (status && isPDG && (status === "PUBLISHED" || status === "REJECTED")) {
       try {
         const action = status === "PUBLISHED" ? "WORK_APPROVED" : "WORK_REJECTED";
-        await prisma.auditLog.create({
-          data: {
-            action: action,
-            performedBy: session.user.name || "PDG",
-            details: `Œuvre "${updatedWork.title}" ${status === "PUBLISHED" ? 'validée' : 'refusée'} par ${session.user.name}. ${validationComment || rejectionReason || ''}`,
-            userId: session.user.id,
-            metadata: JSON.stringify({
-              workId: updatedWork.id,
-              workTitle: updatedWork.title,
-              newStatus: status,
-              comment: validationComment || rejectionReason,
-              reviewedAt: dataToUpdate.reviewedAt
-            })
-          }
-        });
 
         // Notification à l'auteur
         const recipientId = updatedWork.authorId;
@@ -1105,7 +1064,7 @@ export async function PUT(request: NextRequest) {
           });
         }
 
-        console.log(`✅ Audit log et notification créés pour ${action}`);
+        console.log(`✅ Notification créée pour ${action}`);
       } catch (auditError) {
         console.error("⚠️ Erreur création audit/notifications:", auditError);
       }
@@ -1172,25 +1131,6 @@ export async function DELETE(request: NextRequest) {
     await prisma.work.delete({
       where: { id: workId }
     });
-
-    // Créer audit log
-    try {
-      await prisma.auditLog.create({
-        data: {
-          action: "WORK_DELETED",
-          performedBy: session.user.name || "Utilisateur",
-          details: `Œuvre "${existingWork.title}" supprimée par ${session.user.name}`,
-          userId: session.user.id,
-          metadata: JSON.stringify({
-            workId: existingWork.id,
-            workTitle: existingWork.title,
-            deletedAt: new Date().toISOString()
-          })
-        }
-      });
-    } catch (auditError) {
-      console.error("⚠️ Erreur création audit log:", auditError);
-    }
 
     return NextResponse.json({ message: "Œuvre supprimée avec succès" }, { status: 200 });
 

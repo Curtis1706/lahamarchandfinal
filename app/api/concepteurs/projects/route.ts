@@ -7,7 +7,7 @@ import { authOptions } from '@/lib/auth';
 export async function POST(request: NextRequest) {
   try {
     logger.debug("🔍 API POST /concepteurs/projects - Création de projet par Concepteur");
-    
+
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
@@ -123,29 +123,6 @@ export async function POST(request: NextRequest) {
       concepteur: project.concepteur?.name || "Non défini",
       discipline: project.discipline?.name || "Non défini"
     });
-
-    // Créer un audit log
-    try {
-      await prisma.auditLog.create({
-        data: {
-          action: "PROJECT_CREATED",
-          performedBy: session.user.name || "Concepteur",
-          details: `Nouveau projet créé: "${project.title}" par ${project.concepteur?.name || "Concepteur"} en discipline ${project.discipline?.name || "Discipline"}`,
-          userId: session.user.id,
-          metadata: JSON.stringify({
-            projectId: project.id,
-            projectTitle: project.title,
-            concepteurId: project.concepteurId,
-            disciplineId: project.disciplineId,
-            status: project.status
-          })
-        }
-      });
-      logger.debug("✅ Audit log créé pour la création du projet");
-    } catch (auditError) {
-      logger.error("⚠️ Erreur création audit log:", auditError);
-      // Ne pas faire échouer la création du projet pour une erreur d'audit
-    }
 
     return NextResponse.json(project, { status: 201 });
 
@@ -267,7 +244,7 @@ export async function PUT(request: NextRequest) {
     // Si c'est un concepteur, vérifier qu'il peut modifier/soumettre ce projet
     if (session.user.role === "CONCEPTEUR" && session.user.id === existingProject.concepteurId) {
       const { canEditProject, canSubmitProject, canArchiveProject } = await import("@/lib/project-status");
-      
+
       // Si c'est une soumission
       if (status === "SUBMITTED") {
         if (!canSubmitProject(existingProject.status)) {
@@ -326,21 +303,6 @@ export async function PUT(request: NextRequest) {
     // Créer audit log pour soumission
     if (status === "SUBMITTED" && existingProject.status !== "SUBMITTED") {
       try {
-        await prisma.auditLog.create({
-          data: {
-            action: "PROJECT_SUBMITTED",
-            performedBy: session.user.name || "Concepteur",
-            details: `Projet "${updatedProject.title}" soumis au PDG par ${updatedProject.concepteur.name}`,
-            userId: session.user.id,
-            metadata: JSON.stringify({
-              projectId: updatedProject.id,
-              projectTitle: updatedProject.title,
-              concepteurId: updatedProject.concepteurId,
-              submittedAt: updateData.submittedAt
-            })
-          }
-        });
-
         // Créer une notification pour les PDG
         const pdgUsers = await prisma.user.findMany({
           where: { role: "PDG", status: "ACTIVE" },

@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
         }
       }
     };
-    
+
     if (search) {
       where.name = { contains: search, mode: "insensitive" };
     }
@@ -110,20 +110,6 @@ export async function POST(request: NextRequest) {
     logger.debug(`✅ Discipline créée: "${discipline.name}"`);
 
     // Créer un log d'audit
-    await prisma.auditLog.create({
-      data: {
-        action: "DISCIPLINE_CREATE",
-        performedBy: session.user.name || "PDG",
-        details: `Nouvelle discipline créée: "${discipline.name}"${description ? ` - ${description}` : ''}`,
-        userId: session.user.id,
-        metadata: JSON.stringify({
-          disciplineId: discipline.id,
-          disciplineName: discipline.name,
-          description: discipline.description,
-          timestamp: new Date().toISOString()
-        })
-      }
-    });
 
     return NextResponse.json(discipline, { status: 201 });
   } catch (error: any) {
@@ -167,7 +153,7 @@ export async function PUT(request: NextRequest) {
 
     // Préparer les données de mise à jour
     const updateData: any = {};
-    
+
     if (name !== undefined) {
       if (!name?.trim()) {
         return NextResponse.json(
@@ -218,26 +204,6 @@ export async function PUT(request: NextRequest) {
     });
 
     logger.debug(`✅ Discipline mise à jour: "${updatedDiscipline.name}"`);
-
-    // Créer un log d'audit
-    await prisma.auditLog.create({
-      data: {
-        action: "DISCIPLINE_UPDATE",
-        performedBy: session.user.name || "PDG",
-        details: `Discipline "${existingDiscipline.name}" mise à jour${name ? ` (nom: ${name})` : ''}${isActive !== undefined ? ` (statut: ${isActive ? 'actif' : 'inactif'})` : ''}`,
-        userId: session.user.id,
-        metadata: JSON.stringify({
-          disciplineId: id,
-          oldName: existingDiscipline.name,
-          newName: updatedDiscipline.name,
-          oldDescription: existingDiscipline.description,
-          newDescription: updatedDiscipline.description,
-          oldIsActive: existingDiscipline.isActive,
-          newIsActive: updatedDiscipline.isActive,
-          timestamp: new Date().toISOString()
-        })
-      }
-    });
 
     return NextResponse.json(updatedDiscipline);
   } catch (error: any) {
@@ -319,25 +285,6 @@ export async function DELETE(request: NextRequest) {
     });
 
     logger.debug(`✅ Discipline supprimée: "${existingDiscipline.name}"`);
-
-    // Créer un log d'audit
-    await prisma.auditLog.create({
-      data: {
-        action: "DISCIPLINE_DELETE",
-        performedBy: session.user.name || "PDG",
-        details: `Discipline "${existingDiscipline.name}" supprimée${force ? ' (suppression forcée)' : ''}`,
-        userId: session.user.id,
-        metadata: JSON.stringify({
-          disciplineId: id,
-          disciplineName: existingDiscipline.name,
-          worksCount: existingDiscipline._count.works,
-          projectsCount: existingDiscipline._count.projects,
-          usersCount: existingDiscipline._count.users,
-          forceDelete: force,
-          timestamp: new Date().toISOString()
-        })
-      }
-    });
 
     return NextResponse.json({ message: "Discipline supprimée avec succès" });
   } catch (error: any) {

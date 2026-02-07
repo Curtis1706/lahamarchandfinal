@@ -157,20 +157,6 @@ export async function PUT(request: NextRequest) {
       }
     })
 
-    // Créer un log d'audit
-    await prisma.auditLog.create({
-      data: {
-        action: 'UPDATE_ADVANCED_SETTING',
-        performedBy: session.user.id,
-        details: JSON.stringify({
-          settingId: id,
-          key,
-          oldValue: 'N/A',
-          newValue: value
-        })
-      }
-    })
-
     return NextResponse.json({
       message: 'Paramètre mis à jour avec succès',
       setting: {
@@ -214,19 +200,6 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Créer un log d'audit
-    await prisma.auditLog.create({
-      data: {
-        action: 'CREATE_ADVANCED_SETTING',
-        performedBy: session.user.id,
-        details: JSON.stringify({
-          settingId: created.id,
-          key,
-          value
-        })
-      }
-    })
-
     return NextResponse.json({
       message: 'Paramètre créé avec succès',
       setting: {
@@ -264,15 +237,6 @@ export async function DELETE(request: NextRequest) {
 
     await prisma.setting.delete({
       where: { id }
-    })
-
-    // Créer un log d'audit
-    await prisma.auditLog.create({
-      data: {
-        action: 'DELETE_ADVANCED_SETTING',
-        performedBy: session.user.id,
-        details: JSON.stringify({ settingId: id })
-      }
     })
 
     return NextResponse.json({

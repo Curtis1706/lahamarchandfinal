@@ -90,17 +90,6 @@ export async function POST(request: NextRequest) {
 
     // Audit log
     try {
-      await prisma.auditLog.create({
-        data: {
-          userId: session.user.id,
-          userEmail: session.user.email || "",
-          userRole: session.user.role,
-          action: 'CREATE_CATEGORY',
-          entityType: 'Category',
-          entityId: category.id,
-          details: `Catégorie créée: ${category.name}`
-        }
-      })
     } catch (auditError) {
       logger.error("⚠️ Erreur lors de la création de l'audit log:", auditError)
       // Ne pas bloquer la création de la catégorie si l'audit log échoue
@@ -175,17 +164,6 @@ export async function PUT(request: NextRequest) {
     })
 
     // Audit log
-    await prisma.auditLog.create({
-      data: {
-        userId: session.user.id,
-        userEmail: session.user.email || "",
-        userRole: session.user.role,
-        action: 'UPDATE_CATEGORY',
-        entityType: 'Category',
-        entityId: category.id,
-        details: `Catégorie mise à jour: ${category.name}`
-      }
-    })
 
     return NextResponse.json(category)
 
