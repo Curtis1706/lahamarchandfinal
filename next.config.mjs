@@ -7,11 +7,18 @@ const nextConfig = {
     ignoreBuildErrors: true, // TODO: Corriger toutes les erreurs TypeScript puis activer
   },
   images: {
-    unoptimized: true,
+    unoptimized: false, // ✅ Activer l'optimisation d'images
+    formats: ['image/avif', 'image/webp'], // Formats modernes pour de meilleures performances
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048], // Tailles d'écran supportées
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384], // Tailles d'icônes
+    minimumCacheTTL: 60, // Cache minimum de 60 secondes
+    dangerouslyAllowSVG: true, // Autoriser les SVG
+    contentDispositionType: 'attachment',
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   // Activer la compression pour réduire la taille des transferts
   compress: true,
-  
+
   // Headers de sécurité et performance
   async headers() {
     return [

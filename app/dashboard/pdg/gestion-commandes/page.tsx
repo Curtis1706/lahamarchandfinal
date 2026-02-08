@@ -194,7 +194,7 @@ export default function GestionCommandesPage() {
       }
 
       const ordersData = await apiClient.getOrders(params)
-      setOrders(ordersData as Order[])
+      setOrders(ordersData as unknown as Order[])
     } catch (error: any) {
       console.error("Error fetching orders:", error)
       toast.error("Erreur lors du chargement des commandes")
@@ -372,7 +372,7 @@ export default function GestionCommandesPage() {
 
   // Ajouter un article au panier - mémorisé avec useCallback
   const handleAddToCart = useCallback(() => {
-    
+
     if (!newOrderData.selectedWork) {
       toast.error("Veuillez sélectionner un livre")
       return
@@ -398,7 +398,7 @@ export default function GestionCommandesPage() {
       return
     }
 
-    
+
     const existingItem = cartItems.find(item => item.workId === newOrderData.selectedWork)
     if (existingItem) {
       // Vérifier que la quantité totale (existante + nouvelle) ne dépasse pas le stock
@@ -408,13 +408,13 @@ export default function GestionCommandesPage() {
         return
       }
 
-            setCartItems(prev => {
+      setCartItems(prev => {
         const updated = prev.map(item =>
           item.workId === newOrderData.selectedWork
             ? { ...item, quantity: item.quantity + quantity }
             : item
         )
-                return updated
+        return updated
       })
       toast.success(`${work.title} ajouté au panier (quantité: ${quantity})`)
     } else {
@@ -423,7 +423,7 @@ export default function GestionCommandesPage() {
         toast.error(`Stock insuffisant pour ${work.title}. Stock disponible: ${stock}, Quantité demandée: ${quantity}`)
         return
       }
-            const newItem = {
+      const newItem = {
         workId: work.id,
         title: work.title,
         price: work.price || 0,
@@ -431,7 +431,7 @@ export default function GestionCommandesPage() {
       }
       setCartItems(prev => {
         const updated = [...prev, newItem]
-                return updated
+        return updated
       })
       toast.success(`${work.title} ajouté au panier`)
     }
@@ -519,7 +519,7 @@ export default function GestionCommandesPage() {
         orderData.orderType = newOrderData.orderType
       }
 
-      const newOrder = await apiClient.createOrder(orderData) as Order
+      const newOrder = await apiClient.createOrder(orderData) as unknown as Order
 
       // ✅ BACKEND = SOURCE DE VÉRITÉ: Rafraîchir depuis la DB au lieu d'optimistic update
       await fetchOrders()
@@ -884,7 +884,6 @@ export default function GestionCommandesPage() {
               <TableHead className="font-semibold">Lieu de livraison</TableHead>
               <TableHead className="font-semibold">Type</TableHead>
               <TableHead className="font-semibold">Statut</TableHead>
-              <TableHead className="font-semibold">Livraison</TableHead>
               <TableHead className="font-semibold">Paiement</TableHead>
               <TableHead className="font-semibold">Actions</TableHead>
             </TableRow>
@@ -892,7 +891,7 @@ export default function GestionCommandesPage() {
           <TableBody>
             {paginatedOrders.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-8">
+                <TableCell colSpan={9} className="text-center py-8">
                   <div className="flex flex-col items-center space-y-2">
                     <Info className="h-8 w-8 text-gray-400" />
                     <p className="text-gray-500">Aucune donnée disponible dans le tableau</p>
@@ -920,16 +919,6 @@ export default function GestionCommandesPage() {
                     {order.items[0]?.work?.discipline?.name || 'Divers'}
                   </TableCell>
                   <TableCell>{getStatusBadge(order.status)}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-col space-y-1">
-                      {getDeliveryStatusBadge(order.deliveryStatus)}
-                      {order.receivedBy && (
-                        <span className="text-xs text-gray-500">
-                          Réceptionné par: {order.receivedBy}
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
                   <TableCell>
                     <div className="flex flex-col space-y-1">
                       <div className="flex items-center gap-2">
