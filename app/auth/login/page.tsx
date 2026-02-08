@@ -49,8 +49,7 @@ export default function LoginPage() {
         await new Promise(resolve => setTimeout(resolve, 200))
         session = await getSession()
         attempts++
-        console.log(`🔄 Tentative ${attempts}/${maxAttempts} - Session:`, session?.user?.role || 'non disponible')
-      }
+              }
       
       if (session?.user?.role) {
         const role = session.user.role.toUpperCase()
@@ -65,8 +64,7 @@ export default function LoginPage() {
         
         // Si un callbackUrl est fourni et valide, l'utiliser
         if (callbackUrl && callbackUrl.startsWith('/dashboard/') && !callbackUrl.startsWith('/dashboard/invite')) {
-          console.log(`✅ Login successful, using callbackUrl: ${callbackUrl}`)
-          toast.success("Connexion réussie !")
+                    toast.success("Connexion réussie !")
           router.replace(callbackUrl)
           return
         }
@@ -74,8 +72,7 @@ export default function LoginPage() {
         // Rediriger vers le dashboard approprié selon le rôle
         const dashboardPath = `/dashboard/${role.toLowerCase()}`
         
-        console.log(`✅ Login successful, role: ${role}, redirecting to: ${dashboardPath}`)
-        toast.success("Connexion réussie !")
+                toast.success("Connexion réussie !")
         router.replace(dashboardPath)
       } else {
         console.error("❌ Impossible de récupérer la session après connexion")

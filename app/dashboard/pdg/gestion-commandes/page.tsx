@@ -372,12 +372,7 @@ export default function GestionCommandesPage() {
 
   // Ajouter un article au panier - mémorisé avec useCallback
   const handleAddToCart = useCallback(() => {
-    console.log("🛒 Tentative d'ajout au panier:", {
-      selectedWork: newOrderData.selectedWork,
-      quantity: newOrderData.quantity,
-      cartItemsCount: cartItems.length
-    })
-
+    
     if (!newOrderData.selectedWork) {
       toast.error("Veuillez sélectionner un livre")
       return
@@ -403,8 +398,7 @@ export default function GestionCommandesPage() {
       return
     }
 
-    console.log("✅ Livre trouvé:", work.title, "Stock disponible:", stock)
-
+    
     const existingItem = cartItems.find(item => item.workId === newOrderData.selectedWork)
     if (existingItem) {
       // Vérifier que la quantité totale (existante + nouvelle) ne dépasse pas le stock
@@ -414,15 +408,13 @@ export default function GestionCommandesPage() {
         return
       }
 
-      console.log("📦 Article existant, mise à jour de la quantité")
-      setCartItems(prev => {
+            setCartItems(prev => {
         const updated = prev.map(item =>
           item.workId === newOrderData.selectedWork
             ? { ...item, quantity: item.quantity + quantity }
             : item
         )
-        console.log("🛒 Panier mis à jour:", updated)
-        return updated
+                return updated
       })
       toast.success(`${work.title} ajouté au panier (quantité: ${quantity})`)
     } else {
@@ -431,8 +423,7 @@ export default function GestionCommandesPage() {
         toast.error(`Stock insuffisant pour ${work.title}. Stock disponible: ${stock}, Quantité demandée: ${quantity}`)
         return
       }
-      console.log("🆕 Nouvel article, ajout au panier")
-      const newItem = {
+            const newItem = {
         workId: work.id,
         title: work.title,
         price: work.price || 0,
@@ -440,8 +431,7 @@ export default function GestionCommandesPage() {
       }
       setCartItems(prev => {
         const updated = [...prev, newItem]
-        console.log("🛒 Panier mis à jour:", updated)
-        return updated
+                return updated
       })
       toast.success(`${work.title} ajouté au panier`)
     }

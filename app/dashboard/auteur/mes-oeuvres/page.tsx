@@ -22,7 +22,7 @@ export default function MesOeuvresPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [selectedWork, setSelectedWork] = useState(null);
+  const [selectedWork, setSelectedWork] = useState<any | null>(null);
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -32,7 +32,7 @@ export default function MesOeuvresPage() {
 
   const loadWorks = async () => {
     if (!user) return;
-    
+
     try {
       setLoading(true);
       // Construire les paramètres de recherche
@@ -43,14 +43,14 @@ export default function MesOeuvresPage() {
       if (searchTerm) {
         params.append('search', searchTerm);
       }
-      
+
       // Utiliser l'API dédiée pour les auteurs qui inclut les statistiques de ventes
       const response = await fetch(`/api/auteur/works?${params.toString()}`);
-      
+
       if (!response.ok) {
         throw new Error('Erreur lors de la récupération des œuvres');
       }
-      
+
       const data = await response.json();
       setWorks(data.works || []);
     } catch (error) {
@@ -63,38 +63,38 @@ export default function MesOeuvresPage() {
 
   const getStatusBadge = (status: string) => {
     const variants = {
-      PUBLISHED: { 
-        variant: "default" as const, 
-        label: "Publiée", 
+      PUBLISHED: {
+        variant: "default" as const,
+        label: "Publiée",
         color: "bg-green-100 text-green-800",
         icon: <CheckCircle className="w-3 h-3 mr-1" />
       },
-      PENDING: { 
-        variant: "secondary" as const, 
-        label: "En attente", 
+      PENDING: {
+        variant: "secondary" as const,
+        label: "En attente",
         color: "bg-yellow-100 text-yellow-800",
         icon: <Clock className="w-3 h-3 mr-1" />
       },
-      SUSPENDED: { 
-        variant: "destructive" as const, 
-        label: "Suspendue", 
+      SUSPENDED: {
+        variant: "destructive" as const,
+        label: "Suspendue",
         color: "bg-red-100 text-red-800",
         icon: <XCircle className="w-3 h-3 mr-1" />
       },
-      REJECTED: { 
-        variant: "destructive" as const, 
-        label: "Refusée", 
+      REJECTED: {
+        variant: "destructive" as const,
+        label: "Refusée",
         color: "bg-red-100 text-red-800",
         icon: <XCircle className="w-3 h-3 mr-1" />
       },
-      DRAFT: { 
-        variant: "outline" as const, 
-        label: "Brouillon", 
+      DRAFT: {
+        variant: "outline" as const,
+        label: "Brouillon",
         color: "bg-gray-100 text-gray-800",
         icon: <FileText className="w-3 h-3 mr-1" />
       }
     };
-    
+
     const config = variants[status as keyof typeof variants] || variants.DRAFT;
     return (
       <Badge className={config.color}>
@@ -163,12 +163,12 @@ export default function MesOeuvresPage() {
         royalties: work.sales.royalties?.total || 0
       };
     }
-    
+
     // Fallback pour la compatibilité avec l'ancien format
     const sales = work.orderItems?.reduce((sum: number, item: any) => sum + item.quantity, 0) || 0;
     const revenue = work.orderItems?.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0) || 0;
     const royalties = work.royalties?.reduce((sum: number, roy: any) => sum + roy.amount, 0) || 0;
-    
+
     return { sales, revenue, royalties };
   };
 
@@ -183,21 +183,46 @@ export default function MesOeuvresPage() {
   const paginatedWorks = filteredWorks.slice(startIndex, endIndex);
 
   const getCoverImage = (work: any) => {
-    // Simuler une couverture basée sur le titre ou utiliser une image par défaut
-    if (work.coverImage) {
-      return work.coverImage;
+    // D'abord, essayer d'obtenir l'image depuis le champ files
+    if (work.files) {
+      try {
+        const filesData = typeof work.files === 'string' ? JSON.parse(work.files) : work.files;
+        if (filesData.coverImage) {
+          return (
+            <img
+              src={filesData.coverImage}
+              alt={work.title}
+              className="w-full h-full object-cover"
+            />
+          );
+        }
+      } catch (e) {
+        console.error("Error parsing files:", e);
+      }
     }
-    
+
+    // Fallback: vérifier work.coverImage
+    if (work.coverImage) {
+      return (
+        <img
+          src={work.coverImage}
+          alt={work.title}
+          className="w-full h-full object-cover"
+        />
+      );
+    }
+
     // Générer une couleur de fond basée sur le titre
     const colors = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-red-500', 'bg-yellow-500', 'bg-indigo-500'];
     const colorIndex = work.title.length % colors.length;
-    
+
     return (
       <div className={`w-full h-full ${colors[colorIndex]} flex items-center justify-center text-white font-bold text-lg`}>
         {work.title.charAt(0).toUpperCase()}
       </div>
     );
   };
+
 
   if (loading) {
     return (
@@ -377,34 +402,34 @@ export default function MesOeuvresPage() {
                         {getCoverImage(work)}
                       </div>
                     </td>
-                    
+
                     {/* Titre */}
                     <td className="py-4 px-6">
                       <div className="text-sm font-medium text-gray-900">{work.title}</div>
                       <div className="text-sm text-gray-500">{work.isbn || `REF-${work.id.slice(0, 8)}`}</div>
                     </td>
-                    
+
                     {/* Discipline */}
                     <td className="py-4 px-6">
                       <div className="text-sm text-gray-900">{work.discipline?.name || 'Non définie'}</div>
                     </td>
-                    
+
                     {/* Statut */}
                     <td className="py-4 px-6">
                       {getStatusBadge(work.status)}
                     </td>
-                    
+
                     {/* Prix */}
                     <td className="py-4 px-6">
                       <div className="text-sm text-gray-900">{work.price?.toLocaleString() || 0} F CFA</div>
                     </td>
-                    
+
                     {/* Ventes */}
                     <td className="py-4 px-6">
                       <div className="text-sm text-gray-900">{stats.sales}</div>
                       <div className="text-xs text-gray-500">{stats.revenue.toLocaleString()} F CFA</div>
                     </td>
-                    
+
                     {/* Créé le */}
                     <td className="py-4 px-6">
                       <div className="text-sm text-gray-900">
@@ -418,11 +443,11 @@ export default function MesOeuvresPage() {
                         })}
                       </div>
                     </td>
-                    
+
                     {/* Modifié le */}
                     <td className="py-4 px-6">
                       <div className="text-sm text-gray-900">
-                        {work.updatedAt && work.updatedAt !== work.createdAt ? 
+                        {work.updatedAt && work.updatedAt !== work.createdAt ?
                           new Date(work.updatedAt).toLocaleDateString('fr-FR', {
                             weekday: 'short',
                             day: '2-digit',
@@ -430,12 +455,12 @@ export default function MesOeuvresPage() {
                             year: 'numeric',
                             hour: '2-digit',
                             minute: '2-digit'
-                          }) : 
+                          }) :
                           <span className="text-gray-400">Jamais modifié</span>
                         }
                       </div>
                     </td>
-                    
+
                     {/* Actions */}
                     <td className="py-4 px-6">
                       <div className="flex items-center space-x-2">
@@ -448,8 +473,8 @@ export default function MesOeuvresPage() {
                         </Dialog>
 
                         {canEditWork(work) && (
-                          <Button 
-                            variant="ghost" 
+                          <Button
+                            variant="ghost"
                             size="sm"
                             onClick={() => router.push(`/dashboard/auteur/creer-oeuvre?edit=${work.id}`)}
                             title="Modifier"
@@ -461,8 +486,8 @@ export default function MesOeuvresPage() {
                         {canSubmitForPublication(work) && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button 
-                                variant="ghost" 
+                              <Button
+                                variant="ghost"
                                 size="sm"
                                 className="text-blue-600 hover:text-blue-700"
                                 title="Soumettre pour publication"
@@ -474,7 +499,7 @@ export default function MesOeuvresPage() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Soumettre pour publication</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Êtes-vous sûr de vouloir soumettre le livre "{work.title}" pour publication ? 
+                                  Êtes-vous sûr de vouloir soumettre le livre "{work.title}" pour publication ?
                                   Le PDG examinera votre demande et pourra publier ou refuser votre livre.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
@@ -499,13 +524,13 @@ export default function MesOeuvresPage() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Êtes-vous sûr de vouloir supprimer l'œuvre "{work.title}" ? 
+                                  Êtes-vous sûr de vouloir supprimer l'œuvre "{work.title}" ?
                                   Cette action est irréversible.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Annuler</AlertDialogCancel>
-                                <AlertDialogAction 
+                                <AlertDialogAction
                                   onClick={() => handleDeleteWork(work.id)}
                                   className="bg-red-600 hover:bg-red-700"
                                 >
@@ -612,7 +637,7 @@ export default function MesOeuvresPage() {
                       Créée le {new Date(selectedWork.createdAt).toLocaleDateString('fr-FR')}
                     </span>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="text-gray-600">Discipline:</span>
@@ -633,7 +658,7 @@ export default function MesOeuvresPage() {
                   </div>
                 </div>
               </div>
-              
+
               <div>
                 <p className="text-sm text-gray-600 mb-2">Description</p>
                 <p className="text-sm text-gray-700">{selectedWork.description}</p>
@@ -648,7 +673,7 @@ export default function MesOeuvresPage() {
 
               <div className="flex justify-end space-x-2 pt-4 border-t">
                 {canEditWork(selectedWork) && (
-                  <Button 
+                  <Button
                     onClick={() => {
                       setSelectedWork(null);
                       router.push(`/dashboard/auteur/creer-oeuvre?edit=${selectedWork.id}`);

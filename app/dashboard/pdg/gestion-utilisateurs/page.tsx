@@ -100,22 +100,13 @@ export default function GestionUtilisateursPage() {
   const loadUsers = async () => {
     try {
       setIsLoading(true)
-      console.log("🔍 Début du chargement des données...")
-
+      
       const [usersData, disciplinesData] = await Promise.all([
         apiClient.getUsers(),
         apiClient.getDisciplines()
       ])
 
-      console.log("🔍 Données reçues:", {
-        usersData,
-        usersDataType: typeof usersData,
-        usersDataLength: Array.isArray(usersData) ? usersData.length : 'N/A',
-        disciplinesData,
-        disciplinesDataType: typeof disciplinesData,
-        disciplinesDataLength: Array.isArray(disciplinesData) ? disciplinesData.length : 'N/A'
-      })
-
+      
       const usersArray = Array.isArray(usersData) ? usersData : []
       const disciplinesArray = Array.isArray(disciplinesData) ? disciplinesData : []
 
@@ -146,13 +137,7 @@ export default function GestionUtilisateursPage() {
       setUsers(enrichedUsers)
       setDisciplines(disciplinesArray)
 
-      console.log("🔍 État mis à jour:", {
-        usersCount: usersArray.length,
-        disciplinesCount: disciplinesArray.length,
-        firstUser: usersArray[0] || 'Aucun utilisateur',
-        firstDiscipline: disciplinesArray[0] || 'Aucune discipline'
-      })
-    } catch (error: any) {
+          } catch (error: any) {
       console.error("❌ Error fetching data:", error)
       console.error("❌ Error details:", {
         message: error.message,
@@ -162,8 +147,7 @@ export default function GestionUtilisateursPage() {
       toast.error("Erreur lors du chargement des données: " + error.message)
     } finally {
       setIsLoading(false)
-      console.log("🔍 Chargement terminé")
-    }
+          }
   }
 
   // Charger les données au montage du composant
@@ -279,15 +263,7 @@ export default function GestionUtilisateursPage() {
   }) : []
 
   // Logs de debug pour le filtrage
-  console.log("🔍 Filtrage des utilisateurs:", {
-    totalUsers: users.length,
-    searchTerm,
-    roleFilter,
-    statusFilter,
-    filteredCount: filteredUsers.length,
-    filteredUsers: filteredUsers.map(u => ({ id: u.id, name: u.name, role: u.role, status: u.status }))
-  })
-
+  
   // Pagination
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
@@ -295,16 +271,7 @@ export default function GestionUtilisateursPage() {
   const paginatedUsers = filteredUsers.slice(startIndex, endIndex)
 
   // Logs de debug pour la pagination
-  console.log("🔍 Pagination des utilisateurs:", {
-    totalPages,
-    currentPage,
-    itemsPerPage,
-    startIndex,
-    endIndex,
-    paginatedCount: paginatedUsers.length,
-    paginatedUsers: paginatedUsers.map(u => ({ id: u.id, name: u.name }))
-  })
-
+  
   const getStatusBadge = (status: string | undefined) => {
     switch (status) {
       case 'ACTIVE':
@@ -377,14 +344,7 @@ export default function GestionUtilisateursPage() {
   }
 
   // Logs de debug pour l'état de chargement
-  console.log("🔍 État de chargement:", {
-    userLoading,
-    isLoading,
-    user: user ? { id: user.id, name: user.name, role: user.role } : null,
-    usersCount: users.length,
-    disciplinesCount: disciplines.length
-  })
-
+  
   if (userLoading || isLoading) {
     return (
       <div className="flex items-center justify-center h-96">

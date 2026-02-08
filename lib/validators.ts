@@ -22,10 +22,10 @@ export function validatePagination(params: URLSearchParams): PaginationParams {
 
   // Limiter entre 1 et 100
   const limit = Math.min(100, Math.max(1, parseInt(rawLimit || '10') || 10))
-  
+
   // Offset ne peut pas être négatif
   const offset = Math.max(0, parseInt(rawOffset || '0') || 0)
-  
+
   // Page commence à 1
   const page = rawPage ? Math.max(1, parseInt(rawPage)) : undefined
 
@@ -101,16 +101,16 @@ export function validateDeliveryStatus(status: string): DeliveryStatus | null {
 // VALIDATION DES MONTANTS
 // ============================================
 
-export function validateAmount(amount: any): number | null {
-  const parsed = parseFloat(amount)
+export function validateAmount(amount: unknown): number | null {
+  const parsed = parseFloat(amount as string)
   if (isNaN(parsed) || parsed < 0) {
     return null
   }
   return parsed
 }
 
-export function validatePositiveInteger(value: any): number | null {
-  const parsed = parseInt(value)
+export function validatePositiveInteger(value: unknown): number | null {
+  const parsed = parseInt(value as string)
   if (isNaN(parsed) || parsed < 0) {
     return null
   }
@@ -136,15 +136,15 @@ export function validateDate(dateString: string): Date | null {
 export function validateDateRange(startDate: string, endDate: string): { start: Date, end: Date } | null {
   const start = validateDate(startDate)
   const end = validateDate(endDate)
-  
+
   if (!start || !end) {
     return null
   }
-  
+
   if (start > end) {
     return null
   }
-  
+
   return { start, end }
 }
 
@@ -199,9 +199,16 @@ export interface OrderValidation {
   errors: string[]
 }
 
+export interface OrderItemInput {
+  workId: string
+  quantity: number
+  price?: number
+  [key: string]: unknown
+}
+
 export function validateOrderData(data: {
   userId?: string
-  items?: any[]
+  items?: OrderItemInput[]
   total?: number
   paymentType?: string
 }): OrderValidation {

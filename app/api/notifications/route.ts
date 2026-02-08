@@ -1,27 +1,32 @@
 import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from '@prisma/client';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 // POST /api/notifications - Créer une notification
 export async function POST(request: NextRequest) {
   logger.debug("🔍 API POST /notifications - Création de notification");
-  
+
   try {
     const body = await request.json();
+
+    // Vérifier l'authentification (car cette route est dans COMMON_ALLOWED)
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+    }
+
     logger.debug("🔍 Body reçu:", body);
-    
-    const { 
-      userId, 
-      title, 
-      message, 
-      type, 
-      data 
+
+    const {
+      userId,
+      title,
+      message,
+      type,
+      data
     } = body;
-    
+
     logger.debug("🔍 Données extraites:", { userId, title, type });
 
     // Validation des champs obligatoires
@@ -46,7 +51,7 @@ export async function POST(request: NextRequest) {
     }
 
     logger.debug("🔍 Tentative de création avec Prisma...");
-    
+
     // Créer la notification
     const notification = await prisma.notification.create({
       data: {
@@ -69,13 +74,13 @@ export async function POST(request: NextRequest) {
     });
 
     logger.debug("✅ Notification créée:", notification);
-    
+
     return NextResponse.json(notification, { status: 201 });
-    
+
   } catch (error: any) {
     logger.error("❌ Erreur création notification:", error);
     logger.error("❌ Stack:", error.stack);
-    
+
     return NextResponse.json(
       { error: "Erreur lors de la création de la notification: " + error.message },
       { status: 500 }
@@ -99,7 +104,7 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId');
     const unreadOnly = searchParams.get('unreadOnly') === 'true';
     const limit = parseInt(searchParams.get('limit') || '50');
-    
+
     if (!userId) {
       return NextResponse.json(
         { error: "ID de l'utilisateur requis" },
@@ -120,7 +125,7 @@ export async function GET(request: NextRequest) {
     const where: any = {
       userId: userId
     };
-    
+
     if (unreadOnly) {
       where.read = false;
     }
@@ -174,7 +179,7 @@ export async function GET(request: NextRequest) {
     }, []);
 
     // Trier à nouveau par date de création (ordre décroissant)
-    deduplicatedNotifications.sort((a, b) => 
+    deduplicatedNotifications.sort((a, b) =>
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 

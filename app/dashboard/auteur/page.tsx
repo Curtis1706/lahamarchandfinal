@@ -157,8 +157,7 @@ export default function AuteurDashboardPage() {
         apiClient.getDisciplines()
       ]);
 
-      console.log("🔍 Données reçues:", { worksData, disciplinesData });
-
+      
       setWorks(Array.isArray(worksData.works) ? worksData.works : []);
       setDisciplines(Array.isArray(disciplinesData) ? disciplinesData : []);
     } catch (error) {

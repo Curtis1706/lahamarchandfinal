@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -90,65 +90,35 @@ export default function LivresListePage() {
 
   // Vérifier si les données sont chargées
   useEffect(() => {
-    console.log("🔍 Vérification des données:", {
-      disciplines: disciplines.length,
-      auteurs: auteurs.length,
-      concepteurs: concepteurs.length,
-      dataLoaded
-    });
     if (disciplines.length > 0 && auteurs.length > 0) {
-      console.log("✅ Toutes les données sont chargées!");
       setDataLoaded(true);
     } else {
-      console.log("⏳ En attente de données...");
     }
   }, [disciplines, auteurs, concepteurs]);
 
   const loadLivres = async () => {
     try {
       setIsLoading(true);
-      console.log("🔄 Chargement des livres depuis /api/works...");
-      
+
       // Diagnostic: vérifier d'abord si des works existent (optionnel, ne bloque pas si erreur)
       try {
         const debugResponse = await fetch('/api/works/debug');
         if (debugResponse.ok) {
           const debugData = await debugResponse.json();
-          console.log("🔍 DEBUG - Diagnostic:", {
-            totalWorksInDb: debugData.totalWorksInDb,
-            worksWithoutRelations: debugData.worksWithoutRelations?.length || 0,
-            worksWithRelationsCount: debugData.worksWithRelationsCount || 0,
-            sessionRole: debugData.session?.role
-          });
           if (debugData.worksWithoutRelations && debugData.worksWithoutRelations.length > 0) {
-            console.log("🔍 DEBUG - Exemples de works:", debugData.worksWithoutRelations.slice(0, 3));
           }
         } else {
           const errorText = await debugResponse.text();
-          console.warn("⚠️ Debug endpoint erreur:", debugResponse.status, errorText);
         }
       } catch (debugError) {
         // Ne pas bloquer si le debug échoue
-        console.warn("⚠️ Erreur lors du diagnostic (non bloquant):", debugError);
       }
-      
+
       // Pour le PDG, récupérer tous les works sans limite de pagination
       const response = await fetch('/api/works?limit=1000&page=1');
-      console.log("🔍 Response status:", response.status);
       if (response.ok) {
         const data = await response.json();
-        console.log("✅ Data reçue:", data);
-        console.log("🔍 Structure de la réponse:", {
-          hasWorks: !!data.works,
-          worksType: Array.isArray(data.works) ? 'array' : typeof data.works,
-          worksLength: data.works?.length,
-          hasPagination: !!data.pagination,
-          hasStats: !!data.stats,
-          paginationTotal: data.pagination?.total,
-          paginationPage: data.pagination?.page,
-          paginationLimit: data.pagination?.limit
-        });
-        
+
         // Log détaillé pour debug
         if (data.pagination?.total > 0 && data.works?.length === 0) {
           console.error("❌ INCOHÉRENCE: total > 0 mais works.length = 0");
@@ -157,13 +127,12 @@ export default function LivresListePage() {
         }
         // L'API retourne un objet avec works, pagination, stats
         const worksArray = data.works || [];
-        console.log(`✅ ${worksArray.length} works trouvés dans la réponse`);
         // Transformer les données des œuvres en format livre
         const livresData = worksArray.map((work: any) => {
           // Extraire l'image de couverture et la collection depuis le champ files
           let coverImage = "/placeholder.jpg";
           let collectionName = "-";
-          
+
           if (work.files) {
             try {
               const filesData = typeof work.files === 'string' ? JSON.parse(work.files) : work.files;
@@ -181,7 +150,7 @@ export default function LivresListePage() {
               console.error("Erreur lors du parsing des fichiers:", e);
             }
           }
-          
+
           return {
             id: work.id,
             image: coverImage,
@@ -202,7 +171,6 @@ export default function LivresListePage() {
             status: work.status
           };
         });
-        console.log(`✅ ${livresData.length} livres formatés et ajoutés à l'état`);
         setLivres(livresData);
       } else {
         const errorText = await response.text();
@@ -238,10 +206,8 @@ export default function LivresListePage() {
       const response = await fetch('/api/disciplines');
       if (response.ok) {
         const data = await response.json();
-        console.log("Disciplines chargées:", data);
         // L'API peut retourner un tableau directement ou un objet avec disciplines
         const disciplinesArray = Array.isArray(data) ? data : (data.disciplines || data || []);
-        console.log("Disciplines array:", disciplinesArray);
         setDisciplines(disciplinesArray);
       } else {
         const errorData = await response.json().catch(() => ({}));
@@ -267,10 +233,8 @@ export default function LivresListePage() {
       const response = await fetch('/api/users/list?role=AUTEUR');
       if (response.ok) {
         const data = await response.json();
-        console.log("Auteurs chargés:", data);
         // L'API retourne un objet avec users et total
         const auteursArray = data.users || data || [];
-        console.log("Auteurs array:", auteursArray);
         setAuteurs(auteursArray);
       } else {
         const errorData = await response.json().catch(() => ({}));
@@ -296,10 +260,8 @@ export default function LivresListePage() {
       const response = await fetch('/api/users/list?role=CONCEPTEUR');
       if (response.ok) {
         const data = await response.json();
-        console.log("Concepteurs chargés:", data);
         // L'API retourne un objet avec users et total
         const concepteursArray = data.users || data || [];
-        console.log("Concepteurs array:", concepteursArray);
         setConcepteurs(concepteursArray);
       } else {
         const errorData = await response.json().catch(() => ({}));
@@ -325,7 +287,6 @@ export default function LivresListePage() {
       const response = await fetch('/api/pdg/collections');
       if (response.ok) {
         const data = await response.json();
-        console.log("Collections chargées:", data);
         setCollections(data);
       }
     } catch (error) {
@@ -338,7 +299,6 @@ export default function LivresListePage() {
       const response = await fetch('/api/pdg/categories');
       if (response.ok) {
         const data = await response.json();
-        console.log("Catégories chargées:", data);
         // Filtrer uniquement les catégories actives
         const activeCategories = Array.isArray(data) ? data.filter((cat: any) => cat.statut === 'Disponible' || cat.isActive) : [];
         setCategories(activeCategories);
@@ -365,7 +325,7 @@ export default function LivresListePage() {
         });
         return;
       }
-      
+
       // Vérifier la taille (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         toast({
@@ -377,7 +337,7 @@ export default function LivresListePage() {
       }
 
       setCoverImage(file);
-      
+
       // Créer une preview
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -434,26 +394,25 @@ export default function LivresListePage() {
 
     try {
       setIsSaving(true);
-      
+
       // 1. Upload de l'image de couverture si présente
       let coverImageUrl = null;
       if (coverImage) {
         const formData = new FormData();
         formData.append('files', coverImage);
         formData.append('type', 'work');
-        
+
         const uploadResponse = await fetch('/api/upload', {
           method: 'POST',
           body: formData
         });
-        
+
         if (uploadResponse.ok) {
           const uploadData = await uploadResponse.json();
           if (uploadData.files && uploadData.files.length > 0) {
             coverImageUrl = uploadData.files[0].path;
           }
         } else {
-          console.warn("Erreur lors de l'upload de l'image, continuation sans image");
         }
       }
 
@@ -467,32 +426,31 @@ export default function LivresListePage() {
         const classes = newLivre.classes || "tous niveaux";
         description = `Livre de ${disciplineName} pour ${classes}`;
       }
-      
+
       // S'assurer que la description n'est pas vide
       if (!description || description.trim().length === 0) {
         description = `Livre "${newLivre.titre}" - ${selectedDiscipline?.name || "Discipline non spécifiée"}`;
       }
-      
+
       const workData = {
-          title: newLivre.titre,
-          description: description,
-          disciplineId: selectedDiscipline.id,
-          authorId: selectedAuthor.id,
+        title: newLivre.titre,
+        description: description,
+        disciplineId: selectedDiscipline.id,
+        authorId: selectedAuthor.id,
         concepteurId: newLivre.concepteurId || null,
-          category: newLivre.categorie,
-          targetAudience: newLivre.classes,
-          contentType: 'MANUAL',
+        category: newLivre.categorie,
+        targetAudience: newLivre.classes,
+        contentType: 'MANUAL',
         price: parseFloat(newLivre.prix),
         tva: parseFloat(newLivre.tva) / 100, // Convertir le pourcentage en décimal
         estimatedPrice: parseFloat(newLivre.prix),
         status: 'DRAFT', // Le PDG crée en DRAFT, puis peut publier
-          isbn: newLivre.isbn,
-          collectionId: newLivre.collectionId || null,
-          coverImage: coverImageUrl
+        isbn: newLivre.isbn,
+        collectionId: newLivre.collectionId || null,
+        coverImage: coverImageUrl
       };
-      
-      console.log("📤 Envoi des données de création:", workData);
-      
+
+
       const response = await fetch('/api/works', {
         method: 'POST',
         headers: {
@@ -501,11 +459,9 @@ export default function LivresListePage() {
         body: JSON.stringify(workData),
       });
 
-      console.log("📥 Réponse création livre:", response.status, response.statusText);
 
       if (response.ok) {
         const responseData = await response.json();
-        console.log("✅ Livre créé avec succès:", responseData);
         toast({
           title: "Succès",
           description: "Livre créé avec succès"
@@ -529,8 +485,7 @@ export default function LivresListePage() {
         setShowCreateModal(false);
         // Recharger les livres après un court délai pour s'assurer que la base est à jour
         setTimeout(() => {
-          console.log("🔄 Rechargement des livres après création...");
-        loadLivres();
+          loadLivres();
         }, 1000);
       } else {
         const errorText = await response.text();
@@ -570,21 +525,26 @@ export default function LivresListePage() {
       const data = await response.json();
       const worksArray = data.works || [];
       const work = worksArray.find((w: any) => w.id === livre.id);
-      
+
       if (work) {
         setEditingLivre(livre);
-        
-        // Extraire collectionId depuis files si présent
+
+        // Extraire collectionId et coverImage depuis files si présent
         let collectionId = "";
         if (work.files) {
           try {
             const filesData = typeof work.files === 'string' ? JSON.parse(work.files) : work.files;
             collectionId = filesData.collectionId || "";
+            // Charger l'image de couverture existante
+            if (filesData.coverImage) {
+              setCoverImagePreview(filesData.coverImage);
+            }
           } catch (e) {
             console.error("Erreur parsing files:", e);
           }
         }
-        
+
+
         setNewLivre({
           titre: work.title || livre.libelle,
           categorie: work.category || "",
@@ -640,26 +600,56 @@ export default function LivresListePage() {
 
     try {
       setIsSaving(true);
-      
-      const response = await fetch(`/api/works?id=${editingLivre.id}`, {
+
+      // 1. Upload de l'image de couverture si une nouvelle image a été sélectionnée
+      let coverImageUrl = null;
+      if (coverImage) {
+        const formData = new FormData();
+        formData.append('files', coverImage);
+        formData.append('type', 'work');
+
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (uploadResponse.ok) {
+          const uploadData = await uploadResponse.json();
+          if (uploadData.files && uploadData.files.length > 0) {
+            coverImageUrl = uploadData.files[0].path;
+          }
+        }
+      }
+
+      // 2. Préparer les données de mise à jour
+      const updateData: any = {
+        workId: editingLivre.id,
+        title: newLivre.titre,
+        description: newLivre.courteDescription || "",
+        disciplineId: newLivre.disciplineId,
+        authorId: newLivre.auteurId,
+        concepteurId: newLivre.concepteurId || null,
+        category: newLivre.categorie,
+        targetAudience: newLivre.classes,
+        price: parseFloat(newLivre.prix),
+        tva: parseFloat(newLivre.tva) / 100,
+        isbn: newLivre.isbn,
+        collectionId: newLivre.collectionId || null
+      };
+
+      // 3. Ajouter l'image de couverture si elle a été uploadée
+      if (coverImageUrl) {
+        updateData.files = JSON.stringify({ coverImage: coverImageUrl });
+      }
+
+      const response = await fetch('/api/works', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          title: newLivre.titre,
-          description: newLivre.courteDescription || "",
-          disciplineId: newLivre.disciplineId,
-          authorId: newLivre.auteurId,
-          concepteurId: newLivre.concepteurId || null,
-          category: newLivre.categorie,
-          targetAudience: newLivre.classes,
-          price: parseFloat(newLivre.prix),
-          tva: parseFloat(newLivre.tva) / 100,
-          isbn: newLivre.isbn,
-          collectionId: newLivre.collectionId || null
-        }),
+        body: JSON.stringify(updateData),
       });
+
 
       if (response.ok) {
         toast({
@@ -899,12 +889,12 @@ export default function LivresListePage() {
                               livre.statut === "Disponible" || livre.statut === "Validée"
                                 ? "bg-green-100 text-green-800"
                                 : livre.statut === "En attente"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : livre.statut === "Brouillon"
-                                ? "bg-gray-100 text-gray-800"
-                                : livre.statut === "Suspendue" || livre.statut === "Refusé"
-                                ? "bg-red-100 text-red-800"
-                                : "bg-gray-100 text-gray-800"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : livre.statut === "Brouillon"
+                                    ? "bg-gray-100 text-gray-800"
+                                    : livre.statut === "Suspendue" || livre.statut === "Refusé"
+                                      ? "bg-red-100 text-red-800"
+                                      : "bg-gray-100 text-gray-800"
                             }
                           >
                             {livre.statut}
@@ -921,7 +911,7 @@ export default function LivresListePage() {
                         </td>
                         <td className="py-3 px-2">
                           <div className="flex items-center gap-2">
-                            <button 
+                            <button
                               className="p-1 hover:bg-gray-100 rounded"
                               onClick={() => handleEdit(livre)}
                               title="Modifier"
@@ -929,7 +919,7 @@ export default function LivresListePage() {
                               <Edit className="w-4 h-4 text-orange-500" />
                             </button>
                             {livre.status === 'DRAFT' && (
-                              <button 
+                              <button
                                 className="p-1 hover:bg-gray-100 rounded"
                                 onClick={() => livre.authorId && handlePublish(livre.id, livre.authorId)}
                                 disabled={isPublishing === livre.id || !livre.authorId}
@@ -944,7 +934,7 @@ export default function LivresListePage() {
                             )}
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <button 
+                                <button
                                   className="p-1 hover:bg-gray-100 rounded"
                                   disabled={isDeleting === livre.id}
                                   title="Supprimer"
@@ -952,21 +942,21 @@ export default function LivresListePage() {
                                   {isDeleting === livre.id ? (
                                     <Loader2 className="w-4 h-4 text-red-500 animate-spin" />
                                   ) : (
-                              <Trash2 className="w-4 h-4 text-red-500" />
+                                    <Trash2 className="w-4 h-4 text-red-500" />
                                   )}
-                            </button>
+                                </button>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    Êtes-vous sûr de vouloir supprimer le livre "{livre.libelle}" ? 
+                                    Êtes-vous sûr de vouloir supprimer le livre "{livre.libelle}" ?
                                     Cette action est irréversible.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>Annuler</AlertDialogCancel>
-                                  <AlertDialogAction 
+                                  <AlertDialogAction
                                     onClick={() => handleDelete(livre.id)}
                                     className="bg-red-600 hover:bg-red-700"
                                   >
@@ -1084,7 +1074,7 @@ export default function LivresListePage() {
           setCoverImagePreview(null);
         }
       }}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" style={{ zIndex: 9999 }}>
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold">
               {showEditModal ? "Modifier un livre" : "Ajouter un livre"}
@@ -1094,22 +1084,22 @@ export default function LivresListePage() {
           <div className="space-y-4 mt-2">
             {/* Section Informations générales */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label className="block text-sm font-medium mb-1">
+              <div>
+                <Label className="block text-sm font-medium mb-1">
                   Titre * :
-              </Label>
-              <Input 
-                placeholder="Titre du livre" 
-                value={newLivre.titre}
-                onChange={(e) => setNewLivre({ ...newLivre, titre: e.target.value })}
-              />
-            </div>
+                </Label>
+                <Input
+                  placeholder="Titre du livre"
+                  value={newLivre.titre}
+                  onChange={(e) => setNewLivre({ ...newLivre, titre: e.target.value })}
+                />
+              </div>
               <div>
                 <Label className="block text-sm font-medium mb-1">
                   Code ISBN * :
                 </Label>
-                <Input 
-                  placeholder="ISBN du livre" 
+                <Input
+                  placeholder="ISBN du livre"
                   value={newLivre.isbn}
                   onChange={(e) => setNewLivre({ ...newLivre, isbn: e.target.value })}
                 />
@@ -1122,8 +1112,8 @@ export default function LivresListePage() {
                 <Label className="block text-sm font-medium mb-1">
                   Discipline * :
                 </Label>
-                <Select 
-                  value={newLivre.disciplineId} 
+                <Select
+                  value={newLivre.disciplineId}
                   onValueChange={(value) => setNewLivre({ ...newLivre, disciplineId: value })}
                 >
                   <SelectTrigger>
@@ -1138,27 +1128,27 @@ export default function LivresListePage() {
                   </SelectContent>
                 </Select>
               </div>
-            <div>
-              <Label className="block text-sm font-medium mb-1">
-                Catégorie :
-              </Label>
-              <Select value={newLivre.categorie} onValueChange={(value) => setNewLivre({ ...newLivre, categorie: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner une catégorie" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.length > 0 ? (
-                    categories.map((category) => (
-                      <SelectItem key={category.id} value={category.nom || category.name}>
-                        {category.nom || category.name}
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="" disabled>Aucune catégorie disponible</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
+              <div>
+                <Label className="block text-sm font-medium mb-1">
+                  Catégorie :
+                </Label>
+                <Select value={newLivre.categorie} onValueChange={(value) => setNewLivre({ ...newLivre, categorie: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner une catégorie" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.length > 0 ? (
+                      categories.map((category) => (
+                        <SelectItem key={category.id} value={category.nom || category.name}>
+                          {category.nom || category.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="" disabled>Aucune catégorie disponible</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* Section Auteur et Concepteur */}
@@ -1167,8 +1157,8 @@ export default function LivresListePage() {
                 <Label className="block text-sm font-medium mb-1">
                   Auteur * :
                 </Label>
-                <Select 
-                  value={newLivre.auteurId} 
+                <Select
+                  value={newLivre.auteurId}
                   onValueChange={(value) => setNewLivre({ ...newLivre, auteurId: value })}
                 >
                   <SelectTrigger>
@@ -1187,8 +1177,8 @@ export default function LivresListePage() {
                 <Label className="block text-sm font-medium mb-1">
                   Concepteur (optionnel) :
                 </Label>
-                <Select 
-                  value={newLivre.concepteurId || "none"} 
+                <Select
+                  value={newLivre.concepteurId || "none"}
                   onValueChange={(value) => setNewLivre({ ...newLivre, concepteurId: value === "none" ? "" : value })}
                 >
                   <SelectTrigger>
@@ -1212,9 +1202,9 @@ export default function LivresListePage() {
                 <Label className="block text-sm font-medium mb-1">
                   Prix public (F CFA) * :
                 </Label>
-                <Input 
+                <Input
                   type="number"
-                  placeholder="0" 
+                  placeholder="0"
                   value={newLivre.prix}
                   onChange={(e) => setNewLivre({ ...newLivre, prix: e.target.value })}
                   min="0"
@@ -1225,9 +1215,9 @@ export default function LivresListePage() {
                 <Label className="block text-sm font-medium mb-1">
                   TVA (%) * :
                 </Label>
-                <Input 
+                <Input
                   type="number"
-                  placeholder="18" 
+                  placeholder="18"
                   value={newLivre.tva}
                   onChange={(e) => setNewLivre({ ...newLivre, tva: e.target.value })}
                   min="0"
@@ -1239,33 +1229,33 @@ export default function LivresListePage() {
 
             {/* Section Collection et Classes */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label className="block text-sm font-medium mb-1">
-                Collection (optionnel) :
-              </Label>
-              <Select 
-                value={newLivre.collectionId || "none"} 
-                onValueChange={(value) => setNewLivre({ ...newLivre, collectionId: value === "none" ? "" : value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner une collection" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Aucune collection</SelectItem>
-                  {collections.map((collection) => (
-                    <SelectItem key={collection.id} value={collection.id}>
-                      {collection.nom}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              <div>
+                <Label className="block text-sm font-medium mb-1">
+                  Collection (optionnel) :
+                </Label>
+                <Select
+                  value={newLivre.collectionId || "none"}
+                  onValueChange={(value) => setNewLivre({ ...newLivre, collectionId: value === "none" ? "" : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner une collection" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Aucune collection</SelectItem>
+                    {collections.map((collection) => (
+                      <SelectItem key={collection.id} value={collection.id}>
+                        {collection.nom}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div>
                 <Label className="block text-sm font-medium mb-1">
                   Classes cibles :
                 </Label>
-                <Input 
-                  placeholder="Ex: 6ème, 5ème" 
+                <Input
+                  placeholder="Ex: 6ème, 5ème"
                   value={newLivre.classes}
                   onChange={(e) => setNewLivre({ ...newLivre, classes: e.target.value })}
                 />
@@ -1279,9 +1269,9 @@ export default function LivresListePage() {
               </Label>
               {coverImagePreview ? (
                 <div className="relative">
-                  <img 
-                    src={coverImagePreview} 
-                    alt="Aperçu" 
+                  <img
+                    src={coverImagePreview}
+                    alt="Aperçu"
                     className="w-full h-48 object-cover rounded border"
                   />
                   <button
@@ -1315,8 +1305,8 @@ export default function LivresListePage() {
               <Label className="block text-sm font-medium mb-1">
                 Courte description (optionnel) :
               </Label>
-              <Textarea 
-                placeholder="Description courte du livre" 
+              <Textarea
+                placeholder="Description courte du livre"
                 value={newLivre.courteDescription}
                 onChange={(e) => setNewLivre({ ...newLivre, courteDescription: e.target.value })}
                 rows={3}
@@ -1327,11 +1317,15 @@ export default function LivresListePage() {
           <div className="flex justify-end gap-2 mt-6">
             <Button
               variant="outline"
-              onClick={() => setShowCreateModal(false)}
+              onClick={() => {
+                setShowCreateModal(false);
+                setShowEditModal(false);
+                setEditingLivre(null);
+              }}
             >
               Annuler
             </Button>
-            <Button 
+            <Button
               className="bg-indigo-600 hover:bg-indigo-700"
               onClick={showEditModal ? handleUpdate : handleCreateLivre}
               disabled={isSaving || !newLivre.titre.trim() || !newLivre.isbn.trim() || !newLivre.disciplineId || !newLivre.auteurId || !newLivre.prix || !dataLoaded}

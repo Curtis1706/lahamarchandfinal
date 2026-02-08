@@ -38,8 +38,7 @@ export const useNotifications = (): UseNotificationsResult => {
     try {
       // Charger les notifications depuis l'API
       const response = await apiClient.getNotifications(user.id)
-      console.log("🔍 Réponse notifications hook:", response);
-      
+            
       // L'API retourne { notifications: [...], unreadCount: number }
       const apiNotifications = response.notifications || response || [];
       

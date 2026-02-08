@@ -1,4 +1,46 @@
 // Client API pour les appels frontend
+import type {
+  User,
+  UsersResponse,
+  CreateUserRequest,
+  UpdateUserRequest,
+  Order,
+  OrdersResponse,
+  CreateOrderRequest,
+  UpdateOrderRequest,
+  Work,
+  WorksResponse,
+  Project,
+  ProjectsResponse,
+  CreateProjectRequest,
+  UpdateProjectRequest,
+  StockMovement,
+  StockMovementsResponse,
+  StockAlertsResponse,
+  StockStats,
+  CreateStockMovementRequest,
+  Notification,
+  NotificationsResponse,
+  Message,
+  MessagesResponse,
+  Discipline,
+  DisciplinesResponse,
+  Partner,
+  PartnersResponse,
+  WithdrawalInput,
+  SettingsInput,
+  NotificationConditions,
+  NotificationActions,
+  NotificationTemplateParameters,
+  IntegrationConfig,
+  WorkUpdateInput,
+  StockMovementInput,
+  StockCorrectionInput,
+  InventoryAdjustmentInput,
+  PartnerStockAllocationInput,
+  StockOperationInput
+} from './types/api'
+
 export class ApiClient {
   private baseUrl: string
 
@@ -41,165 +83,146 @@ export class ApiClient {
   }
 
   // Users API
-  async getUsers() {
-    const response = await this.request('/users') as any
-    return response.users || response || []
+  async getUsers(): Promise<User[]> {
+    const response = await this.request<UsersResponse>('/users')
+    return response.users || []
   }
 
-  async getUserProfile() {
-    return this.request('/users/profile')
+  async getUserProfile(): Promise<User> {
+    return this.request<User>('/users/profile')
   }
 
-  async createUser(data: {
-    name: string,
-    email: string,
-    phone?: string,
-    role: string,
-    disciplineId?: string,
-    password?: string
-  }) {
-    return this.request('/users', {
+  async createUser(data: CreateUserRequest): Promise<User> {
+    return this.request<User>('/users', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   }
 
   // Inscription publique (pour les utilisateurs)
-  async signup(data: {
-    name: string,
-    email: string,
-    phone: string,
-    role: string,
-    disciplineId?: string,
-    password: string
-  }) {
-    return this.request('/auth/signup', {
+  async signup(data: CreateUserRequest): Promise<User> {
+    return this.request<User>('/auth/signup', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   }
 
-  async updateUser(userId: string, data: any) {
-    return this.request('/users', {
+  async updateUser(userId: string, data: Partial<User>): Promise<User> {
+    return this.request<User>('/users', {
       method: 'PUT',
       body: JSON.stringify({ id: userId, ...data }),
     })
   }
 
-  async deleteUser(userId: string) {
-    return this.request(`/users?id=${userId}`, {
+  async deleteUser(userId: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/users?id=${userId}`, {
       method: 'DELETE',
     })
   }
 
-  async getPendingUsers(status?: string) {
-    const response = await this.request(`/users/validate${status ? `?status=${status}` : ''}`) as any
-    return response.users || response || []
+  async getPendingUsers(status?: string): Promise<User[]> {
+    const response = await this.request<UsersResponse>(`/users/validate${status ? `?status=${status}` : ''}`)
+    return response.users || []
   }
 
-  async getUsersList(role?: string, search?: string) {
+  async getUsersList(role?: string, search?: string): Promise<User[]> {
     const params = new URLSearchParams()
     if (role) params.append('role', role)
     if (search) params.append('search', search)
 
-    return this.request(`/users/list?${params.toString()}`)
+    return this.request<User[]>(`/users/list?${params.toString()}`)
   }
 
-  async validateUser(userId: string, status: 'APPROVED' | 'REJECTED') {
-    return this.request('/users/validate', {
+  async validateUser(userId: string, status: 'APPROVED' | 'REJECTED'): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/users/validate', {
       method: 'PUT',
       body: JSON.stringify({ userId, status }),
     })
   }
 
   // Orders API
-  async getOrders(params?: { status?: string, startDate?: string, endDate?: string }) {
+  async getOrders(params?: { status?: string, startDate?: string, endDate?: string }): Promise<Order[]> {
     const queryParams = new URLSearchParams()
     if (params?.status) queryParams.append('status', params.status)
     if (params?.startDate) queryParams.append('startDate', params.startDate)
     if (params?.endDate) queryParams.append('endDate', params.endDate)
 
     const queryString = queryParams.toString()
-    return this.request(`/orders${queryString ? `?${queryString}` : ''}`)
+    return this.request<Order[]>(`/orders${queryString ? `?${queryString}` : ''}`)
   }
 
-  async createOrder(data: {
-    userId: string,
-    items: Array<{ workId: string, quantity: number, price: number }>,
-    promoCode?: string | null,
-    discountAmount?: number
-  }) {
-    return this.request('/orders', {
+  async createOrder(data: CreateOrderRequest): Promise<Order> {
+    return this.request<Order>('/orders', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   }
 
-  async updateOrder(orderId: string, data: { status: string }) {
-    return this.request('/orders', {
+  async updateOrder(orderId: string, data: UpdateOrderRequest): Promise<Order> {
+    return this.request<Order>('/orders', {
       method: 'PUT',
       body: JSON.stringify({ id: orderId, status: data.status }),
     })
   }
 
-  async deleteOrder(orderId: string) {
-    return this.request(`/orders?id=${orderId}`, {
+  async deleteOrder(orderId: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/orders?id=${orderId}`, {
       method: 'DELETE',
     })
   }
 
   // Stock API
-  async getWorksWithStock() {
-    return this.request('/stock?type=works')
+  async getWorksWithStock(): Promise<Work[]> {
+    return this.request<Work[]>('/stock?type=works')
   }
 
-  async getStockMovements(params?: { startDate?: string, endDate?: string, type?: string }) {
+  async getStockMovements(params?: { startDate?: string, endDate?: string, type?: string }): Promise<StockMovement[]> {
     const queryParams = new URLSearchParams({ type: 'movements' })
     if (params?.startDate) queryParams.append('startDate', params.startDate)
     if (params?.endDate) queryParams.append('endDate', params.endDate)
     if (params?.type) queryParams.append('movementType', params.type)
 
-    return this.request(`/stock?${queryParams}`)
+    return this.request<StockMovement[]>(`/stock?${queryParams}`)
   }
 
-  async getStockAlerts() {
-    return this.request('/stock?type=alerts')
+  async getStockAlerts(): Promise<StockAlertsResponse> {
+    return this.request<StockAlertsResponse>('/stock?type=alerts')
   }
 
-  async getStockStats() {
-    return this.request('/stock?type=stats')
+  async getStockStats(): Promise<StockStats> {
+    return this.request<StockStats>('/stock?type=stats')
   }
 
-  async getPendingStockOperations() {
-    return this.request('/stock?type=pending')
+  async getPendingStockOperations(): Promise<StockMovement[]> {
+    return this.request<StockMovement[]>('/stock?type=pending')
   }
 
-  async createStockMovement(data: { workId: string, type: string, quantity: number, reason?: string, reference?: string, performedBy?: string }) {
-    return this.request('/stock', {
+  async createStockMovement(data: CreateStockMovementRequest): Promise<StockMovement> {
+    return this.request<StockMovement>('/stock', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   }
 
-  async validateStockOperation(operationId: string, validated: boolean) {
-    return this.request('/stock', {
+  async validateStockOperation(operationId: string, validated: boolean): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/stock', {
       method: 'PUT',
       body: JSON.stringify({ id: operationId, validated }),
     })
   }
 
-  async exportStockReport(params?: { startDate?: string, endDate?: string, format?: string }) {
+  async exportStockReport(params?: { startDate?: string, endDate?: string, format?: string }): Promise<Blob> {
     const queryParams = new URLSearchParams()
     if (params?.startDate) queryParams.append('startDate', params.startDate)
     if (params?.endDate) queryParams.append('endDate', params.endDate)
     if (params?.format) queryParams.append('format', params.format)
 
     const queryString = queryParams.toString()
-    return this.request(`/stock/export${queryString ? `?${queryString}` : ''}`)
+    return this.request<Blob>(`/stock/export${queryString ? `?${queryString}` : ''}`)
   }
 
   // Works API
-  async getWorks(params?: { status?: string, disciplineId?: string, search?: string, page?: number, limit?: number }) {
+  async getWorks(params?: { status?: string, disciplineId?: string, search?: string, page?: number, limit?: number }): Promise<Work[]> {
     const queryParams = new URLSearchParams()
     if (params?.status) queryParams.append('status', params.status)
     if (params?.disciplineId) queryParams.append('disciplineId', params.disciplineId)
@@ -208,117 +231,111 @@ export class ApiClient {
     if (params?.limit) queryParams.append('limit', params.limit.toString())
 
     const queryString = queryParams.toString()
-    const response = await this.request(`/works${queryString ? `?${queryString}` : ''}`) as any
+    const response = await this.request<WorksResponse>(`/works${queryString ? `?${queryString}` : ''}`)
 
     // L'API retourne { works, pagination, stats }, on extrait juste works
-    return response.works || response || []
+    return response.works || []
   }
 
-  async updateWorkStatus(workId: string, status: string, reason?: string) {
-    return this.request('/works', {
+  async updateWorkStatus(workId: string, status: string, reason?: string): Promise<Work> {
+    return this.request<Work>('/works', {
       method: 'PUT',
       body: JSON.stringify({ id: workId, status, reason }),
     })
   }
 
-  async deleteWork(workId: string) {
-    return this.request(`/works?id=${workId}`, {
+  async deleteWork(workId: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/works?id=${workId}`, {
       method: 'DELETE',
     })
   }
 
   // Projects API
-  async getProjects(concepteurId?: string) {
+  async getProjects(concepteurId?: string): Promise<Project[]> {
     const url = concepteurId ? `/projects?concepteurId=${concepteurId}` : '/projects';
-    return this.request(url)
+    return this.request<Project[]>(url)
   }
 
-  async getValidatedProjects() {
-    return this.request('/projects?status=ACCEPTED')
+  async getValidatedProjects(): Promise<Project[]> {
+    return this.request<Project[]>('/projects?status=ACCEPTED')
   }
 
-  async createProject(data: {
-    title: string,
-    disciplineId: string,
-    concepteurId: string,
-    description?: string,
-    status?: string
-  }) {
-    return this.request('/projects', {
+  async createProject(data: CreateProjectRequest): Promise<Project> {
+    return this.request<Project>('/projects', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   }
 
   // API spécifique pour les Concepteurs
-  async getConcepteurProjects(concepteurId: string, status?: string) {
+  async getConcepteurProjects(concepteurId: string, status?: string): Promise<Project[]> {
     const url = status ? `/concepteurs/projects?concepteurId=${concepteurId}&status=${status}` : `/concepteurs/projects?concepteurId=${concepteurId}`
-    return this.request(url)
+    return this.request<Project[]>(url)
   }
 
-  async createConcepteurProject(data: any) {
-    return this.request('/concepteurs/projects', {
+  async createConcepteurProject(data: CreateProjectRequest): Promise<Project> {
+    return this.request<Project>('/concepteurs/projects', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   }
 
-  async submitConcepteurProject(projectId: string) {
-    return this.request('/projects', {
+  async submitConcepteurProject(projectId: string): Promise<Project> {
+    return this.request<Project>('/projects', {
       method: 'PUT',
       body: JSON.stringify({ id: projectId, status: 'SUBMITTED' }),
     })
   }
 
-  async archiveConcepteurProject(projectId: string) {
-    return this.request('/concepteurs/projects', {
+  async archiveConcepteurProject(projectId: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/concepteurs/projects', {
       method: 'PUT',
       body: JSON.stringify({ projectId, status: 'ARCHIVED' }),
     })
   }
 
-  async updateConcepteurProject(projectId: string, data: any) {
-    return this.request('/projects', {
+  async updateConcepteurProject(projectId: string, data: Partial<UpdateProjectRequest>): Promise<Project> {
+    return this.request<Project>('/projects', {
       method: 'PUT',
       body: JSON.stringify({ id: projectId, ...data }),
     })
   }
 
-  async updateProject(projectId: string, data: any) {
-    return this.request('/projects', {
+  async updateProject(projectId: string, data: Partial<UpdateProjectRequest>): Promise<Project> {
+    return this.request<Project>('/projects', {
       method: 'PUT',
       body: JSON.stringify({ id: projectId, ...data }),
     })
   }
 
-  async deleteProject(projectId: string) {
-    return this.request(`/projects/${projectId}`, {
+  async deleteProject(projectId: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/projects/${projectId}`, {
       method: 'DELETE',
     })
   }
 
-  async createWork(data: any) {
-    return this.request('/works', {
+  async createWork(data: Partial<Work>): Promise<Work> {
+    return this.request<Work>('/works', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   }
 
-  async updateWork(workId: string, data: any) {
-    return this.request('/works', {
+  async updateWork(workId: string, data: Partial<Work>): Promise<Work> {
+    return this.request<Work>('/works', {
       method: 'PUT',
       body: JSON.stringify({ workId, ...data }),
     })
   }
 
-  // API spécifique pour les Auteurs
-  async getAuthorWorks(authorId: string, status?: string) {
+  //API spécifique pour les Auteurs
+  async getAuthorWorks(authorId: string, status?: string): Promise<Work[]> {
     const url = status ? `/authors/works?authorId=${authorId}&status=${status}` : `/authors/works?authorId=${authorId}`
-    return this.request(url)
+    return this.request<Work[]>(url)
   }
 
-  async createAuthorWork(data: any) {
-    return this.request('/authors/works', {
+  async createAuthorWork(data: Partial<Work>): Promise<Work> {
+    return this.request<Work>('/authors/works', {
       method: 'POST',
       body: JSON.stringify(data),
     })
@@ -336,7 +353,7 @@ export class ApiClient {
     return this.request('/auteur/withdrawals')
   }
 
-  async createWithdrawal(data: any) {
+  async createWithdrawal(data: WithdrawalInput) {
     return this.request('/auteur/withdrawals', {
       method: 'POST',
       body: JSON.stringify(data)
@@ -344,59 +361,59 @@ export class ApiClient {
   }
 
   // Notifications API
-  async createNotification(data: any) {
-    return this.request('/notifications', {
+  async createNotification(data: Partial<Notification>): Promise<Notification> {
+    return this.request<Notification>('/notifications', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   }
 
-  async getNotifications(userId: string, unreadOnly?: boolean) {
+  async getNotifications(userId: string, unreadOnly?: boolean): Promise<NotificationsResponse> {
     const url = unreadOnly
       ? `/notifications?userId=${userId}&unreadOnly=true`
       : `/notifications?userId=${userId}`
-    return this.request(url)
+    return this.request<NotificationsResponse>(url)
   }
 
-  async updateNotification(notificationId: string, data: any) {
-    return this.request('/notifications', {
+  async updateNotification(notificationId: string, data: Partial<Notification>): Promise<Notification> {
+    return this.request<Notification>('/notifications', {
       method: 'PUT',
       body: JSON.stringify({ notificationId, ...data }),
     })
   }
 
-  async deleteNotification(notificationId: string) {
-    return this.request(`/notifications?id=${notificationId}`, {
+  async deleteNotification(notificationId: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/notifications?id=${notificationId}`, {
       method: 'DELETE',
     })
   }
 
   // Project API - Individual project
-  async getProject(projectId: string) {
-    return this.request(`/projects/${projectId}`)
+  async getProject(projectId: string): Promise<Project> {
+    return this.request<Project>(`/projects/${projectId}`)
   }
 
   // Messages API
-  async getMessages(userId: string) {
-    return this.request(`/messages?userId=${userId}`)
+  async getMessages(userId: string): Promise<Message[]> {
+    return this.request<Message[]>(`/messages?userId=${userId}`)
   }
 
-  async sendMessage(data: any) {
-    return this.request('/messages', {
+  async sendMessage(data: { senderId: string; receiverId: string; content: string }): Promise<Message> {
+    return this.request<Message>('/messages', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   }
 
-  async markMessageAsRead(messageId: string) {
-    return this.request('/messages', {
+  async markMessageAsRead(messageId: string): Promise<Message> {
+    return this.request<Message>('/messages', {
       method: 'PUT',
       body: JSON.stringify({ messageId, read: true }),
     })
   }
 
-  async deleteMessage(messageId: string) {
-    return this.request(`/messages?id=${messageId}`, {
+  async deleteMessage(messageId: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/messages?id=${messageId}`, {
       method: 'DELETE',
     })
   }
@@ -437,34 +454,34 @@ export class ApiClient {
   }
 
   // Disciplines API
-  async getDisciplines(params?: { search?: string; includeInactive?: boolean }) {
+  async getDisciplines(params?: { search?: string; includeInactive?: boolean }): Promise<Discipline[]> {
     const queryParams = new URLSearchParams()
     if (params?.search) queryParams.append('search', params.search)
     if (params?.includeInactive) queryParams.append('includeInactive', 'true')
 
     const queryString = queryParams.toString()
-    return this.request(`/disciplines${queryString ? `?${queryString}` : ''}`)
+    return this.request<Discipline[]>(`/disciplines${queryString ? `?${queryString}` : ''}`)
   }
 
-  async createDiscipline(data: any) {
-    return this.request('/disciplines', {
+  async createDiscipline(data: Partial<Discipline>): Promise<Discipline> {
+    return this.request<Discipline>('/disciplines', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   }
 
-  async updateDiscipline(disciplineId: string, data: any) {
-    return this.request('/disciplines', {
+  async updateDiscipline(disciplineId: string, data: Partial<Discipline>): Promise<Discipline> {
+    return this.request<Discipline>('/disciplines', {
       method: 'PUT',
       body: JSON.stringify({ id: disciplineId, ...data }),
     })
   }
 
-  async deleteDiscipline(disciplineId: string, force = false) {
+  async deleteDiscipline(disciplineId: string, force = false): Promise<{ message: string }> {
     const params = new URLSearchParams()
     params.append('id', disciplineId)
     if (force) params.append('force', 'true')
-    return this.request(`/disciplines?${params.toString()}`, {
+    return this.request<{ message: string }>(`/disciplines?${params.toString()}`, {
       method: 'DELETE',
     })
   }
@@ -473,7 +490,7 @@ export class ApiClient {
 
 
   // Partners API
-  async getPartners(params?: { search?: string, type?: string, status?: string, page?: number, limit?: number }) {
+  async getPartners(params?: { search?: string, type?: string, status?: string, page?: number, limit?: number }): Promise<Partner[]> {
     const queryParams = new URLSearchParams()
     if (params?.search) queryParams.append('search', params.search)
     if (params?.type) queryParams.append('type', params.type)
@@ -482,18 +499,18 @@ export class ApiClient {
     if (params?.limit) queryParams.append('limit', params.limit.toString())
 
     const queryString = queryParams.toString()
-    return this.request(`/partners${queryString ? `?${queryString}` : ''}`)
+    return this.request<Partner[]>(`/partners${queryString ? `?${queryString}` : ''}`)
   }
 
-  async updatePartner(partnerId: string, data: { status?: string, reason?: string, representantId?: string }) {
-    return this.request('/partners', {
+  async updatePartner(partnerId: string, data: Partial<Partner>): Promise<Partner> {
+    return this.request<Partner>('/partners', {
       method: 'PUT',
       body: JSON.stringify({ id: partnerId, ...data }),
     })
   }
 
-  async deletePartner(partnerId: string) {
-    return this.request(`/partners?id=${partnerId}`, {
+  async deletePartner(partnerId: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/partners?id=${partnerId}`, {
       method: 'DELETE',
     })
   }
@@ -550,7 +567,7 @@ export class ApiClient {
     return this.request(`/settings${params}`)
   }
 
-  async updateSettings(category: string, settings: any) {
+  async updateSettings(category: string, settings: SettingsInput) {
     return this.request('/settings', {
       method: 'PUT',
       body: JSON.stringify({ category, settings }),
@@ -569,7 +586,7 @@ export class ApiClient {
     return this.request(`/settings/export${params}`)
   }
 
-  async validateSettings(category: string, settings: any) {
+  async validateSettings(category: string, settings: SettingsInput) {
     return this.request('/settings', {
       method: 'POST',
       body: JSON.stringify({ action: 'validate_settings', category, settings }),
@@ -635,8 +652,8 @@ export class ApiClient {
     name: string
     description?: string
     type: string
-    conditions: any
-    actions: any
+    conditions: NotificationConditions
+    actions: NotificationActions
     priority?: string
   }) {
     return this.request('/stock/alerts', {
@@ -649,8 +666,8 @@ export class ApiClient {
     name?: string
     description?: string
     type?: string
-    conditions?: any
-    actions?: any
+    conditions?: NotificationConditions
+    actions?: NotificationActions
     priority?: string
     isActive?: boolean
   }) {
@@ -694,7 +711,7 @@ export class ApiClient {
   async createStockReport(data: {
     name: string
     type: string
-    parameters: any
+    parameters: NotificationTemplateParameters
     schedule?: string
   }) {
     return this.request('/stock/reports', {
@@ -706,7 +723,7 @@ export class ApiClient {
   async updateStockReport(reportId: string, data: {
     name?: string
     type?: string
-    parameters?: any
+    parameters?: NotificationTemplateParameters
     schedule?: string
     isActive?: boolean
   }) {
@@ -738,7 +755,7 @@ export class ApiClient {
   async createStockIntegration(data: {
     name: string
     type: string
-    config: any
+    config: IntegrationConfig
   }) {
     return this.request('/stock/integrations', {
       method: 'POST',
@@ -749,7 +766,7 @@ export class ApiClient {
   async updateStockIntegration(integrationId: string, data: {
     name?: string
     type?: string
-    config?: any
+    config?: IntegrationConfig
     isActive?: boolean
   }) {
     return this.request('/stock/integrations', {
@@ -873,7 +890,7 @@ export class ApiClient {
     return this.request(`/concepteur/works?${params}`)
   }
 
-  async updateConcepteurWork(workId: string, data: any) {
+  async updateConcepteurWork(workId: string, data: WorkUpdateInput) {
     return this.request('/concepteur/works', {
       method: 'PUT',
       body: JSON.stringify({ workId, ...data })
@@ -1013,7 +1030,7 @@ export class ApiClient {
     return this.request(`/pdg/stock/works?${params}`)
   }
 
-  async createOrUpdatePDGWork(data: any) {
+  async createOrUpdatePDGWork(data: WorkUpdateInput) {
     return this.request('/pdg/stock/works', {
       method: 'POST',
       body: JSON.stringify(data)
@@ -1031,7 +1048,7 @@ export class ApiClient {
     return this.request(`/pdg/stock/movements?${params}`)
   }
 
-  async createPDGStockMovement(data: any) {
+  async createPDGStockMovement(data: StockMovementInput) {
     return this.request('/pdg/stock/movements', {
       method: 'POST',
       body: JSON.stringify(data)
@@ -1039,7 +1056,7 @@ export class ApiClient {
   }
 
   // PDG - Corrections de stock
-  async createPDGStockCorrection(data: any) {
+  async createPDGStockCorrection(data: StockCorrectionInput) {
     return this.request('/pdg/stock/corrections', {
       method: 'POST',
       body: JSON.stringify(data)
@@ -1054,7 +1071,7 @@ export class ApiClient {
     return this.request(`/pdg/stock/inventory?${params}`)
   }
 
-  async applyPDGInventoryAdjustments(data: any) {
+  async applyPDGInventoryAdjustments(data: InventoryAdjustmentInput) {
     return this.request('/pdg/stock/inventory', {
       method: 'POST',
       body: JSON.stringify(data)
@@ -1062,7 +1079,7 @@ export class ApiClient {
   }
 
   // PDG - Allocation de stock partenaire
-  async allocatePartnerStock(data: any) {
+  async allocatePartnerStock(data: PartnerStockAllocationInput) {
     return this.request('/pdg/partner-stock/allocate', {
       method: 'POST',
       body: JSON.stringify(data)
@@ -1070,14 +1087,14 @@ export class ApiClient {
   }
 
   // PDG - Workflow de stock
-  async executeStockOperation(data: any) {
+  async executeStockOperation(data: StockOperationInput) {
     return this.request('/pdg/stock/workflow', {
       method: 'POST',
       body: JSON.stringify(data)
     })
   }
 
-  async updateStockMovement(movementId: string, data: any) {
+  async updateStockMovement(movementId: string, data: Partial<StockMovementInput>) {
     return this.request('/pdg/stock/movements', {
       method: 'PUT',
       body: JSON.stringify({ movementId, ...data })

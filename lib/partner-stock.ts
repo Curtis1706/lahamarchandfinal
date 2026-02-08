@@ -4,6 +4,8 @@
  * Formule: available = allocatedQuantity - soldQuantity + returnedQuantity
  */
 
+import { Work, Partner } from '@prisma/client';
+
 /**
  * Calcule le stock disponible d'un PartnerStock
  * 
@@ -33,8 +35,8 @@ export interface PartnerStockWithAvailable {
   availableQuantity: number; // Calculé, pas stocké en DB
   createdAt: Date;
   updatedAt: Date;
-  work?: any;
-  partner?: any;
+  work?: Pick<Work, 'id' | 'title' | 'price' | 'isbn'>;
+  partner?: Pick<Partner, 'id' | 'name' | 'type'>;
 }
 
 /**
@@ -53,8 +55,8 @@ export function enrichPartnerStockWithAvailable(
     returnedQuantity: number;
     createdAt: Date;
     updatedAt: Date;
-    work?: any;
-    partner?: any;
+    work?: Pick<Work, 'id' | 'title' | 'price' | 'isbn'>;
+    partner?: Pick<Partner, 'id' | 'name' | 'type'>;
   }
 ): PartnerStockWithAvailable {
   return {

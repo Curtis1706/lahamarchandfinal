@@ -67,7 +67,7 @@ export const PROTECTED_ROUTES = [
  */
 export function isPublicRoute(pathname: string): boolean {
   // Vérifier d'abord les routes exactes
-  if (PUBLIC_ROUTES.includes(pathname as any)) {
+  if (PUBLIC_ROUTES.includes(pathname as typeof PUBLIC_ROUTES[number])) {
     return true
   }
   // Vérifier les routes qui commencent par les routes publiques

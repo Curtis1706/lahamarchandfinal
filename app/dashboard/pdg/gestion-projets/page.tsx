@@ -127,8 +127,7 @@ export default function GestionProjetsPage() {
         fetch('/api/users?role=CONCEPTEUR').then(res => res.json())
       ]);
 
-      console.log("🔍 Données reçues:", { projectsData, disciplinesData, usersData });
-
+      
       setProjects(Array.isArray(projectsData) ? projectsData : []);
       setDisciplines(Array.isArray(disciplinesData) ? disciplinesData : []);
       setConcepteurs(usersData?.users || []);
@@ -241,8 +240,7 @@ export default function GestionProjetsPage() {
         reviewedAt: new Date().toISOString()
       });
 
-      console.log("✅ Projet mis à jour:", updatedProject);
-
+      
       // Créer une notification pour le concepteur
       try {
         await apiClient.createNotification({

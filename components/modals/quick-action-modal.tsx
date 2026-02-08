@@ -18,7 +18,7 @@ const quickActions = [
     description: "Créer une nouvelle commande client",
     icon: Plus,
     color: "bg-green-500 hover:bg-green-600",
-    action: () => console.log("[v0] Creating new order..."),
+    action: () => ,
   },
   {
     id: "proforma",
@@ -26,7 +26,7 @@ const quickActions = [
     description: "Générer une facture proforma",
     icon: FileText,
     color: "bg-blue-500 hover:bg-blue-600",
-    action: () => console.log("[v0] Creating proforma..."),
+    action: () => ,
   },
   {
     id: "add-client",
@@ -34,7 +34,7 @@ const quickActions = [
     description: "Enregistrer un nouveau client",
     icon: Users,
     color: "bg-purple-500 hover:bg-purple-600",
-    action: () => console.log("[v0] Adding new client..."),
+    action: () => ,
   },
   {
     id: "inventory",
@@ -42,7 +42,7 @@ const quickActions = [
     description: "Consulter et gérer l'inventaire",
     icon: Package,
     color: "bg-orange-500 hover:bg-orange-600",
-    action: () => console.log("[v0] Opening inventory..."),
+    action: () => ,
   },
   {
     id: "reports",
@@ -50,7 +50,7 @@ const quickActions = [
     description: "Générer des rapports de vente",
     icon: BarChart3,
     color: "bg-indigo-500 hover:bg-indigo-600",
-    action: () => console.log("[v0] Opening reports..."),
+    action: () => ,
   },
   {
     id: "settings",
@@ -58,7 +58,7 @@ const quickActions = [
     description: "Configurer l'application",
     icon: Settings,
     color: "bg-gray-500 hover:bg-gray-600",
-    action: () => console.log("[v0] Opening settings..."),
+    action: () => ,
   },
 ]
 

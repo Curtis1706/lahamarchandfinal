@@ -62,5 +62,4 @@ if (typeof process !== 'undefined') {
 }
 
 if (process.env.NODE_ENV === 'development') {
-  console.log('✅ Prisma Client initialized with connection pool')
-}
+  }

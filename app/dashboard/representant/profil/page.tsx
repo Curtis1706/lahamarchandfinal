@@ -51,12 +51,10 @@ export default function ProfilPage() {
   }
 
   const handleSaveProfile = () => {
-    console.log("[v0] Profile saved:", profileData)
-  }
+      }
 
   const handleDeleteAccount = () => {
-    console.log("[v0] Delete account requested")
-    // Add confirmation dialog logic here
+        // Add confirmation dialog logic here
   }
 
   return (

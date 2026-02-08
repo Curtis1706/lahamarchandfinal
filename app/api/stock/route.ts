@@ -194,7 +194,7 @@ export async function GET(request: NextRequest) {
 
         // 7. Résoudre les alertes en batch (groupées par type)
         const resolvePromises: Promise<any>[] = []
-        
+
         if (stockOutWorkIdsToResolve.length > 0) {
           resolvePromises.push(
             prisma.stockAlert.updateMany({
@@ -391,7 +391,7 @@ export async function GET(request: NextRequest) {
           ]
         })
 
-        const pendingOperations = stockRequests.flatMap(request => 
+        const pendingOperations = stockRequests.flatMap(request =>
           request.items.map(item => ({
             id: `${request.id}-${item.id}`,
             requestId: request.id,
@@ -423,6 +423,15 @@ export async function GET(request: NextRequest) {
 // POST /api/stock - Créer un mouvement de stock
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
+    }
+
+    if (session.user.role !== 'PDG') {
+      return NextResponse.json({ error: "Accès non autorisé" }, { status: 403 })
+    }
+
     const body = await request.json()
     const { workId, type, quantity, reason, reference, userId } = body
 
@@ -483,6 +492,15 @@ export async function POST(request: NextRequest) {
 // PUT /api/stock - Valider une opération en attente
 export async function PUT(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
+    }
+
+    if (session.user.role !== 'PDG') {
+      return NextResponse.json({ error: "Accès non autorisé" }, { status: 403 })
+    }
+
     const body = await request.json()
     const { operationId, approved, userId } = body
 
@@ -500,9 +518,9 @@ export async function PUT(request: NextRequest) {
       logger.debug(`Operation ${operationId} rejected by user ${userId}`)
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      message: approved ? "Operation approved" : "Operation rejected" 
+    return NextResponse.json({
+      success: true,
+      message: approved ? "Operation approved" : "Operation rejected"
     })
   } catch (error) {
     logger.error("Error validating operation:", error)
@@ -513,6 +531,15 @@ export async function PUT(request: NextRequest) {
 // DELETE /api/stock - Supprimer un mouvement (pour correction)
 export async function DELETE(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
+    }
+
+    if (session.user.role !== 'PDG') {
+      return NextResponse.json({ error: "Accès non autorisé" }, { status: 403 })
+    }
+
     const { searchParams } = new URL(request.url)
     const movementId = searchParams.get('id')
 

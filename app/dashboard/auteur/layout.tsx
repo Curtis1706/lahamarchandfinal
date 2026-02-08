@@ -14,13 +14,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       try {
         setIsLoading(true);
         const profile = await apiClient.getUserProfile();
-        console.log("📋 Profil utilisateur:", profile);
-        if (profile.discipline) {
-          console.log("✅ Discipline trouvée:", profile.discipline);
-          setUserDiscipline(profile.discipline);
+                if (profile.discipline) {
+                    setUserDiscipline(profile.discipline);
         } else {
-          console.log("⚠️ Aucune discipline assignée à cet auteur");
-        }
+                  }
       } catch (error) {
         console.error("❌ Erreur lors du chargement du profil:", error);
       } finally {

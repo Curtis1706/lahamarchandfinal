@@ -32,8 +32,7 @@ export default function UserProfileModal({ isOpen, onClose, user }: UserProfileM
   })
 
   const handleSave = () => {
-    console.log("[v0] Saving user profile:", formData)
-    onClose()
+        onClose()
   }
 
   return (

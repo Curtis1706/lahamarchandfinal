@@ -12,19 +12,19 @@ import { NextResponse } from "next/server";
  */
 export async function requireRole(roles: string[]) {
   const session = await getServerSession(authOptions);
-  
+
   if (!session?.user?.id) {
     throw new Error("UNAUTHORIZED");
   }
 
-  const role = (session.user as any).role;
-  
+  const role = (session.user as { role: string }).role;
+
   if (!roles.includes(role)) {
     throw new Error("FORBIDDEN");
   }
 
-  return { 
-    session, 
+  return {
+    session,
     role,
     userId: session.user.id
   };

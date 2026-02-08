@@ -63,8 +63,7 @@ export function NotificationsList() {
     try {
       setLoading(true);
       const response = await apiClient.getNotifications(user.id);
-      console.log("🔍 Réponse notifications:", response);
-      
+            
       const notificationsData = response.notifications || response || [];
       const notificationsArray = Array.isArray(notificationsData) ? notificationsData : [];
       

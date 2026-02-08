@@ -52,8 +52,7 @@ if (typeof process !== 'undefined') {
 // Event handlers
 redis.on('connect', () => {
   if (process.env.NODE_ENV === 'development') {
-    console.log('✅ Redis connected')
-  }
+      }
 })
 
 redis.on('error', (err) => {
@@ -62,8 +61,7 @@ redis.on('error', (err) => {
 
 redis.on('close', () => {
   if (process.env.NODE_ENV === 'development') {
-    console.log('⚠️  Redis connection closed')
-  }
+      }
 })
 
 export default redis

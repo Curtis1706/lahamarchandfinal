@@ -63,8 +63,7 @@ export const useOrders = (): UseOrdersResult => {
       case 'CANCELLED':
         return 'cancelled'
       default:
-        console.warn('Statut de commande non reconnu:', apiStatus)
-        return 'pending'
+                return 'pending'
     }
   }
 
@@ -94,8 +93,7 @@ export const useOrders = (): UseOrdersResult => {
       const data = await response.json()
       const userOrders = data.orders || [] // L'API filtre déjà par userId
       
-      console.log("📦 Commandes reçues de /api/client/orders:", userOrders.length, userOrders)
-      
+            
       // Convertir au format attendu par le frontend
       const formattedOrders: Order[] = userOrders.map((order: any) => {
         // Générer une référence depuis l'ID (format: CMK + 8 premiers caractères)
@@ -138,8 +136,7 @@ export const useOrders = (): UseOrdersResult => {
         }
       })
       
-      console.log("✅ Commandes formatées:", formattedOrders.length, formattedOrders)
-      setOrders(formattedOrders)
+            setOrders(formattedOrders)
     } catch (error) {
       console.error("❌ Erreur lors du chargement des commandes:", error)
       setOrders([])
@@ -177,8 +174,7 @@ export const useOrders = (): UseOrdersResult => {
         })
       }
 
-      console.log('📦 Données de commande envoyées:', apiOrderData)
-
+      
       const createdOrder = await apiClient.createOrder(apiOrderData)
       
       // Recharger les commandes pour avoir les données à jour

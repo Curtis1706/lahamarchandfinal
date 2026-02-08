@@ -114,9 +114,7 @@ export default function CreerOeuvrePage() {
   // Charger les projets validés, catégories et collections quand l'utilisateur est disponible
   useEffect(() => {
     if (user && user.role === "AUTEUR" && !userLoading) {
-      console.log("🔍 useEffect - État:", { userLoading, user: user.email, role: user.role });
-      console.log("✅ Utilisateur auteur détecté, chargement des projets...");
-      fetchValidatedProjects();
+                  fetchValidatedProjects();
       loadCategories();
       loadCollections();
       
@@ -195,27 +193,18 @@ export default function CreerOeuvrePage() {
   const fetchValidatedProjects = useCallback(async () => {
     try {
       setIsLoadingProjects(true);
-      console.log("🔍 Début du chargement des projets validés...");
-      console.log("🔍 Utilisateur actuel:", user?.email, "Rôle:", user?.role);
-      
+                  
       // Récupérer uniquement les projets validés (disponibles pour les auteurs)
       const validatedProjectsOnly = await apiClient.getValidatedProjects();
       
-      console.log("📚 Réponse API projets validés:", validatedProjectsOnly);
-      console.log("📚 Type de réponse:", typeof validatedProjectsOnly);
-      console.log("📚 Nombre de projets reçus:", validatedProjectsOnly?.length || 0);
-      
+                        
       setValidatedProjects(validatedProjectsOnly || []);
       
       if (validatedProjectsOnly && validatedProjectsOnly.length > 0) {
-        console.log("✅ Projets validés chargés avec succès:");
-        validatedProjectsOnly.forEach((project, index) => {
-          console.log(`   ${index + 1}. "${project.title}" (${project.discipline?.name}) - ${project.concepteur?.name}`);
-        });
+                validatedProjectsOnly.forEach((project, index) => {
+                  });
       } else {
-        console.log("⚠️ Aucun projet validé trouvé");
-        console.log("🔍 Vérifiez que des projets sont en statut ACCEPTED en base de données");
-      }
+                      }
     } catch (error: any) {
       console.error("❌ Erreur lors du chargement des projets validés:", error);
       console.error("❌ Détails de l'erreur:", {
@@ -232,8 +221,7 @@ export default function CreerOeuvrePage() {
       }
     } finally {
       setIsLoadingProjects(false);
-      console.log("🔍 Chargement des projets terminé");
-    }
+          }
   }, [user, router]);
 
   const handleInputChange = (field: keyof WorkFormData, value: string | string[]) => {
@@ -347,8 +335,7 @@ export default function CreerOeuvrePage() {
             coverImageUrl = uploadData.files[0].path;
           }
         } else {
-          console.warn("Erreur lors de l'upload de l'image, continuation sans image");
-        }
+                  }
       }
 
       // 2. Upload des autres fichiers d'abord (en mode temporaire)
@@ -378,15 +365,7 @@ export default function CreerOeuvrePage() {
         status: "PENDING" // En attente de validation PDG
       };
 
-      console.log("🔍 Debug - WorkData:", workData);
-      console.log("🔍 Debug - Description:", {
-        original: formData.description,
-        trimmed: formData.description.trim(),
-        type: typeof formData.description,
-        length: formData.description?.length,
-        isEmpty: !formData.description?.trim()
-      });
-
+            
       const createdWork = await apiClient.createWork(workData);
 
       toast.success("Œuvre soumise avec succès pour validation !");

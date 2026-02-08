@@ -31,14 +31,12 @@ export async function getCached<T>(
     
     if (cached) {
       if (process.env.NODE_ENV === 'development') {
-        console.log(`✅ Cache HIT: ${cacheKey}`)
-      }
+              }
       return JSON.parse(cached) as T
     }
     
     if (process.env.NODE_ENV === 'development') {
-      console.log(`❌ Cache MISS: ${cacheKey}`)
-    }
+          }
     
     // 2. Cache miss → exécuter la fonction
     const data = await fetchFn()
@@ -65,8 +63,7 @@ export async function invalidateCache(
   try {
     await redis.del(cacheKey)
     if (process.env.NODE_ENV === 'development') {
-      console.log(`🗑️  Cache invalidated: ${cacheKey}`)
-    }
+          }
   } catch (error) {
     console.error(`⚠️  Error invalidating cache ${cacheKey}:`, error)
   }
@@ -86,8 +83,7 @@ export async function invalidateCachePattern(
     if (keys.length > 0) {
       await redis.del(...keys)
       if (process.env.NODE_ENV === 'development') {
-        console.log(`🗑️  Cache invalidated: ${keys.length} keys matching ${cachePattern}`)
-      }
+              }
     }
   } catch (error) {
     console.error(`⚠️  Error invalidating cache pattern ${cachePattern}:`, error)

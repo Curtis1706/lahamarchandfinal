@@ -90,8 +90,7 @@ export default function CategoriesPage() {
 
       if (response.ok) {
         const data = await response.json()
-        console.log("✅ Catégorie créée:", data)
-        
+                
         toast({
           title: "Succès",
           description: "Catégorie créée avec succès"

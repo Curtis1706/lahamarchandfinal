@@ -186,24 +186,16 @@ function ClientCommandePageContent() {
         // Traiter les classes
         const classesArray = Array.isArray(classesResponse) ? classesResponse : (classesResponse?.error ? [] : classesResponse || [])
         
-        console.log("📚 Données chargées:", {
-          livres: publishedWorks.length,
-          categories: categoriesArray.length,
-          disciplines: disciplinesData?.length || 0,
-          classes: classesArray.length
-        })
-        
+                
         setWorks(publishedWorks)
         setCategories(categoriesArray)
         setDisciplines(disciplinesData || [])
         setClasses(classesArray)
         
         if (categoriesArray.length === 0) {
-          console.warn("⚠️ Aucune catégorie chargée")
-        }
+                  }
         if (classesArray.length === 0) {
-          console.warn("⚠️ Aucune classe chargée")
-        }
+                  }
       } catch (error) {
         console.error("❌ Error fetching form data:", error)
         setWorks([])
@@ -314,12 +306,7 @@ function ClientCommandePageContent() {
     }
     
     let filtered = getWorks()
-    console.log("🔍 Filtrage des livres:", {
-      totalWorks: filtered.length,
-      selectedCategory: newOrderData.selectedCategory,
-      selectedDiscipline: newOrderData.selectedDiscipline
-    })
-    
+        
     // Filtrer par catégorie (obligatoire)
     const selectedCategoryName = categories.find(cat => (cat.nom || cat.name) === newOrderData.selectedCategory)?.nom || newOrderData.selectedCategory
     filtered = filtered.filter(work => {
@@ -333,13 +320,11 @@ function ClientCommandePageContent() {
              workCategory.toLowerCase().includes(selectedCategoryName.toLowerCase())
       return matches
     })
-    console.log("📚 Après filtrage par catégorie:", filtered.length)
-    
+        
     // Filtrer par matière (discipline) - optionnel
     if (newOrderData.selectedDiscipline) {
       filtered = filtered.filter(work => work.disciplineId === newOrderData.selectedDiscipline)
-      console.log("📚 Après filtrage par discipline:", filtered.length)
-    }
+          }
     
     // Filtrer par terme de recherche (titre du livre ou ISBN) - optionnel
     if (bookSearchTerm.trim()) {
@@ -348,30 +333,22 @@ function ClientCommandePageContent() {
         work.title?.toLowerCase().includes(searchLower) ||
         work.isbn?.toLowerCase().includes(searchLower)
       )
-      console.log("📚 Après filtrage par recherche:", filtered.length)
-    }
+          }
     
     // Filtrer les livres sans stock (stock <= 0)
     filtered = filtered.filter(work => {
       const stock = work.stock ?? 0
       return stock > 0
     })
-    console.log("📚 Après filtrage par stock:", filtered.length)
-    
+        
     // Note: La classe est optionnelle et ne filtre pas les livres
     // Elle peut être utilisée pour d'autres fins (ex: informations de livraison)
     
-    console.log("✅ Livres filtrés finaux:", filtered.length)
-    return filtered
+        return filtered
   }
 
   const handleAddToCart = () => {
-    console.log("🛒 Tentative d'ajout au panier:", {
-      selectedWork: newOrderData.selectedWork,
-      quantity: newOrderData.quantity,
-      cartItemsCount: cartItems.length
-    })
-
+    
     if (!newOrderData.selectedWork) {
       toast.error("Veuillez sélectionner un livre")
       return
@@ -397,8 +374,7 @@ function ClientCommandePageContent() {
       return
     }
 
-    console.log("✅ Livre trouvé:", work.title, "Stock disponible:", stock)
-
+    
     const existingItem = cartItems.find(item => item.workId === newOrderData.selectedWork)
     if (existingItem) {
       // Vérifier que la quantité totale (existante + nouvelle) ne dépasse pas le stock
@@ -408,15 +384,13 @@ function ClientCommandePageContent() {
         return
       }
       
-      console.log("📦 Article existant, mise à jour de la quantité")
-      setCartItems(prev => {
+            setCartItems(prev => {
         const updated = prev.map(item => 
           item.workId === newOrderData.selectedWork
             ? { ...item, quantity: item.quantity + quantity }
             : item
         )
-        console.log("🛒 Panier mis à jour:", updated)
-        return updated
+                return updated
       })
       toast.success(`${work.title} ajouté au panier (quantité: ${quantity})`)
     } else {
@@ -425,8 +399,7 @@ function ClientCommandePageContent() {
         toast.error(`Stock insuffisant pour ${work.title}. Stock disponible: ${stock}, Quantité demandée: ${quantity}`)
         return
       }
-      console.log("🆕 Nouvel article, ajout au panier")
-      const newItem = {
+            const newItem = {
         workId: work.id,
         title: work.title,
         price: work.price || 0,
@@ -434,8 +407,7 @@ function ClientCommandePageContent() {
       }
       setCartItems(prev => {
         const updated = [...prev, newItem]
-        console.log("🛒 Panier mis à jour:", updated)
-        return updated
+                return updated
       })
       toast.success(`${work.title} ajouté au panier`)
     }

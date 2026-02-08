@@ -301,6 +301,16 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
+    }
+
+    // Seul le PDG peut modifier les partenaires
+    if (session.user.role !== 'PDG') {
+      return NextResponse.json({ error: "Accès non autorisé" }, { status: 403 })
+    }
+
     const body = await request.json();
     const { id, status, reason, representantId } = body;
 

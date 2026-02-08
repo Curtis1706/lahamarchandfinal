@@ -9,17 +9,27 @@ import { calculatePartnerRebate, calculateAuthorRoyalty } from "@/lib/rebate-cal
 // GET /api/orders - Liste des commandes
 export async function GET(request: NextRequest) {
   try {
+    // Vérifier l'authentification
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
+    }
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
 
     const whereClause: any = {}
-    
+
+    // Sécurité : Les non-PDG ne voient que leurs propres commandes
+    if (session.user.role !== 'PDG') {
+      whereClause.userId = session.user.id
+    }
+
     if (status && status !== 'all') {
       whereClause.status = status as OrderStatus
     }
-    
+
     if (startDate && endDate) {
       whereClause.createdAt = {
         gte: new Date(startDate),
@@ -105,11 +115,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { 
-      userId, 
-      partnerId, 
-      items, 
-      promoCode, 
+    const {
+      userId,
+      partnerId,
+      items,
+      promoCode,
       discountAmount,
       deliveryDate,
       deliveryAddress,
@@ -133,13 +143,13 @@ export async function POST(request: NextRequest) {
     // Vérifier que tous les items ont les champs requis
     for (const item of items) {
       if (!item.workId) {
-        return NextResponse.json({ 
-          error: `workId manquant pour l'article: ${JSON.stringify(item)}` 
+        return NextResponse.json({
+          error: `workId manquant pour l'article: ${JSON.stringify(item)}`
         }, { status: 400 })
       }
       if (!item.quantity || item.quantity < 1) {
-        return NextResponse.json({ 
-          error: `Quantité invalide pour l'article ${item.workId}` 
+        return NextResponse.json({
+          error: `Quantité invalide pour l'article ${item.workId}`
         }, { status: 400 })
       }
     }
@@ -162,16 +172,16 @@ export async function POST(request: NextRequest) {
     if (works.length !== workIds.length) {
       const foundIds = works.map(w => w.id)
       const missingIds = workIds.filter(id => !foundIds.includes(id))
-      return NextResponse.json({ 
-        error: `Œuvres introuvables: ${missingIds.join(', ')}` 
+      return NextResponse.json({
+        error: `Œuvres introuvables: ${missingIds.join(', ')}`
       }, { status: 400 })
     }
 
     // Vérifier que les œuvres sont en vente
     const unavailableWorks = works.filter(w => w.status !== 'ON_SALE' && w.status !== 'PUBLISHED')
     if (unavailableWorks.length > 0) {
-      return NextResponse.json({ 
-        error: `Certaines œuvres ne sont pas disponibles: ${unavailableWorks.map(w => w.title).join(', ')}` 
+      return NextResponse.json({
+        error: `Certaines œuvres ne sont pas disponibles: ${unavailableWorks.map(w => w.title).join(', ')}`
       }, { status: 400 })
     }
 
@@ -180,14 +190,14 @@ export async function POST(request: NextRequest) {
     for (const item of items) {
       const work = works.find(w => w.id === item.workId)
       if (!work) {
-        return NextResponse.json({ 
-          error: `Œuvre ${item.workId} introuvable` 
+        return NextResponse.json({
+          error: `Œuvre ${item.workId} introuvable`
         }, { status: 400 })
       }
       const itemPrice = item.price || work.price || 0
       subtotal += itemPrice * item.quantity
     }
-    
+
     const tax = subtotal * 0.18 // TVA à 18%
     const discount = discountAmount || 0
     const total = Math.max(0, subtotal + tax - discount)
@@ -240,8 +250,8 @@ export async function POST(request: NextRequest) {
           create: items.map((item: any) => {
             const work = works.find(w => w.id === item.workId)!
             return {
-            workId: item.workId,
-            quantity: item.quantity,
+              workId: item.workId,
+              quantity: item.quantity,
               price: item.price || work.price || 0
             }
           })
@@ -292,7 +302,7 @@ export async function POST(request: NextRequest) {
       code: error.code,
       meta: error.meta
     })
-    return NextResponse.json({ 
+    return NextResponse.json({
       error: error.message || "Erreur lors de la création de la commande",
       details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     }, { status: 500 })
@@ -303,6 +313,15 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
+    }
+
+    // Seul le PDG peut modifier les commandes
+    if (session.user.role !== 'PDG') {
+      return NextResponse.json({ error: "Accès non autorisé" }, { status: 403 })
+    }
+
     const body = await request.json()
     const { id, status, ...updateData } = body
 
@@ -545,6 +564,16 @@ export async function PUT(request: NextRequest) {
 // DELETE /api/orders - Supprimer une commande
 export async function DELETE(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
+    }
+
+    // Seul le PDG peut supprimer les commandes
+    if (session.user.role !== 'PDG') {
+      return NextResponse.json({ error: "Accès non autorisé" }, { status: 403 })
+    }
+
     const { searchParams } = new URL(request.url)
     const orderId = searchParams.get('id')
 

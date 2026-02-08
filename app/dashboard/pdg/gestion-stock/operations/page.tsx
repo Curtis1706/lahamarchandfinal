@@ -106,26 +106,19 @@ export default function StockOperationsPage() {
   const loadData = async () => {
     try {
       setIsLoading(true)
-      console.log('📥 Chargement des données...')
-      
+            
       const [worksData, partnersData, operationsData] = await Promise.all([
         apiClient.getPDGWorks({ status: 'PUBLISHED' }),
         apiClient.getPartners(),
         apiClient.getPDGStockMovements({ limit: 50 })
       ])
       
-      console.log('📦 Données reçues:', {
-        works: worksData?.works?.length || 0,
-        partners: partnersData?.partners?.length || 0,
-        operations: operationsData?.movements?.length || 0
-      })
-      
+            
       setWorks(worksData.works || [])
       setPartners(partnersData.partners || [])
       setOperations(operationsData.movements || [])
       
-      console.log('✅ Données mises à jour dans le state')
-      
+            
     } catch (error: any) {
       console.error('❌ Erreur lors du chargement:', error)
       toast({
@@ -139,19 +132,10 @@ export default function StockOperationsPage() {
   }
 
   const handleExecuteOperation = async () => {
-    console.log('🖱️ handleExecuteOperation appelé')
-    console.log('📋 État actuel:', {
-      selectedOperation,
-      selectedSubType,
-      workId: formData.workId,
-      quantity: formData.quantity,
-      isExecuting
-    })
-    
+            
     try {
       if (!selectedOperation || !selectedSubType) {
-        console.log('❌ Validation échouée: type ou sous-type manquant')
-        toast({
+                toast({
           title: "Erreur",
           description: "Sélectionnez un type d'opération et un sous-type",
           variant: "destructive"
@@ -160,8 +144,7 @@ export default function StockOperationsPage() {
       }
 
       if (!formData.workId || !formData.quantity) {
-        console.log('❌ Validation échouée: œuvre ou quantité manquante')
-        toast({
+                toast({
           title: "Erreur",
           description: "Sélectionnez une œuvre et saisissez une quantité",
           variant: "destructive"
@@ -171,8 +154,7 @@ export default function StockOperationsPage() {
 
       const qty = parseInt(formData.quantity)
       if (isNaN(qty) || qty <= 0) {
-        console.log('❌ Validation échouée: quantité invalide')
-        toast({
+                toast({
           title: "Erreur",
           description: "La quantité doit être un nombre positif",
           variant: "destructive"
@@ -184,8 +166,7 @@ export default function StockOperationsPage() {
       if (selectedOperation === 'EXIT') {
         const selectedWork = works.find(w => w.id === formData.workId)
         if (selectedWork && selectedWork.stock < qty) {
-          console.log('❌ Validation échouée: stock insuffisant')
-          toast({
+                    toast({
             title: "Erreur",
             description: `Stock insuffisant. Disponible: ${selectedWork.stock}, Demandé: ${qty}`,
             variant: "destructive"
@@ -194,13 +175,10 @@ export default function StockOperationsPage() {
         }
       }
 
-      console.log('✅ Toutes les validations passées, démarrage de l\'exécution...')
-      
+            
       // Mettre à jour l'état d'exécution
       setIsExecuting(true)
-      console.log('🔄 isExecuting mis à true')
-      console.log('🚀 Début de l\'exécution de l\'opération...')
-
+            
       const operationData = {
         operationType: selectedOperation,
         subType: selectedSubType,
@@ -215,14 +193,11 @@ export default function StockOperationsPage() {
         transferDestinationId: formData.transferDestinationId || null
       }
 
-      console.log('📤 Données envoyées:', operationData)
-      console.log('⏳ Appel API en cours...')
-
+            
       let result
       try {
         result = await apiClient.executeStockOperation(operationData)
-        console.log('✅ Réponse reçue:', result)
-      } catch (apiError: any) {
+              } catch (apiError: any) {
         console.error('❌ Erreur API:', apiError)
         throw apiError
       }
@@ -233,8 +208,7 @@ export default function StockOperationsPage() {
         description: result.message || "Opération de stock exécutée avec succès",
         duration: 3000
       })
-      console.log('📢 Toast de succès affiché')
-      
+            
       // Réinitialiser le formulaire
       setFormData({
         workId: '',
@@ -249,18 +223,14 @@ export default function StockOperationsPage() {
       })
       setSelectedOperation('')
       setSelectedSubType('')
-      console.log('🔄 Formulaire réinitialisé')
-      
+            
       // Fermer le dialogue immédiatement
       setShowOperationDialog(false)
       setIsExecuting(false)
-      console.log('🔒 Dialogue fermé et état réinitialisé')
-      
+            
       // Recharger les données immédiatement
-      console.log('🔄 Rechargement des données...')
-      loadData().then(() => {
-        console.log('✅ Données rechargées avec succès')
-      }).catch((err) => {
+            loadData().then(() => {
+              }).catch((err) => {
         console.error('❌ Erreur lors du rechargement:', err)
       })
       
@@ -687,11 +657,8 @@ export default function StockOperationsPage() {
                   onClick={async (e) => {
                     e.preventDefault()
                     e.stopPropagation()
-                    console.log('🖱️ Bouton cliqué, exécution de handleExecuteOperation')
-                    console.log('🔍 État isExecuting avant appel:', isExecuting)
-                    await handleExecuteOperation()
-                    console.log('✅ handleExecuteOperation terminé')
-                  }}
+                                                            await handleExecuteOperation()
+                                      }}
                   disabled={isExecuting}
                   className="bg-black hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                   type="button"

@@ -41,16 +41,13 @@ export default function ProfilPage() {
   };
 
   const handleFullscreen = () => {
-    console.log("[v0] Toggling fullscreen...");
-  };
+      };
 
   const handleSave = () => {
-    console.log("[v0] Saving profile data:", profileData);
-  };
+      };
 
   const handleDeleteAccount = () => {
-    console.log("[v0] Delete account requested")
-    // Add confirmation dialog logic here
+        // Add confirmation dialog logic here
   }
 
   return (

@@ -93,21 +93,21 @@ export default function ClientDashboard() {
           apiClient.getWorks(),
           apiClient.getDisciplines()
         ]);
-        
+
         // L'API retourne un objet avec works, pagination, stats
         // ou directement un tableau selon le contexte
-        const worksArray = Array.isArray(worksData) ? worksData : (worksData.works || [])
-        
+        const worksArray: any[] = Array.isArray(worksData) ? worksData : ((worksData as any).works || [])
+
         // Filtrer uniquement les livres PUBLISHED (sécurité supplémentaire)
         const publishedWorks = worksArray.filter((work: any) => work.status === 'PUBLISHED')
-        
+
         // Enrichir les works avec les disciplines et images
-        const enrichedWorks = publishedWorks.map(work => ({
+        const enrichedWorks = publishedWorks.map((work: any) => ({
           ...work,
           discipline: disciplinesData.find(d => d.id === work.disciplineId),
-          image: getBookImageUrl(work.title, disciplinesData.find(d => d.id === work.disciplineId)?.name)
+          image: getBookImageUrl(work)
         }));
-        
+
         setWorks(enrichedWorks);
         setDisciplines(disciplinesData);
       } catch (error: any) {
@@ -121,13 +121,29 @@ export default function ClientDashboard() {
     fetchData();
   }, []);
 
-  // Fonction pour générer une image de livre basée sur le titre
-  const getBookImageUrl = (title: string, discipline?: string): string => {
+  // Fonction pour obtenir l'URL de l'image d'un livre
+  const getBookImageUrl = (work: any): string => {
+    // D'abord, essayer d'obtenir l'image depuis le champ files
+    if (work.files) {
+      try {
+        const filesData = typeof work.files === 'string' ? JSON.parse(work.files) : work.files;
+        if (filesData.coverImage) {
+          return filesData.coverImage;
+        }
+      } catch (e) {
+        console.error("Error parsing files:", e);
+      }
+    }
+
+    // Fallback: utiliser des images par défaut basées sur la discipline ou le titre
+    const title = work.title || '';
+    const discipline = work.discipline?.name || '';
+
     const availableImages = [
-      '/01.png', '/02.png', '/10001.png', '/10002.png', 
+      '/01.png', '/02.png', '/10001.png', '/10002.png',
       '/10011.png', '/10012.png', '/10013.png'
     ];
-    
+
     const disciplineImages: { [key: string]: string[] } = {
       'Mathématiques': ['/10001.png'],
       'Français': ['/01.png', '/02.png'],
@@ -136,7 +152,7 @@ export default function ClientDashboard() {
       'Géographie': ['/communication-book.jpg'],
       'Anglais': ['/french-textbook-coffret-ce2.jpg']
     };
-    
+
     if (discipline) {
       const disciplineImageList = disciplineImages[discipline];
       if (disciplineImageList && disciplineImageList.length > 0) {
@@ -144,7 +160,7 @@ export default function ClientDashboard() {
         return disciplineImageList[randomIndex];
       }
     }
-    
+
     if (title.toLowerCase().includes('math') || title.toLowerCase().includes('mathématiques')) {
       return '/10001.png';
     }
@@ -156,7 +172,7 @@ export default function ClientDashboard() {
       const randomIndex = Math.floor(Math.random() * svtImages.length);
       return svtImages[randomIndex];
     }
-    
+
     const randomIndex = Math.floor(Math.random() * availableImages.length);
     return availableImages[randomIndex];
   };
@@ -217,7 +233,7 @@ export default function ClientDashboard() {
   }
 
   return (
-    <DynamicDashboardLayout>
+    <DynamicDashboardLayout title="Tableau de bord Client">
       <div className="space-y-6">
         <div className="p-4 lg:p-6">
           {/* Actions rapides */}
@@ -231,7 +247,7 @@ export default function ClientDashboard() {
                 </CardContent>
               </Card>
             </Link>
-            
+
             <Link href="/dashboard/client/commandes">
               <Card className="hover:shadow-md transition-shadow cursor-pointer">
                 <CardContent className="p-4 text-center">
@@ -241,7 +257,7 @@ export default function ClientDashboard() {
                 </CardContent>
               </Card>
             </Link>
-            
+
             <Link href="/dashboard/client/notifications">
               <Card className="hover:shadow-md transition-shadow cursor-pointer">
                 <CardContent className="p-4 text-center">
@@ -279,13 +295,13 @@ export default function ClientDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
             <div className="bg-[#FA626B] rounded-2xl p-6 text-white shadow-lg h-40 flex items-center">
               <ShoppingCart className="w-8 h-8 mr-4 opacity-80" />
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">Total des commandes</h3>
-                  <p className="text-2xl font-bold">
-                    {totalOrders} <span className="text-base">Commande(s)</span>
-                  </p>
-                  <p className="text-red-100">{totalSpent.toLocaleString()} F CFA</p>
-                </div>
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Total des commandes</h3>
+                <p className="text-2xl font-bold">
+                  {totalOrders} <span className="text-base">Commande(s)</span>
+                </p>
+                <p className="text-red-100">{totalSpent.toLocaleString()} F CFA</p>
+              </div>
             </div>
 
             <div className="bg-gray-700 rounded-2xl p-6 text-white shadow-lg h-40 flex items-center">
@@ -423,7 +439,7 @@ export default function ClientDashboard() {
                 </Link>
               </div>
             </div>
-            
+
             {notifications.length === 0 ? (
               <div className="text-center py-8">
                 <Bell className="h-12 w-12 text-gray-300 mx-auto mb-2" />
@@ -434,20 +450,19 @@ export default function ClientDashboard() {
                 {notifications.slice(0, 3).map((notification) => (
                   <div
                     key={notification.id}
-                    className={`p-3 rounded-lg border-l-4 ${
-                      !notification.read 
-                        ? 'bg-blue-50 border-l-blue-500' 
-                        : 'bg-gray-50 border-l-gray-300'
-                    }`}
+                    className={`p-3 rounded-lg border-l-4 ${!notification.read
+                      ? 'bg-blue-50 border-l-blue-500'
+                      : 'bg-gray-50 border-l-gray-300'
+                      }`}
                   >
                     <div className="flex items-start space-x-3">
                       <div className="flex-shrink-0 mt-0.5">
                         <span className="text-lg">
                           {notification.type === 'order' ? '📦' :
-                           notification.type === 'success' ? '✅' :
-                           notification.type === 'warning' ? '⚠️' :
-                           notification.type === 'delivery' ? '🚚' :
-                           'ℹ️'}
+                            notification.type === 'success' ? '✅' :
+                              notification.type === 'warning' ? '⚠️' :
+                                notification.type === 'delivery' ? '🚚' :
+                                  'ℹ️'}
                         </span>
                       </div>
                       <div className="flex-1 min-w-0">

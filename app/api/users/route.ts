@@ -1,34 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic'
 
-const prisma = new PrismaClient();
-
 // POST /api/users - Créer un utilisateur (pour le PDG)
 export async function POST(request: NextRequest) {
-  console.log("🔍 API POST /users - Création d'utilisateur");
 
   try {
     // Vérifier l'authentification
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      console.log("❌ Non authentifié");
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
     // Vérifier que l'utilisateur est PDG
     if (session.user.role !== 'PDG') {
-      console.log("❌ Accès refusé - Rôle:", session.user.role);
       return NextResponse.json({ error: "Accès refusé - Seul le PDG peut créer des utilisateurs" }, { status: 403 });
     }
 
-    console.log("✅ PDG authentifié:", session.user.email, "Création d'utilisateur autorisée");
     const body = await request.json();
-    console.log("🔍 Body reçu:", body);
 
     const {
       name,
@@ -39,7 +32,6 @@ export async function POST(request: NextRequest) {
       password
     } = body;
 
-    console.log("🔍 Données extraites:", { name, email, phone, role, disciplineId });
 
     // Validation des champs obligatoires
     if (!name || !email || !role || !password) {
@@ -98,7 +90,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log("🔍 Tentative de création avec Prisma...");
 
     // Hasher le mot de passe
     const hashedPassword = await bcrypt.hash(password, 12);
@@ -127,7 +118,6 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    console.log("✅ Utilisateur créé, ajout des notifications...");
 
     // Créer une notification pour le PDG (utilisateur créé directement)
     try {
@@ -151,7 +141,6 @@ export async function POST(request: NextRequest) {
             })
           }
         });
-        console.log("✅ Notification créée pour le PDG");
       }
     } catch (notificationError) {
       console.error("⚠️ Erreur création notification:", notificationError);
@@ -172,12 +161,10 @@ export async function POST(request: NextRequest) {
           })
         }
       });
-      console.log("✅ Notification créée pour l'utilisateur");
     } catch (notificationError) {
       console.error("⚠️ Erreur création notification utilisateur:", notificationError);
     }
 
-    console.log("✅ Utilisateur créé avec succès:", user);
 
     // Retourner les données sans le mot de passe
     const { password: _, ...userWithoutPassword } = user;
@@ -212,23 +199,19 @@ export async function POST(request: NextRequest) {
 
 // GET /api/users - Récupérer les utilisateurs (pour le PDG)
 export async function GET(request: NextRequest) {
-  console.log("🔍 API GET /users - Récupération des utilisateurs");
 
   try {
     // Vérifier l'authentification
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      console.log("❌ Non authentifié");
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
     // Vérifier que l'utilisateur est PDG
     if (session.user.role !== 'PDG') {
-      console.log("❌ Accès refusé - Rôle:", session.user.role);
       return NextResponse.json({ error: "Accès refusé - Seul le PDG peut accéder à cette ressource" }, { status: 403 });
     }
 
-    console.log("✅ Utilisateur authentifié:", session.user.email, "Rôle:", session.user.role);
     const { searchParams } = new URL(request.url);
     const role = searchParams.get('role');
     const status = searchParams.get('status');
@@ -274,7 +257,6 @@ export async function GET(request: NextRequest) {
       return userWithoutPassword;
     });
 
-    console.log(`✅ ${usersWithoutPasswords.length} utilisateurs récupérés`);
 
     return NextResponse.json({
       users: usersWithoutPasswords,
@@ -293,9 +275,18 @@ export async function GET(request: NextRequest) {
 
 // PUT /api/users - Mettre à jour un utilisateur
 export async function PUT(request: NextRequest) {
-  console.log("🔍 API PUT /users - Mise à jour d'utilisateur");
 
   try {
+    // Vérifier l'authentification
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+    }
+
+    // Vérifier que l'utilisateur est PDG
+    if (session.user.role !== 'PDG') {
+      return NextResponse.json({ error: "Accès refusé - Seul le PDG peut modifier des utilisateurs" }, { status: 403 });
+    }
     const body = await request.json();
     const { id, ...updateData } = body;
 
@@ -337,7 +328,6 @@ export async function PUT(request: NextRequest) {
       }
     });
 
-    console.log("✅ Utilisateur mis à jour:", updatedUser);
 
     // Retourner sans le mot de passe
     const { password, ...userWithoutPassword } = updatedUser;
@@ -359,9 +349,18 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/users - Supprimer un utilisateur
 export async function DELETE(request: NextRequest) {
-  console.log("🔍 API DELETE /users - Suppression d'utilisateur");
 
   try {
+    // Vérifier l'authentification
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+    }
+
+    // Vérifier que l'utilisateur est PDG
+    if (session.user.role !== 'PDG') {
+      return NextResponse.json({ error: "Accès refusé - Seul le PDG peut supprimer des utilisateurs" }, { status: 403 });
+    }
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -389,7 +388,6 @@ export async function DELETE(request: NextRequest) {
       where: { id }
     });
 
-    console.log("✅ Utilisateur supprimé:", id);
 
     return NextResponse.json({
       success: true,

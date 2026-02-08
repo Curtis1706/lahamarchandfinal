@@ -26,7 +26,7 @@ export interface MonerooPaymentRequest {
   cancel_url?: string;
   callback_url?: string;
   webhook_url?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface MonerooPaymentResponse {
@@ -59,7 +59,7 @@ export interface MonerooTransaction {
   updated_at?: string;
   completed_at?: string;
   failure_reason?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface MonerooPayoutRequest {
@@ -71,7 +71,7 @@ export interface MonerooPayoutRequest {
   beneficiary_name: string;
   beneficiary_email?: string;
   description?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface MonerooPayoutResponse {
@@ -111,7 +111,7 @@ export interface MonerooWebhookEvent {
       email?: string;
       name?: string;
     };
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   };
   created_at: string;
 }
@@ -132,7 +132,6 @@ export class MonerooService {
     };
 
     if (!this.config.publicKey || !this.config.secretKey) {
-      console.warn("⚠️ Moneroo API credentials not configured");
     }
   }
 
@@ -153,13 +152,12 @@ export class MonerooService {
   private async request<T>(
     endpoint: string,
     method: string = "GET",
-    body?: any
+    body?: unknown
   ): Promise<T> {
     try {
       const url = `${this.config.baseUrl}${endpoint}`;
       const headers = this.getAuthHeaders();
 
-      console.log(`🌐 Moneroo API Request: ${method} ${url}`);
 
       const response = await fetch(url, {
         method,
@@ -175,8 +173,9 @@ export class MonerooService {
       }
 
       return data as T;
-    } catch (error: any) {
-      console.error("❌ Moneroo API Error:", error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("❌ Moneroo API Error:", errorMessage);
       throw error;
     }
   }
@@ -188,7 +187,6 @@ export class MonerooService {
     request: MonerooPaymentRequest
   ): Promise<MonerooPaymentResponse> {
     try {
-      console.log(`💳 Initiating Moneroo payment: ${request.description}`);
 
       const response = await this.request<MonerooPaymentResponse>(
         "/payments",
@@ -196,16 +194,13 @@ export class MonerooService {
         request
       );
 
-      console.log(`✅ Moneroo payment initiated:`, response.data?.payment_id);
-      return {
-        success: true,
-        ...response,
-      };
-    } catch (error: any) {
-      console.error("❌ Error initiating Moneroo payment:", error.message);
+      return response;
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("❌ Error initiating Moneroo payment:", errorMessage);
       return {
         success: false,
-        error: error.message,
+        error: errorMessage,
         message: "Échec de l'initiation du paiement",
       };
     }
@@ -218,17 +213,16 @@ export class MonerooService {
     transactionId: string
   ): Promise<MonerooTransaction> {
     try {
-      console.log(`🔍 Checking Moneroo transaction status: ${transactionId}`);
 
       const response = await this.request<{ data: MonerooTransaction }>(
         `/transactions/${transactionId}`,
         "GET"
       );
 
-      console.log(`✅ Transaction status: ${response.data.status}`);
       return response.data;
-    } catch (error: any) {
-      console.error("❌ Error checking transaction status:", error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("❌ Error checking transaction status:", errorMessage);
       throw error;
     }
   }
@@ -238,7 +232,6 @@ export class MonerooService {
    */
   async getPaymentDetails(paymentId: string): Promise<MonerooTransaction | null> {
     try {
-      console.log(`🔍 Getting Moneroo payment details: ${paymentId}`);
 
       const response = await this.request<{ data: MonerooTransaction }>(
         `/payments/${paymentId}`,
@@ -246,8 +239,9 @@ export class MonerooService {
       );
 
       return response.data;
-    } catch (error: any) {
-      console.error("❌ Error getting payment details:", error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("❌ Error getting payment details:", errorMessage);
       return null;
     }
   }
@@ -259,7 +253,6 @@ export class MonerooService {
     request: MonerooPayoutRequest
   ): Promise<MonerooPayoutResponse> {
     try {
-      console.log(`💰 Initiating Moneroo payout for ${request.beneficiary_name}`);
 
       const response = await this.request<MonerooPayoutResponse>(
         "/payouts",
@@ -267,16 +260,13 @@ export class MonerooService {
         request
       );
 
-      console.log(`✅ Moneroo payout initiated:`, response.data?.payout_id);
-      return {
-        success: true,
-        ...response,
-      };
-    } catch (error: any) {
-      console.error("❌ Error initiating Moneroo payout:", error.message);
+      return response;
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("❌ Error initiating Moneroo payout:", errorMessage);
       return {
         success: false,
-        error: error.message,
+        error: errorMessage,
         message: "Échec de l'initiation du retrait",
       };
     }
@@ -287,17 +277,16 @@ export class MonerooService {
    */
   async getPayoutStatus(payoutId: string): Promise<MonerooPayoutResponse["data"] | null> {
     try {
-      console.log(`🔍 Checking Moneroo payout status: ${payoutId}`);
 
       const response = await this.request<{ data: MonerooPayoutResponse["data"] }>(
         `/payouts/${payoutId}`,
         "GET"
       );
 
-      console.log(`✅ Payout status: ${response.data?.status}`);
       return response.data || null;
-    } catch (error: any) {
-      console.error("❌ Error checking payout status:", error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("❌ Error checking payout status:", errorMessage);
       return null;
     }
   }
@@ -307,17 +296,16 @@ export class MonerooService {
    */
   async getBalance(): Promise<MonerooBalance> {
     try {
-      console.log(`💵 Getting Moneroo balance`);
 
       const response = await this.request<{ data: MonerooBalance }>(
         "/balance",
         "GET"
       );
 
-      console.log(`✅ Balance: ${response.data.available} ${response.data.currency}`);
       return response.data;
-    } catch (error: any) {
-      console.error("❌ Error getting balance:", error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("❌ Error getting balance:", errorMessage);
       throw error;
     }
   }
@@ -333,7 +321,6 @@ export class MonerooService {
     end_date?: string;
   }): Promise<MonerooTransaction[]> {
     try {
-      console.log(`📋 Listing Moneroo transactions`);
 
       const queryParams = new URLSearchParams();
       if (params?.limit) queryParams.append("limit", params.limit.toString());
@@ -348,10 +335,10 @@ export class MonerooService {
         "GET"
       );
 
-      console.log(`✅ Found ${response.data.length} transactions`);
       return response.data;
-    } catch (error: any) {
-      console.error("❌ Error listing transactions:", error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("❌ Error listing transactions:", errorMessage);
       return [];
     }
   }
@@ -370,11 +357,11 @@ export class MonerooService {
 
       const isValid = signature === expectedSignature;
       if (!isValid) {
-        console.warn("⚠️ Invalid webhook signature detected");
       }
       return isValid;
-    } catch (error: any) {
-      console.error("❌ Error verifying webhook signature:", error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("❌ Error verifying webhook signature:", errorMessage);
       return false;
     }
   }
@@ -382,16 +369,17 @@ export class MonerooService {
   /**
    * Parser un événement webhook Moneroo
    */
-  parseWebhookEvent(body: any): MonerooWebhookEvent | null {
+  parseWebhookEvent(body: unknown): MonerooWebhookEvent | null {
     try {
-      if (!body || !body.event || !body.data) {
+      if (!body || typeof body !== 'object' || !('event' in body) || !('data' in body)) {
         console.error("❌ Invalid webhook payload structure");
         return null;
       }
 
       return body as MonerooWebhookEvent;
-    } catch (error: any) {
-      console.error("❌ Error parsing webhook event:", error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("❌ Error parsing webhook event:", errorMessage);
       return null;
     }
   }

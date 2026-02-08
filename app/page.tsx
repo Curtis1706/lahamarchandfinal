@@ -18,8 +18,7 @@ export default function HomePage() {
     // Par défaut, rediriger vers la page de connexion si pas authentifié
     // Ne rediriger vers le dashboard QUE si on est certain que l'utilisateur est authentifié
     if (status === "unauthenticated") {
-      console.log("🔒 Home: User not authenticated, redirecting to login")
-      router.replace("/auth/login")
+            router.replace("/auth/login")
       return
     }
     
@@ -28,15 +27,13 @@ export default function HomePage() {
       const validRoles = ['PDG', 'REPRESENTANT', 'PARTENAIRE', 'CONCEPTEUR', 'AUTEUR', 'CLIENT', 'INVITE']
       if (validRoles.includes(session.user.role)) {
         const role = session.user.role.toLowerCase()
-        console.log("✅ Home: User authenticated, redirecting to", `/dashboard/${role}`)
-        router.replace(`/dashboard/${role}`)
+                router.replace(`/dashboard/${role}`)
         return
       }
     }
     
     // Si on arrive ici, rediriger vers login par sécurité
-    console.log("🔒 Home: Authentication check failed, redirecting to login")
-    router.replace("/auth/login")
+        router.replace("/auth/login")
   }, [status, session, router])
 
   // Toujours afficher un loader pendant la vérification et la redirection

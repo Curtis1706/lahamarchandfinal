@@ -79,15 +79,12 @@ export default function RemisesPage() {
       }
       
       const data = await response.json()
-      console.log('📚 Données reçues de l\'API works:', data)
-      
+            
       // L'API retourne un objet avec works, pagination, stats
       const works = data.works || data || []
-      console.log(`📚 ${works.length} livre(s) trouvé(s)`)
-      
+            
       if (works.length === 0) {
-        console.warn('⚠️ Aucun livre trouvé dans la base de données')
-        toast.info('Aucun livre disponible pour le moment')
+                toast.info('Aucun livre disponible pour le moment')
         setLivres([])
         return
       }
@@ -97,8 +94,7 @@ export default function RemisesPage() {
         work.status === 'PUBLISHED' || work.status === 'ON_SALE'
       )
       
-      console.log(`📚 ${availableWorks.length} livre(s) disponible(s) (PUBLISHED ou ON_SALE)`)
-      
+            
       // Formater les livres avec extraction de l'image
       const formattedLivres = availableWorks.map((work: any) => {
         let coverImage = "/placeholder.jpg"
@@ -127,8 +123,7 @@ export default function RemisesPage() {
       }
       
       setLivres(formattedLivres)
-      console.log('✅ Livres chargés avec succès:', formattedLivres.length)
-    } catch (error: any) {
+          } catch (error: any) {
       console.error('❌ Error loading livres:', error)
       toast.error(error.message || 'Erreur lors du chargement des livres')
       setLivres([])
@@ -152,8 +147,7 @@ export default function RemisesPage() {
   })
 
   const handleRefresh = () => {
-    console.log("[v0] Refreshing remises...")
-  }
+      }
 
   const filteredRemises = remises.filter((remise) => {
     const matchesSearch = remise.livre.toLowerCase().includes(searchTerm.toLowerCase())

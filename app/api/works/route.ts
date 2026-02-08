@@ -1,11 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
 // POST /api/works - Créer une œuvre (nouveau workflow)
 export async function POST(request: NextRequest) {
-  console.log("🔍 API POST /works - Création d'œuvre par Concepteur");
 
   try {
     const session = await getServerSession(authOptions);
@@ -14,7 +13,6 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    console.log("🔍 Body reçu:", body);
 
     const {
       title,
@@ -40,23 +38,7 @@ export async function POST(request: NextRequest) {
     // Utiliser 'price' si fourni, sinon 'estimatedPrice'
     const finalPrice = price !== undefined && price !== null ? price : estimatedPrice;
 
-    console.log("🔍 Données extraites:", {
-      title,
-      description,
-      disciplineId,
-      authorId,
-      projectId,
-      contentType,
-      status
-    });
 
-    console.log("🔍 Description reçue:", {
-      description,
-      type: typeof description,
-      length: description?.length,
-      trimmed: description?.trim(),
-      isEmpty: !description?.trim()
-    });
 
     // Validation des champs obligatoires
     if (!title?.trim()) {
@@ -136,8 +118,6 @@ export async function POST(request: NextRequest) {
 
       // Récupérer l'ID du concepteur du projet pour l'assignation automatique
       projectConcepteurId = project.concepteurId;
-      console.log(`✅ Projet validé trouvé: "${project.title}" par ${project.concepteur.name}`);
-      console.log(`🔗 L'œuvre sera automatiquement assignée au concepteur: ${project.concepteur.name} (${project.concepteur.email})`);
     }
 
     // Déterminer le concepteurId : priorité au concepteurId fourni, puis au concepteur du projet, puis à l'utilisateur connecté si c'est un concepteur
@@ -234,15 +214,6 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    console.log("✅ Œuvre créée avec succès:", {
-      id: work.id,
-      title: work.title,
-      status: work.status,
-      author: work.author?.name || "Non défini",
-      discipline: work.discipline?.name || "Non défini",
-      project: work.project?.title || "Aucun projet parent",
-      concepteur: work.concepteur?.name || "Non assigné"
-    });
 
     // Créer des notifications pour les PDG
     try {
@@ -273,7 +244,6 @@ export async function POST(request: NextRequest) {
           skipDuplicates: true
         });
       }
-      console.log(`✅ Notifications créées pour ${pdgUsers.length} PDG`);
     } catch (notificationError) {
       console.error("⚠️ Erreur création notifications PDG:", notificationError);
     }
@@ -293,7 +263,6 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    console.log("🔍 GET /api/works - Session:", session?.user ? { id: session.user.id, role: session.user.role, email: session.user.email } : "Non authentifié");
 
     if (!session?.user) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
@@ -308,7 +277,6 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20');
     const skip = (page - 1) * limit;
 
-    console.log("🔍 Paramètres de requête:", { authorId, status, disciplineId, projectId, page, limit, skip });
 
     // Construire les conditions de filtre
     let whereClause: any = {};
@@ -343,15 +311,12 @@ export async function GET(request: NextRequest) {
       // Le PDG peut voir tous les statuts, mais si aucun filtre n'est spécifié,
       // on peut optionnellement filtrer par défaut
       // (pour l'instant, on laisse le PDG voir tout)
-      console.log("🔍 PDG - Pas de restriction, récupération de tous les works");
     }
 
-    console.log("🔍 Where clause construite:", JSON.stringify(whereClause, null, 2));
 
     // Pour le PDG, si la clause WHERE est vide, on récupère tous les works
     // Sinon, on applique les filtres
     const whereForQuery = Object.keys(whereClause).length === 0 ? undefined : whereClause;
-    console.log("🔍 Where clause pour la requête:", whereForQuery ? JSON.stringify(whereForQuery, null, 2) : "undefined (tous les works)");
 
     let works: any[] = []
     let total = 0
@@ -415,7 +380,6 @@ export async function GET(request: NextRequest) {
         if (relationError.message?.includes('Record to update not found') ||
           relationError.message?.includes('Foreign key constraint') ||
           relationError.code === 'P2025') {
-          console.warn('⚠️ Problème de relation détecté, tentative sans relations');
           [works, total] = await Promise.all([
             prisma.work.findMany({
               where: whereForQuery,
@@ -448,12 +412,9 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      console.log(`🔍 Requête réussie: ${works.length} works trouvés sur ${total} total`);
 
       // Si aucun work n'est retourné mais que total > 0, il y a un problème
       if (works.length === 0 && total > 0) {
-        console.warn(`⚠️ PROBLÈME: total=${total} mais works.length=0`);
-        console.warn(`⚠️ Skip=${skip}, Take=${limit}, Page=${page}`);
 
         // Essayer une requête sans relations pour voir si le problème vient des relations
         try {
@@ -471,14 +432,10 @@ export async function GET(request: NextRequest) {
             skip,
             take: limit
           });
-          console.log(`🔍 Requête sans relations: ${worksWithoutRelations.length} works trouvés`);
           if (worksWithoutRelations.length > 0) {
-            console.warn(`⚠️ Le problème vient probablement des relations (author, discipline, etc.)`);
-            console.log(`🔍 Works sans relations:`, worksWithoutRelations);
             // Utiliser ces works sans relations et enrichir manuellement
             works = worksWithoutRelations as any;
           } else if (skip > 0) {
-            console.warn(`⚠️ Problème de pagination: skip=${skip} mais aucun work trouvé`);
             // Essayer sans skip
             const worksNoSkip = await prisma.work.findMany({
               where: whereForQuery,
@@ -493,7 +450,6 @@ export async function GET(request: NextRequest) {
               orderBy: { createdAt: 'desc' },
               take: limit
             });
-            console.log(`🔍 Requête sans skip: ${worksNoSkip.length} works trouvés`);
             if (worksNoSkip.length > 0) {
               works = worksNoSkip as any;
             }
@@ -505,7 +461,6 @@ export async function GET(request: NextRequest) {
 
       // Si toujours 0 works, essayer une requête complètement sans filtres avec SQL brut
       if (works.length === 0 && session.user.role === "PDG") {
-        console.warn(`⚠️ PDG: Aucun work trouvé, tentative avec SQL brut sans filtres`);
         try {
           // Utiliser SQL brut pour éviter les problèmes d'enum
           const allWorksRaw = await prisma.$queryRawUnsafe<any[]>(
@@ -589,13 +544,11 @@ export async function GET(request: NextRequest) {
             } : null
           }));
 
-          console.log(`🔍 Requête PDG SQL brut: ${works.length} works trouvés`);
           if (works.length > 0) {
             const countResult = await prisma.$queryRawUnsafe<Array<{ count: bigint }>>(
               `SELECT COUNT(*) as count FROM "Work"`
             );
             total = Number(countResult[0]?.count || 0);
-            console.log(`🔍 Total mis à jour: ${total}`);
           }
         } catch (noFilterError) {
           console.error("❌ Erreur requête SQL brut sans filtres:", noFilterError);
@@ -609,7 +562,6 @@ export async function GET(request: NextRequest) {
 
       // Si l'erreur est liée à un statut invalide (SUSPENDED), utiliser une approche alternative
       if (findManyError.message?.includes('not found in enum') || findManyError.message?.includes('SUSPENDED')) {
-        console.warn('⚠️ Statut invalide détecté, utilisation d\'une approche alternative')
 
         try {
           // Utiliser une requête SQL brute pour récupérer uniquement les IDs
@@ -647,14 +599,11 @@ export async function GET(request: NextRequest) {
           }
 
           const whereSQL = sqlConditions.length > 0 ? `WHERE ${sqlConditions.join(' AND ')}` : ''
-          console.log(`🔍 SQL fallback - WHERE clause: ${whereSQL || 'Aucune (tous les works)'}`)
 
           // Récupérer les IDs avec SQL brut
           const limitParam = sqlParams.length + 1;
           const offsetParam = sqlParams.length + 2;
           const query = `SELECT id FROM "Work" ${whereSQL} ORDER BY "createdAt" DESC LIMIT $${limitParam} OFFSET $${offsetParam}`;
-          console.log(`🔍 SQL query: ${query}`);
-          console.log(`🔍 SQL params:`, [...sqlParams, limit, skip]);
 
           const workIdsResult = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
             query,
@@ -664,21 +613,17 @@ export async function GET(request: NextRequest) {
           )
 
           const ids = workIdsResult.map(w => w.id)
-          console.log(`🔍 IDs récupérés: ${ids.length}`, ids);
 
           // Compter le total
           const countQuery = `SELECT COUNT(*) as count FROM "Work" ${whereSQL}`;
-          console.log(`🔍 Count query: ${countQuery}`);
           const countResult = await prisma.$queryRawUnsafe<Array<{ count: bigint }>>(
             countQuery,
             ...sqlParams
           )
           total = Number(countResult[0]?.count || 0)
-          console.log(`🔍 Total works: ${total}`);
 
           // Si on a des IDs, récupérer les works complets avec SQL brut pour éviter les problèmes d'enum
           if (ids.length > 0) {
-            console.log(`🔍 Récupération des works complets pour ${ids.length} IDs (SQL brut)`);
 
             // Utiliser SQL brut pour récupérer les works complets
             // Construire la requête avec les IDs directement (sécurisé car les IDs viennent de notre propre DB)
@@ -763,9 +708,7 @@ export async function GET(request: NextRequest) {
               } : null
             }));
 
-            console.log(`🔍 Works récupérés avec SQL brut: ${works.length}`);
           } else {
-            console.log(`⚠️ Aucun ID trouvé, works = []`);
             works = []
           }
         } catch (sqlError: any) {
@@ -796,7 +739,6 @@ export async function GET(request: NextRequest) {
 
       // Si l'erreur est liée à un statut invalide, récupérer les stats manuellement
       if (groupByError.message?.includes('not found in enum') || groupByError.message?.includes('SUSPENDED')) {
-        console.warn('Statut invalide détecté dans la base, calcul manuel des statistiques')
         try {
           // Utiliser une requête SQL brute pour éviter les problèmes d'enum
           const allWorks = await prisma.$queryRaw<Array<{ status: string }>>`
@@ -811,7 +753,6 @@ export async function GET(request: NextRequest) {
             if (validStatuses.includes(status)) {
               statusCounts[status] = (statusCounts[status] || 0) + 1
             } else {
-              console.warn(`Statut invalide ignoré: ${status}`)
             }
           })
 
@@ -826,7 +767,6 @@ export async function GET(request: NextRequest) {
         }
       } else {
         // Pour les autres erreurs, essayer quand même le calcul manuel avec SQL brut
-        console.warn('Tentative de calcul manuel des statistiques avec SQL brut')
         try {
           const statusCountsRaw = await prisma.$queryRawUnsafe<Array<{ status: string, count: bigint }>>(
             `SELECT status, COUNT(*) as count FROM "Work" GROUP BY status`
@@ -866,13 +806,10 @@ export async function GET(request: NextRequest) {
     // Vérification supplémentaire : compter tous les works dans la base (pour debug)
     try {
       const totalWorksInDb = await prisma.work.count();
-      console.log(`🔍 Total works dans la base de données: ${totalWorksInDb}`);
 
       // Si des works existent mais ne sont pas retournés, faire une requête directe sans filtres
       if (totalWorksInDb > 0 && works.length === 0) {
-        console.warn(`⚠️ ATTENTION: ${totalWorksInDb} works existent dans la DB mais 0 ont été retournés par la requête`);
         const whereUsed = (typeof whereForQuery !== 'undefined') ? whereForQuery : whereClause;
-        console.warn(`⚠️ Where clause utilisée:`, JSON.stringify(whereUsed, null, 2));
 
         // Requête directe avec SQL brut pour voir tous les works (pour éviter les erreurs d'enum)
         try {
@@ -882,7 +819,6 @@ export async function GET(request: NextRequest) {
             ORDER BY "createdAt" DESC
             LIMIT 10`
           );
-          console.log(`🔍 Requête directe (SQL brut) - ${allWorksDirect.length} works trouvés:`, allWorksDirect);
         } catch (directError) {
           console.error("❌ Erreur lors de la requête directe:", directError);
         }
@@ -891,13 +827,9 @@ export async function GET(request: NextRequest) {
       console.error("❌ Erreur lors du comptage total:", countError);
       // Ne pas utiliser whereForQuery ici car il peut ne pas être défini
       if (countError.message?.includes('whereForQuery')) {
-        console.warn("⚠️ Erreur whereForQuery ignorée dans le catch");
       }
     }
 
-    console.log(`🔍 ${works.length} œuvre(s) trouvée(s) sur ${total}`);
-    console.log("🔍 Statistiques globales calculées:", statsFormatted);
-    console.log("🔍 Works récupérés:", works.map(w => ({ id: w.id, title: w.title, status: w.status })));
 
     const response = {
       works,
@@ -910,11 +842,6 @@ export async function GET(request: NextRequest) {
       stats: statsFormatted
     };
 
-    console.log("🔍 Réponse finale:", {
-      worksCount: response.works.length,
-      total: response.pagination.total,
-      hasStats: !!response.stats
-    });
 
     return NextResponse.json(response, { status: 200 });
 
@@ -963,7 +890,39 @@ export async function PUT(request: NextRequest) {
     }
 
     // Préparer les données de mise à jour
-    const dataToUpdate: any = { ...updateData };
+    const dataToUpdate: any = {};
+
+    // Copier les champs simples (non-relationnels)
+    const simpleFields = ['title', 'description', 'category', 'targetAudience', 'price', 'tva', 'isbn',
+      'internalCode', 'educationalObjectives', 'contentType', 'keywords', 'files',
+      'discountRate', 'stock', 'minStock', 'maxStock', 'physicalStock'];
+
+    for (const field of simpleFields) {
+      if (updateData[field] !== undefined) {
+        dataToUpdate[field] = updateData[field];
+      }
+    }
+
+    // Gérer les relations avec connect
+    if (updateData.disciplineId) {
+      dataToUpdate.discipline = { connect: { id: updateData.disciplineId } };
+    }
+
+    if (updateData.authorId) {
+      dataToUpdate.author = { connect: { id: updateData.authorId } };
+    }
+
+    if (updateData.concepteurId !== undefined) {
+      dataToUpdate.concepteur = updateData.concepteurId
+        ? { connect: { id: updateData.concepteurId } }
+        : { disconnect: true };
+    }
+
+    if (updateData.projectId !== undefined) {
+      dataToUpdate.project = updateData.projectId
+        ? { connect: { id: updateData.projectId } }
+        : { disconnect: true };
+    }
 
     // Si c'est une validation/refus par le PDG
     if (status && isPDG) {
@@ -978,14 +937,11 @@ export async function PUT(request: NextRequest) {
         pdgUser = await prisma.user.findUnique({
           where: { email: session.user.email }
         });
-        console.log(`🔍 Utilisateur PDG trouvé par email: ${pdgUser ? pdgUser.name : 'Non trouvé'}`);
       }
 
       if (pdgUser) {
-        dataToUpdate.reviewerId = pdgUser.id;
-        console.log(`✅ Reviewer assigné: ${pdgUser.name} (${pdgUser.id})`);
+        dataToUpdate.reviewer = { connect: { id: pdgUser.id } };
       } else {
-        console.log("⚠️ Utilisateur PDG non trouvé, validation sans reviewerId");
       }
 
       dataToUpdate.reviewedAt = new Date();
@@ -1064,7 +1020,6 @@ export async function PUT(request: NextRequest) {
           });
         }
 
-        console.log(`✅ Notification créée pour ${action}`);
       } catch (auditError) {
         console.error("⚠️ Erreur création audit/notifications:", auditError);
       }

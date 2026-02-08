@@ -17,8 +17,7 @@ export default function DashboardPage() {
 
     // Si l'utilisateur n'est pas connecté, rediriger immédiatement vers la page de connexion
     if (status === "unauthenticated") {
-      console.log("🔒 Dashboard: User not authenticated, redirecting to login")
-      router.replace("/auth/login")
+            router.replace("/auth/login")
       return
     }
 
@@ -27,15 +26,13 @@ export default function DashboardPage() {
       const validRoles = ['PDG', 'REPRESENTANT', 'PARTENAIRE', 'CONCEPTEUR', 'AUTEUR', 'CLIENT', 'INVITE']
       if (validRoles.includes(session.user.role)) {
         const role = session.user.role.toLowerCase()
-        console.log("✅ Dashboard: User authenticated, redirecting to", `/dashboard/${role}`)
-        router.replace(`/dashboard/${role}`)
+                router.replace(`/dashboard/${role}`)
         return
       }
     }
 
     // Si on arrive ici, rediriger vers login par sécurité
-    console.log("🔒 Dashboard: Authentication check failed, redirecting to login")
-    router.replace("/auth/login")
+        router.replace("/auth/login")
   }, [status, session, router])
 
   // Afficher un loader pendant la vérification

@@ -76,8 +76,7 @@ export default function NotificationsPage() {
   }
 
   const handleAddNotification = () => {
-    console.log("[v0] Adding notification:", formData)
-    setShowAddModal(false)
+        setShowAddModal(false)
     setFormData({ code: "", titre: "", note: "" })
     toast.info("Fonctionnalité à implémenter")
   }

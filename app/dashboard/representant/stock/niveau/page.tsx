@@ -30,8 +30,7 @@ export default function NiveauStockPage() {
   const [open, setOpen] = useState(false)
 
   const handleRefresh = () => {
-    console.log("[v0] Refreshing table data...")
-  }
+      }
 
   const handleFullscreen = () => {
     if (!document.fullscreenElement) {

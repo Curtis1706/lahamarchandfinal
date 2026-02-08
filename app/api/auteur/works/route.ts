@@ -9,7 +9,7 @@ import { OrderStatus } from "@prisma/client";
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user || session.user.role !== 'AUTEUR') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
     }
@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
 
       // Calculer les royalties totales
       const totalRoyalties = work.royalties.reduce((sum, royalty) => sum + royalty.amount, 0);
-      
+
       // Calculer les royalties payées
       const paidRoyalties = work.royalties
         .filter(royalty => royalty.paid)
@@ -102,6 +102,10 @@ export async function GET(request: NextRequest) {
         isbn: work.isbn,
         price: work.price,
         status: work.status,
+        stock: work.stock,
+        description: work.description,
+        files: work.files,
+        rejectionReason: work.rejectionReason,
         discipline: work.discipline ? {
           id: work.discipline.id,
           name: work.discipline.name

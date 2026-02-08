@@ -161,13 +161,9 @@ export default function ValidationOeuvresPage() {
       const response = await fetch(`/api/works?${params}`);
       const data = await response.json();
 
-      console.log("🔍 Réponse API works:", { response: response.ok, data });
-      console.log("🔍 Paramètres envoyés:", params.toString());
-
+            
       if (response.ok) {
-        console.log("🔍 Œuvres reçues:", data.works);
-        console.log("🔍 Statistiques reçues:", data.stats);
-        setWorks(data.works || []);
+                        setWorks(data.works || []);
         setTotalPages(data.pagination?.pages || 1);
 
         // Calculer les statistiques
@@ -177,8 +173,7 @@ export default function ValidationOeuvresPage() {
         const published = data.stats?.published || 0;
         const suspended = data.stats?.suspended || 0;
 
-        console.log("🔍 Statistiques calculées:", { total, pending, validated, published, suspended });
-        setWorkStats({ total, pending, validated, published, suspended });
+                setWorkStats({ total, pending, validated, published, suspended });
       } else {
         console.error("❌ Erreur API:", data.error);
         toast.error(data.error || "Erreur lors du chargement des œuvres");

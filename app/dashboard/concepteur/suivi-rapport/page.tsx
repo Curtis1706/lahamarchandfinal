@@ -17,8 +17,7 @@ export default function SuiviRapportPage() {
   const [searchTerm, setSearchTerm] = useState("");
 
   const handleRefresh = () => {
-    console.log("[v0] Refreshing stock tracking data...");
-  };
+      };
 
   return (
     <DynamicDashboardLayout title="Rapports discipline" breadcrumb="Concepteur - Rapports" onRefresh={handleRefresh}>

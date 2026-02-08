@@ -424,10 +424,8 @@ export default function DynamicDashboardLayout({
   // Debug: logger les changements de user
   useEffect(() => {
     if (user) {
-      console.log(`👤 DynamicDashboardLayout - User:`, { id: user.id, email: user.email, role: user.role })
-    } else {
-      console.log(`👤 DynamicDashboardLayout - No user`)
-    }
+          } else {
+          }
   }, [user])
 
   // Mémoriser basePath et navigation pour éviter les re-renders infinis
@@ -436,8 +434,7 @@ export default function DynamicDashboardLayout({
     const role = user.role.toUpperCase()
     const validRoles = ['PDG', 'REPRESENTANT', 'PARTENAIRE', 'CONCEPTEUR', 'AUTEUR', 'CLIENT']
     if (!validRoles.includes(role)) {
-      console.warn(`⚠️ Rôle invalide dans basePath: ${role}`)
-      return ''
+            return ''
     }
     return `/dashboard/${role.toLowerCase()}`;
   }, [user?.role]);
@@ -459,8 +456,7 @@ export default function DynamicDashboardLayout({
     
     if (!userLoading && (!isAuthenticated || !user || !user.role)) {
       authRedirectDone.current = true;
-      console.log("🔒 DynamicDashboardLayout: User not authenticated, redirecting to login")
-      router.replace("/auth/login")
+            router.replace("/auth/login")
       return
     }
     
@@ -508,8 +504,7 @@ export default function DynamicDashboardLayout({
     if (!isAllowed) {
       // Éviter les redirections en boucle
       routeCheckDone.current = pathname;
-      console.log(`🚫 Route non autorisée: ${pathname}, user role: ${user.role}, basePath: ${basePath}, allowedRoutes:`, allowedRoutes);
-      
+            
       // Ne pas rediriger si basePath est vide ou invalide
       if (!basePath || basePath === '/dashboard/') {
         console.error(`❌ basePath invalide, impossible de rediriger`)

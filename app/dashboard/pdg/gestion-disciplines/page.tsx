@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { apiClient } from "@/lib/api-client"
+import type { User } from "@/lib/types/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -66,25 +67,11 @@ interface Discipline {
   }
 }
 
-interface Concepteur {
-  id: string
-  name: string
-  email: string
-  disciplineId: string
-}
-
-interface Auteur {
-  id: string
-  name: string
-  email: string
-  disciplineId: string | null
-}
-
 export default function GestionDisciplinesPage() {
   const { user, isLoading: userLoading } = useCurrentUser()
   const [disciplines, setDisciplines] = useState<Discipline[]>([])
-  const [concepteurs, setConcepteurs] = useState<Concepteur[]>([])
-  const [auteurs, setAuteurs] = useState<Auteur[]>([])
+  const [concepteurs, setConcepteurs] = useState<User[]>([])
+  const [auteurs, setAuteurs] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
@@ -104,8 +91,7 @@ export default function GestionDisciplinesPage() {
           apiClient.getUsers()
         ])
 
-        console.log("🔍 Disciplines reçues:", disciplinesData)
-
+        
         // Enrichir les disciplines avec les statistiques
         const enrichedDisciplines = (disciplinesData as any[]).map((discipline: any) => ({
           ...discipline,
@@ -870,7 +856,7 @@ function AssignAuthorsForm({
   onClose
 }: {
   discipline: Discipline
-  auteurs: Auteur[]
+  auteurs: User[]
   onAssign: (authorId: string) => void
   onRemove: (authorId: string) => void
   onClose: () => void
