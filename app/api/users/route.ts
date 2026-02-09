@@ -383,15 +383,58 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Supprimer l'utilisateur
-    await prisma.user.delete({
-      where: { id }
-    });
+    // Au lieu de supprimer physiquement, on procède à une anonymisation (Soft Delete)
+    // pour conserver l'historique des opérations (commandes, œuvres, etc.)
+    await prisma.$transaction(async (tx) => {
+      const timestamp = Date.now();
+      const randomSuffix = Math.floor(Math.random() * 10000);
+      const anonymizedEmail = `deleted-${timestamp}-${randomSuffix}@lahamarchand.com`;
 
+      // 1. Anonymiser l'utilisateur et le désactiver
+      await tx.user.update({
+        where: { id },
+        data: {
+          name: "Utilisateur Supprimé", // Nom générique
+          email: anonymizedEmail, // Email unique mais invalide
+          phone: null, // Supprimer le numéro
+          image: null, // Supprimer l'avatar
+          password: `deleted-${timestamp}-${randomSuffix}`, // Mot de passe inutilisable (non hashé ou hash bidon)
+          status: "INACTIVE", // Désactiver le compte
+          emailVerified: null,
+          // On garde le rôle pour l'historique (savoir si c'était un auteur, un partenaire, etc.)
+          // On garde representantId et disciplineId pour l'historique aussi
+        }
+      });
+
+      // 2. Supprimer les sessions actives (déconnexion forcée)
+      await tx.session.deleteMany({
+        where: { userId: id }
+      });
+
+      // 3. Supprimer les comptes liés (Google, etc.)
+      await tx.account.deleteMany({
+        where: { userId: id }
+      });
+
+      // 4. Supprimer les notifications (optionnel, pour nettoyer un peu)
+      await tx.notification.deleteMany({
+        where: { userId: id }
+      });
+
+      // NOTE IMPORTANTE:
+      // On conserve TOUTES les autres données relationnelles :
+      // - Partners
+      // - Orders (commandes)
+      // - Works (œuvres)
+      // - Projects
+      // - Withdrawals
+      // - Etc.
+      // Cela permet de garder l'intégrité comptable et historique.
+    });
 
     return NextResponse.json({
       success: true,
-      message: "Utilisateur supprimé avec succès"
+      message: "Utilisateur désactivé et anonymisé avec succès. L'historique des opérations a été conservé."
     });
 
   } catch (error: any) {

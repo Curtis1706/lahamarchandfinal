@@ -32,6 +32,7 @@ export interface CreateUserRequest {
     role: string
     disciplineId?: string | null
     password?: string
+    otpCode?: string
 }
 
 export interface UpdateUserRequest {

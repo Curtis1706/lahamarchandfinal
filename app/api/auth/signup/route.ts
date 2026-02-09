@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { Role } from "@prisma/client"
 import { logger } from '@/lib/logger'
+import { verifyOTP } from '@/lib/simple-otp'
+import { sendEmail } from '@/lib/native-email'
+import { getWelcomeEmailHTML, getWelcomeEmailText } from '@/lib/simple-email-templates'
 
-// POST /api/auth/signup - Inscription publique
+// POST /api/auth/signup - Inscription publique avec vérification OTP
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, email, password, role, phone, disciplineId } = body
+    const { name, email, password, role, phone, disciplineId, otpCode } = body
 
     // Ne logger que le rôle, pas les données personnelles
     logger.info("Nouvelle inscription", { role })
@@ -16,6 +19,21 @@ export async function POST(request: NextRequest) {
     if (!name || !email || !password || !role) {
       return NextResponse.json({
         error: "Les champs nom, email, mot de passe et rôle sont obligatoires"
+      }, { status: 400 })
+    }
+
+    // Validation du code OTP (NOUVEAU)
+    if (!otpCode || typeof otpCode !== 'string') {
+      return NextResponse.json({
+        error: "Code de vérification requis. Veuillez d'abord demander un code OTP."
+      }, { status: 400 })
+    }
+
+    // Vérifier le code OTP (NOUVEAU)
+    const otpResult = verifyOTP(email, otpCode)
+    if (!otpResult.valid) {
+      return NextResponse.json({
+        error: otpResult.message
       }, { status: 400 })
     }
 
@@ -152,6 +170,20 @@ export async function POST(request: NextRequest) {
         logger.error("⚠️ Erreur création notification:", notificationError)
         // Ne pas faire échouer l'inscription pour une erreur de notification
       }
+    }
+
+    // Envoyer l'email de bienvenue (NOUVEAU)
+    try {
+      await sendEmail({
+        to: newUser.email,
+        subject: 'Bienvenue sur Laha Marchand !',
+        html: getWelcomeEmailHTML(newUser.name, newUser.email),
+        text: getWelcomeEmailText(newUser.name, newUser.email)
+      })
+      logger.debug("✅ Email de bienvenue envoyé à:", newUser.email)
+    } catch (emailError) {
+      logger.error("⚠️ Erreur envoi email bienvenue:", emailError)
+      // Ne pas faire échouer l'inscription pour une erreur d'email
     }
 
     // Message différent selon le statut

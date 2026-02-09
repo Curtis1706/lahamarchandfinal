@@ -13,12 +13,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { 
-  ShoppingCart, 
-  Loader2, 
-  Plus, 
-  Minus, 
-  Trash2, 
+import {
+  ShoppingCart,
+  Loader2,
+  Plus,
+  Minus,
+  Trash2,
   ArrowLeft,
   CreditCard,
   MapPin,
@@ -32,6 +32,7 @@ import {
 import { toast } from "sonner"
 import Link from "next/link"
 import Image from "next/image"
+import { OTPInput } from "@/components/otp-input"
 
 interface CartItem {
   id: string
@@ -48,11 +49,19 @@ export default function GuestCheckoutPage() {
   const { isGuest } = useGuest()
   const { cart, clearCart, updateQuantity, removeFromCart } = useCart()
   const router = useRouter()
-  
+
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [createAccount, setCreateAccount] = useState(false)
-  
+
+  // États pour le flux OTP
+  const [otpStep, setOtpStep] = useState<'form' | 'otp'>('form')
+  const [otpCode, setOtpCode] = useState("")
+  const [isSendingOTP, setIsSendingOTP] = useState(false)
+  const [isVerifyingOTP, setIsVerifyingOTP] = useState(false)
+  const [otpCountdown, setOtpCountdown] = useState(0)
+  const [otpError, setOtpError] = useState("")
+
   // Informations de livraison
   const [deliveryInfo, setDeliveryInfo] = useState({
     fullName: "",
@@ -63,16 +72,16 @@ export default function GuestCheckoutPage() {
     postalCode: "",
     notes: ""
   })
-  
+
   // Informations pour création de compte (si createAccount = true)
   const [accountInfo, setAccountInfo] = useState({
     password: "",
     confirmPassword: ""
   })
-  
+
   // Méthode de paiement
   const [paymentMethod, setPaymentMethod] = useState("")
-  
+
   // Code promo
   const [promoCodeInput, setPromoCodeInput] = useState("")
   const [appliedPromoCode, setAppliedPromoCode] = useState<string | null>(null)
@@ -98,24 +107,151 @@ export default function GuestCheckoutPage() {
     }
   }, [cart, router])
 
+  // Countdown OTP
+  useEffect(() => {
+    if (otpCountdown > 0) {
+      const timer = setTimeout(() => {
+        setOtpCountdown(otpCountdown - 1)
+      }, 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [otpCountdown])
+
+  // Fonctions OTP
+  const handleSendOTP = async () => {
+    if (!deliveryInfo.email.trim()) {
+      toast.error("L'email est requis pour recevoir le code OTP")
+      return
+    }
+
+    setIsSendingOTP(true)
+    setOtpError("")
+
+    try {
+      const response = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: deliveryInfo.email })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        toast.success("Code de vérification envoyé par email !")
+        setOtpStep('otp')
+        setOtpCountdown(60) // 60 secondes avant de pouvoir renvoyer
+      } else {
+        if (response.status === 429 && data.waitSeconds) {
+          setOtpCountdown(data.waitSeconds)
+          toast.error(data.error)
+        } else {
+          toast.error(data.error || "Erreur lors de l'envoi du code")
+        }
+      }
+    } catch (error) {
+      console.error("Error sending OTP:", error)
+      toast.error("Une erreur inattendue est survenue")
+    } finally {
+      setIsSendingOTP(false)
+    }
+  }
+
+  const handleVerifyOTP = async () => {
+    if (otpCode.length !== 6) {
+      setOtpError("Le code doit contenir 6 chiffres")
+      return
+    }
+
+    setIsVerifyingOTP(true)
+    setOtpError("")
+
+    try {
+      const response = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: deliveryInfo.email,
+          code: otpCode
+        })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        toast.success("Email vérifié avec succès !")
+        // Continuer avec la création du compte
+        await handleCreateAccountWithOTP()
+      } else {
+        setOtpError(data.error || "Code invalide")
+        toast.error(data.error || "Code invalide")
+      }
+    } catch (error) {
+      console.error("Error verifying OTP:", error)
+      setOtpError("Une erreur est survenue")
+      toast.error("Une erreur inattendue est survenue")
+    } finally {
+      setIsVerifyingOTP(false)
+    }
+  }
+
+  const handleCreateAccountWithOTP = async () => {
+    setIsProcessing(true)
+
+    try {
+      const signupResponse = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: deliveryInfo.fullName,
+          email: deliveryInfo.email,
+          phone: deliveryInfo.phone,
+          password: accountInfo.password,
+          role: 'CLIENT',
+          otpCode: otpCode
+        })
+      })
+
+      if (signupResponse.ok) {
+        const signupData = await signupResponse.json()
+        toast.success("Compte créé avec succès !")
+        // Rediriger vers la page de connexion
+        router.push(`/auth/login?callbackUrl=/dashboard/client/checkout`)
+        return
+      } else {
+        const errorData = await signupResponse.json()
+        toast.error(errorData.error || "Erreur lors de la création du compte")
+        // Retourner au formulaire
+        setOtpStep('form')
+        setOtpCode("")
+      }
+    } catch (error) {
+      console.error("Error creating account:", error)
+      toast.error("Erreur lors de la création du compte")
+      setOtpStep('form')
+      setOtpCode("")
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
   // Calculs
   const getSubtotal = () => {
     return cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
   }
-  
+
   const getTotalTVA = () => {
     return cartItems.reduce((sum, item) => {
       const itemSubtotal = item.price * item.quantity
       return sum + (itemSubtotal * item.tva)
     }, 0)
   }
-  
+
   const getTotal = () => {
     const subtotal = getSubtotal()
     const tax = getTotalTVA()
     return Math.max(0, subtotal + tax - discountAmount)
   }
-  
+
   const getTotalItems = () => {
     return cartItems.reduce((sum, item) => sum + item.quantity, 0)
   }
@@ -138,7 +274,7 @@ export default function GuestCheckoutPage() {
       toast.error("Veuillez sélectionner une méthode de paiement")
       return false
     }
-    
+
     if (createAccount) {
       if (!deliveryInfo.email.trim()) {
         toast.error("L'email est requis pour créer un compte")
@@ -157,7 +293,7 @@ export default function GuestCheckoutPage() {
         return false
       }
     }
-    
+
     return true
   }
 
@@ -199,52 +335,23 @@ export default function GuestCheckoutPage() {
   // Passer la commande
   const handlePlaceOrder = async () => {
     if (!validateForm()) return
-    
-    setIsProcessing(true)
-    
-    try {
-      // Si création de compte, créer d'abord le compte
-      let userId = null
-      if (createAccount) {
-        try {
-          const signupResponse = await fetch('/api/auth/signup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name: deliveryInfo.fullName,
-              email: deliveryInfo.email,
-              phone: deliveryInfo.phone,
-              password: accountInfo.password,
-              role: 'CLIENT'
-            })
-          })
-          
-          if (signupResponse.ok) {
-            const signupData = await signupResponse.json()
-            userId = signupData.user?.id
-            toast.success("Compte créé avec succès !")
-            // Rediriger vers la page de connexion pour se connecter
-            router.push(`/auth/login?callbackUrl=/dashboard/client/checkout`)
-            return
-          } else {
-            const errorData = await signupResponse.json()
-            toast.error(errorData.error || "Erreur lors de la création du compte")
-            return
-          }
-        } catch (error) {
-          console.error("Error creating account:", error)
-          toast.error("Erreur lors de la création du compte")
-          return
-        }
-      }
 
+    // Si création de compte activée mais OTP pas encore vérifié
+    if (createAccount && otpStep !== 'form') {
+      toast.error("Veuillez d'abord vérifier votre email avec le code OTP")
+      return
+    }
+
+    setIsProcessing(true)
+
+    try {
       // Créer la commande en tant qu'invité (sans userId)
       const orderItems = cartItems.map(item => ({
         workId: item.id,
         quantity: item.quantity,
         price: item.price
       }))
-      
+
       const orderResponse = await fetch('/api/orders/guest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -267,7 +374,7 @@ export default function GuestCheckoutPage() {
 
       if (orderResponse.ok) {
         const orderData = await orderResponse.json()
-        
+
         // Si paiement en ligne (Mobile Money ou Carte), rediriger vers Moneroo
         if (paymentMethod === "MOBILE_MONEY" || paymentMethod === "CARTE_BANCAIRE") {
           try {
@@ -281,14 +388,14 @@ export default function GuestCheckoutPage() {
                 customerPhone: deliveryInfo.phone,
               })
             })
-            
+
             if (paymentResponse.ok) {
               const paymentData = await paymentResponse.json()
-              
+
               if (paymentData.success && paymentData.payment_url) {
                 // Sauvegarder l'ID de la commande pour la retrouver après le paiement
                 localStorage.setItem('pendingOrderId', orderData.order.id)
-                
+
                 // Rediriger vers la page de paiement Moneroo
                 window.location.href = paymentData.payment_url
                 return
@@ -436,7 +543,7 @@ export default function GuestCheckoutPage() {
                       placeholder="Jean Dupont"
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="phone">Téléphone *</Label>
                     <Input
@@ -446,7 +553,7 @@ export default function GuestCheckoutPage() {
                       placeholder="+229 40 76 76 76"
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="email">Email {createAccount ? '*' : '(optionnel)'}</Label>
                     <Input
@@ -458,7 +565,7 @@ export default function GuestCheckoutPage() {
                       required={createAccount}
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="address">Adresse *</Label>
                     <Textarea
@@ -469,7 +576,7 @@ export default function GuestCheckoutPage() {
                       rows={3}
                     />
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="city">Ville</Label>
@@ -490,7 +597,7 @@ export default function GuestCheckoutPage() {
                       />
                     </div>
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="notes">Notes de livraison (optionnel)</Label>
                     <Textarea
@@ -521,13 +628,20 @@ export default function GuestCheckoutPage() {
                       type="checkbox"
                       id="createAccount"
                       checked={createAccount}
-                      onChange={(e) => setCreateAccount(e.target.checked)}
+                      onChange={(e) => {
+                        setCreateAccount(e.target.checked)
+                        if (!e.target.checked) {
+                          setOtpStep('form')
+                          setOtpCode("")
+                          setOtpError("")
+                        }
+                      }}
                       className="rounded"
                     />
                     <Label htmlFor="createAccount">Je souhaite créer un compte</Label>
                   </div>
-                  
-                  {createAccount && (
+
+                  {createAccount && otpStep === 'form' && (
                     <div className="space-y-4 pt-4 border-t">
                       <div>
                         <Label htmlFor="password">Mot de passe *</Label>
@@ -549,6 +663,104 @@ export default function GuestCheckoutPage() {
                           placeholder="Répétez le mot de passe"
                         />
                       </div>
+
+                      <div className="pt-2">
+                        <Button
+                          onClick={handleSendOTP}
+                          disabled={isSendingOTP || !deliveryInfo.email || !accountInfo.password || accountInfo.password !== accountInfo.confirmPassword}
+                          className="w-full"
+                        >
+                          {isSendingOTP ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Envoi en cours...
+                            </>
+                          ) : (
+                            <>
+                              <Mail className="h-4 w-4 mr-2" />
+                              Envoyer le code de vérification
+                            </>
+                          )}
+                        </Button>
+                        <p className="text-xs text-muted-foreground text-center mt-2">
+                          Un code à 6 chiffres sera envoyé à {deliveryInfo.email || "votre email"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {createAccount && otpStep === 'otp' && (
+                    <div className="space-y-4 pt-4 border-t">
+                      <div className="text-center space-y-2">
+                        <p className="text-sm text-muted-foreground">
+                          Un code de vérification a été envoyé à
+                        </p>
+                        <p className="font-medium">{deliveryInfo.email}</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-center block">Entrez le code à 6 chiffres</Label>
+                        <OTPInput
+                          value={otpCode}
+                          onChange={setOtpCode}
+                          onComplete={(code) => setOtpCode(code)}
+                          disabled={isVerifyingOTP}
+                          error={!!otpError}
+                        />
+                        {otpError && (
+                          <p className="text-sm text-red-500 text-center">{otpError}</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Button
+                          onClick={handleVerifyOTP}
+                          disabled={isVerifyingOTP || otpCode.length !== 6}
+                          className="w-full"
+                        >
+                          {isVerifyingOTP || isProcessing ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Vérification...
+                            </>
+                          ) : (
+                            "Vérifier et créer le compte"
+                          )}
+                        </Button>
+
+                        <div className="flex items-center justify-between text-sm">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setOtpStep('form')
+                              setOtpCode("")
+                              setOtpError("")
+                            }}
+                            disabled={isVerifyingOTP}
+                          >
+                            <ArrowLeft className="h-3 w-3 mr-1" />
+                            Retour
+                          </Button>
+
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleSendOTP}
+                            disabled={isSendingOTP || otpCountdown > 0}
+                          >
+                            {otpCountdown > 0 ? (
+                              `Renvoyer (${otpCountdown}s)`
+                            ) : (
+                              "Renvoyer le code"
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-muted-foreground text-center">
+                        Le code expire dans 10 minutes
+                      </p>
                     </div>
                   )}
                 </CardContent>
@@ -582,7 +794,7 @@ export default function GuestCheckoutPage() {
                       </SelectItem>
                     </SelectContent>
                   </Select>
-                  
+
                   {(paymentMethod === "MOBILE_MONEY" || paymentMethod === "CARTE_BANCAIRE") && (
                     <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-700">
                       🔒 Paiement sécurisé via Moneroo. Vous serez redirigé vers la plateforme de paiement.
@@ -635,7 +847,7 @@ export default function GuestCheckoutPage() {
                 </CardContent>
               </Card>
             </div>
-            
+
             {/* Colonne latérale - Récapitulatif */}
             <div className="lg:col-span-1">
               <Card className="sticky top-6">
@@ -664,7 +876,7 @@ export default function GuestCheckoutPage() {
                       <span className="text-primary">{getTotal().toLocaleString()} F CFA</span>
                     </div>
                   </div>
-                  
+
                   <Button
                     size="lg"
                     className="w-full"
@@ -683,7 +895,7 @@ export default function GuestCheckoutPage() {
                       </>
                     )}
                   </Button>
-                  
+
                   <p className="text-xs text-center text-gray-500">
                     En passant cette commande, vous acceptez nos conditions générales de vente.
                   </p>
