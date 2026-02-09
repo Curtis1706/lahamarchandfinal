@@ -5,11 +5,14 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { OrderStatus } from "@prisma/client";
 
+// Désactiver le rendu statique pour cette route API
+export const dynamic = 'force-dynamic';
+
 // GET /api/auteur/dashboard - Récupérer les données du dashboard auteur
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user || session.user.role !== 'AUTEUR') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
     }
@@ -52,7 +55,7 @@ export async function GET(request: NextRequest) {
     // Calculer les statistiques générales
     const totalWorks = authorWorks.length;
     const publishedWorks = authorWorks.filter(w => w.status === "PUBLISHED" || w.status === "ON_SALE").length;
-    
+
     // Calculer les ventes totales (quantité d'exemplaires vendus)
     const totalSales = authorWorks.reduce((sum, work) => {
       return sum + work.orderItems.reduce((workSum, item) => {
@@ -89,10 +92,10 @@ export async function GET(request: NextRequest) {
         const sales = work.orderItems.reduce((sum, item) => {
           return sum + (item.order && item.order.status !== OrderStatus.CANCELLED ? item.quantity : 0);
         }, 0);
-        
+
         const royalties = work.royalties.reduce((sum, royalty) => sum + royalty.amount, 0);
         const royaltiesPaid = work.royalties.reduce((sum, royalty) => sum + (royalty.paid ? royalty.amount : 0), 0);
-        
+
         return {
           id: work.id,
           title: work.title,

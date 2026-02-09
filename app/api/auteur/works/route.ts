@@ -5,6 +5,9 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { OrderStatus } from "@prisma/client";
 
+// Désactiver le rendu statique pour cette route API
+export const dynamic = 'force-dynamic';
+
 // GET /api/auteur/works - Récupérer les œuvres de l'auteur avec statistiques de ventes
 export async function GET(request: NextRequest) {
   try {

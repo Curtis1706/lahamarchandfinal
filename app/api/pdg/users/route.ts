@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getPaginationParams, createPaginatedResponse } from '@/lib/pagination'
 
-export const dynamic = 'force_dynamic'
+export const dynamic = 'force-dynamic'
 
 // GET /api/pdg/users - Récupérer les utilisateurs (pour le PDG)
 export async function GET(request: NextRequest) {
