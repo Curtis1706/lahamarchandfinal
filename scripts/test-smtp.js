@@ -7,12 +7,19 @@ const net = require('net');
 const tls = require('tls');
 
 // Configuration SMTP
+// Configuration SMTP (depuis les variables d'environnement ou .env.local)
 const config = {
-    host: 'smtp.hostinger.com',
-    port: 587,
-    user: 'hello@lahagabon.com',
-    pass: 'Lah@Gabon2026',
+    host: process.env.SMTP_HOST || 'smtp.hostinger.com',
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASSWORD,
 };
+
+if (!config.user || !config.pass) {
+    console.error('❌ Erreur: Les variables SMTP_USER et SMTP_PASSWORD doivent être définies.');
+    console.error('Usage: SMTP_USER=votre_email SMTP_PASSWORD=votre_mot_de_passe node scripts/test-smtp.js');
+    process.exit(1);
+}
 
 console.log('🧪 Test de connexion SMTP Hostinger...\n');
 
