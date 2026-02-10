@@ -84,6 +84,21 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           label: "Gestion Utilisateurs"
         },
         {
+          href: `${basePath}/gestion-disciplines`,
+          icon: GraduationCap,
+          label: "Gestion Disciplines"
+        },
+        {
+          href: `${basePath}/validation-oeuvres`,
+          icon: BookOpen,
+          label: "Validation Œuvres"
+        },
+        {
+          href: `${basePath}/gestion-projets`,
+          icon: FileText,
+          label: "Gestion des Projets"
+        },
+        {
           href: `${basePath}/gestion-partenaires`,
           icon: Building2,
           label: "Gestion Partenaires"
@@ -356,7 +371,7 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           label: "Notifications"
         }
       ];
-       case "CLIENT":
+    case "CLIENT":
       return [
         ...commonItems,
         {
@@ -654,8 +669,8 @@ export default function DynamicDashboardLayout({
                               key={`nav-child-${childIndex}-${child.href}`}
                               href={child.href}
                               className={`block px-3 py-1 text-sm rounded ${isActivePath(child.href)
-                                  ? "bg-blue-50 text-blue-600"
-                                  : "hover:bg-gray-100"
+                                ? "bg-blue-50 text-blue-600"
+                                : "hover:bg-gray-100"
                                 }`}
                             >
                               {child.label}
@@ -668,8 +683,8 @@ export default function DynamicDashboardLayout({
                     <Link
                       href={item.href}
                       className={`flex items-center space-x-3 px-3 py-2 rounded-lg ${isActive
-                          ? "bg-blue-50 text-blue-600"
-                          : "hover:bg-gray-100"
+                        ? "bg-blue-50 text-blue-600"
+                        : "hover:bg-gray-100"
                         }`}
                     >
                       <item.icon className="w-5 h-5" />
