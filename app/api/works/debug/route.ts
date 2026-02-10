@@ -9,10 +9,10 @@ import { prisma } from "@/lib/prisma"
 // GET /api/works/debug - Debug endpoint for works
 export async function GET(request: NextRequest) {
   try {
-    // Désactiver en production pour sécurité
-    if (process.env.NODE_ENV === 'production') {
-      return NextResponse.json({ error: "Endpoint not available in production" }, { status: 404 })
-    }
+    // Désactiver en production sauf pour les tests spécifiques
+    // if (process.env.NODE_ENV === 'production') {
+    //   return NextResponse.json({ error: "Endpoint not available in production" }, { status: 404 })
+    // }
 
     const session = await getServerSession(authOptions)
     if (!session?.user) {
