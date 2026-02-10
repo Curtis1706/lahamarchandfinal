@@ -127,7 +127,7 @@ export const useOrders = (): UseOrdersResult => {
             title: item.work?.title || item.title,
             quantity: item.quantity,
             price: item.price || item.unitPrice || item.work?.price || 0,
-            image: '/placeholder-book.jpg', // Work doesn't have image field
+            image: item.image || '/placeholder-book.jpg',
             isbn: item.work?.isbn || item.isbn
           })),
           customerInfo: {
@@ -209,7 +209,7 @@ export const useOrders = (): UseOrdersResult => {
           title: item.work?.title || item.title || 'Livre inconnu',
           quantity: item.quantity,
           price: item.price,
-          image: '/placeholder-book.jpg',
+          image: (item.work?.files ? JSON.parse(item.work.files).coverImage : null) || item.image || '/placeholder-book.jpg',
           isbn: item.work?.isbn || item.isbn || 'N/A'
         })),
         customerInfo: {

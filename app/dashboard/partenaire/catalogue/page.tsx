@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { apiClient } from "@/lib/api-client"
+import Image from "next/image"
 import {
   Search,
   Filter,
@@ -45,14 +46,14 @@ export default function PartenaireCataloguePage() {
   const loadCatalogue = async () => {
     try {
       setIsLoading(true)
-      
-      const data = await apiClient.getPartenaireCatalogue({ 
+
+      const data = await apiClient.getPartenaireCatalogue({
         discipline: disciplineFilter === 'all' ? undefined : disciplineFilter,
-        price: priceFilter === 'all' ? undefined : priceFilter 
-      })
-      
+        price: priceFilter === 'all' ? undefined : priceFilter
+      }) as any
+
       setWorks(data.works)
-      
+
     } catch (error: any) {
       console.error('Erreur lors du chargement du catalogue:', error)
       toast({
@@ -68,15 +69,15 @@ export default function PartenaireCataloguePage() {
 
   const filteredWorks = works.filter(work => {
     const matchesSearch = work.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         work.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         work.discipline.toLowerCase().includes(searchTerm.toLowerCase())
-    
+      work.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      work.discipline.toLowerCase().includes(searchTerm.toLowerCase())
+
     const matchesDiscipline = disciplineFilter === "all" || work.discipline === disciplineFilter
-    const matchesPrice = priceFilter === "all" || 
-                        (priceFilter === "low" && work.price < 3500) ||
-                        (priceFilter === "medium" && work.price >= 3500 && work.price < 4500) ||
-                        (priceFilter === "high" && work.price >= 4500)
-    
+    const matchesPrice = priceFilter === "all" ||
+      (priceFilter === "low" && work.price < 3500) ||
+      (priceFilter === "medium" && work.price >= 3500 && work.price < 4500) ||
+      (priceFilter === "high" && work.price >= 4500)
+
     return matchesSearch && matchesDiscipline && matchesPrice
   })
 
@@ -154,16 +155,31 @@ export default function PartenaireCataloguePage() {
             <Card key={work.id} className="hover:shadow-lg transition-shadow">
               <CardContent className="p-4">
                 {/* Image de couverture */}
-                <div className="h-48 bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg mb-4 flex items-center justify-center">
-                  <BookOpen className="h-16 w-16 text-blue-600" />
+                <div className="h-48 bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg mb-4 flex items-center justify-center relative overflow-hidden">
+                  {work.coverImage ? (
+                    <Image
+                      src={work.coverImage}
+                      alt={work.title}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                      onError={(e) => {
+                        // Si l'image échoue, on pourrait remettre l'icône ou un placeholder
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <BookOpen className="h-16 w-16 text-blue-600" />
+                  )}
                 </div>
-                
+
                 {/* Informations de l'œuvre */}
                 <div className="space-y-2">
                   <h3 className="font-semibold text-lg line-clamp-2">{work.title}</h3>
                   <p className="text-sm text-gray-600">Par {work.author}</p>
                   <Badge variant="secondary" className="text-xs">{work.discipline}</Badge>
-                  
+
                   {/* Prix et stock */}
                   <div className="flex justify-between items-center pt-2">
                     <span className="text-lg font-bold text-green-600">
@@ -174,7 +190,7 @@ export default function PartenaireCataloguePage() {
                       {work.stock} disponibles
                     </div>
                   </div>
-                  
+
                   {/* Informations seulement - pas d'action de commande */}
                   <div className="pt-3 text-center">
                     <p className="text-xs text-gray-500 italic">

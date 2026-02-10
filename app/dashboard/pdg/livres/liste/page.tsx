@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Upload, Edit, Trash2, Image as ImageIcon, X, CheckCircle, Loader2 } from "lucide-react";
+import Image from "next/image";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 
@@ -856,11 +857,19 @@ export default function LivresListePage() {
                       <tr key={livre.id} className="border-b hover:bg-gray-50">
                         <td className="py-3 px-2">
                           <div className="flex items-center gap-3">
-                            <img
-                              src={livre.image}
-                              alt={livre.libelle}
-                              className="w-12 h-16 object-cover rounded"
-                            />
+                            <div className="relative w-12 h-16 bg-gray-100 rounded overflow-hidden">
+                              <Image
+                                src={livre.image}
+                                alt={livre.libelle}
+                                fill
+                                className="object-cover"
+                                sizes="48px"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.src = '/placeholder.jpg';
+                                }}
+                              />
+                            </div>
                             <span className="font-medium">{livre.libelle}</span>
                           </div>
                         </td>

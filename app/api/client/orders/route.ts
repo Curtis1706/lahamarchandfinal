@@ -74,19 +74,31 @@ export async function GET(request: NextRequest) {
         paymentMethod: order.paymentMethod || null,
         paymentStatus: order.paymentStatus,
         deliveryAddress: deliveryAddress || null,
-        items: order.items.map(item => ({
-          id: item.id,
-          title: item.work.title,
-          author: item.work.author?.name,
-          discipline: item.work.discipline.name,
-          quantity: item.quantity,
-          unitPrice: item.price,
-          totalPrice: item.price * item.quantity,
-          isbn: item.work.isbn,
-          image: null,
-          workId: item.workId,
-          work: item.work
-        }))
+        items: order.items.map(item => {
+          let coverImage = null
+          if (item.work.files) {
+            try {
+              const filesData = typeof item.work.files === 'string' ? JSON.parse(item.work.files) : item.work.files
+              coverImage = filesData.coverImage || null
+            } catch (e) {
+              console.error("Error parsing work files:", e)
+            }
+          }
+
+          return {
+            id: item.id,
+            title: item.work.title,
+            author: item.work.author?.name,
+            discipline: item.work.discipline.name,
+            quantity: item.quantity,
+            unitPrice: item.price,
+            totalPrice: item.price * item.quantity,
+            isbn: item.work.isbn,
+            image: coverImage,
+            workId: item.workId,
+            work: item.work
+          }
+        })
       }
     })
 
@@ -185,18 +197,30 @@ export async function PATCH(request: NextRequest) {
         itemsCount: updatedOrder.items.reduce((sum, item) => sum + item.quantity, 0),
         paymentMethod: updatedOrder.paymentMethod || null,
         deliveryAddress: deliveryAddress || null,
-        items: updatedOrder.items.map(item => ({
-          id: item.id,
-          title: item.work.title,
-          author: item.work.author?.name,
-          discipline: item.work.discipline.name,
-          quantity: item.quantity,
-          unitPrice: item.price,
-          totalPrice: item.price * item.quantity,
-          isbn: item.work.isbn,
-          image: null,
-          workId: item.workId
-        }))
+        items: updatedOrder.items.map(item => {
+          let coverImage = null
+          if (item.work.files) {
+            try {
+              const filesData = typeof item.work.files === 'string' ? JSON.parse(item.work.files) : item.work.files
+              coverImage = filesData.coverImage || null
+            } catch (e) {
+              console.error("Error parsing work files:", e)
+            }
+          }
+
+          return {
+            id: item.id,
+            title: item.work.title,
+            author: item.work.author?.name,
+            discipline: item.work.discipline.name,
+            quantity: item.quantity,
+            unitPrice: item.price,
+            totalPrice: item.price * item.quantity,
+            isbn: item.work.isbn,
+            image: coverImage,
+            workId: item.workId
+          }
+        })
       }
 
       return NextResponse.json(formattedOrder)
@@ -255,18 +279,30 @@ export async function PATCH(request: NextRequest) {
         itemsCount: updatedOrder.items.reduce((sum, item) => sum + item.quantity, 0),
         paymentMethod: updatedOrder.paymentMethod || null,
         deliveryAddress: deliveryAddress || null,
-        items: updatedOrder.items.map(item => ({
-          id: item.id,
-          title: item.work.title,
-          author: item.work.author?.name,
-          discipline: item.work.discipline.name,
-          quantity: item.quantity,
-          unitPrice: item.price,
-          totalPrice: item.price * item.quantity,
-          isbn: item.work.isbn,
-          image: null,
-          workId: item.workId
-        }))
+        items: updatedOrder.items.map(item => {
+          let coverImage = null
+          if (item.work.files) {
+            try {
+              const filesData = typeof item.work.files === 'string' ? JSON.parse(item.work.files) : item.work.files
+              coverImage = filesData.coverImage || null
+            } catch (e) {
+              console.error("Error parsing work files:", e)
+            }
+          }
+
+          return {
+            id: item.id,
+            title: item.work.title,
+            author: item.work.author?.name,
+            discipline: item.work.discipline.name,
+            quantity: item.quantity,
+            unitPrice: item.price,
+            totalPrice: item.price * item.quantity,
+            isbn: item.work.isbn,
+            image: coverImage,
+            workId: item.workId
+          }
+        })
       })
     }
 
