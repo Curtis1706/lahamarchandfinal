@@ -898,7 +898,7 @@ export default function LivresListePage() {
                           {livre.prix > 0 ? `${livre.prix.toLocaleString('fr-FR')} F CFA` : "Non défini"}
                         </td>
                         <td className="py-3 px-2 text-sm text-gray-600">
-                          {livre.tva.toFixed(1)}%
+                          {typeof livre.tva === 'number' ? `${livre.tva.toFixed(1)}%` : "18.0%"}
                         </td>
                         <td className="py-3 px-2">
                           <Badge
@@ -938,9 +938,9 @@ export default function LivresListePage() {
                             </button>
                             {livre.status === 'DRAFT' && (
                               <button
-                                className="p-1 hover:bg-gray-100 rounded"
+                                className="p-1 hover:bg-gray-100 rounded disabled:opacity-50"
                                 onClick={() => livre.authorId && handlePublish(livre.id, livre.authorId)}
-                                disabled={isPublishing === livre.id || !livre.authorId}
+                                disabled={isPublishing === livre.id}
                                 title="Publier"
                               >
                                 {isPublishing === livre.id ? (

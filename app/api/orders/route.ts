@@ -62,6 +62,7 @@ export async function GET(request: NextRequest) {
                 id: true,
                 title: true,
                 price: true,
+                tva: true,
                 discipline: {
                   select: {
                     name: true
@@ -80,7 +81,6 @@ export async function GET(request: NextRequest) {
     // Calculer le total pour chaque commande et inclure les nouveaux champs
     const ordersWithTotal = orders.map(order => ({
       ...order,
-      total: order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0),
       bookCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
       // S'assurer que les champs de paiement et livraison sont inclus
       paymentType: order.paymentType || 'CASH',
@@ -164,6 +164,7 @@ export async function POST(request: NextRequest) {
         id: true,
         title: true,
         price: true,
+        tva: true,
         status: true,
         stock: true
       }
@@ -185,8 +186,9 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Calculer le total de la commande
+    // Calculer le total de la commande avec la TVA spécifique de chaque œuvre
     let subtotal = 0
+    let tax = 0
     for (const item of items) {
       const work = works.find(w => w.id === item.workId)
       if (!work) {
@@ -195,10 +197,13 @@ export async function POST(request: NextRequest) {
         }, { status: 400 })
       }
       const itemPrice = item.price || work.price || 0
-      subtotal += itemPrice * item.quantity
+      const itemSubtotal = itemPrice * item.quantity
+      const itemTax = itemSubtotal * (work.tva !== undefined ? work.tva : 0.18)
+
+      subtotal += itemSubtotal
+      tax += itemTax
     }
 
-    const tax = subtotal * 0.18 // TVA à 18%
     const discount = discountAmount || 0
     const total = Math.max(0, subtotal + tax - discount)
 
