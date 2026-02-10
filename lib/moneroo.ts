@@ -66,10 +66,14 @@ export interface MonerooPayoutRequest {
   amount: number;
   currency: string;
   method: string; // "mobile_money", "bank_transfer", "mtn_bj", etc.
-  phone?: string; // Pour Mobile Money
+  phone?: string; // Pour Mobile Money (destination)
   bank_account?: string; // Pour virement bancaire
-  beneficiary_name: string;
-  beneficiary_email?: string;
+  customer: {
+    email: string;
+    first_name: string;
+    last_name: string;
+    phone?: string;
+  };
   description?: string;
   metadata?: Record<string, unknown>;
 }
