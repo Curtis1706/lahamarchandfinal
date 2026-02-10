@@ -56,12 +56,11 @@ export async function PUT(request: NextRequest) {
 
     if (name !== undefined) updateData.name = name
     if (phone !== undefined) updateData.phone = phone
-    if (address !== undefined) updateData.address = address
-    if (bio !== undefined) updateData.bio = bio
-    if (website !== undefined) updateData.website = website
-    if (linkedin !== undefined) updateData.linkedin = linkedin
-    if (twitter !== undefined) updateData.twitter = twitter
-    if (profileImage !== undefined) updateData.profileImage = profileImage
+    // Mapping profileImage vers image
+    if (profileImage !== undefined) updateData.image = profileImage
+
+    // Champs non existants sur User (address, bio, etc.) sont ignorés pour éviter le crash
+    // TODO: Si ces champs doivent être stockés, il faut étendre le modèle User ou Partner
 
     // Mettre à jour le profil
     const updatedUser = await prisma.user.update({
