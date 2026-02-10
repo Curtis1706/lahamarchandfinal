@@ -87,7 +87,10 @@ export async function POST(
                     status: 'VALIDATED',
                     paymentStatus: 'PAID',
                     paidAt: new Date(),
-                    monerooStatus: 'successful'
+                    monerooStatus: 'successful',
+                    // Mise à jour des champs financiers
+                    amountPaid: order.total,
+                    remainingAmount: 0
                 }
             });
 
