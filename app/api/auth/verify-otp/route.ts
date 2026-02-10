@@ -34,9 +34,10 @@ export async function POST(request: NextRequest) {
         }
 
         const normalizedEmail = email.toLowerCase().trim();
+        const type = body.type || "signup";
 
         // Vérifier le code OTP
-        const result = verifyOTP(normalizedEmail, code);
+        const result = await verifyOTP(normalizedEmail, code, type);
 
         if (!result.valid) {
             return NextResponse.json({

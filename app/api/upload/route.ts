@@ -2,9 +2,8 @@ import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { writeFile, mkdir } from "fs/promises";
 import path from "path";
-import { existsSync } from "fs";
+import cloudinary from "@/lib/cloudinary";
 
 // Configuration des types de fichiers autorisés
 const ALLOWED_FILE_TYPES = {
@@ -35,26 +34,13 @@ function generateUniqueFilename(originalName: string, userId: string): string {
   return `${userId}_${timestamp}_${randomString}_${baseName}.${extension}`;
 }
 
-// Fonction utilitaire pour créer les dossiers si nécessaire
-async function ensureUploadDirs() {
-  const dirs = [
-    path.join(UPLOAD_DIR, 'projects'),
-    path.join(UPLOAD_DIR, 'works'),
-    path.join(UPLOAD_DIR, 'temp')
-  ];
-
-  for (const dir of dirs) {
-    if (!existsSync(dir)) {
-      await mkdir(dir, { recursive: true });
-    }
-  }
-}
+// Les dossiers locaux ne sont plus nécessaires avec Cloudinary
 
 // POST /api/upload - Upload de fichiers
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { error: "Non authentifié" },
@@ -76,6 +62,8 @@ export async function POST(request: NextRequest) {
     const uploadType = formData.get('type') as string; // 'project', 'work', 'temp'
     const entityId = formData.get('entityId') as string; // ID du projet ou de l'œuvre
 
+    console.log(`[API Upload] Received ${files.length} files. Type: ${uploadType}, EntityId: ${entityId}`);
+
     if (!files || files.length === 0) {
       return NextResponse.json(
         { error: "Aucun fichier fourni" },
@@ -90,8 +78,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Assurer que les dossiers d'upload existent
-    await ensureUploadDirs();
+    // Plus besoin d'assurer les dossiers locaux avec Cloudinary
 
     const uploadedFiles: any[] = [];
     const errors: string[] = [];
@@ -119,15 +106,31 @@ export async function POST(request: NextRequest) {
 
         // Générer un nom unique
         const uniqueFilename = generateUniqueFilename(file.name, session.user.id);
-        
-        // Déterminer le dossier de destination
-        const uploadSubDir = uploadType === 'temp' ? 'temp' : uploadType + 's';
-        const filePath = path.join(UPLOAD_DIR, uploadSubDir, uniqueFilename);
 
-        // Convertir le fichier en buffer et l'écrire
+        // Déterminer le dossier de destination dans Cloudinary
+        const cloudinaryFolder = uploadType === 'temp' ? 'temp' : uploadType + 's';
+
+        // Convertir le fichier en buffer
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
-        await writeFile(filePath, buffer);
+
+        // Upload vers Cloudinary
+        const result: any = await new Promise((resolve, reject) => {
+          const uploadStream = cloudinary.uploader.upload_stream(
+            {
+              folder: `laha/${cloudinaryFolder}`,
+              public_id: uniqueFilename.split('.')[0],
+              resource_type: 'auto',
+            },
+            (error: any, result: any) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          );
+          uploadStream.end(buffer);
+        });
+
+        console.log(`[API Upload] Cloudinary Success: ${result.secure_url}`);
 
         // Déterminer le type de fichier
         let fileType = 'other';
@@ -141,7 +144,7 @@ export async function POST(request: NextRequest) {
         const uploadedFile = {
           originalName: file.name,
           filename: uniqueFilename,
-          path: `/uploads/${uploadSubDir}/${uniqueFilename}`,
+          path: result.secure_url, // Sauvegarder l'URL Cloudinary au lieu du chemin local
           size: file.size,
           type: fileType,
           extension: extension,
@@ -149,7 +152,8 @@ export async function POST(request: NextRequest) {
           uploadedBy: session.user.id,
           uploadedAt: new Date().toISOString(),
           entityId: entityId || null,
-          entityType: uploadType
+          entityType: uploadType,
+          cloudinaryId: result.public_id
         };
 
         uploadedFiles.push(uploadedFile);
@@ -165,9 +169,9 @@ export async function POST(request: NextRequest) {
     // Si aucun fichier n'a été uploadé avec succès
     if (uploadedFiles.length === 0) {
       return NextResponse.json(
-        { 
-          error: "Aucun fichier n'a pu être uploadé", 
-          errors: errors 
+        {
+          error: "Aucun fichier n'a pu être uploadé",
+          errors: errors
         },
         { status: 400 }
       );
@@ -182,9 +186,10 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
 
   } catch (error: any) {
+    console.error("[API Upload] Cloudinary or Internal Error:", error);
     logger.error("❌ Erreur lors de l'upload:", error);
     return NextResponse.json(
-      { error: "Erreur lors de l'upload: " + error.message },
+      { error: "Erreur lors de l'upload: " + (error.message || error) },
       { status: 500 }
     );
   }
@@ -194,7 +199,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { error: "Non authentifié" },
@@ -208,7 +213,7 @@ export async function GET(request: NextRequest) {
 
     // Cette route pourrait être étendue pour lister les fichiers depuis une base de données
     // Pour l'instant, on retourne une réponse simple
-    
+
     return NextResponse.json({
       message: "Liste des fichiers (à implémenter avec base de données)",
       filters: {
@@ -230,7 +235,7 @@ export async function GET(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { error: "Non authentifié" },
@@ -239,36 +244,29 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const filename = searchParams.get('filename');
-    const uploadType = searchParams.get('type');
+    const cloudinaryId = searchParams.get('cloudinaryId');
 
-    if (!filename || !uploadType) {
+    if (!cloudinaryId) {
       return NextResponse.json(
-        { error: "Nom de fichier et type requis" },
+        { error: "ID Cloudinary requis pour la suppression" },
         { status: 400 }
       );
     }
 
-    // Construire le chemin du fichier
-    const uploadSubDir = uploadType === 'temp' ? 'temp' : uploadType + 's';
-    const filePath = path.join(UPLOAD_DIR, uploadSubDir, filename);
+    // Supprimer sur Cloudinary
+    const result = await cloudinary.uploader.destroy(cloudinaryId);
 
-    // Vérifier que le fichier existe
-    if (!existsSync(filePath)) {
+    if (result.result !== 'ok') {
       return NextResponse.json(
-        { error: "Fichier non trouvé" },
-        { status: 404 }
+        { error: "Erreur lors de la suppression sur Cloudinary: " + result.result },
+        { status: 500 }
       );
     }
 
-    // Supprimer le fichier
-    const fs = require('fs').promises;
-    await fs.unlink(filePath);
-
-    logger.debug(`✅ Fichier supprimé: ${filename} par ${session.user.name}`);
+    logger.debug(`✅ Fichier supprimé sur Cloudinary: ${cloudinaryId} par ${session.user.name}`);
 
     return NextResponse.json({
-      message: "Fichier supprimé avec succès"
+      message: "Fichier supprimé de Cloudinary avec succès"
     }, { status: 200 });
 
   } catch (error: any) {

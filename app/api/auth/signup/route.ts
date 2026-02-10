@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Vérifier le code OTP (NOUVEAU)
-    const otpResult = verifyOTP(email, otpCode)
+    const otpResult = await verifyOTP(email, otpCode)
     if (!otpResult.valid) {
       return NextResponse.json({
         error: otpResult.message

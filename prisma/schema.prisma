@@ -18,19 +18,35 @@ model User {
   role                             Role
   status                           UserStatus               @default(PENDING)
   disciplineId                     String?
-  representantId                   String? // Représentant assigné (pour auteurs)
-  lastLoginAt                      DateTime? // Dernière connexion
   createdAt                        DateTime                 @default(now())
   updatedAt                        DateTime                 @updatedAt
+  lastLoginAt                      DateTime?
+  representantId                   String?
   accounts                         Account[]
+  updatedAdvancedSettings          AdvancedSetting[]        @relation("UpdatedAdvancedSettings")
+  controlledDeliveryNotes          DeliveryNote[]           @relation("ControlledDeliveryNotes")
+  generatedDeliveryNotes           DeliveryNote[]           @relation("GeneratedDeliveryNotes")
+  validatedDeliveryNotes           DeliveryNote[]           @relation("ValidatedDeliveryNotes")
   receivedMessages                 Message[]                @relation("ReceivedMessages")
   sentMessages                     Message[]                @relation("SentMessages")
   notifications                    Notification[]
+  notificationChains               NotificationChain[]      @relation("NotificationChains")
+  createdNotificationChains        NotificationChain[]      @relation("CreatedNotificationChains")
+  createdNotificationTemplates     NotificationTemplate[]   @relation("CreatedNotificationTemplates")
+  updatedNotificationTemplates     NotificationTemplate[]   @relation("UpdatedNotificationTemplates")
   orders                           Order[]
   partnerClients                   Partner[]                @relation("PartnerRepresentant")
   partner                          Partner?
+  validatedPartnerRebates          PartnerRebate[]          @relation("ValidatedPartnerRebates")
+  recordedPayments                 Payment[]                @relation("RecordedPayments")
+  createdProformas                 Proforma[]               @relation("CreatedProformas")
+  userProformas                    Proforma[]               @relation("UserProformas")
   conceivedProjects                Project[]                @relation("ConceptorProjects")
   reviewedProjects                 Project[]                @relation("ReviewedProjects")
+  createdRebateRates               RebateRate[]             @relation("CreatedRebateRates")
+  authorRebateRates                RebateRate[]             @relation("AuthorRebateRates")
+  representantWithdrawals          RepresentantWithdrawal[] @relation("RepresentantWithdrawals")
+  validatedRepresentantWithdrawals RepresentantWithdrawal[] @relation("ValidatedRepresentantWithdrawals")
   royalties                        Royalty[]
   sessions                         Session[]
   resolvedAlerts                   StockAlert[]
@@ -38,36 +54,20 @@ model User {
   createdIntegrations              StockIntegration[]
   performedStockMovements          StockMovement[]          @relation("StockMovements")
   createdReports                   StockReport[]
-  validatedPartnerRebates          PartnerRebate[]          @relation("ValidatedPartnerRebates")
-  createdRebateRates               RebateRate[]             @relation("CreatedRebateRates")
-  authorRebateRates                RebateRate[]             @relation("AuthorRebateRates")
+  approvedStockRequests            StockRequest[]           @relation("ApprovedStockRequests")
+  stockRequests                    StockRequest[]           @relation("StockRequests")
   discipline                       Discipline?              @relation(fields: [disciplineId], references: [id])
-  representant                     User?                    @relation("RepresentantAuthors", fields: [representantId], references: [id], onDelete: SetNull)
+  representant                     User?                    @relation("RepresentantAuthors", fields: [representantId], references: [id])
   managedAuthors                   User[]                   @relation("RepresentantAuthors")
+  authorWithdrawals                Withdrawal[]             @relation("AuthorWithdrawals")
+  validatedWithdrawals             Withdrawal[]             @relation("ValidatedWithdrawals")
+  withdrawalRequests               WithdrawalRequest[]
   authoredWorks                    Work[]                   @relation("AuthorWorks")
   conceivedWorks                   Work[]                   @relation("ConceptorWorks")
   reviewedWorks                    Work[]                   @relation("ReviewedWorks")
   workSales                        WorkSale[]
   createdWorkVersions              WorkVersion[]
   workViews                        WorkView[]
-  generatedDeliveryNotes           DeliveryNote[]           @relation("GeneratedDeliveryNotes")
-  validatedDeliveryNotes           DeliveryNote[]           @relation("ValidatedDeliveryNotes")
-  controlledDeliveryNotes          DeliveryNote[]           @relation("ControlledDeliveryNotes")
-  stockRequests                    StockRequest[]           @relation("StockRequests")
-  approvedStockRequests            StockRequest[]           @relation("ApprovedStockRequests")
-  notificationChains               NotificationChain[]      @relation("NotificationChains")
-  createdNotificationChains        NotificationChain[]      @relation("CreatedNotificationChains")
-  createdNotificationTemplates     NotificationTemplate[]   @relation("CreatedNotificationTemplates")
-  updatedNotificationTemplates     NotificationTemplate[]   @relation("UpdatedNotificationTemplates")
-  updatedAdvancedSettings          AdvancedSetting[]        @relation("UpdatedAdvancedSettings")
-  createdProformas                 Proforma[]               @relation("CreatedProformas")
-  userProformas                    Proforma[]               @relation("UserProformas")
-  authorWithdrawals                Withdrawal[]             @relation("AuthorWithdrawals")
-  validatedWithdrawals             Withdrawal[]             @relation("ValidatedWithdrawals")
-  representantWithdrawals          RepresentantWithdrawal[] @relation("RepresentantWithdrawals")
-  validatedRepresentantWithdrawals RepresentantWithdrawal[] @relation("ValidatedRepresentantWithdrawals")
-  recordedPayments                 Payment[]                @relation("RecordedPayments")
-  withdrawalRequests               WithdrawalRequest[]
 
   @@index([role])
   @@index([status])
@@ -90,7 +90,6 @@ model Account {
   session_state     String?
   user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-
   @@unique([provider, providerAccountId])
 }
 
@@ -105,29 +104,21 @@ model Session {
 model WithdrawalRequest {
   id              String    @id @default(cuid())
   userId          String
-  user            User      @relation(fields: [userId], references: [id])
-  
   amount          Float
-  method          String    // "mobile_money", "bank_transfer"
-  
-  // Informations Mobile Money
+  method          String
   phoneNumber     String?
-  provider        String?   // "mtn", "moov", "orange"
-  
-  // Informations bancaires (optionnel)
+  provider        String?
   bankName        String?
   accountNumber   String?
   accountName     String?
-  
-  // Moneroo
   monerooPayoutId String?   @unique
-  status          String    @default("pending") // pending, processing, completed, failed
+  status          String    @default("pending")
   failureReason   String?
-  
   processedAt     DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
-  
+  user            User      @relation(fields: [userId], references: [id])
+
   @@index([userId])
   @@index([status])
   @@index([monerooPayoutId])
@@ -191,14 +182,15 @@ model Work {
   concepteurId          String?
   projectId             String?
   orderItems            OrderItem[]
+  partnerRebates        PartnerRebate[]    @relation("WorkPartnerRebates")
   partnerStocks         PartnerStock[]
   proformaItems         ProformaItem[]     @relation("ProformaItemWork")
+  rebateRates           RebateRate[]       @relation("WorkRebateRates")
   royalties             Royalty[]
   sales                 Sale[]
   stockAlerts           StockAlert[]
   stockMovements        StockMovement[]
-  partnerRebates        PartnerRebate[]    @relation("WorkPartnerRebates")
-  rebateRates           RebateRate[]       @relation("WorkRebateRates")
+  stockRequestItems     StockRequestItem[]
   author                User               @relation("AuthorWorks", fields: [authorId], references: [id])
   concepteur            User?              @relation("ConceptorWorks", fields: [concepteurId], references: [id])
   discipline            Discipline         @relation(fields: [disciplineId], references: [id])
@@ -208,7 +200,6 @@ model Work {
   workSales             WorkSale[]
   versions              WorkVersion[]
   workViews             WorkView[]
-  stockRequestItems     StockRequestItem[]
 
   @@index([status, disciplineId])
   @@index([authorId, status])
@@ -289,11 +280,11 @@ model Partner {
   orders         Order[]         @relation("PartnerOrders")
   representant   User?           @relation("PartnerRepresentant", fields: [representantId], references: [id])
   user           User            @relation(fields: [userId], references: [id])
-  stockItems     PartnerStock[]
-  stockMovements StockMovement[]
-  proformas      Proforma[]      @relation("PartnerProformas")
   rebates        PartnerRebate[]
+  stockItems     PartnerStock[]
+  proformas      Proforma[]      @relation("PartnerProformas")
   rebateRates    RebateRate[]
+  stockMovements StockMovement[]
 }
 
 model PartnerStock {
@@ -303,7 +294,6 @@ model PartnerStock {
   allocatedQuantity Int
   soldQuantity      Int      @default(0)
   returnedQuantity  Int      @default(0)
-  // availableQuantity supprimé - calculé à la lecture: allocatedQuantity - soldQuantity + returnedQuantity
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   partner           Partner  @relation(fields: [partnerId], references: [id])
@@ -319,42 +309,40 @@ model Order {
   id                 String              @id @default(cuid())
   userId             String
   partnerId          String?
-  paymentMethod      String? // Mobile Money, Virement, Espèces, Carte Bancaire
-  paymentReference   String? // Référence de transaction
-  paymentType        PaymentType         @default(CASH) // Type: Comptant, Dépôt, Crédit
-  amountPaid         Float               @default(0) // Montant versé/payé
-  remainingAmount    Float               @default(0) // Reste à payer
-  depositAmount      Float? // Montant du dépôt initial (si paymentType = DEPOSIT)
-  depositDate        DateTime? // Date du versement du dépôt
-  fullPaymentDate    DateTime? // Date du paiement complet
-  paymentStatus      PaymentStatus       @default(UNPAID) // État du paiement
-  deliveryDate       DateTime? // Date de livraison prévue/effective
-  deliveryStatus     DeliveryStatus      @default(PENDING) // État de livraison
-  receivedAt         DateTime? // Date de réception par le client
-  receivedBy         String? // Nom de la personne ayant réceptionné
-  subtotal           Float               @default(0)
-  tax                Float               @default(0)
-  discount           Float               @default(0) // Réduction appliquée (code promo)
-  promoCode          String? // Code promo utilisé
-  total              Float               @default(0)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @default(now()) @updatedAt
   status             OrderStatus         @default(PENDING)
+  paymentMethod      String?
+  paymentReference   String?
+  subtotal           Float               @default(0)
+  tax                Float               @default(0)
+  total              Float               @default(0)
+  discount           Float               @default(0)
+  promoCode          String?
+  amountPaid         Float               @default(0)
+  deliveryDate       DateTime?
+  deliveryStatus     DeliveryStatus      @default(PENDING)
+  depositAmount      Float?
+  depositDate        DateTime?
+  fullPaymentDate    DateTime?
+  paymentStatus      PaymentStatus       @default(UNPAID)
+  paymentType        PaymentType         @default(CASH)
+  receivedAt         DateTime?
+  receivedBy         String?
+  remainingAmount    Float               @default(0)
+  monerooPaymentId   String?             @unique
+  monerooStatus      String?
+  paidAt             DateTime?
+  deliveryNote       DeliveryNote?
+  notificationChains NotificationChain[] @relation("NotificationChainOrders")
   partner            Partner?            @relation("PartnerOrders", fields: [partnerId], references: [id])
   user               User                @relation(fields: [userId], references: [id])
   items              OrderItem[]
-  deliveryNote       DeliveryNote?
-  stockRequests      StockRequest[]      @relation("StockRequestOrders")
-  notificationChains NotificationChain[] @relation("NotificationChainOrders")
-  proforma           Proforma?           @relation("ProformaOrder")
-  royalties          Royalty[]           @relation("OrderRoyalties")
   partnerRebates     PartnerRebate[]     @relation("OrderPartnerRebates")
   payments           Payment[]           @relation("OrderPayments")
-  
-  // Nouveaux champs Moneroo
-  monerooPaymentId String?    @unique
-  monerooStatus    String?
-  paidAt           DateTime?
+  proforma           Proforma?           @relation("ProformaOrder")
+  royalties          Royalty[]           @relation("OrderRoyalties")
+  stockRequests      StockRequest[]      @relation("StockRequestOrders")
 
   @@index([promoCode])
   @@index([paymentType])
@@ -385,16 +373,16 @@ model OrderItem {
 model Payment {
   id               String   @id @default(cuid())
   orderId          String
-  amount           Float // Montant du paiement
-  paymentMethod    String // Mobile Money, Virement, Espèces, etc.
-  paymentReference String? // Référence de transaction
+  amount           Float
+  paymentMethod    String
+  paymentReference String?
   paymentDate      DateTime @default(now())
-  notes            String? // Notes sur le paiement
-  recordedById     String // ID de l'utilisateur qui a enregistré le paiement
-  recordedBy       User     @relation("RecordedPayments", fields: [recordedById], references: [id])
-  order            Order    @relation("OrderPayments", fields: [orderId], references: [id])
+  notes            String?
+  recordedById     String
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+  order            Order    @relation("OrderPayments", fields: [orderId], references: [id])
+  recordedBy       User     @relation("RecordedPayments", fields: [recordedById], references: [id])
 
   @@index([orderId])
   @@index([paymentDate])
@@ -402,22 +390,22 @@ model Payment {
 
 model DeliveryNote {
   id             String             @id @default(cuid())
-  reference      String             @unique // Référence unique du bon de sortie (ex: BS-2025-001)
-  orderId        String             @unique // Lien vers la commande
-  order          Order              @relation(fields: [orderId], references: [id])
-  generatedById  String // ID de l'utilisateur qui a généré le bon
-  generatedBy    User               @relation("GeneratedDeliveryNotes", fields: [generatedById], references: [id])
-  validatedById  String? // ID de l'utilisateur qui a validé
-  validatedBy    User?              @relation("ValidatedDeliveryNotes", fields: [validatedById], references: [id])
-  validatedAt    DateTime? // Date de validation
-  controlledById String? // ID de l'utilisateur qui a contrôlé
-  controlledBy   User?              @relation("ControlledDeliveryNotes", fields: [controlledById], references: [id])
-  controlledAt   DateTime? // Date de contrôle
+  reference      String             @unique
+  orderId        String             @unique
+  generatedById  String
+  validatedById  String?
+  validatedAt    DateTime?
+  controlledById String?
+  controlledAt   DateTime?
   status         DeliveryNoteStatus @default(PENDING)
-  period         String? // Période (ex: "Vacances et rentrée scolaire")
-  notes          String? // Notes additionnelles
+  period         String?
+  notes          String?
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
+  controlledBy   User?              @relation("ControlledDeliveryNotes", fields: [controlledById], references: [id])
+  generatedBy    User               @relation("GeneratedDeliveryNotes", fields: [generatedById], references: [id])
+  order          Order              @relation(fields: [orderId], references: [id])
+  validatedBy    User?              @relation("ValidatedDeliveryNotes", fields: [validatedById], references: [id])
 
   @@index([orderId])
   @@index([status])
@@ -426,61 +414,44 @@ model DeliveryNote {
 }
 
 model Proforma {
-  id             String   @id @default(cuid())
-  proformaNumber String?  @unique // ex: PF-2026-000023 (temporairement nullable pour migration)
-  reference      String?  @unique // Ancien champ pour compatibilité
-  country        String   @default("Gabon")
-  currency       Currency @default(FCFA)
-
-  clientType ProformaClientType? // Temporairement nullable pour migration
-  clientId   String? // nullable car INVITE possible
-  partnerId  String? // ID du partenaire (si clientType = PARTENAIRE)
-  partner    Partner?            @relation("PartnerProformas", fields: [partnerId], references: [id])
-  userId     String? // ID du client (si clientType = CLIENT)
-  user       User?               @relation("UserProformas", fields: [userId], references: [id])
-
-  status ProformaStatus @default(DRAFT)
-
-  issuedAt           DateTime  @default(now()) // Date d'émission
-  validUntil         DateTime? // Date de validité (temporairement nullable pour migration)
-  acceptedAt         DateTime? // Date d'acceptation
-  cancelledAt        DateTime? // Date d'annulation
-  cancellationReason String? // Raison de l'annulation
-
-  // Totaux (stockés pour éviter recalcul + audit)
-  subtotalHT    Float @default(0) // Total HT
-  discountTotal Float @default(0) // Remise totale
-  taxableBase   Float @default(0) // Base taxable (HT - remise)
-  tvaTotal      Float @default(0) // Total TVA
-  totalTTC      Float @default(0) // Total TTC
-
-  // Remise globale optionnelle (code promo)
-  promoCode         String?
-  promoDiscountRate Float? // 0..1 (pourcentage de remise globale)
-
-  // Type de commande (rentrée, vacances, etc.)
-  orderType String?
-
-  notes String? // Notes additionnelles / conditions particulières
-
-  createdById String // ID du PDG qui a créé le proforma
-  createdBy   User   @relation("CreatedProformas", fields: [createdById], references: [id])
-
-  items          ProformaItem[]
-  clientSnapshot ProformaClientSnapshot?
-
-  // Lien éventuel vers une commande / une facture
-  orderId          String? @unique
-  convertedToOrder Order?  @relation("ProformaOrder", fields: [orderId], references: [id])
-
-  // Versioning (si besoin)
-  version          Int        @default(1)
-  parentProformaId String?
-  parentProforma   Proforma?  @relation("ProformaVersions", fields: [parentProformaId], references: [id])
-  versions         Proforma[] @relation("ProformaVersions")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 String                  @id @default(cuid())
+  reference          String?                 @unique
+  partnerId          String?
+  userId             String?
+  createdById        String
+  status             ProformaStatus          @default(DRAFT)
+  notes              String?
+  version            Int                     @default(1)
+  parentProformaId   String?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  acceptedAt         DateTime?
+  cancellationReason String?
+  cancelledAt        DateTime?
+  clientId           String?
+  clientType         ProformaClientType?
+  country            String                  @default("Gabon")
+  currency           Currency                @default(FCFA)
+  discountTotal      Float                   @default(0)
+  issuedAt           DateTime                @default(now())
+  orderId            String?                 @unique
+  orderType          String?
+  proformaNumber     String?                 @unique
+  promoCode          String?
+  promoDiscountRate  Float?
+  subtotalHT         Float                   @default(0)
+  taxableBase        Float                   @default(0)
+  totalTTC           Float                   @default(0)
+  tvaTotal           Float                   @default(0)
+  validUntil         DateTime?
+  createdBy          User                    @relation("CreatedProformas", fields: [createdById], references: [id])
+  convertedToOrder   Order?                  @relation("ProformaOrder", fields: [orderId], references: [id])
+  parentProforma     Proforma?               @relation("ProformaVersions", fields: [parentProformaId], references: [id])
+  versions           Proforma[]              @relation("ProformaVersions")
+  partner            Partner?                @relation("PartnerProformas", fields: [partnerId], references: [id])
+  user               User?                   @relation("UserProformas", fields: [userId], references: [id])
+  clientSnapshot     ProformaClientSnapshot?
+  items              ProformaItem[]
 
   @@index([status])
   @@index([issuedAt])
@@ -489,38 +460,29 @@ model Proforma {
 }
 
 model ProformaItem {
-  id         String   @id @default(cuid())
-  proformaId String
-  proforma   Proforma @relation(fields: [proformaId], references: [id], onDelete: Cascade)
-
-  // Référence livre à l'instant T (peut être null si livre supprimé)
-  workId String?
-  work   Work?   @relation("ProformaItemWork", fields: [workId], references: [id])
-
-  // Snapshot des informations du livre (immuable)
-  reference  String? // Référence interne
-  isbn       String?
-  title      String? // Temporairement nullable pour migration
-  authorName String?
-
-  quantity    Int
-  unitPriceHT Float? // Prix unitaire HT (temporairement nullable pour migration)
-  unitPrice   Float? // Ancien champ pour compatibilité
-
-  discountRate Float  @default(0) // 0..1 (pourcentage de remise ligne)
-  discount     Float? @default(0) // Ancien champ pour compatibilité
-  tvaRate      Float  @default(0.18) // 0..1 (taux TVA, par défaut 18%)
-
-  // Totaux ligne (calculés et stockés)
-  lineHT       Float  @default(0) // HT = quantity * unitPriceHT
-  lineDiscount Float  @default(0) // Remise = lineHT * discountRate
-  lineTaxable  Float  @default(0) // Base taxable = lineHT - lineDiscount
-  lineTVA      Float  @default(0) // TVA = lineTaxable * tvaRate
-  totalTTC     Float  @default(0) // Total TTC = lineTaxable + lineTVA
-  total        Float? @default(0) // Ancien champ pour compatibilité
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime? @updatedAt // Temporairement nullable pour migration
+  id           String    @id @default(cuid())
+  proformaId   String
+  workId       String?
+  quantity     Int
+  unitPrice    Float?
+  discount     Float?    @default(0)
+  total        Float?    @default(0)
+  authorName   String?
+  createdAt    DateTime  @default(now())
+  discountRate Float     @default(0)
+  isbn         String?
+  lineDiscount Float     @default(0)
+  lineHT       Float     @default(0)
+  lineTVA      Float     @default(0)
+  lineTaxable  Float     @default(0)
+  reference    String?
+  title        String?
+  totalTTC     Float     @default(0)
+  tvaRate      Float     @default(0.18)
+  unitPriceHT  Float?
+  updatedAt    DateTime? @updatedAt
+  proforma     Proforma  @relation(fields: [proformaId], references: [id], onDelete: Cascade)
+  work         Work?     @relation("ProformaItemWork", fields: [workId], references: [id])
 
   @@index([proformaId])
   @@index([workId])
@@ -529,16 +491,14 @@ model ProformaItem {
 model ProformaClientSnapshot {
   id         String   @id @default(cuid())
   proformaId String   @unique
+  name       String
+  email      String?
+  phone      String?
+  address    String?
+  city       String?
+  country    String?
+  createdAt  DateTime @default(now())
   proforma   Proforma @relation(fields: [proformaId], references: [id], onDelete: Cascade)
-
-  name    String
-  email   String?
-  phone   String?
-  address String?
-  city    String?
-  country String?
-
-  createdAt DateTime @default(now())
 
   @@index([proformaId])
 }
@@ -547,9 +507,7 @@ model StockRequest {
   id            String             @id @default(cuid())
   reference     String             @unique
   requestedById String
-  requestedBy   User               @relation("StockRequests", fields: [requestedById], references: [id])
   approvedById  String?
-  approvedBy    User?              @relation("ApprovedStockRequests", fields: [approvedById], references: [id])
   approvedAt    DateTime?
   status        StockRequestStatus @default(PENDING)
   type          StockRequestType
@@ -559,11 +517,13 @@ model StockRequest {
   departmentId  String?
   zoneId        String?
   orderId       String?
-  order         Order?             @relation("StockRequestOrders", fields: [orderId], references: [id])
   notes         String?
-  items         StockRequestItem[]
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
+  approvedBy    User?              @relation("ApprovedStockRequests", fields: [approvedById], references: [id])
+  order         Order?             @relation("StockRequestOrders", fields: [orderId], references: [id])
+  requestedBy   User               @relation("StockRequests", fields: [requestedById], references: [id])
+  items         StockRequestItem[]
 
   @@index([requestedById])
   @@index([status])
@@ -575,12 +535,12 @@ model StockRequest {
 model StockRequestItem {
   id               String       @id @default(cuid())
   requestId        String
-  request          StockRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   workId           String
-  work             Work         @relation(fields: [workId], references: [id])
   quantity         Int
   approvedQuantity Int?
   createdAt        DateTime     @default(now())
+  request          StockRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  work             Work         @relation(fields: [workId], references: [id])
 
   @@index([requestId])
   @@index([workId])
@@ -591,17 +551,17 @@ model Royalty {
   workId     String
   userId     String
   amount     Float
-  approved   Boolean   @default(false) // Royalties approuvées par le PDG (prêtes à être retirées)
-  approvedAt DateTime? // Date d'approbation par le PDG
-  paid       Boolean   @default(false) // Royalties déjà payées à l'auteur
-  paidAt     DateTime?
-  orderId    String? // ID de la commande qui a généré cette royalty
-  saleId     String? // ID de la vente directe (si applicable)
-  rate       Float? // Taux utilisé pour le calcul (en %)
+  paid       Boolean   @default(false)
   createdAt  DateTime  @default(now())
+  orderId    String?
+  paidAt     DateTime?
+  rate       Float?
+  saleId     String?
+  approved   Boolean   @default(false)
+  approvedAt DateTime?
+  order      Order?    @relation("OrderRoyalties", fields: [orderId], references: [id])
   user       User      @relation(fields: [userId], references: [id])
   work       Work      @relation(fields: [workId], references: [id])
-  order      Order?    @relation("OrderRoyalties", fields: [orderId], references: [id])
 
   @@index([userId])
   @@index([workId])
@@ -613,93 +573,76 @@ model Royalty {
   @@index([workId, orderId])
 }
 
-// Retraits des auteurs (Withdrawals)
 model Withdrawal {
   id              String           @id @default(cuid())
-  userId          String // ID de l'auteur
-  amount          Float // Montant demandé
-  method          WithdrawalMethod // Méthode de paiement
-  momoNumber      String? // Numéro Mobile Money (si method = MOMO)
-  bankName        String? // Nom de la banque (si method = BANK)
-  bankAccount     String? // Numéro de compte bancaire (si method = BANK)
-  bankAccountName String? // Nom du titulaire du compte
+  userId          String
+  amount          Float
+  method          WithdrawalMethod
+  momoNumber      String?
+  bankName        String?
+  bankAccount     String?
+  bankAccountName String?
   status          WithdrawalStatus @default(PENDING)
   requestedAt     DateTime         @default(now())
-  validatedById   String? // ID du PDG qui a validé
-  validatedBy     User?            @relation("ValidatedWithdrawals", fields: [validatedById], references: [id])
+  validatedById   String?
   validatedAt     DateTime?
   paidAt          DateTime?
-  rejectionReason String? // Raison du rejet (si status = REJECTED)
-  notes           String? // Notes internes
+  rejectionReason String?
+  notes           String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   user            User             @relation("AuthorWithdrawals", fields: [userId], references: [id])
+  validatedBy     User?            @relation("ValidatedWithdrawals", fields: [validatedById], references: [id])
 
   @@index([userId])
   @@index([status])
   @@index([requestedAt])
 }
 
-enum WithdrawalMethod {
-  MOMO // Mobile Money (MTN/Moov)
-  BANK // Virement bancaire
-  CASH // Espèces
-}
-
-enum WithdrawalStatus {
-  PENDING // En attente de validation
-  APPROVED // Approuvé par le PDG
-  REJECTED // Rejeté par le PDG
-  PAID // Payé
-  CANCELLED // Annulé par l'auteur
-}
-
-// Retraits des représentants (RepresentantWithdrawals)
 model RepresentantWithdrawal {
   id              String           @id @default(cuid())
-  userId          String // ID du représentant
-  amount          Float // Montant demandé
-  method          WithdrawalMethod // Méthode de paiement
-  momoNumber      String? // Numéro Mobile Money (si method = MOMO)
-  bankName        String? // Nom de la banque (si method = BANK)
-  bankAccount     String? // Numéro de compte bancaire (si method = BANK)
-  bankAccountName String? // Nom du titulaire du compte
+  userId          String
+  amount          Float
+  method          WithdrawalMethod
+  momoNumber      String?
+  bankName        String?
+  bankAccount     String?
+  bankAccountName String?
   status          WithdrawalStatus @default(PENDING)
   requestedAt     DateTime         @default(now())
-  validatedById   String? // ID du PDG qui a validé
-  validatedBy     User?            @relation("ValidatedRepresentantWithdrawals", fields: [validatedById], references: [id])
+  validatedById   String?
   validatedAt     DateTime?
   paidAt          DateTime?
-  rejectionReason String? // Raison du rejet (si status = REJECTED)
-  notes           String? // Notes internes
+  rejectionReason String?
+  notes           String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   user            User             @relation("RepresentantWithdrawals", fields: [userId], references: [id])
+  validatedBy     User?            @relation("ValidatedRepresentantWithdrawals", fields: [validatedById], references: [id])
 
   @@index([userId])
   @@index([status])
   @@index([requestedAt])
 }
 
-// Ristournes Partenaires
 model PartnerRebate {
   id            String       @id @default(cuid())
   partnerId     String
-  orderId       String? // ID de la commande (si applicable)
-  saleId        String? // ID de la vente directe (si applicable)
-  workId        String? // ID de l'œuvre (si calculé par œuvre)
-  amount        Float // Montant de la ristourne
-  rate          Float // Taux utilisé (en %)
+  orderId       String?
+  saleId        String?
+  workId        String?
+  amount        Float
+  rate          Float
   status        RebateStatus @default(PENDING)
-  validatedById String? // ID du PDG qui a validé
-  validatedBy   User?        @relation("ValidatedPartnerRebates", fields: [validatedById], references: [id])
+  validatedById String?
   validatedAt   DateTime?
   paidAt        DateTime?
   notes         String?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
-  partner       Partner      @relation(fields: [partnerId], references: [id])
   order         Order?       @relation("OrderPartnerRebates", fields: [orderId], references: [id])
+  partner       Partner      @relation(fields: [partnerId], references: [id])
+  validatedBy   User?        @relation("ValidatedPartnerRebates", fields: [validatedById], references: [id])
   work          Work?        @relation("WorkPartnerRebates", fields: [workId], references: [id])
 
   @@index([partnerId])
@@ -709,21 +652,20 @@ model PartnerRebate {
   @@index([workId])
 }
 
-// Taux de ristourne configurables
 model RebateRate {
   id          String         @id @default(cuid())
-  type        RebateRateType // GLOBAL, PARTNER, AUTHOR, WORK
-  partnerId   String? // Si type = PARTNER
-  userId      String? // Si type = AUTHOR
-  workId      String? // Si type = WORK
-  rate        Float // Taux en pourcentage (ex: 15.5 pour 15.5%)
+  type        RebateRateType
+  partnerId   String?
+  userId      String?
+  workId      String?
+  rate        Float
   isActive    Boolean        @default(true)
-  startDate   DateTime? // Date de début d'application
-  endDate     DateTime? // Date de fin d'application
-  createdById String // ID du PDG qui a créé
-  createdBy   User           @relation("CreatedRebateRates", fields: [createdById], references: [id])
+  startDate   DateTime?
+  endDate     DateTime?
+  createdById String
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
+  createdBy   User           @relation("CreatedRebateRates", fields: [createdById], references: [id])
   partner     Partner?       @relation(fields: [partnerId], references: [id])
   user        User?          @relation("AuthorRebateRates", fields: [userId], references: [id])
   work        Work?          @relation("WorkRebateRates", fields: [workId], references: [id])
@@ -734,20 +676,6 @@ model RebateRate {
   @@index([userId])
   @@index([workId])
   @@index([isActive])
-}
-
-enum RebateStatus {
-  PENDING // En attente de validation
-  VALIDATED // Validé par le PDG
-  PAID // Payé
-  CANCELLED // Annulé
-}
-
-enum RebateRateType {
-  GLOBAL // Taux global pour tous
-  PARTNER // Taux spécifique à un partenaire
-  AUTHOR // Taux spécifique à un auteur
-  WORK // Taux spécifique à une œuvre
 }
 
 model Message {
@@ -773,8 +701,8 @@ model Notification {
   type      String
   data      String?
   read      Boolean   @default(false)
-  readAt    DateTime?
   createdAt DateTime  @default(now())
+  readAt    DateTime?
   user      User      @relation(fields: [userId], references: [id])
 
   @@index([userId])
@@ -787,13 +715,13 @@ model NotificationTemplate {
   id          String   @id @default(cuid())
   code        String   @unique
   titre       String
-  texte       String   @db.Text
-  statut      String   @default("Actif") // Actif ou Inactif
+  texte       String
+  statut      String   @default("Actif")
   createdById String
-  createdBy   User     @relation("CreatedNotificationTemplates", fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   updatedById String?
+  createdBy   User     @relation("CreatedNotificationTemplates", fields: [createdById], references: [id])
   updatedBy   User?    @relation("UpdatedNotificationTemplates", fields: [updatedById], references: [id])
 
   @@index([code])
@@ -804,20 +732,20 @@ model NotificationTemplate {
 model NotificationChain {
   id            String   @id @default(cuid())
   title         String
-  clientId      String? // ID du client concerné (peut être null pour tous les clients)
-  client        User?    @relation("NotificationChains", fields: [clientId], references: [id])
-  scheduledDate DateTime // Date et heure programmée
+  clientId      String?
+  scheduledDate DateTime
   sendSMS       Boolean  @default(true)
   sendEmail     Boolean  @default(true)
-  daysBefore    Int      @default(1) // Nombre de jours avant l'événement
-  status        String   @default("Actif") // Actif ou Désactivé
+  daysBefore    Int      @default(1)
+  status        String   @default("Actif")
   message       String
-  orderId       String? // ID de la commande si liée à une commande
-  order         Order?   @relation("NotificationChainOrders", fields: [orderId], references: [id])
+  orderId       String?
   createdById   String
-  createdBy     User     @relation("CreatedNotificationChains", fields: [createdById], references: [id])
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  client        User?    @relation("NotificationChains", fields: [clientId], references: [id])
+  createdBy     User     @relation("CreatedNotificationChains", fields: [createdById], references: [id])
+  order         Order?   @relation("NotificationChainOrders", fields: [orderId], references: [id])
 
   @@index([clientId])
   @@index([status])
@@ -834,9 +762,9 @@ model AdvancedSetting {
   category    String?
   status      String   @default("Actif")
   updatedById String?
-  updatedBy   User?    @relation("UpdatedAdvancedSettings", fields: [updatedById], references: [id])
   updatedAt   DateTime @updatedAt
   createdAt   DateTime @default(now())
+  updatedBy   User?    @relation("UpdatedAdvancedSettings", fields: [updatedById], references: [id])
 
   @@index([key])
   @@index([category])
@@ -1014,6 +942,195 @@ model StockIntegration {
   @@index([syncStatus])
 }
 
+model Promotion {
+  id               String          @id @default(cuid())
+  libelle          String
+  code             String          @unique
+  periode          String
+  startDate        DateTime?
+  endDate          DateTime?
+  livre            String
+  statut           PromotionStatus @default(ACTIF)
+  taux             String
+  quantiteMinimale Int             @default(1)
+  description      String?
+  createdBy        String
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([code])
+  @@index([statut])
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([name])
+  @@index([isActive])
+}
+
+model SchoolClass {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  section   String
+  isActive  Boolean  @default(true)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([section])
+  @@index([isActive])
+}
+
+model Discount {
+  id          String         @id @default(cuid())
+  client      String
+  livre       String
+  quantiteMin Int            @default(1)
+  reduction   Float
+  statut      DiscountStatus @default(ACTIF)
+  description String?
+  type        String         @default("Montant")
+  image       String?
+  createdBy   String
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([statut])
+  @@index([client])
+}
+
+model Client {
+  id             String       @id @default(cuid())
+  nom            String
+  telephone      String?
+  email          String?
+  type           String
+  departement    String?
+  address        String?
+  city           String?
+  contact        String?
+  statut         ClientStatus @default(EN_ATTENTE)
+  dette          Float        @default(0)
+  notes          String?
+  representantId String?
+  totalOrders    Int          @default(0)
+  totalSpent     Float        @default(0)
+  lastOrder      DateTime?
+  createdBy      String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([statut])
+  @@index([type])
+  @@index([representantId])
+  @@index([email])
+  @@index([createdAt])
+  @@index([representantId, statut])
+}
+
+model Communication {
+  id             String              @id @default(cuid())
+  title          String
+  message        String
+  type           CommunicationType   @default(ANNOUNCEMENT)
+  targetAudience String
+  status         CommunicationStatus @default(DRAFT)
+  scheduledFor   DateTime?
+  sentAt         DateTime?
+  recipients     Int                 @default(0)
+  readCount      Int                 @default(0)
+  createdBy      String
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  category  String
+  key       String
+  value     String
+  type      String   @default("string")
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([category, key])
+  @@index([category])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  action      String
+  userId      String?
+  performedBy String
+  details     String
+  metadata    String?
+  createdAt   DateTime @default(now())
+  entityId    String?
+  entityType  String?
+  userEmail   String?
+  userRole    String?
+
+  @@index([createdAt])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt, userId])
+  @@index([createdAt, action])
+  @@index([entityType])
+}
+
+model OtpCode {
+  id        String   @id @default(cuid())
+  email     String
+  code      String
+  type      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([email, type])
+  @@index([email, type])
+}
+
+enum WithdrawalMethod {
+  MOMO
+  BANK
+  CASH
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+  CANCELLED
+}
+
+enum RebateStatus {
+  PENDING
+  VALIDATED
+  PAID
+  CANCELLED
+}
+
+enum RebateRateType {
+  GLOBAL
+  PARTNER
+  AUTHOR
+  WORK
+}
+
 enum Role {
   PDG
   REPRESENTANT
@@ -1037,22 +1154,22 @@ enum ProjectStatus {
   DRAFT
   SUBMITTED
   UNDER_REVIEW
-  ACCEPTED // compat legacy (à migrer plus tard)
-  APPROVED // nouveau officiel
+  ACCEPTED
   REJECTED
-  ARCHIVED // nouveau officiel
+  APPROVED
+  ARCHIVED
 }
 
 enum WorkStatus {
   DRAFT
   PENDING
-  VALIDATED
   PUBLISHED
   REJECTED
   ON_SALE
   OUT_OF_STOCK
   DISCONTINUED
   SUSPENDED
+  VALIDATED
 }
 
 enum OrderStatus {
@@ -1065,27 +1182,27 @@ enum OrderStatus {
 }
 
 enum PaymentType {
-  CASH // Achat comptant (paiement complet immédiat)
-  DEPOSIT // Dépôt (acompte + solde)
-  CREDIT // Crédit (paiement différé/échelonné)
+  CASH
+  DEPOSIT
+  CREDIT
 }
 
 enum PaymentStatus {
-  UNPAID // Non payé
-  PARTIAL // Partiellement payé (dépôt versé)
-  PAID // Entièrement payé
-  OVERDUE // En retard de paiement
-  CANCELLED // Annulé
+  UNPAID
+  PARTIAL
+  PAID
+  OVERDUE
+  CANCELLED
 }
 
 enum DeliveryStatus {
-  PENDING // En attente
-  PREPARING // En préparation
-  READY // Prêt pour livraison
-  IN_TRANSIT // En cours de livraison
-  DELIVERED // Livré
-  RECEIVED // Réceptionné par le client
-  FAILED // Échec de livraison
+  PENDING
+  PREPARING
+  READY
+  IN_TRANSIT
+  DELIVERED
+  RECEIVED
+  FAILED
 }
 
 enum DeliveryNoteStatus {
@@ -1097,28 +1214,28 @@ enum DeliveryNoteStatus {
 }
 
 enum ProformaStatus {
-  PENDING // Ancien statut pour compatibilité (sera migré vers DRAFT)
-  DRAFT // Brouillon
-  SENT // Envoyé au client
-  AWAITING_RESPONSE // Ancien statut pour compatibilité
-  ACCEPTED // Accepté par le client
-  REJECTED // Ancien statut pour compatibilité
-  CONVERTED // Ancien statut pour compatibilité (sera migré vers ACCEPTED)
-  EXPIRED // Expiré
-  CANCELLED // Annulé
+  PENDING
+  SENT
+  AWAITING_RESPONSE
+  ACCEPTED
+  REJECTED
+  CONVERTED
+  CANCELLED
+  DRAFT
+  EXPIRED
 }
 
 enum ProformaClientType {
-  ECOLE // École
-  PARTENAIRE // Partenaire
-  CLIENT // Client
-  INVITE // Client invité (sans compte)
+  ECOLE
+  PARTENAIRE
+  CLIENT
+  INVITE
 }
 
 enum Currency {
-  XOF // Franc CFA (Afrique de l'Ouest)
-  XAF // Franc CFA (Afrique centrale)
-  FCFA // Franc CFA (alias)
+  XOF
+  XAF
+  FCFA
 }
 
 enum StockRequestStatus {
@@ -1234,79 +1351,10 @@ enum SyncStatus {
   DISABLED
 }
 
-// Modèle pour les codes promo et promotions
-model Promotion {
-  id               String          @id @default(cuid())
-  libelle          String // Nom de la promotion
-  code             String          @unique // Code promo unique
-  periode          String // Période de validité (texte libre)
-  startDate        DateTime? // Date de début (optionnel)
-  endDate          DateTime? // Date de fin (optionnel)
-  livre            String // Livres concernés
-  statut           PromotionStatus @default(ACTIF)
-  taux             String // Montant ou pourcentage de réduction
-  quantiteMinimale Int             @default(1)
-  description      String? // Description optionnelle
-  createdBy        String // Créé par
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-
-  @@index([code])
-  @@index([statut])
-}
-
 enum PromotionStatus {
   ACTIF
   INACTIF
   EXPIRE
-}
-
-// Modèle pour les catégories de livres
-model Category {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  isActive    Boolean  @default(true)
-  createdBy   String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([name])
-  @@index([isActive])
-}
-
-// Modèle pour les classes scolaires
-model SchoolClass {
-  id        String   @id @default(cuid())
-  name      String   @unique // ex: "CI", "CP", "CE1", etc.
-  section   String // "Primaire" ou "Secondaire"
-  isActive  Boolean  @default(true)
-  createdBy String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([name])
-  @@index([section])
-  @@index([isActive])
-}
-
-// Modèle pour les réductions (différent des promotions)
-model Discount {
-  id          String         @id @default(cuid())
-  client      String // Type de client (Librairie, École, etc.)
-  livre       String // Livres concernés
-  quantiteMin Int            @default(1)
-  reduction   Float // Montant de la réduction
-  statut      DiscountStatus @default(ACTIF)
-  description String?
-  type        String         @default("Montant") // "Montant" ou "Pourcentage"
-  image       String?
-  createdBy   String
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-
-  @@index([statut])
-  @@index([client])
 }
 
 enum DiscountStatus {
@@ -1314,62 +1362,11 @@ enum DiscountStatus {
   INACTIF
 }
 
-// Modèle pour les clients (librairies, écoles, etc.)
-model Client {
-  id             String       @id @default(cuid())
-  nom            String
-  telephone      String?
-  email          String?
-  type           String // Concepteur, École, Librairie, Auteur, etc.
-  departement    String?
-  address        String?
-  city           String?
-  contact        String? // Personne de contact
-  statut         ClientStatus @default(EN_ATTENTE)
-  dette          Float        @default(0)
-  notes          String?
-  representantId String? // Représentant assigné
-  totalOrders    Int          @default(0)
-  totalSpent     Float        @default(0)
-  lastOrder      DateTime?
-  createdBy      String?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-
-  @@index([statut])
-  @@index([type])
-  @@index([representantId])
-  @@index([email])
-  @@index([createdAt])
-  @@index([representantId, statut])
-}
-
 enum ClientStatus {
   EN_ATTENTE
   ACTIF
   INACTIF
   SUSPENDU
-}
-
-// Modèle pour les communications et diffusions
-model Communication {
-  id             String              @id @default(cuid())
-  title          String
-  message        String              @db.Text
-  type           CommunicationType   @default(ANNOUNCEMENT)
-  targetAudience String // JSON array des rôles ciblés
-  status         CommunicationStatus @default(DRAFT)
-  scheduledFor   DateTime?
-  sentAt         DateTime?
-  recipients     Int                 @default(0)
-  readCount      Int                 @default(0)
-  createdBy      String
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-
-  @@index([status])
-  @@index([type])
-  @@index([createdAt])
 }
 
 enum CommunicationType {
@@ -1386,39 +1383,3 @@ enum CommunicationStatus {
   CANCELLED
 }
 
-// Modèle pour les paramètres globaux du système
-model Setting {
-  id        String   @id @default(cuid())
-  category  String // platform, business, stock, pricing, notifications, security, audit
-  key       String // Clé du paramètre
-  value     String   @db.Text // Valeur (JSON ou texte)
-  type      String   @default("string") // string, number, boolean, json
-  updatedBy String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([category, key])
-  @@index([category])
-}
-
-
-model AuditLog {
-  id          String   @id @default(cuid())
-  action      String
-  userId      String?
-  userEmail   String?
-  userRole    String?
-  performedBy String
-  details     String
-  metadata    String?
-  entityType  String?
-  entityId    String?
-  createdAt   DateTime @default(now())
-
-  @@index([createdAt])
-  @@index([userId])
-  @@index([action])
-  @@index([createdAt, userId])
-  @@index([createdAt, action])
-  @@index([entityType])
-}

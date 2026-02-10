@@ -270,8 +270,8 @@ export default function NouvelleOeuvrePage() {
       let coverImageUrl = null;
       if (coverImage) {
         const formDataImage = new FormData();
-        formDataImage.append('file', coverImage);
-        formDataImage.append('type', 'cover');
+        formDataImage.append('files', coverImage);
+        formDataImage.append('type', 'work');
 
         const uploadResponse = await fetch('/api/upload', {
           method: 'POST',
@@ -280,7 +280,9 @@ export default function NouvelleOeuvrePage() {
 
         if (uploadResponse.ok) {
           const uploadData = await uploadResponse.json();
-          coverImageUrl = uploadData.url;
+          if (uploadData.files && uploadData.files.length > 0) {
+            coverImageUrl = uploadData.files[0].path;
+          }
         }
       }
 

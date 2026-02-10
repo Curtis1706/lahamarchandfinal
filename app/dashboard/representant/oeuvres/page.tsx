@@ -36,6 +36,7 @@ interface Work {
     email: string
   } | null
   totalValue: number
+  files?: string
   discount?: {
     id: string
     type: string
@@ -74,10 +75,10 @@ export default function OeuvresPage() {
       setIsLoading(true)
       const response = await fetch('/api/representant/catalog')
       if (!response.ok) throw new Error('Erreur lors du chargement')
-      
+
       const data = await response.json()
       const worksData = data.works || []
-      
+
       // Charger les remises pour chaque livre
       setLoadingDiscounts(true)
       const worksWithDiscounts = await Promise.all(
@@ -85,15 +86,15 @@ export default function OeuvresPage() {
           try {
             // Le type de client est "Représentant" pour les représentants
             const clientType = 'Représentant'
-            
+
             const discountResponse = await fetch(
               `/api/discounts/applicable?workId=${work.id}&workTitle=${encodeURIComponent(work.title)}&clientType=${clientType}&quantity=1`
             )
-            
+
             if (discountResponse.ok) {
               const discountData = await discountResponse.json()
               const discount = discountData.applicable
-              
+
               // Calculer le prix final avec remise
               let finalPrice = work.price || 0
               if (discount && work.price) {
@@ -103,14 +104,14 @@ export default function OeuvresPage() {
                   finalPrice = Math.max(0, work.price - discount.reduction)
                 }
               }
-              
+
               return {
                 ...work,
                 discount: discount,
                 finalPrice: finalPrice
               }
             }
-            
+
             return {
               ...work,
               discount: null,
@@ -126,10 +127,10 @@ export default function OeuvresPage() {
           }
         })
       )
-      
+
       setWorks(worksWithDiscounts)
       setSummary(data.summary || null)
-      
+
       // Extraire les disciplines uniques
       const uniqueDisciplines = [...new Set(worksWithDiscounts.map((w: Work) => w.discipline.name))]
       setDisciplines(uniqueDisciplines)
@@ -147,19 +148,28 @@ export default function OeuvresPage() {
   }
 
   const filteredWorks = works.filter(work => {
-    const matchesSearch = 
+    const matchesSearch =
       work.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       work.isbn.toLowerCase().includes(searchTerm.toLowerCase()) ||
       work.author?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       work.discipline.name.toLowerCase().includes(searchTerm.toLowerCase())
-    
+
     const matchesDiscipline = disciplineFilter === "all" || work.discipline.name === disciplineFilter
-    
+
     return matchesSearch && matchesDiscipline
   })
 
   const getBookImageUrl = (work: Work) => {
-    // Utiliser une image par défaut ou générer une URL basée sur l'ISBN
+    if (work.files) {
+      try {
+        const filesData = typeof work.files === 'string' ? JSON.parse(work.files) : work.files;
+        if (filesData.coverImage) {
+          return filesData.coverImage;
+        }
+      } catch (e) {
+        console.error("Erreur parsing files:", e);
+      }
+    }
     return `/placeholder.jpg`
   }
 
@@ -296,20 +306,20 @@ export default function OeuvresPage() {
                     {work.discount && (
                       <div className="absolute top-2 left-2">
                         <Badge className="bg-red-500 text-white">
-                          -{work.discount.type === 'Pourcentage' 
-                            ? `${work.discount.reduction}%` 
+                          -{work.discount.type === 'Pourcentage'
+                            ? `${work.discount.reduction}%`
                             : `${work.discount.reduction} F CFA`}
                         </Badge>
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Informations */}
                   <div className="space-y-2">
                     <h3 className="font-semibold text-lg line-clamp-2">{work.title}</h3>
                     <p className="text-sm text-gray-600">Par {work.author?.name || "Auteur inconnu"}</p>
                     <p className="text-xs text-gray-500">ISBN: {work.isbn}</p>
-                    
+
                     {/* Prix et stock */}
                     <div className="flex flex-col pt-2 space-y-1">
                       <div className="flex justify-between items-center">
@@ -336,13 +346,13 @@ export default function OeuvresPage() {
                       </div>
                       {work.discount && (
                         <p className="text-xs text-green-600">
-                          Remise: {work.discount.type === 'Pourcentage' 
-                            ? `${work.discount.reduction}%` 
+                          Remise: {work.discount.type === 'Pourcentage'
+                            ? `${work.discount.reduction}%`
                             : `${work.discount.reduction} F CFA`}
                         </p>
                       )}
                     </div>
-                    
+
                     {/* TVA */}
                     <p className="text-xs text-gray-500">
                       TVA: {work.tva ? (work.tva * 100).toFixed(0) : 18}%

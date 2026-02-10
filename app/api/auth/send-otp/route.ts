@@ -12,6 +12,7 @@ export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
         const { email } = body;
+        console.log('Requête reçue dans send-otp:', { email, type: body.type });
 
         // Validation de l'email
         if (!email || typeof email !== 'string') {
@@ -31,9 +32,10 @@ export async function POST(request: NextRequest) {
         }
 
         const normalizedEmail = email.toLowerCase().trim();
+        const type = body.type || "signup"; // "signup", "reset-password", etc.
 
         // Vérifier le rate limiting
-        const rateLimitCheck = canRequestOTP(normalizedEmail);
+        const rateLimitCheck = await canRequestOTP(normalizedEmail, type);
         if (!rateLimitCheck.allowed) {
             return NextResponse.json({
                 success: false,
@@ -42,20 +44,23 @@ export async function POST(request: NextRequest) {
             }, { status: 429 });
         }
 
-        // Vérifier si l'email existe déjà
-        const existingUser = await prisma.user.findUnique({
-            where: { email: normalizedEmail }
-        });
+        // Vérifier si l'email existe déjà (uniquement pour l'inscription)
+        if (type === "signup") {
+            const existingUser = await prisma.user.findUnique({
+                where: { email: normalizedEmail }
+            });
 
-        if (existingUser) {
-            return NextResponse.json({
-                success: false,
-                error: 'Un compte existe déjà avec cet email'
-            }, { status: 400 });
+            if (existingUser) {
+                console.warn('⚠️ Tentative d\'inscription avec un email déjà existant:', normalizedEmail);
+                return NextResponse.json({
+                    success: false,
+                    error: 'Un compte existe déjà avec cet email'
+                }, { status: 400 });
+            }
         }
 
         // Générer et stocker l'OTP
-        const otpCode = createOTP(normalizedEmail);
+        const otpCode = await createOTP(normalizedEmail, type);
 
         // Envoyer l'email
         const emailResult = await sendEmail({

@@ -949,7 +949,8 @@ export default function GestionCommandesPage() {
                       <div className="flex items-center gap-2">
                         {getPaymentTypeBadge(order.paymentType)}
                         {getPaymentStatusBadge(order.paymentStatus)}
-                        {order.paymentStatus !== 'PAID' && (
+                        {/* Afficher le bouton Vérifier si non payé OU si payé mais avec un reste (pour corriger les incohérences) */}
+                        {(order.paymentStatus !== 'PAID' || (order.remainingAmount && order.remainingAmount > 0)) && (
                           <Button
                             variant="ghost"
                             size="icon"
@@ -970,7 +971,8 @@ export default function GestionCommandesPage() {
                           Acompte: {order.depositAmount.toFixed(0)} FCFA
                         </span>
                       )}
-                      {order.remainingAmount && order.remainingAmount > 0 && (
+                      {/* N'afficher le reste que s'il est > 0 ET que la commande n'est pas déjà marquée comme PAYÉE */}
+                      {order.remainingAmount && order.remainingAmount > 0 && order.paymentStatus !== 'PAID' && (
                         <span className="text-xs text-red-600">
                           Reste: {order.remainingAmount.toFixed(0)} FCFA
                         </span>
@@ -1243,7 +1245,7 @@ export default function GestionCommandesPage() {
                       <div>
                         <p className="text-sm text-gray-600">Reste à payer</p>
                         <p className="text-lg font-semibold text-red-600">
-                          {selectedOrder.remainingAmount?.toFixed(2) || '0.00'} FCFA
+                          {selectedOrder.paymentStatus === 'PAID' ? '0.00' : (selectedOrder.remainingAmount?.toFixed(2) || '0.00')} FCFA
                         </p>
                       </div>
                     </div>

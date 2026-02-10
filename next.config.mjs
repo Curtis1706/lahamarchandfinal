@@ -7,7 +7,7 @@ const nextConfig = {
     ignoreBuildErrors: true, // TODO: Corriger toutes les erreurs TypeScript puis activer
   },
   images: {
-    unoptimized: false, // ✅ Activer l'optimisation d'images
+    unoptimized: true, // ⚠️ Désactiver l'optimisation d'images car elle cause des erreurs 400
     formats: ['image/avif', 'image/webp'], // Formats modernes pour de meilleures performances
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048], // Tailles d'écran supportées
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384], // Tailles d'icônes
@@ -15,6 +15,12 @@ const nextConfig = {
     dangerouslyAllowSVG: true, // Autoriser les SVG
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+      },
+    ],
   },
   // Activer la compression pour réduire la taille des transferts
   compress: true,

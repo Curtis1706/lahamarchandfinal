@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   try {
     logger.debug("🔍 Getting current user...")
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
     }
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     // Récupérer les œuvres publiées
     // Le représentant doit voir les mêmes livres que les clients (statut PUBLISHED)
     const works = await prisma.work.findMany({
-      where: { 
+      where: {
         status: "PUBLISHED"
       },
       include: {
@@ -86,6 +86,7 @@ export async function GET(request: NextRequest) {
           name: work.concepteur.name,
           email: work.concepteur.email
         } : null,
+        files: work.files,
         totalValue: work.price * work.stock
       })),
       summary: {

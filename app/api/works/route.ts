@@ -13,6 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    console.log("[API Works] Received body:", JSON.stringify(body, null, 2));
 
     const {
       title,
@@ -903,6 +904,29 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    // Gestion spéciale pour 'files' si 'coverImage' ou 'collectionId' sont fournis
+    const coverImage = updateData.coverImage;
+    const collectionId = updateData.collectionId;
+
+    if (coverImage !== undefined || collectionId !== undefined) {
+      // Récupérer les données de fichiers existantes
+      let currentFiles: any = { files: [], coverImage: null, collectionId: null };
+      if (existingWork.files) {
+        try {
+          currentFiles = typeof existingWork.files === 'string' ? JSON.parse(existingWork.files) : existingWork.files;
+        } catch (e) {
+          console.error("Erreur parsing files existants:", e);
+        }
+      }
+
+      // Mettre à jour avec les nouvelles valeurs si fournies
+      if (coverImage !== undefined) currentFiles.coverImage = coverImage;
+      if (collectionId !== undefined) currentFiles.collectionId = collectionId;
+
+      // Sauvegarder dans dataToUpdate
+      dataToUpdate.files = JSON.stringify(currentFiles);
+    }
+
     // Gérer les relations avec connect
     if (updateData.disciplineId) {
       dataToUpdate.discipline = { connect: { id: updateData.disciplineId } };
@@ -935,7 +959,7 @@ export async function PUT(request: NextRequest) {
       // Si l'utilisateur n'existe pas avec cet ID, chercher par email
       if (!pdgUser) {
         pdgUser = await prisma.user.findUnique({
-          where: { email: session.user.email }
+          where: { email: session.user.email as string }
         });
       }
 
