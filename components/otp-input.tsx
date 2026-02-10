@@ -124,12 +124,23 @@ export function OTPInput({
                     ref={(el) => { inputRefs.current[index] = el }}
                     type="text"
                     inputMode="numeric"
-                    maxLength={1}
+                    maxLength={2} // Augmenté pour détecter le remplacement
                     value={digit}
-                    onChange={(e) => handleChange(index, e.target.value)}
+                    onChange={(e) => {
+                        const val = e.target.value;
+                        // Ne prendre que le dernier caractère saisi pour permettre le remplacement
+                        const lastChar = val.slice(-1);
+                        if (lastChar === "" || /^\d$/.test(lastChar)) {
+                            handleChange(index, lastChar);
+                        }
+                    }}
                     onKeyDown={(e) => handleKeyDown(index, e)}
                     onPaste={handlePaste}
-                    onFocus={() => handleFocus(index)}
+                    onFocus={(e) => {
+                        handleFocus(index);
+                        // S'assurer que le contenu est sélectionné pour remplacement immédiat
+                        e.target.select();
+                    }}
                     disabled={disabled}
                     className={cn(
                         "w-12 h-12 text-center text-lg font-bold",
