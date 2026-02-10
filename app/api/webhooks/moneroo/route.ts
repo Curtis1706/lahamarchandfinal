@@ -6,6 +6,10 @@ import { PayoutService } from '@/lib/moneroo/payout-service';
 export async function POST(req: Request) {
     try {
         const bodyText = await req.text();
+        console.log("🔔 WEBHOOK MONEROO REÇU");
+        console.log("HEADERS:", Object.fromEntries(req.headers.entries()));
+        console.log("BODY:", bodyText);
+
         const signature = req.headers.get('x-moneroo-signature');
         const secret = process.env.MONEROO_WEBHOOK_SECRET;
 

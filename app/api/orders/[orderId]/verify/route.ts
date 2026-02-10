@@ -31,18 +31,32 @@ export async function POST(
             });
         }
 
+        // Vérifier si monerooPaymentId existe
         if (!order.monerooPaymentId) {
+            console.warn(`⚠️ Commande ${orderId} sans monerooPaymentId.`);
+        }
+
+        console.log(`🔍 Vérification commande ${orderId}. MonerooID: ${order.monerooPaymentId}`);
+
+        let paymentInfo;
+        try {
+            if (order.monerooPaymentId) {
+                paymentInfo = await PaymentService.verifyPayment(order.monerooPaymentId);
+            } else {
+                return NextResponse.json({
+                    success: false,
+                    message: "Aucun ID de paiement associé à cette commande."
+                });
+            }
+        } catch (err: any) {
+            console.error(`❌ Erreur appel Moneroo pour ${orderId}:`, err.message);
             return NextResponse.json({
                 success: false,
-                status: order.paymentStatus,
-                message: "Aucun paiement Moneroo initié"
+                message: "Erreur lors de la vérification Moneroo: " + err.message
             });
         }
 
-        // Vérifier le statut auprès de Moneroo
-        const paymentInfo = await PaymentService.verifyPayment(order.monerooPaymentId);
-
-        console.log(`🔍 Vérification paiement commande ${orderId}:`, paymentInfo);
+        console.log(`🔍 Réponse Moneroo brute pour ${orderId}:`, JSON.stringify(paymentInfo, null, 2));
 
         const statusLower = paymentInfo.status?.toLowerCase();
         const successStatuses = ['successful', 'success', 'completed', 'paid'];
