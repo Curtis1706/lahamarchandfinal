@@ -84,7 +84,7 @@ export async function POST(
             await prisma.order.update({
                 where: { id: orderId },
                 data: {
-                    status: 'VALIDATED',
+                    status: order.status === 'PENDING' ? 'VALIDATED' : order.status,
                     paymentStatus: 'PAID',
                     paidAt: new Date(),
                     monerooStatus: 'successful',
