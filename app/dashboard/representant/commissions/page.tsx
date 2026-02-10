@@ -212,10 +212,10 @@ export default function CommissionsPage() {
                   value={withdrawalAmount}
                   onChange={(e) => setWithdrawalAmount(e.target.value)}
                   placeholder="Montant en F CFA"
-                  min="5000"
+                  min="10"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Montant minimum: 5 000 F CFA
+                  Montant minimum: 10 F CFA
                 </p>
               </div>
               <div>

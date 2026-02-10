@@ -59,7 +59,7 @@ export default function RetraitsPage() {
   })
   const { toast } = useToast()
 
-  const MIN_WITHDRAWAL_AMOUNT = 500
+  const MIN_WITHDRAWAL_AMOUNT = 10
 
   useEffect(() => {
     if (user) {

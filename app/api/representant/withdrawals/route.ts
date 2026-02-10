@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
     const availableBalance = totalCommissions - totalWithdrawn
 
     // Vérifier le montant minimum
-    const MIN_WITHDRAWAL_AMOUNT = 5000
+    const MIN_WITHDRAWAL_AMOUNT = 10
     if (amount < MIN_WITHDRAWAL_AMOUNT) {
       return NextResponse.json(
         {
