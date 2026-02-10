@@ -19,6 +19,7 @@ interface Withdrawal {
   amount: number
   method: 'MOMO' | 'BANK' | 'CASH'
   momoNumber?: string
+  momoProvider?: string
   bankName?: string
   bankAccount?: string
   bankAccountName?: string
@@ -51,6 +52,7 @@ export default function RetraitsPage() {
     amount: '',
     method: 'MOMO' as 'MOMO' | 'BANK' | 'CASH',
     momoNumber: '',
+    momoProvider: '',
     bankName: '',
     bankAccount: '',
     bankAccountName: ''
@@ -127,13 +129,23 @@ export default function RetraitsPage() {
       return
     }
 
-    if (formData.method === 'MOMO' && !formData.momoNumber) {
-      toast({
-        title: "Erreur",
-        description: "Le numéro Mobile Money est requis",
-        variant: "destructive"
-      })
-      return
+    if (formData.method === 'MOMO') {
+      if (!formData.momoNumber) {
+        toast({
+          title: "Erreur",
+          description: "Le numéro Mobile Money est requis",
+          variant: "destructive"
+        })
+        return
+      }
+      if (!formData.momoProvider) {
+        toast({
+          title: "Erreur",
+          description: "L'opérateur Mobile Money est requis",
+          variant: "destructive"
+        })
+        return
+      }
     }
 
     if (formData.method === 'BANK' && (!formData.bankName || !formData.bankAccount)) {
@@ -162,6 +174,7 @@ export default function RetraitsPage() {
           amount: '',
           method: 'MOMO',
           momoNumber: '',
+          momoProvider: '',
           bankName: '',
           bankAccount: '',
           bankAccountName: ''
@@ -357,17 +370,38 @@ export default function RetraitsPage() {
               </div>
 
               {formData.method === 'MOMO' && (
-                <div>
-                  <Label htmlFor="momoNumber">Numéro Mobile Money</Label>
-                  <Input
-                    id="momoNumber"
-                    type="tel"
-                    placeholder="Ex: +241 06 12 34 56 78"
-                    value={formData.momoNumber}
-                    onChange={(e) => setFormData({ ...formData, momoNumber: e.target.value })}
-                    required
-                  />
-                </div>
+                <>
+                  <div>
+                    <Label htmlFor="momoProvider">Opérateur</Label>
+                    <Select
+                      value={formData.momoProvider}
+                      onValueChange={(value) => setFormData({ ...formData, momoProvider: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choisir l'opérateur" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="mtn">MTN</SelectItem>
+                        <SelectItem value="moov">Moov</SelectItem>
+                        <SelectItem value="celtiis">Celtiis</SelectItem>
+                        <SelectItem value="orange">Orange</SelectItem>
+                        <SelectItem value="free">Free</SelectItem>
+                        <SelectItem value="wave">Wave</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="momoNumber">Numéro Mobile Money</Label>
+                    <Input
+                      id="momoNumber"
+                      type="tel"
+                      placeholder="Ex: 229 61 00 00 00"
+                      value={formData.momoNumber}
+                      onChange={(e) => setFormData({ ...formData, momoNumber: e.target.value })}
+                      required
+                    />
+                  </div>
+                </>
               )}
 
               {formData.method === 'BANK' && (
@@ -439,7 +473,7 @@ export default function RetraitsPage() {
                       </div>
                       <div className="text-sm text-gray-600 space-y-1">
                         <p>Méthode: {getMethodLabel(withdrawal.method)}</p>
-                        {withdrawal.momoNumber && <p>N° MoMo: {withdrawal.momoNumber}</p>}
+                        {withdrawal.momoNumber && <p>N° MoMo: {withdrawal.momoNumber} ({withdrawal.momoProvider || 'N/A'})</p>}
                         {withdrawal.bankName && <p>Banque: {withdrawal.bankName}</p>}
                         {withdrawal.bankAccount && <p>Compte: {withdrawal.bankAccount}</p>}
                         <p>Demandé le: {formatDate(withdrawal.requestedAt)}</p>

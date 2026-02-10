@@ -97,6 +97,23 @@ export async function POST(request: NextRequest) {
     if (withdrawal.method === "MOMO") {
       payoutMethod = "mobile_money";
       phone = withdrawal.momoNumber || beneficiary.phone;
+
+      // Mapper le fournisseur vers le code méthode Moneroo
+      const provider = withdrawal.momoProvider?.toLowerCase();
+      if (provider) {
+        // Mapping par défaut (à adapter si multi-pays)
+        const providerMapping: Record<string, string> = {
+          'mtn': 'mtn_bj',
+          'moov': 'moov_bj',
+          'celtiis': 'celtiis_bj',
+          'orange': 'orange_ci',
+          'free': 'free_sn',
+          'wave': 'wave_ci'
+        };
+        // Si le mapping existe, on utilise le code spécifique, sinon on utilise le provider tel quel
+        // Cast en any pour contourner la restriction de type si elle existe encore ailleurs
+        payoutMethod = (providerMapping[provider] || provider) as any;
+      }
     } else if (withdrawal.method === "BANK") {
       payoutMethod = "bank_transfer";
       bankAccount = withdrawal.bankAccount;

@@ -67,6 +67,7 @@ export async function GET(request: NextRequest) {
       amount: withdrawal.amount,
       method: withdrawal.method,
       momoNumber: withdrawal.momoNumber,
+      momoProvider: withdrawal.momoProvider,
       bankName: withdrawal.bankName,
       bankAccount: withdrawal.bankAccount,
       bankAccountName: withdrawal.bankAccountName,
@@ -128,7 +129,7 @@ export async function POST(request: NextRequest) {
 
     const userId = session.user.id
     const body = await request.json()
-    const { amount, method, momoNumber, bankName, bankAccount, bankAccountName } = body
+    const { amount, method, momoNumber, momoProvider, bankName, bankAccount, bankAccountName } = body
 
     // Validation
     if (!amount || amount <= 0) {
@@ -139,8 +140,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Méthode de paiement invalide" }, { status: 400 })
     }
 
-    if (method === 'MOMO' && !momoNumber) {
-      return NextResponse.json({ error: "Le numéro Mobile Money est requis" }, { status: 400 })
+    if (method === 'MOMO') {
+      if (!momoNumber) {
+        return NextResponse.json({ error: "Le numéro Mobile Money est requis" }, { status: 400 })
+      }
+      if (!momoProvider) {
+        return NextResponse.json({ error: "L'opérateur Mobile Money est requis" }, { status: 400 })
+      }
     }
 
     if (method === 'BANK' && (!bankName || !bankAccount)) {
@@ -213,6 +219,7 @@ export async function POST(request: NextRequest) {
         amount: parseFloat(amount),
         method: method as WithdrawalMethod,
         momoNumber: method === 'MOMO' ? momoNumber : null,
+        momoProvider: method === 'MOMO' ? momoProvider : null,
         bankName: method === 'BANK' ? bankName : null,
         bankAccount: method === 'BANK' ? bankAccount : null,
         bankAccountName: method === 'BANK' ? bankAccountName : null,

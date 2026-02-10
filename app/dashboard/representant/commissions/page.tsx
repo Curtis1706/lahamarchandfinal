@@ -49,6 +49,7 @@ export default function CommissionsPage() {
   const [withdrawalAmount, setWithdrawalAmount] = useState("")
   const [withdrawalMethod, setWithdrawalMethod] = useState<"MOMO" | "BANK" | "CASH">("MOMO")
   const [momoNumber, setMomoNumber] = useState("")
+  const [momoProvider, setMomoProvider] = useState<string>("")
   const [bankName, setBankName] = useState("")
   const [bankAccount, setBankAccount] = useState("")
   const [bankAccountName, setBankAccountName] = useState("")
@@ -63,7 +64,7 @@ export default function CommissionsPage() {
       setIsLoading(true)
       const response = await fetch('/api/representant/commissions')
       if (!response.ok) throw new Error('Erreur lors du chargement')
-      
+
       const data = await response.json()
       setCommissions(data.commissions || [])
       setSummary(data.summary || null)
@@ -89,13 +90,23 @@ export default function CommissionsPage() {
       return
     }
 
-    if (withdrawalMethod === "MOMO" && !momoNumber) {
-      toast({
-        title: "Erreur",
-        description: "Veuillez entrer un numéro Mobile Money",
-        variant: "destructive"
-      })
-      return
+    if (withdrawalMethod === "MOMO") {
+      if (!momoNumber) {
+        toast({
+          title: "Erreur",
+          description: "Veuillez entrer un numéro Mobile Money",
+          variant: "destructive"
+        })
+        return
+      }
+      if (!momoProvider) {
+        toast({
+          title: "Erreur",
+          description: "Veuillez choisir un opérateur",
+          variant: "destructive"
+        })
+        return
+      }
     }
 
     if (withdrawalMethod === "BANK" && (!bankName || !bankAccount)) {
@@ -116,6 +127,7 @@ export default function CommissionsPage() {
           amount: parseFloat(withdrawalAmount),
           method: withdrawalMethod,
           momoNumber: withdrawalMethod === "MOMO" ? momoNumber : undefined,
+          momoProvider: withdrawalMethod === "MOMO" ? momoProvider : undefined,
           bankName: withdrawalMethod === "BANK" ? bankName : undefined,
           bankAccount: withdrawalMethod === "BANK" ? bankAccount : undefined,
           bankAccountName: withdrawalMethod === "BANK" ? bankAccountName : undefined
@@ -136,6 +148,7 @@ export default function CommissionsPage() {
       setShowWithdrawalDialog(false)
       setWithdrawalAmount("")
       setMomoNumber("")
+      setMomoProvider("")
       setBankName("")
       setBankAccount("")
       setBankAccountName("")
@@ -219,15 +232,33 @@ export default function CommissionsPage() {
                 </Select>
               </div>
               {withdrawalMethod === "MOMO" && (
-                <div>
-                  <Label htmlFor="momoNumber">Numéro Mobile Money *</Label>
-                  <Input
-                    id="momoNumber"
-                    value={momoNumber}
-                    onChange={(e) => setMomoNumber(e.target.value)}
-                    placeholder="+229 XX XX XX XX"
-                  />
-                </div>
+                <>
+                  <div>
+                    <Label htmlFor="momoProvider">Opérateur *</Label>
+                    <Select value={momoProvider} onValueChange={setMomoProvider}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choisir l'opérateur" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="mtn">MTN</SelectItem>
+                        <SelectItem value="moov">Moov</SelectItem>
+                        <SelectItem value="celtiis">Celtiis</SelectItem>
+                        <SelectItem value="orange">Orange</SelectItem>
+                        <SelectItem value="free">Free</SelectItem>
+                        <SelectItem value="wave">Wave</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="momoNumber">Numéro Mobile Money *</Label>
+                    <Input
+                      id="momoNumber"
+                      value={momoNumber}
+                      onChange={(e) => setMomoNumber(e.target.value)}
+                      placeholder="+229 XX XX XX XX"
+                    />
+                  </div>
+                </>
               )}
               {withdrawalMethod === "BANK" && (
                 <>

@@ -65,7 +65,7 @@ export interface MonerooTransaction {
 export interface MonerooPayoutRequest {
   amount: number;
   currency: string;
-  method: "mobile_money" | "bank_transfer" | "cash";
+  method: string; // "mobile_money", "bank_transfer", "mtn_bj", etc.
   phone?: string; // Pour Mobile Money
   bank_account?: string; // Pour virement bancaire
   beneficiary_name: string;

@@ -578,6 +578,7 @@ model Withdrawal {
   userId          String
   amount          Float
   method          WithdrawalMethod
+  momoProvider    String? // "mtn", "moov", "orange", etc.
   momoNumber      String?
   bankName        String?
   bankAccount     String?
@@ -604,6 +605,7 @@ model RepresentantWithdrawal {
   userId          String
   amount          Float
   method          WithdrawalMethod
+  momoProvider    String?
   momoNumber      String?
   bankName        String?
   bankAccount     String?
