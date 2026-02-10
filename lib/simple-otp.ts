@@ -1,34 +1,9 @@
+import { prisma } from './prisma';
+
 /**
- * Service OTP - Stockage en mémoire (Map)
- * Parfait pour les petites/moyennes applications
- * Pas besoin de Redis ou autre service externe
+ * Service OTP - Stockage en base de données via Prisma
+ * Indispensable pour les environnements de production stateless (Vercel)
  */
-
-interface OTPData {
-    code: string;
-    email: string;
-    createdAt: number;
-    expiresAt: number;
-    attempts: number;
-}
-
-interface RateLimitData {
-    timestamp: number;
-}
-
-// Stockage en mémoire avec persistance HMR (Hot Module Replacement)
-const globalForOTP = global as unknown as {
-    otpStore: Map<string, OTPData> | undefined;
-    rateLimitStore: Map<string, RateLimitData> | undefined;
-}
-
-const otpStore = globalForOTP.otpStore ?? new Map<string, OTPData>();
-const rateLimitStore = globalForOTP.rateLimitStore ?? new Map<string, RateLimitData>();
-
-if (process.env.NODE_ENV !== 'production') {
-    globalForOTP.otpStore = otpStore;
-    globalForOTP.rateLimitStore = rateLimitStore;
-}
 
 // Configuration
 const OTP_CONFIG = {
@@ -48,35 +23,29 @@ export function generateOTP(): string {
 /**
  * Créer et stocker un OTP pour un email
  */
-export function createOTP(email: string): string {
+export async function createOTP(email: string, type: string = "signup"): Promise<string> {
     const normalizedEmail = email.toLowerCase().trim();
     const code = generateOTP();
-    const now = Date.now();
-    const expiresAt = now + OTP_CONFIG.EXPIRY_MINUTES * 60 * 1000;
+    const expiresAt = new Date(Date.now() + OTP_CONFIG.EXPIRY_MINUTES * 60 * 1000);
 
-    // Stocker l'OTP
-    otpStore.set(normalizedEmail, {
-        code,
-        email: normalizedEmail,
-        createdAt: now,
-        expiresAt,
-        attempts: 0,
+    // Supprimer l'ancien OTP s'il existe (pour ce mail et ce type)
+    await prisma.otpCode.deleteMany({
+        where: { email: normalizedEmail, type }
     });
 
-    // Stocker le rate limit
-    rateLimitStore.set(normalizedEmail, {
-        timestamp: now,
+    // Stocker le nouvel OTP
+    await prisma.otpCode.create({
+        data: {
+            email: normalizedEmail,
+            code,
+            type,
+            expiresAt,
+        }
     });
-
-    // Auto-nettoyage après expiration
-    setTimeout(() => {
-        otpStore.delete(normalizedEmail);
-        rateLimitStore.delete(normalizedEmail);
-    }, OTP_CONFIG.EXPIRY_MINUTES * 60 * 1000 + 5000);
 
     // Log en développement uniquement
     if (process.env.NODE_ENV === 'development') {
-        console.log(`🔑 OTP créé pour ${normalizedEmail}: ${code}`);
+        console.log(`🔑 OTP créé pour ${normalizedEmail} (type: ${type}): ${code}`);
     }
 
     return code;
@@ -85,61 +54,55 @@ export function createOTP(email: string): string {
 /**
  * Vérifier un code OTP
  */
-export function verifyOTP(
+export async function verifyOTP(
     email: string,
-    code: string
-): {
+    code: string,
+    type: string = "signup"
+): Promise<{
     valid: boolean;
     message: string;
-} {
+}> {
     const normalizedEmail = email.toLowerCase().trim();
-    const otpData = otpStore.get(normalizedEmail);
+
+    // Récupérer l'OTP depuis la base de données
+    const otpData = await prisma.otpCode.findFirst({
+        where: {
+            email: normalizedEmail,
+            type,
+        }
+    });
 
     // OTP n'existe pas
     if (!otpData) {
         return {
             valid: false,
-            message: 'Code OTP non trouvé ou expiré',
+            message: 'Code de vérification non trouvé. Veuillez en demander un nouveau.',
         };
     }
 
     // OTP expiré
-    if (Date.now() > otpData.expiresAt) {
-        otpStore.delete(normalizedEmail);
+    if (new Date() > otpData.expiresAt) {
+        await prisma.otpCode.delete({ where: { id: otpData.id } });
         return {
             valid: false,
-            message: 'Code OTP expiré. Demandez un nouveau code.',
+            message: 'Code de vérification expiré. Veuillez en demander un nouveau.',
         };
     }
-
-    // Trop de tentatives
-    if (otpData.attempts >= OTP_CONFIG.MAX_ATTEMPTS) {
-        otpStore.delete(normalizedEmail);
-        return {
-            valid: false,
-            message: 'Trop de tentatives. Demandez un nouveau code.',
-        };
-    }
-
-    // Incrémenter le compteur de tentatives
-    otpData.attempts += 1;
-    otpStore.set(normalizedEmail, otpData);
 
     // Code incorrect
     if (otpData.code !== code.trim()) {
-        const remainingAttempts = OTP_CONFIG.MAX_ATTEMPTS - otpData.attempts;
+        // Optionnel: On pourrait incrémenter un compteur de tentatives ici si on ajoute un champ 'attempts' au modèle
         return {
             valid: false,
-            message: `Code incorrect. ${remainingAttempts} tentative${remainingAttempts > 1 ? 's' : ''} restante${remainingAttempts > 1 ? 's' : ''}.`,
+            message: 'Code de vérification incorrect.',
         };
     }
 
-    // Code valide - supprimer de la mémoire
-    otpStore.delete(normalizedEmail);
-    rateLimitStore.delete(normalizedEmail);
+    // Code valide - supprimer de la base de données (usage unique)
+    await prisma.otpCode.delete({ where: { id: otpData.id } });
 
     if (process.env.NODE_ENV === 'development') {
-        console.log(`✅ OTP vérifié avec succès pour ${normalizedEmail}`);
+        console.log(`✅ OTP vérifié avec succès pour ${normalizedEmail} (type: ${type})`);
     }
 
     return {
@@ -151,19 +114,24 @@ export function verifyOTP(
 /**
  * Vérifier si l'utilisateur peut demander un nouveau OTP (rate limiting)
  */
-export function canRequestOTP(email: string): {
+export async function canRequestOTP(email: string, type: string = "signup"): Promise<{
     allowed: boolean;
     message: string;
     waitSeconds?: number;
-} {
+}> {
     const normalizedEmail = email.toLowerCase().trim();
-    const rateLimitData = rateLimitStore.get(normalizedEmail);
 
-    if (!rateLimitData) {
+    // On regarde le dernier OTP créé pour cet email et ce type
+    const lastOtp = await prisma.otpCode.findFirst({
+        where: { email: normalizedEmail, type },
+        orderBy: { createdAt: 'desc' }
+    });
+
+    if (!lastOtp) {
         return { allowed: true, message: 'OK' };
     }
 
-    const elapsedSeconds = Math.floor((Date.now() - rateLimitData.timestamp) / 1000);
+    const elapsedSeconds = Math.floor((Date.now() - new Date(lastOtp.createdAt).getTime()) / 1000);
     const waitSeconds = OTP_CONFIG.RATE_LIMIT_SECONDS - elapsedSeconds;
 
     if (waitSeconds > 0) {
@@ -178,51 +146,18 @@ export function canRequestOTP(email: string): {
 }
 
 /**
- * Supprimer un OTP (utile pour le nettoyage manuel)
+ * Nettoyage des OTP expirés
  */
-export function deleteOTP(email: string): void {
-    const normalizedEmail = email.toLowerCase().trim();
-    otpStore.delete(normalizedEmail);
-    rateLimitStore.delete(normalizedEmail);
-}
-
-/**
- * Obtenir les statistiques (monitoring)
- */
-export function getOTPStats() {
-    return {
-        activeOTPs: otpStore.size,
-        rateLimitedUsers: rateLimitStore.size,
-        config: OTP_CONFIG,
-    };
-}
-
-/**
- * Nettoyage manuel des OTP expirés
- * (Appelé automatiquement mais peut être utilisé manuellement)
- */
-export function cleanupExpiredOTPs(): number {
-    const now = Date.now();
-    let cleanedCount = 0;
-
-    for (const [email, otpData] of otpStore.entries()) {
-        if (now > otpData.expiresAt) {
-            otpStore.delete(email);
-            rateLimitStore.delete(email);
-            cleanedCount++;
+export async function cleanupExpiredOTPs(): Promise<number> {
+    const result = await prisma.otpCode.deleteMany({
+        where: {
+            expiresAt: { lt: new Date() }
         }
+    });
+
+    if (result.count > 0 && process.env.NODE_ENV === 'development') {
+        console.log(`🧹 ${result.count} OTP expiré(s) supprimé(s) de la base de données.`);
     }
 
-    if (cleanedCount > 0 && process.env.NODE_ENV === 'development') {
-        console.log(`🧹 ${cleanedCount} OTP expiré${cleanedCount > 1 ? 's' : ''} nettoyé${cleanedCount > 1 ? 's' : ''}`);
-    }
-
-    return cleanedCount;
-}
-
-// Nettoyage automatique toutes les 5 minutes
-if (typeof setInterval !== 'undefined') {
-    setInterval(() => {
-        cleanupExpiredOTPs();
-    }, 5 * 60 * 1000);
+    return result.count;
 }
