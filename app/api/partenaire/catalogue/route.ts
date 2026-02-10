@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user || session.user.role !== 'PARTENAIRE') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
@@ -100,18 +100,32 @@ export async function GET(request: NextRequest) {
     })
 
     // Transformer les données pour l'affichage
-    let catalogueData = works.map(work => ({
-      id: work.id,
-      title: work.title,
-      isbn: work.isbn || 'N/A',
-      discipline: work.discipline?.name || 'Non définie',
-      author: work.author?.name || 'Auteur inconnu',
-      price: work.price || 0,
-      available: work.stock > 0,
-      stock: work.stock || 0,
-      description: work.description || 'Description non disponible',
-      coverImage: null // Images de couverture à implémenter ultérieurement
-    }))
+    let catalogueData = works.map(work => {
+      let coverImage = null;
+      if (work.files) {
+        try {
+          const filesData = typeof work.files === 'string' ? JSON.parse(work.files) : work.files;
+          if (filesData.coverImage) {
+            coverImage = filesData.coverImage;
+          }
+        } catch (e) {
+          console.error("Erreur parsing files:", e);
+        }
+      }
+
+      return {
+        id: work.id,
+        title: work.title,
+        isbn: work.isbn || 'N/A',
+        discipline: work.discipline?.name || 'Non définie',
+        author: work.author?.name || 'Auteur inconnu',
+        price: work.price || 0,
+        available: work.stock > 0,
+        stock: work.stock || 0,
+        description: work.description || 'Description non disponible',
+        coverImage: coverImage
+      };
+    })
 
     // Filtrer par prix si nécessaire
     if (price && price !== 'all') {
