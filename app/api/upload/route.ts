@@ -2,9 +2,7 @@ import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { writeFile, mkdir } from "fs/promises";
 import path from "path";
-import { existsSync } from "fs";
 import cloudinary from "@/lib/cloudinary";
 
 // Configuration des types de fichiers autorisés
@@ -36,20 +34,7 @@ function generateUniqueFilename(originalName: string, userId: string): string {
   return `${userId}_${timestamp}_${randomString}_${baseName}.${extension}`;
 }
 
-// Fonction utilitaire pour créer les dossiers si nécessaire
-async function ensureUploadDirs() {
-  const dirs = [
-    path.join(UPLOAD_DIR, 'projects'),
-    path.join(UPLOAD_DIR, 'works'),
-    path.join(UPLOAD_DIR, 'temp')
-  ];
-
-  for (const dir of dirs) {
-    if (!existsSync(dir)) {
-      await mkdir(dir, { recursive: true });
-    }
-  }
-}
+// Les dossiers locaux ne sont plus nécessaires avec Cloudinary
 
 // POST /api/upload - Upload de fichiers
 export async function POST(request: NextRequest) {
@@ -93,8 +78,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Assurer que les dossiers d'upload existent
-    await ensureUploadDirs();
+    // Plus besoin d'assurer les dossiers locaux avec Cloudinary
 
     const uploadedFiles: any[] = [];
     const errors: string[] = [];
@@ -260,36 +244,29 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const filename = searchParams.get('filename');
-    const uploadType = searchParams.get('type');
+    const cloudinaryId = searchParams.get('cloudinaryId');
 
-    if (!filename || !uploadType) {
+    if (!cloudinaryId) {
       return NextResponse.json(
-        { error: "Nom de fichier et type requis" },
+        { error: "ID Cloudinary requis pour la suppression" },
         { status: 400 }
       );
     }
 
-    // Construire le chemin du fichier
-    const uploadSubDir = uploadType === 'temp' ? 'temp' : uploadType + 's';
-    const filePath = path.join(UPLOAD_DIR, uploadSubDir, filename);
+    // Supprimer sur Cloudinary
+    const result = await cloudinary.uploader.destroy(cloudinaryId);
 
-    // Vérifier que le fichier existe
-    if (!existsSync(filePath)) {
+    if (result.result !== 'ok') {
       return NextResponse.json(
-        { error: "Fichier non trouvé" },
-        { status: 404 }
+        { error: "Erreur lors de la suppression sur Cloudinary: " + result.result },
+        { status: 500 }
       );
     }
 
-    // Supprimer le fichier
-    const fs = require('fs').promises;
-    await fs.unlink(filePath);
-
-    logger.debug(`✅ Fichier supprimé: ${filename} par ${session.user.name}`);
+    logger.debug(`✅ Fichier supprimé sur Cloudinary: ${cloudinaryId} par ${session.user.name}`);
 
     return NextResponse.json({
-      message: "Fichier supprimé avec succès"
+      message: "Fichier supprimé de Cloudinary avec succès"
     }, { status: 200 });
 
   } catch (error: any) {
