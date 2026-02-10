@@ -42,7 +42,12 @@ export async function POST(
         // Vérifier le statut auprès de Moneroo
         const paymentInfo = await PaymentService.verifyPayment(order.monerooPaymentId);
 
-        if (paymentInfo.status === 'successful') {
+        console.log(`🔍 Vérification paiement commande ${orderId}:`, paymentInfo);
+
+        const statusLower = paymentInfo.status?.toLowerCase();
+        const successStatuses = ['successful', 'success', 'completed', 'paid'];
+
+        if (successStatuses.includes(statusLower)) {
             // Mettre à jour la commande si payée
             await prisma.order.update({
                 where: { id: orderId },

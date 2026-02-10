@@ -153,6 +153,8 @@ export default function GestionCommandesPage() {
   const [clientSearchTerm, setClientSearchTerm] = useState("") // Recherche de client
   const [isBookComboboxOpen, setIsBookComboboxOpen] = useState(false)
   const [loadingActions, setLoadingActions] = useState<Record<string, boolean>>({}) // Loading pour chaque action
+  const [verifyingOrder, setVerifyingOrder] = useState<string | null>(null);
+
   const [newOrderData, setNewOrderData] = useState({
     userId: '',
     selectedCategory: '',
@@ -317,6 +319,29 @@ export default function GestionCommandesPage() {
       setLoadingActions(prev => ({ ...prev, [actionKey]: false }));
     }
   }, [orders])
+
+  const handleVerifyPayment = async (orderId: string) => {
+    setVerifyingOrder(orderId);
+    try {
+      const response = await fetch(`/api/orders/${orderId}/verify`, {
+        method: 'POST'
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success("Paiement vérifié avec succès !");
+        // Recharger les commandes
+        fetchOrders();
+      } else {
+        toast.info(data.message || "Le paiement n'a pas pu être vérifié.");
+      }
+    } catch (error) {
+      console.error("Erreur vérification:", error);
+      toast.error("Erreur lors de la vérification du paiement");
+    } finally {
+      setVerifyingOrder(null);
+    }
+  };
 
   // Filtrer les livres selon les sélections - mémorisé pour éviter les recalculs
   const filteredWorksForSelection = useMemo(() => {
@@ -924,6 +949,18 @@ export default function GestionCommandesPage() {
                       <div className="flex items-center gap-2">
                         {getPaymentTypeBadge(order.paymentType)}
                         {getPaymentStatusBadge(order.paymentStatus)}
+                        {order.paymentStatus !== 'PAID' && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 ml-1"
+                            onClick={() => handleVerifyPayment(order.id)}
+                            disabled={verifyingOrder === order.id}
+                            title="Vérifier le paiement auprès de Moneroo"
+                          >
+                            <RefreshCw className={`h-3 w-3 ${verifyingOrder === order.id ? 'animate-spin' : ''}`} />
+                          </Button>
+                        )}
                       </div>
                       {order.paymentMethod && (
                         <span className="text-xs text-gray-600">{order.paymentMethod}</span>
@@ -1163,7 +1200,21 @@ export default function GestionCommandesPage() {
                   </div>
                   <div className="space-y-2">
                     <p className="text-sm text-gray-600">Statut de paiement</p>
-                    {getPaymentStatusBadge(selectedOrder.paymentStatus)}
+                    <div className="flex items-center gap-2">
+                      {getPaymentStatusBadge(selectedOrder.paymentStatus)}
+                      {selectedOrder.paymentStatus !== 'PAID' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-6 text-xs"
+                          onClick={() => handleVerifyPayment(selectedOrder.id)}
+                          disabled={verifyingOrder === selectedOrder.id}
+                        >
+                          <RefreshCw className={`h-3 w-3 mr-1 ${verifyingOrder === selectedOrder.id ? 'animate-spin' : ''}`} />
+                          Vérifier
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <p className="text-sm text-gray-600">Méthode</p>
