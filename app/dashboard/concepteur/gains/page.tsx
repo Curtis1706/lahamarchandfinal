@@ -144,7 +144,6 @@ export default function GainsPage() {
       <Card className="border-blue-200 bg-blue-50">
         <CardContent className="pt-6">
           <div className="flex items-start gap-3">
-            <Wallet className="h-5 w-5 text-blue-600 mt-0.5" />
             <div>
               <h4 className="font-medium text-blue-900">Comment ça marche ?</h4>
               <p className="text-sm text-blue-700 mt-1">
@@ -152,7 +151,7 @@ export default function GainsPage() {
                 Les gains sont d'abord <strong>approuvés</strong> par le PDG, puis <strong>payés</strong> selon les règles définies.
               </p>
               <p className="text-sm text-blue-600 mt-2">
-                💡 Pour retirer vos gains, rendez-vous dans la section <strong>Retraits</strong>.
+                Pour retirer vos gains, rendez-vous dans la section <strong>Retraits</strong>.
               </p>
             </div>
           </div>
