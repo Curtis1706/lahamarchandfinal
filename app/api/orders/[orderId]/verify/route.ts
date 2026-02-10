@@ -70,9 +70,9 @@ export async function POST(
         }
 
         console.log(`📥 [API /verify] Réponse Moneroo complète:`, JSON.stringify(paymentInfo, null, 2));
-        console.log(`📊 [API /verify] Statut paiement Moneroo: ${paymentInfo.status}`);
+        console.log(`📊 [API /verify] Statut paiement Moneroo (paymentInfo.data.status): ${paymentInfo.data?.status}`);
 
-        const statusLower = paymentInfo.status?.toLowerCase();
+        const statusLower = paymentInfo.data?.status?.toLowerCase();
         const successStatuses = ['successful', 'success', 'completed', 'paid'];
 
         console.log(`🔍 [API /verify] Vérification statut: "${statusLower}" dans [${successStatuses.join(', ')}] ?`);
@@ -101,13 +101,13 @@ export async function POST(
             });
         }
 
-        console.warn(`⚠️ [API /verify] Paiement NON finalisé. Statut Moneroo: ${paymentInfo.status}`);
+        console.warn(`⚠️ [API /verify] Paiement NON finalisé. Statut Moneroo: ${paymentInfo.data?.status}`);
         console.log(`${'='.repeat(80)}\n`);
 
         return NextResponse.json({
             success: false,
             status: order.paymentStatus,
-            monerooStatus: paymentInfo.status,
+            monerooStatus: paymentInfo.data?.status,
             message: "Paiement non finalisé"
         });
 
