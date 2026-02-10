@@ -3,14 +3,6 @@ import { prisma } from '@/lib/prisma';
 import { createOTP, canRequestOTP } from '@/lib/simple-otp';
 import { sendEmail } from '@/lib/native-email';
 import { getOTPEmailHTML, getOTPEmailText } from '@/lib/simple-email-templates';
-import fs from 'fs';
-import path from 'path';
-
-function logDebug(message: string, data?: any) {
-    const logPath = path.join(process.cwd(), 'debug-otp.log');
-    const logEntry = `${new Date().toISOString()} - ${message} ${data ? JSON.stringify(data) : ''}\n`;
-    fs.appendFileSync(logPath, logEntry);
-}
 
 /**
  * POST /api/auth/send-otp
@@ -20,11 +12,10 @@ export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
         const { email } = body;
-        logDebug('Requête reçue dans send-otp', { body });
+        console.log('Requête reçue dans send-otp:', { email, type: body.type });
 
         // Validation de l'email
         if (!email || typeof email !== 'string') {
-            logDebug('Erreur 400: Email absent ou invalide');
             return NextResponse.json({
                 success: false,
                 error: 'Email requis'
@@ -34,7 +25,6 @@ export async function POST(request: NextRequest) {
         // Validation du format email
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
-            logDebug('Erreur 400: Format email invalide', { email });
             return NextResponse.json({
                 success: false,
                 error: 'Format d\'email invalide'
@@ -47,7 +37,6 @@ export async function POST(request: NextRequest) {
         // Vérifier le rate limiting
         const rateLimitCheck = await canRequestOTP(normalizedEmail, type);
         if (!rateLimitCheck.allowed) {
-            logDebug('Erreur 429: Rate limit atteint', { normalizedEmail, waitSeconds: rateLimitCheck.waitSeconds });
             return NextResponse.json({
                 success: false,
                 error: rateLimitCheck.message,
@@ -62,7 +51,7 @@ export async function POST(request: NextRequest) {
             });
 
             if (existingUser) {
-                logDebug('Erreur 400: Compte déjà existant', { normalizedEmail });
+                console.warn('⚠️ Tentative d\'inscription avec un email déjà existant:', normalizedEmail);
                 return NextResponse.json({
                     success: false,
                     error: 'Un compte existe déjà avec cet email'
@@ -72,7 +61,6 @@ export async function POST(request: NextRequest) {
 
         // Générer et stocker l'OTP
         const otpCode = await createOTP(normalizedEmail, type);
-        logDebug('OTP généré et stocké', { normalizedEmail, type });
 
         // Envoyer l'email
         const emailResult = await sendEmail({
