@@ -20,7 +20,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Upload, Edit, Trash2, Image as ImageIcon, X, CheckCircle, Loader2 } from "lucide-react";
+import { Plus, Upload, Edit, Trash2, Image as ImageIcon, X, CheckCircle, Loader2, RotateCcw } from "lucide-react";
 import Image from "next/image";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -782,6 +782,15 @@ export default function LivresListePage() {
                 >
                   <Upload className="w-4 h-4 mr-2" />
                   Importer
+                </Button>
+                <Button
+                  variant="outline"
+                  className="border-gray-300 hover:bg-gray-100"
+                  onClick={loadLivres}
+                  disabled={isLoading}
+                >
+                  <RotateCcw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                  Actualiser
                 </Button>
               </div>
 

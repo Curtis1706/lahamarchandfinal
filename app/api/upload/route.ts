@@ -202,9 +202,10 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
 
   } catch (error: any) {
+    console.error("[API Upload] Cloudinary or Internal Error:", error);
     logger.error("❌ Erreur lors de l'upload:", error);
     return NextResponse.json(
-      { error: "Erreur lors de l'upload: " + error.message },
+      { error: "Erreur lors de l'upload: " + (error.message || error) },
       { status: 500 }
     );
   }
