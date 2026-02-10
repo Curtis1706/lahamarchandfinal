@@ -3,7 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { RebateRateType } from "@prisma/client";
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 // Paramètres par défaut
 const DEFAULT_SETTINGS = {
@@ -60,9 +62,12 @@ const DEFAULT_SETTINGS = {
 
 // Fonction pour convertir une valeur de chaîne selon son type
 function convertValue(value: string, type: string) {
+  if (value === "" || value === "NaN" || value === "undefined" || value === "null") return null;
+
   switch (type) {
     case 'number':
-      return parseFloat(value);
+      const num = parseFloat(value);
+      return isNaN(num) ? null : num;
     case 'boolean':
       return value === 'true';
     case 'json':
@@ -84,11 +89,11 @@ async function getAllSettingsFromDB() {
     // Initialiser avec les valeurs par défaut (clone profond pour éviter les mutations)
     const settings: any = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
 
-    dbSettings.forEach(setting => {
+    dbSettings.forEach((setting: any) => {
       if (!setting.category) return;
 
       const category = setting.category;
-      const key = setting.key.split('.').pop(); // Récupérer la partie après le point
+      const key = setting.key.split('.').pop();
 
       if (key && settings[category]) {
         settings[category][key] = convertValue(setting.value, setting.type);
@@ -109,23 +114,26 @@ export async function GET(request: NextRequest) {
 
     const settings = await getAllSettingsFromDB();
 
+    const headers = {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+    };
+
     if (category && settings[category]) {
       return NextResponse.json({
         category,
         settings: settings[category]
-      }, {
-        headers: { 'Content-Type': 'application/json' }
-      });
+      }, { headers });
     }
 
-    return NextResponse.json({ settings }, {
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return NextResponse.json({ settings }, { headers });
   } catch (error: any) {
     logger.error("Error fetching settings:", error);
     return NextResponse.json(
       { error: "Erreur lors de la récupération des paramètres" },
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      { status: 500 }
     );
   }
 }
@@ -138,50 +146,63 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { category, settings } = body;
+    const { category, settings, allSettings } = body;
 
+    // Cas 1: Mise à jour de TOUS les paramètres
+    if (allSettings) {
+      for (const [cat, catSettings] of Object.entries(allSettings)) {
+        await saveCategorySettings(cat as string, catSettings as any, session.user.id);
+      }
+      return NextResponse.json({ message: "Paramètres mis à jour" });
+    }
+
+    // Cas 2: Mise à jour d'une catégorie spécifique
     if (!category || !settings) {
-      return NextResponse.json({ error: "Catégorie et paramètres requis" }, { status: 400 });
+      return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
     }
 
-    // Sauvegarde générique dans AdvancedSetting
-    for (const [key, value] of Object.entries(settings)) {
-      const fullKey = `${category}.${key}`;
-      const type = typeof value === 'number' ? 'number' : typeof value === 'boolean' ? 'boolean' : 'string';
-
-      await prisma.advancedSetting.upsert({
-        where: { key: fullKey },
-        update: {
-          value: value!.toString(),
-          type,
-          category,
-          updatedById: session.user.id
-        },
-        create: {
-          key: fullKey,
-          description: `Réglage ${key} de la catégorie ${category}`,
-          value: value!.toString(),
-          type,
-          category,
-          status: 'Actif',
-          updatedById: session.user.id
-        }
-      });
-    }
-
-    // Garder la logique spécifique pour le pricing (RebateRate)
-    if (category === "pricing") {
-      await savePricingToRebateRates(settings, session.user.id);
-    }
+    await saveCategorySettings(category, settings, session.user.id);
 
     return NextResponse.json({
-      message: "Paramètres mis à jour avec succès",
+      message: `Paramètres ${category} mis à jour avec succès`,
       category,
       settings
     });
   } catch (error) {
     logger.error("Error updating settings:", error);
     return NextResponse.json({ error: "Erreur lors de la mise à jour" }, { status: 500 });
+  }
+}
+
+async function saveCategorySettings(category: string, settings: any, userId: string) {
+  for (const [key, value] of Object.entries(settings)) {
+    if (value === undefined || value === null) continue;
+
+    const fullKey = `${category}.${key}`;
+    const type = typeof value === 'number' ? 'number' : typeof value === 'boolean' ? 'boolean' : 'string';
+
+    await prisma.advancedSetting.upsert({
+      where: { key: fullKey },
+      update: {
+        value: value.toString(),
+        type,
+        category,
+        updatedById: userId
+      },
+      create: {
+        key: fullKey,
+        description: `Réglage ${key} de la catégorie ${category}`,
+        value: value.toString(),
+        type,
+        category,
+        status: 'Actif',
+        updatedById: userId
+      }
+    });
+  }
+
+  if (category === "pricing") {
+    await savePricingToRebateRates(settings, userId);
   }
 }
 

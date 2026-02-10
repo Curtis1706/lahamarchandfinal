@@ -151,17 +151,17 @@ export default function AdministrationParametresPage() {
     setSettings(prev => {
       if (!prev) return null;
       
-      const newSettings = {
+      return {
         ...prev,
         [category]: {
           ...prev[category],
           [field]: value
         }
       };
-      
-      setHasChanges(true);
-      return newSettings;
     });
+    
+    // Marquer les changements hors du cycle de mise à jour du state principal
+    if (!hasChanges) setHasChanges(true);
   };
 
   const saveSettings = async (category?: keyof AllSettings) => {
@@ -170,53 +170,29 @@ export default function AdministrationParametresPage() {
     try {
       setSaving(true);
       
-      if (category) {
-        // Sauvegarder une catégorie spécifique
-        const response = await fetch("/api/settings", {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            category,
-            settings: settings[category]
-          })
-        });
+      const payload = category 
+        ? { category, settings: settings[category] }
+        : { allSettings: settings };
 
-        const data = await response.json();
+      const response = await fetch("/api/settings", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
 
-        if (response.ok) {
-          toast.success(`Paramètres ${category} sauvegardés avec succès`);
-          setHasChanges(false);
-        } else {
-          toast.error(data.error || "Erreur lors de la sauvegarde");
-        }
-      } else {
-        // Sauvegarder tous les paramètres
-        for (const [cat, setting] of Object.entries(settings)) {
-          const response = await fetch("/api/settings", {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              category: cat,
-              settings: setting
-            })
-          });
+      const data = await response.json();
 
-          if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.error || "Erreur lors de la sauvegarde");
-          }
-        }
-        
-        toast.success("Tous les paramètres sauvegardés avec succès");
+      if (response.ok) {
+        toast.success(category ? `Paramètres ${category} sauvegardés` : "Tous les paramètres sauvegardés");
         setHasChanges(false);
+      } else {
+        toast.error(data.error || "Erreur lors de la sauvegarde");
       }
     } catch (error) {
       console.error("Error saving settings:", error);
-      toast.error("Erreur lors de la sauvegarde des paramètres");
+      toast.error("Erreur réseau lors de la sauvegarde");
     } finally {
       setSaving(false);
     }
