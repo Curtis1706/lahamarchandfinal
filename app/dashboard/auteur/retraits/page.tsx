@@ -57,6 +57,8 @@ export default function RetraitsPage() {
   })
   const { toast } = useToast()
 
+  const MIN_WITHDRAWAL_AMOUNT = 500
+
   useEffect(() => {
     if (user) {
       loadWithdrawals()
@@ -97,8 +99,6 @@ export default function RetraitsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    const MIN_WITHDRAWAL_AMOUNT = 500 // Montant minimum de retrait
 
     if (!formData.amount || parseFloat(formData.amount) <= 0) {
       toast({
@@ -299,13 +299,13 @@ export default function RetraitsPage() {
               <DialogTitle>Nouvelle demande de retrait</DialogTitle>
               <DialogDescription>
                 Solde disponible: <span className="font-semibold">{formatCurrency(balance.available)}</span>
-                {balance.available < 5000 && (
+                {balance.available < MIN_WITHDRAWAL_AMOUNT && (
                   <span className="block mt-2 text-red-600 font-medium flex items-center gap-1">
                     <AlertCircle className="w-4 h-4" />
-                    Votre solde disponible est insuffisant. Le montant minimum est de 5 000 F CFA.
+                    Votre solde disponible est insuffisant. Le montant minimum est de {MIN_WITHDRAWAL_AMOUNT.toLocaleString()} F CFA.
                   </span>
                 )}
-                {balance.available >= 5000 && (
+                {balance.available >= MIN_WITHDRAWAL_AMOUNT && (
                   <span className="block mt-2 text-green-600 text-sm">
                     ✓ Vous pouvez effectuer un retrait
                   </span>
@@ -318,23 +318,23 @@ export default function RetraitsPage() {
                 <Input
                   id="amount"
                   type="number"
-                  min="5000"
+                  min={MIN_WITHDRAWAL_AMOUNT}
                   max={balance.available > 0 ? balance.available : undefined}
                   step="100"
                   value={formData.amount}
                   onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                   required
-                  disabled={balance.available < 5000}
-                  placeholder={balance.available > 0 ? `Maximum: ${balance.available.toLocaleString()} F CFA` : "Minimum: 5 000 F CFA"}
+                  disabled={balance.available < MIN_WITHDRAWAL_AMOUNT}
+                  placeholder={balance.available > 0 ? `Maximum: ${balance.available.toLocaleString()} F CFA` : `Minimum: ${MIN_WITHDRAWAL_AMOUNT.toLocaleString()} F CFA`}
                 />
-                {balance.available < 5000 ? (
+                {balance.available < MIN_WITHDRAWAL_AMOUNT ? (
                   <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
                     <AlertCircle className="w-3 h-3" />
-                    Votre solde disponible ({formatCurrency(balance.available)}) est insuffisant. Le montant minimum est de 5 000 F CFA.
+                    Votre solde disponible ({formatCurrency(balance.available)}) est insuffisant. Le montant minimum est de {MIN_WITHDRAWAL_AMOUNT.toLocaleString()} F CFA.
                   </p>
                 ) : (
                   <p className="text-xs text-gray-500 mt-1">
-                    Montant minimum: 5 000 F CFA | Maximum: {formatCurrency(balance.available)}
+                    Montant minimum: {MIN_WITHDRAWAL_AMOUNT.toLocaleString()} F CFA | Maximum: {formatCurrency(balance.available)}
                   </p>
                 )}
               </div>
@@ -406,7 +406,7 @@ export default function RetraitsPage() {
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Annuler
                 </Button>
-                <Button type="submit" disabled={balance.available < 5000}>
+                <Button type="submit" disabled={balance.available < MIN_WITHDRAWAL_AMOUNT}>
                   Envoyer la demande
                 </Button>
               </div>
