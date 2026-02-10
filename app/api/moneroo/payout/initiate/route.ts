@@ -31,8 +31,9 @@ export async function POST(request: NextRequest) {
     });
 
     if (user?.role !== "PDG") {
+      logger.warn(`User ${user?.id} attempted payout initiation with role ${user?.role}`);
       return NextResponse.json(
-        { error: "Forbidden - PDG role required" },
+        { error: `Forbidden - PDG role required. Current role: ${user?.role}` },
         { status: 403 }
       );
     }
