@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   try {
     // Vérifier l'authentification et le rôle PDG
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
       return NextResponse.json(
         { error: "Unauthorized" },
@@ -136,11 +136,14 @@ export async function POST(request: NextRequest) {
         beneficiary_id: beneficiary.id,
         beneficiary_name: beneficiary.name,
       },
-    });
+      // IMPORTANT: Ajouter l'external_reference pour le webhook
+      // On préfixe pour différencier du modèle WithdrawalRequest
+      external_reference: `WITHDRAWAL:${withdrawalId}`,
+    } as any); // Utiliser any car external_reference n'est peut-être pas dans le type interface
 
     if (!payoutResponse.success || !payoutResponse.data) {
       logger.error("❌ Failed to initiate Moneroo payout:", payoutResponse.error);
-      
+
       // Marquer le retrait comme rejeté
       if (withdrawalType === "author") {
         await prisma.withdrawal.update({
@@ -161,9 +164,9 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json(
-        { 
-          error: "Failed to initiate payout", 
-          message: payoutResponse.message || payoutResponse.error 
+        {
+          error: "Failed to initiate payout",
+          message: payoutResponse.message || payoutResponse.error
         },
         { status: 500 }
       );
@@ -172,7 +175,7 @@ export async function POST(request: NextRequest) {
     // Mettre à jour le statut du retrait (en attente de confirmation)
     // Le webhook Moneroo mettra à jour à "PAID" quand le paiement sera confirmé
     // Note: on ne met pas encore à PAID ici, on attend le webhook
-    
+
     logger.debug(`✅ Payout initiated for ${withdrawalType} withdrawal ${withdrawalId}: ${payoutResponse.data.payout_id}`);
 
     // Créer une notification pour le bénéficiaire
@@ -182,9 +185,9 @@ export async function POST(request: NextRequest) {
         title: "Retrait en cours",
         message: `Votre retrait de ${withdrawal.amount} XOF est en cours de traitement.`,
         type: "WITHDRAWAL",
-        data: JSON.stringify({ 
-          withdrawalId, 
-          payoutId: payoutResponse.data.payout_id 
+        data: JSON.stringify({
+          withdrawalId,
+          payoutId: payoutResponse.data.payout_id
         }),
       },
     });
@@ -213,7 +216,7 @@ export async function GET(request: NextRequest) {
   try {
     // Vérifier l'authentification et le rôle PDG
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
       return NextResponse.json(
         { error: "Unauthorized" },

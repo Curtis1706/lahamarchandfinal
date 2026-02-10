@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user || session.user.role !== 'PDG') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
@@ -53,35 +53,27 @@ export async function GET(request: NextRequest) {
     // Pour chaque retrait, calculer le solde de l'auteur
     const withdrawalsWithBalance = await Promise.all(
       withdrawals.map(async (withdrawal) => {
-        // Royalties payées (pour l'affichage)
-        const paidRoyalties = await prisma.royalty.findMany({
-          where: { userId: withdrawal.userId, paid: true },
-          select: { amount: true }
+        // Royalties totales générées
+        const allRoyalties = await prisma.royalty.findMany({
+          where: { userId: withdrawal.userId },
+          select: { amount: true, paid: true, approved: true }
         })
-        const totalPaid = paidRoyalties.reduce((sum, r) => sum + r.amount, 0)
+        const totalGenerated = allRoyalties.reduce((sum, r) => sum + r.amount, 0)
+        const totalPaidRoyalties = allRoyalties.filter(r => r.paid).reduce((sum, r) => sum + r.amount, 0)
+        const totalApprovedRoyalties = allRoyalties.filter(r => r.approved).reduce((sum, r) => sum + r.amount, 0)
 
-        // Royalties approuvées (disponibles pour retrait)
-        const approvedRoyalties = await prisma.royalty.findMany({
-          where: { 
-            userId: withdrawal.userId, 
-            approved: true,
-            paid: false
-          },
-          select: { amount: true }
-        })
-        const totalApproved = approvedRoyalties.reduce((sum, r) => sum + r.amount, 0)
-
+        // Retraits (PENDING, APPROVED, PAID)
         const authorWithdrawals = await prisma.withdrawal.findMany({
           where: {
             userId: withdrawal.userId,
-            status: { in: ['APPROVED', 'PAID'] }
+            status: { in: ['PENDING', 'APPROVED', 'PAID'] }
           },
           select: { amount: true }
         })
 
         const totalWithdrawn = authorWithdrawals.reduce((sum, w) => sum + w.amount, 0)
-        // Solde disponible = royalties approuvées - retraits approuvés/payés
-        const availableBalance = totalApproved - totalWithdrawn
+        // Solde disponible = royalties totales - retraits
+        const availableBalance = totalGenerated - totalWithdrawn
 
         return {
           id: withdrawal.id,
@@ -103,8 +95,8 @@ export async function GET(request: NextRequest) {
             email: withdrawal.user.email,
             phone: withdrawal.user.phone,
             balance: {
-              totalPaid,
-              totalApproved,
+              totalPaid: totalPaidRoyalties,
+              totalApproved: totalApprovedRoyalties,
               totalWithdrawn,
               available: Math.max(0, availableBalance)
             }
@@ -141,7 +133,7 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user || session.user.role !== 'PDG') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
@@ -205,43 +197,32 @@ export async function PUT(request: NextRequest) {
         if (withdrawal.status !== 'APPROVED') {
           return NextResponse.json({ error: 'Seuls les retraits approuvés peuvent être marqués comme payés' }, { status: 400 })
         }
-        
-        // Marquer les royalties correspondantes comme payées
-        // On marque les royalties approuvées de l'auteur comme payées jusqu'à couvrir le montant du retrait
-        const approvedRoyalties = await prisma.royalty.findMany({
+
+        // Marquer les royalties correspondantes comme payées (pour les statistiques)
+        // On marque les royalties de l'auteur comme payées jusqu'à couvrir le montant du retrait
+        const authorRoyalties = await prisma.royalty.findMany({
           where: {
             userId: withdrawal.userId,
-            approved: true,
             paid: false
           },
-          orderBy: { createdAt: 'asc' } // On paie les plus anciennes en premier
+          orderBy: { createdAt: 'asc' }
         })
 
         let remainingAmount = withdrawal.amount
         const royaltiesToMarkAsPaid: string[] = []
 
-        for (const royalty of approvedRoyalties) {
+        for (const royalty of authorRoyalties) {
           if (remainingAmount <= 0) break
           if (royalty.amount <= remainingAmount) {
             royaltiesToMarkAsPaid.push(royalty.id)
             remainingAmount -= royalty.amount
-          } else {
-            // Si le montant de la royalty est supérieur au reste, on ne la marque pas comme payée
-            // (on pourrait créer une royalty partielle, mais pour simplifier, on laisse comme ça)
-            break
           }
         }
 
-        // Marquer les royalties comme payées
         if (royaltiesToMarkAsPaid.length > 0) {
           await prisma.royalty.updateMany({
-            where: {
-              id: { in: royaltiesToMarkAsPaid }
-            },
-            data: {
-              paid: true,
-              paidAt: new Date()
-            }
+            where: { id: { in: royaltiesToMarkAsPaid } },
+            data: { paid: true, paidAt: new Date() }
           })
         }
 
@@ -278,17 +259,17 @@ export async function PUT(request: NextRequest) {
     })
 
     // Créer une notification pour l'auteur
-    const notificationTitle = action === 'APPROVE' 
-      ? 'Retrait approuvé' 
-      : action === 'REJECT' 
-      ? 'Retrait rejeté' 
-      : 'Retrait payé'
+    const notificationTitle = action === 'APPROVE'
+      ? 'Retrait approuvé'
+      : action === 'REJECT'
+        ? 'Retrait rejeté'
+        : 'Retrait payé'
 
     const notificationMessage = action === 'APPROVE'
       ? `Votre demande de retrait de ${withdrawal.amount.toLocaleString()} F CFA a été approuvée`
       : action === 'REJECT'
-      ? `Votre demande de retrait de ${withdrawal.amount.toLocaleString()} F CFA a été rejetée. Raison: ${rejectionReason}`
-      : `Votre retrait de ${withdrawal.amount.toLocaleString()} F CFA a été payé`
+        ? `Votre demande de retrait de ${withdrawal.amount.toLocaleString()} F CFA a été rejetée. Raison: ${rejectionReason}`
+        : `Votre retrait de ${withdrawal.amount.toLocaleString()} F CFA a été payé`
 
     await prisma.notification.create({
       data: {

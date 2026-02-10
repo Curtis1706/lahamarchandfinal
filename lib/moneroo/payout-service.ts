@@ -6,20 +6,37 @@ export class PayoutService {
      * Récupère le solde disponible pour un auteur
      */
     static async getAvailableBalance(userId: string) {
+        // 1. Total des royalties générées
         const royalties = await prisma.royalty.findMany({
+            where: { userId: userId }
+        });
+        const totalGenerated = royalties.reduce((sum, r) => sum + r.amount, 0);
+
+        // 2. Total des retraits (incluant l'ancien modèle et le nouveau)
+        const withdrawalRequests = await prisma.withdrawalRequest.findMany({
             where: {
                 userId: userId,
-                approved: true,
-                paid: false
+                status: { in: ['pending', 'processing', 'completed'] }
             }
         });
 
-        const balance = royalties.reduce((sum, royalty) => sum + royalty.amount, 0);
-        return balance;
+        const withdrawals = await prisma.withdrawal.findMany({
+            where: {
+                userId: userId,
+                status: { in: ['PENDING', 'APPROVED', 'PAID'] }
+            }
+        });
+
+        const totalWithdrawn = [
+            ...withdrawalRequests.map(w => w.amount),
+            ...withdrawals.map(w => w.amount)
+        ].reduce((sum, amount) => sum + amount, 0);
+
+        return Math.max(0, totalGenerated - totalWithdrawn);
     }
 
     /**
-     * Crée une demande de retrait
+     * Crée une demande de retrait (Modèle legacy WithdrawalRequest)
      */
     static async requestPayout(userId: string, data: {
         amount: number;
@@ -37,7 +54,7 @@ export class PayoutService {
         const balance = await this.getAvailableBalance(userId);
 
         if (data.amount > balance) {
-            throw new Error("Solde insuffisant");
+            throw new Error(`Solde insuffisant. Disponible: ${balance} XOF`);
         }
 
         // 1. Créer la demande en base de données (pending)
@@ -51,7 +68,7 @@ export class PayoutService {
                 bankName: data.bankName,
                 accountNumber: data.accountNumber,
                 accountName: data.accountName,
-                status: 'processing' // On passe direct en processing car on appelle l'API tout de suite
+                status: 'processing'
             }
         });
 
@@ -62,15 +79,14 @@ export class PayoutService {
                     amount: data.amount,
                     currency: "XOF",
                     method: "mobile_money",
-                    provider: data.provider, // mtn, orange, etc.
+                    provider: data.provider,
                     phone_number: data.phoneNumber,
                     description: `Retrait royalties Laha Marchand (Ref: ${withdrawalRequest.id})`,
-                    external_reference: withdrawalRequest.id
+                    external_reference: withdrawalRequest.id // Pas de préfixe ici car c'est WithdrawalRequest
                 };
 
                 const payout = await monerooClient.payouts.create(payoutPayload);
 
-                // Mise à jour avec l'ID Moneroo
                 await prisma.withdrawalRequest.update({
                     where: { id: withdrawalRequest.id },
                     data: {
@@ -83,7 +99,6 @@ export class PayoutService {
 
             } catch (error: any) {
                 console.error("Erreur Payout Moneroo:", error);
-                // On marque la demande comme échouée
                 await prisma.withdrawalRequest.update({
                     where: { id: withdrawalRequest.id },
                     data: {
@@ -95,16 +110,15 @@ export class PayoutService {
             }
         }
 
-        // Si autre méthode (Virement)
-        return { success: true, request: withdrawalRequest, message: "Demande enregistrée pour traitement manuel (Virement)" };
+        return { success: true, request: withdrawalRequest, message: "Demande enregistrée pour traitement manuel" };
     }
 
     /**
-     * Marquer les royalties correspondantes comme payées une fois le retrait succès
+     * Marquer les royalties correspondantes comme payées (pour stats)
      */
     static async markRoyaltiesAsPaid(userId: string, amountPaid: number) {
         const royalties = await prisma.royalty.findMany({
-            where: { userId, approved: true, paid: false },
+            where: { userId, paid: false },
             orderBy: { createdAt: 'asc' }
         });
 
@@ -113,8 +127,11 @@ export class PayoutService {
 
         for (const royalty of royalties) {
             if (remainingToCover <= 0) break;
-            royaltiesToUpdate.push(royalty.id);
-            remainingToCover -= royalty.amount;
+            // On ne marque que si la royalty entière est couverte (simplification)
+            if (royalty.amount <= remainingToCover) {
+                royaltiesToUpdate.push(royalty.id);
+                remainingToCover -= royalty.amount;
+            }
         }
 
         if (royaltiesToUpdate.length > 0) {

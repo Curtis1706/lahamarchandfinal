@@ -244,220 +244,220 @@ export default function RetraitsPage() {
 
   return (
     <div className="space-y-6">
-        {/* Statistiques */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600">Total des royalties</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(balance.totalRoyalties)}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600">Royalties payées</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{formatCurrency(balance.totalPaid)}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600">Déjà retiré</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{formatCurrency(balance.totalWithdrawn)}</div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-purple-50 border-purple-200">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-purple-800">Solde disponible</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-900">{formatCurrency(balance.available)}</div>
-              <p className="text-xs text-purple-600 mt-1">Montant retirable</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Actions */}
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold">Mes demandes de retrait</h2>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Demander un retrait
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Nouvelle demande de retrait</DialogTitle>
-                <DialogDescription>
-                  Solde disponible: <span className="font-semibold">{formatCurrency(balance.available)}</span>
-                  {balance.available < 5000 && (
-                    <span className="block mt-2 text-red-600 font-medium flex items-center gap-1">
-                      <AlertCircle className="w-4 h-4" />
-                      Votre solde disponible est insuffisant. Le montant minimum est de 5 000 F CFA.
-                    </span>
-                  )}
-                  {balance.available >= 5000 && (
-                    <span className="block mt-2 text-green-600 text-sm">
-                      ✓ Vous pouvez effectuer un retrait
-                    </span>
-                  )}
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="amount">Montant (F CFA)</Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    min="5000"
-                    max={balance.available > 0 ? balance.available : undefined}
-                    step="100"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                    required
-                    disabled={balance.available < 5000}
-                    placeholder={balance.available > 0 ? `Maximum: ${balance.available.toLocaleString()} F CFA` : "Minimum: 5 000 F CFA"}
-                  />
-                  {balance.available < 5000 ? (
-                    <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3" />
-                      Votre solde disponible ({formatCurrency(balance.available)}) est insuffisant. Le montant minimum est de 5 000 F CFA.
-                    </p>
-                  ) : (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Montant minimum: 5 000 F CFA | Maximum: {formatCurrency(balance.available)}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <Label htmlFor="method">Méthode de paiement</Label>
-                  <Select
-                    value={formData.method}
-                    onValueChange={(value: 'MOMO' | 'BANK' | 'CASH') => setFormData({ ...formData, method: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MOMO">Mobile Money (MTN/Moov)</SelectItem>
-                      <SelectItem value="BANK">Virement bancaire</SelectItem>
-                      <SelectItem value="CASH">Espèces</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {formData.method === 'MOMO' && (
-                  <div>
-                    <Label htmlFor="momoNumber">Numéro Mobile Money</Label>
-                    <Input
-                      id="momoNumber"
-                      type="tel"
-                      placeholder="Ex: +241 06 12 34 56 78"
-                      value={formData.momoNumber}
-                      onChange={(e) => setFormData({ ...formData, momoNumber: e.target.value })}
-                      required
-                    />
-                  </div>
-                )}
-
-                {formData.method === 'BANK' && (
-                  <>
-                    <div>
-                      <Label htmlFor="bankName">Nom de la banque</Label>
-                      <Input
-                        id="bankName"
-                        value={formData.bankName}
-                        onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="bankAccount">Numéro de compte</Label>
-                      <Input
-                        id="bankAccount"
-                        value={formData.bankAccount}
-                        onChange={(e) => setFormData({ ...formData, bankAccount: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="bankAccountName">Nom du titulaire</Label>
-                      <Input
-                        id="bankAccountName"
-                        value={formData.bankAccountName}
-                        onChange={(e) => setFormData({ ...formData, bankAccountName: e.target.value })}
-                        required
-                      />
-                    </div>
-                  </>
-                )}
-
-                <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                    Annuler
-                  </Button>
-                  <Button type="submit" disabled={balance.available < 5000}>
-                    Envoyer la demande
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        {/* Liste des retraits */}
+      {/* Statistiques */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
-          <CardHeader>
-            <CardTitle>Historique des retraits</CardTitle>
-            <CardDescription>Liste de toutes vos demandes de retrait</CardDescription>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-gray-600">Total des royalties</CardTitle>
           </CardHeader>
           <CardContent>
-            {withdrawals.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <Wallet className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                <p>Aucune demande de retrait</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {withdrawals.map((withdrawal) => (
-                  <div key={withdrawal.id} className="border rounded-lg p-4">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <span className="font-semibold">{formatCurrency(withdrawal.amount)}</span>
-                          {getStatusBadge(withdrawal.status)}
-                        </div>
-                        <div className="text-sm text-gray-600 space-y-1">
-                          <p>Méthode: {getMethodLabel(withdrawal.method)}</p>
-                          {withdrawal.momoNumber && <p>N° MoMo: {withdrawal.momoNumber}</p>}
-                          {withdrawal.bankName && <p>Banque: {withdrawal.bankName}</p>}
-                          {withdrawal.bankAccount && <p>Compte: {withdrawal.bankAccount}</p>}
-                          <p>Demandé le: {formatDate(withdrawal.requestedAt)}</p>
-                          {withdrawal.validatedAt && <p>Validé le: {formatDate(withdrawal.validatedAt)}</p>}
-                          {withdrawal.paidAt && <p>Payé le: {formatDate(withdrawal.paidAt)}</p>}
-                          {withdrawal.rejectionReason && (
-                            <p className="text-red-600">Raison du rejet: {withdrawal.rejectionReason}</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="text-2xl font-bold">{formatCurrency(balance.totalRoyalties)}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-gray-600">Royalties payées</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{formatCurrency(balance.totalPaid)}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-gray-600">Déjà retiré</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{formatCurrency(balance.totalWithdrawn)}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-purple-50 border-purple-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-purple-800">Solde disponible</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-900">{formatCurrency(balance.available)}</div>
+            <p className="text-xs text-purple-600 mt-1">Estimé sur le total généré</p>
           </CardContent>
         </Card>
       </div>
+
+      {/* Actions */}
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-semibold">Mes demandes de retrait</h2>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="w-4 h-4 mr-2" />
+              Demander un retrait
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Nouvelle demande de retrait</DialogTitle>
+              <DialogDescription>
+                Solde disponible: <span className="font-semibold">{formatCurrency(balance.available)}</span>
+                {balance.available < 5000 && (
+                  <span className="block mt-2 text-red-600 font-medium flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" />
+                    Votre solde disponible est insuffisant. Le montant minimum est de 5 000 F CFA.
+                  </span>
+                )}
+                {balance.available >= 5000 && (
+                  <span className="block mt-2 text-green-600 text-sm">
+                    ✓ Vous pouvez effectuer un retrait
+                  </span>
+                )}
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="amount">Montant (F CFA)</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  min="5000"
+                  max={balance.available > 0 ? balance.available : undefined}
+                  step="100"
+                  value={formData.amount}
+                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                  required
+                  disabled={balance.available < 5000}
+                  placeholder={balance.available > 0 ? `Maximum: ${balance.available.toLocaleString()} F CFA` : "Minimum: 5 000 F CFA"}
+                />
+                {balance.available < 5000 ? (
+                  <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    Votre solde disponible ({formatCurrency(balance.available)}) est insuffisant. Le montant minimum est de 5 000 F CFA.
+                  </p>
+                ) : (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Montant minimum: 5 000 F CFA | Maximum: {formatCurrency(balance.available)}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="method">Méthode de paiement</Label>
+                <Select
+                  value={formData.method}
+                  onValueChange={(value: 'MOMO' | 'BANK' | 'CASH') => setFormData({ ...formData, method: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="MOMO">Mobile Money (MTN/Moov)</SelectItem>
+                    <SelectItem value="BANK">Virement bancaire</SelectItem>
+                    <SelectItem value="CASH">Espèces</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {formData.method === 'MOMO' && (
+                <div>
+                  <Label htmlFor="momoNumber">Numéro Mobile Money</Label>
+                  <Input
+                    id="momoNumber"
+                    type="tel"
+                    placeholder="Ex: +241 06 12 34 56 78"
+                    value={formData.momoNumber}
+                    onChange={(e) => setFormData({ ...formData, momoNumber: e.target.value })}
+                    required
+                  />
+                </div>
+              )}
+
+              {formData.method === 'BANK' && (
+                <>
+                  <div>
+                    <Label htmlFor="bankName">Nom de la banque</Label>
+                    <Input
+                      id="bankName"
+                      value={formData.bankName}
+                      onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="bankAccount">Numéro de compte</Label>
+                    <Input
+                      id="bankAccount"
+                      value={formData.bankAccount}
+                      onChange={(e) => setFormData({ ...formData, bankAccount: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="bankAccountName">Nom du titulaire</Label>
+                    <Input
+                      id="bankAccountName"
+                      value={formData.bankAccountName}
+                      onChange={(e) => setFormData({ ...formData, bankAccountName: e.target.value })}
+                      required
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  Annuler
+                </Button>
+                <Button type="submit" disabled={balance.available < 5000}>
+                  Envoyer la demande
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Liste des retraits */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Historique des retraits</CardTitle>
+          <CardDescription>Liste de toutes vos demandes de retrait</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {withdrawals.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <Wallet className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+              <p>Aucune demande de retrait</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {withdrawals.map((withdrawal) => (
+                <div key={withdrawal.id} className="border rounded-lg p-4">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="font-semibold">{formatCurrency(withdrawal.amount)}</span>
+                        {getStatusBadge(withdrawal.status)}
+                      </div>
+                      <div className="text-sm text-gray-600 space-y-1">
+                        <p>Méthode: {getMethodLabel(withdrawal.method)}</p>
+                        {withdrawal.momoNumber && <p>N° MoMo: {withdrawal.momoNumber}</p>}
+                        {withdrawal.bankName && <p>Banque: {withdrawal.bankName}</p>}
+                        {withdrawal.bankAccount && <p>Compte: {withdrawal.bankAccount}</p>}
+                        <p>Demandé le: {formatDate(withdrawal.requestedAt)}</p>
+                        {withdrawal.validatedAt && <p>Validé le: {formatDate(withdrawal.validatedAt)}</p>}
+                        {withdrawal.paidAt && <p>Payé le: {formatDate(withdrawal.paidAt)}</p>}
+                        {withdrawal.rejectionReason && (
+                          <p className="text-red-600">Raison du rejet: {withdrawal.rejectionReason}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   )
 }
 

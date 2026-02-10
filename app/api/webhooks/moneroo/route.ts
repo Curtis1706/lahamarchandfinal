@@ -106,32 +106,62 @@ async function handlePaymentFailed(payment: any) {
 }
 
 async function handlePayoutSuccess(payout: any) {
-    // data.external_reference contient withdrawalRequest.id
-    const requestId = payout.external_reference;
-    if (!requestId) return;
+    const reference = payout.external_reference;
+    if (!reference) return;
 
-    const request = await prisma.withdrawalRequest.update({
-        where: { id: requestId },
-        data: {
-            status: 'completed',
-            processedAt: new Date()
+    // Distinguer entre le nouveau modèle Withdrawal et l'ancien WithdrawalRequest
+    if (reference.startsWith('WITHDRAWAL:')) {
+        const withdrawalId = reference.split(':')[1];
+
+        const withdrawal = await prisma.withdrawal.update({
+            where: { id: withdrawalId },
+            data: {
+                status: 'PAID',
+                paidAt: new Date()
+            }
+        });
+
+        // Marquer les royalties comme payées (logique simplifiée)
+        await PayoutService.markRoyaltiesAsPaid(withdrawal.userId, withdrawal.amount);
+        console.log(`Retrait ${withdrawalId} payé avec succès (Modèle Withdrawal).`);
+
+    } else {
+        // Ancien modèle WithdrawalRequest
+        const request = await prisma.withdrawalRequest.update({
+            where: { id: reference },
+            data: {
+                status: 'completed',
+                processedAt: new Date()
+            }
+        });
+
+        if (request.userId) {
+            await PayoutService.markRoyaltiesAsPaid(request.userId, request.amount);
         }
-    });
-
-    if (request.userId) {
-        await PayoutService.markRoyaltiesAsPaid(request.userId, request.amount);
+        console.log(`Retrait ${reference} payé avec succès (Modèle WithdrawalRequest).`);
     }
 }
 
 async function handlePayoutFailed(payout: any) {
-    const requestId = payout.external_reference;
-    if (!requestId) return;
+    const reference = payout.external_reference;
+    if (!reference) return;
 
-    await prisma.withdrawalRequest.update({
-        where: { id: requestId },
-        data: {
-            status: 'failed',
-            failureReason: 'Echec virement Moneroo'
-        }
-    });
+    if (reference.startsWith('WITHDRAWAL:')) {
+        const withdrawalId = reference.split(':')[1];
+        await prisma.withdrawal.update({
+            where: { id: withdrawalId },
+            data: {
+                status: 'REJECTED',
+                rejectionReason: 'Échec du virement Moneroo'
+            }
+        });
+    } else {
+        await prisma.withdrawalRequest.update({
+            where: { id: reference },
+            data: {
+                status: 'failed',
+                failureReason: 'Echec virement Moneroo'
+            }
+        });
+    }
 }

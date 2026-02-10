@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -60,25 +60,27 @@ export async function GET(request: NextRequest) {
     const withdrawals = await prisma.withdrawal.findMany({
       where: {
         userId: userId,
-        status: { in: ['APPROVED', 'PAID'] }
+        status: { in: ['PENDING', 'APPROVED', 'PAID'] }
       },
       select: { amount: true }
     })
 
     const totalWithdrawn = withdrawals.reduce((sum, w) => sum + w.amount, 0)
+    const totalRoyalties = royalties.reduce((sum, r) => sum + r.amount, 0)
     const totalPaid = royalties.filter(r => r.paid).reduce((sum, r) => sum + r.amount, 0)
-    // Solde disponible = royalties approuvées (pas encore payées) - retraits approuvés/payés
-    const totalApproved = royalties.filter(r => r.approved && !r.paid).reduce((sum, r) => sum + r.amount, 0)
-    const availableBalance = Math.max(0, totalApproved - totalWithdrawn)
+    const totalApproved = royalties.filter(r => r.approved).reduce((sum, r) => sum + r.amount, 0)
+
+    // Solde disponible = royalties totales - retraits (pending/approved/paid)
+    const availableBalance = Math.max(0, totalRoyalties - totalWithdrawn)
 
     // Calculer les statistiques
     const stats = {
-      totalRoyalties: royalties.reduce((sum, r) => sum + r.amount, 0),
+      totalRoyalties: totalRoyalties,
       paidRoyalties: totalPaid,
-      approvedRoyalties: totalApproved, // Royalties approuvées et disponibles pour retrait
-      pendingRoyalties: royalties.filter(r => !r.approved && !r.paid).reduce((sum, r) => sum + r.amount, 0),
+      approvedRoyalties: totalApproved,
+      pendingRoyalties: totalRoyalties - totalPaid,
       totalPayments: royalties.filter(r => r.paid).length,
-      pendingPayments: royalties.filter(r => !r.approved && !r.paid).length,
+      pendingPayments: royalties.filter(r => !r.paid).length,
       availableBalance: availableBalance,
       totalWithdrawn: totalWithdrawn
     }
@@ -88,7 +90,7 @@ export async function GET(request: NextRequest) {
       // Filtrer les items de la commande par workId de la royalty
       const orderItem = royalty.order?.items?.find(item => item.workId === royalty.workId)
       const saleAmount = orderItem ? (orderItem.price * orderItem.quantity) : 0
-      
+
       return {
         id: royalty.id,
         amount: royalty.amount,
