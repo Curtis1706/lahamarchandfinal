@@ -13,6 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    console.log("[API Works] Received body:", JSON.stringify(body, null, 2));
 
     const {
       title,
@@ -935,7 +936,7 @@ export async function PUT(request: NextRequest) {
       // Si l'utilisateur n'existe pas avec cet ID, chercher par email
       if (!pdgUser) {
         pdgUser = await prisma.user.findUnique({
-          where: { email: session.user.email }
+          where: { email: session.user.email as string }
         });
       }
 

@@ -77,6 +77,8 @@ export async function POST(request: NextRequest) {
     const uploadType = formData.get('type') as string; // 'project', 'work', 'temp'
     const entityId = formData.get('entityId') as string; // ID du projet ou de l'œuvre
 
+    console.log(`[API Upload] Received ${files.length} files. Type: ${uploadType}, EntityId: ${entityId}`);
+
     if (!files || files.length === 0) {
       return NextResponse.json(
         { error: "Aucun fichier fourni" },
@@ -143,6 +145,8 @@ export async function POST(request: NextRequest) {
           );
           uploadStream.end(buffer);
         });
+
+        console.log(`[API Upload] Cloudinary Success: ${result.secure_url}`);
 
         // Déterminer le type de fichier
         let fileType = 'other';
