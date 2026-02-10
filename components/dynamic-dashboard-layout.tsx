@@ -109,11 +109,6 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           label: "Gestion Écoles"
         },
         {
-          href: `${basePath}/clients`,
-          icon: Users,
-          label: "Clients"
-        },
-        {
           href: `${basePath}/gestion-commandes`,
           icon: ShoppingCart,
           label: "Gestion Commandes"

@@ -15,6 +15,12 @@ const nextConfig = {
     dangerouslyAllowSVG: true, // Autoriser les SVG
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+      },
+    ],
   },
   // Activer la compression pour réduire la taille des transferts
   compress: true,

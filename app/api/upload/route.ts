@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { existsSync } from "fs";
+import cloudinary from "@/lib/cloudinary";
 
 // Configuration des types de fichiers autorisés
 const ALLOWED_FILE_TYPES = {
@@ -54,7 +55,7 @@ async function ensureUploadDirs() {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { error: "Non authentifié" },
@@ -119,15 +120,29 @@ export async function POST(request: NextRequest) {
 
         // Générer un nom unique
         const uniqueFilename = generateUniqueFilename(file.name, session.user.id);
-        
-        // Déterminer le dossier de destination
-        const uploadSubDir = uploadType === 'temp' ? 'temp' : uploadType + 's';
-        const filePath = path.join(UPLOAD_DIR, uploadSubDir, uniqueFilename);
 
-        // Convertir le fichier en buffer et l'écrire
+        // Déterminer le dossier de destination dans Cloudinary
+        const cloudinaryFolder = uploadType === 'temp' ? 'temp' : uploadType + 's';
+
+        // Convertir le fichier en buffer
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
-        await writeFile(filePath, buffer);
+
+        // Upload vers Cloudinary
+        const result: any = await new Promise((resolve, reject) => {
+          const uploadStream = cloudinary.uploader.upload_stream(
+            {
+              folder: `laha/${cloudinaryFolder}`,
+              public_id: uniqueFilename.split('.')[0],
+              resource_type: 'auto',
+            },
+            (error: any, result: any) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          );
+          uploadStream.end(buffer);
+        });
 
         // Déterminer le type de fichier
         let fileType = 'other';
@@ -141,7 +156,7 @@ export async function POST(request: NextRequest) {
         const uploadedFile = {
           originalName: file.name,
           filename: uniqueFilename,
-          path: `/uploads/${uploadSubDir}/${uniqueFilename}`,
+          path: result.secure_url, // Sauvegarder l'URL Cloudinary au lieu du chemin local
           size: file.size,
           type: fileType,
           extension: extension,
@@ -149,7 +164,8 @@ export async function POST(request: NextRequest) {
           uploadedBy: session.user.id,
           uploadedAt: new Date().toISOString(),
           entityId: entityId || null,
-          entityType: uploadType
+          entityType: uploadType,
+          cloudinaryId: result.public_id
         };
 
         uploadedFiles.push(uploadedFile);
@@ -165,9 +181,9 @@ export async function POST(request: NextRequest) {
     // Si aucun fichier n'a été uploadé avec succès
     if (uploadedFiles.length === 0) {
       return NextResponse.json(
-        { 
-          error: "Aucun fichier n'a pu être uploadé", 
-          errors: errors 
+        {
+          error: "Aucun fichier n'a pu être uploadé",
+          errors: errors
         },
         { status: 400 }
       );
@@ -194,7 +210,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { error: "Non authentifié" },
@@ -208,7 +224,7 @@ export async function GET(request: NextRequest) {
 
     // Cette route pourrait être étendue pour lister les fichiers depuis une base de données
     // Pour l'instant, on retourne une réponse simple
-    
+
     return NextResponse.json({
       message: "Liste des fichiers (à implémenter avec base de données)",
       filters: {
@@ -230,7 +246,7 @@ export async function GET(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { error: "Non authentifié" },
