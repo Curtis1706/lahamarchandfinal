@@ -26,15 +26,33 @@ const smtpConfig: SMTPConfig = {
     fromName: process.env.SMTP_FROM_NAME || 'Laha Marchand',
 };
 
+// Debug log (sanitized) for environment variables
+console.log('📧 SMTP Configuration Check:', {
+    host: smtpConfig.host,
+    port: smtpConfig.port,
+    hasUser: !!smtpConfig.user,
+    hasPass: !!smtpConfig.pass,
+    from: smtpConfig.from
+});
+
+if (!smtpConfig.user || !smtpConfig.pass) {
+    console.error('⚠️ SMTP Credentials missing in environment variables!');
+}
+
 // Création du transporteur Nodemailer
 const transporter = nodemailer.createTransport({
     host: smtpConfig.host,
     port: smtpConfig.port,
-    secure: smtpConfig.port === 465, // true pour 465, false pour les autres ports
+    secure: smtpConfig.port === 465,
     auth: {
         user: smtpConfig.user,
         pass: smtpConfig.pass,
     },
+    // Désactiver l'auth si les credentials sont vides pour éviter l'erreur PLAIN
+    // mais ici on en a besoin, donc on va juste laisser l'erreur auth se produire si manquants
+    tls: {
+        rejectUnauthorized: false // Souvent nécessaire pour Hostinger
+    }
 });
 
 /**
