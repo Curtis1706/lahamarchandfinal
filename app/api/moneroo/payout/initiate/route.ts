@@ -97,6 +97,23 @@ export async function POST(request: NextRequest) {
     if (withdrawal.method === "MOMO") {
       payoutMethod = "mobile_money";
       phone = withdrawal.momoNumber || beneficiary.phone;
+
+      // Mapper le fournisseur vers le code méthode Moneroo
+      const provider = withdrawal.momoProvider?.toLowerCase();
+      if (provider) {
+        // Mapping par défaut (à adapter si multi-pays)
+        const providerMapping: Record<string, string> = {
+          'mtn': 'mtn_bj',
+          'moov': 'moov_bj',
+          'celtiis': 'celtiis_bj',
+          'orange': 'orange_ci',
+          'free': 'free_sn',
+          'wave': 'wave_ci'
+        };
+        // Si le mapping existe, on utilise le code spécifique, sinon on utilise le provider tel quel
+        // Cast en any pour contourner la restriction de type si elle existe encore ailleurs
+        payoutMethod = (providerMapping[provider] || provider) as any;
+      }
     } else if (withdrawal.method === "BANK") {
       payoutMethod = "bank_transfer";
       bankAccount = withdrawal.bankAccount;
@@ -120,21 +137,32 @@ export async function POST(request: NextRequest) {
     }
 
     // Initier le retrait via Moneroo
+    // Préparer les données du client (bénéficiaire)
+    const fullName = (withdrawal.bankAccountName || beneficiary.name || "Unknown User").trim();
+    const nameParts = fullName.split(" ");
+    const firstName = nameParts[0];
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : firstName;
+
+    // Initier le retrait via Moneroo
     const monerooService = getMonerooService();
     const payoutResponse = await monerooService.initiatePayout({
       amount: withdrawal.amount,
       currency: "XOF", // Franc CFA
       method: payoutMethod,
-      phone: phone,
+      phone: phone, // Numéro de destination pour Mobile Money
       bank_account: bankAccount,
-      beneficiary_name: withdrawal.bankAccountName || beneficiary.name,
-      beneficiary_email: beneficiary.email,
-      description: `Retrait ${withdrawalType} - ${beneficiary.name}`,
+      customer: {
+        email: beneficiary.email || "no-email@example.com",
+        first_name: firstName,
+        last_name: lastName,
+        phone: beneficiary.phone // Numéro du client (peut être différent du compte de réception)
+      },
+      description: `Retrait ${withdrawalType} - ${fullName}`,
       metadata: {
         withdrawal_id: withdrawalId,
         withdrawal_type: withdrawalType,
         beneficiary_id: beneficiary.id,
-        beneficiary_name: beneficiary.name,
+        beneficiary_name: fullName,
       },
       // IMPORTANT: Ajouter l'external_reference pour le webhook
       // On préfixe pour différencier du modèle WithdrawalRequest

@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma"
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
     }
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     // Récupérer les commissions payées (commandes livrées)
     const deliveredOrders = await prisma.order.findMany({
-      where: { 
+      where: {
         userId: user.id,
         status: "DELIVERED"
       },
@@ -71,6 +71,7 @@ export async function GET(request: NextRequest) {
         amount: w.amount,
         method: w.method,
         momoNumber: w.momoNumber,
+        momoProvider: w.momoProvider,
         bankName: w.bankName,
         bankAccount: w.bankAccount,
         bankAccountName: w.bankAccountName,
@@ -96,7 +97,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
     }
@@ -110,7 +111,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { amount, method, momoNumber, bankName, bankAccount, bankAccountName } = body
+    const { amount, method, momoNumber, momoProvider, bankName, bankAccount, bankAccountName } = body
 
     // Validation
     if (!amount || amount <= 0) {
@@ -121,8 +122,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Méthode de paiement invalide" }, { status: 400 })
     }
 
-    if (method === 'MOMO' && !momoNumber) {
-      return NextResponse.json({ error: "Le numéro Mobile Money est requis" }, { status: 400 })
+    if (method === 'MOMO') {
+      if (!momoNumber) {
+        return NextResponse.json({ error: "Le numéro Mobile Money est requis" }, { status: 400 })
+      }
+      if (!momoProvider) {
+        return NextResponse.json({ error: "L'opérateur Mobile Money est requis" }, { status: 400 })
+      }
     }
 
     if (method === 'BANK' && (!bankName || !bankAccount)) {
@@ -131,7 +137,7 @@ export async function POST(request: NextRequest) {
 
     // Calculer le solde disponible
     const deliveredOrders = await prisma.order.findMany({
-      where: { 
+      where: {
         userId: user.id,
         status: "DELIVERED"
       },
@@ -147,7 +153,7 @@ export async function POST(request: NextRequest) {
     }, 0)
 
     const withdrawals = await prisma.representantWithdrawal.findMany({
-      where: { 
+      where: {
         userId: user.id,
         status: { in: ['APPROVED', 'PAID'] }
       }
@@ -160,7 +166,7 @@ export async function POST(request: NextRequest) {
     const MIN_WITHDRAWAL_AMOUNT = 5000
     if (amount < MIN_WITHDRAWAL_AMOUNT) {
       return NextResponse.json(
-        { 
+        {
           error: `Montant minimum de retrait: ${MIN_WITHDRAWAL_AMOUNT.toLocaleString()} F CFA`,
         },
         { status: 400 }
@@ -177,7 +183,7 @@ export async function POST(request: NextRequest) {
 
     if (pendingWithdrawal) {
       return NextResponse.json(
-        { 
+        {
           error: "Vous avez déjà une demande de retrait en cours. Veuillez attendre qu'elle soit traitée.",
         },
         { status: 400 }
@@ -186,9 +192,9 @@ export async function POST(request: NextRequest) {
 
     if (amount > availableBalance) {
       return NextResponse.json(
-        { 
+        {
           error: `Solde insuffisant. Solde disponible: ${availableBalance.toLocaleString()} F CFA`,
-          availableBalance 
+          availableBalance
         },
         { status: 400 }
       )
@@ -201,6 +207,7 @@ export async function POST(request: NextRequest) {
         amount: parseFloat(amount),
         method: method,
         momoNumber: method === 'MOMO' ? momoNumber : null,
+        momoProvider: method === 'MOMO' ? momoProvider : null,
         bankName: method === 'BANK' ? bankName : null,
         bankAccount: method === 'BANK' ? bankAccount : null,
         bankAccountName: method === 'BANK' ? bankAccountName : null,
