@@ -1,0 +1,21 @@
+﻿DATABASE_URL="postgresql://neondb_owner:npg_xzjfSl1mhXP4@ep-orange-silence-adx9xbem-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+# uncomment next line if you use Prisma <5.10
+# DATABASE_URL_UNPOOLED="postgresql://neondb_owner:npg_xzjfSl1mhXP4@ep-orange-silence-adx9xbem.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET="fc0bb4d4d5e8b5371eb7cab455f07787063404cdbaf0d68985c10ac5dd4a154d"
+
+# Configuration SMTP Hostinger
+SMTP_HOST=smtp.hostinger.com
+SMTP_PORT=587
+SMTP_USER=hello@lahagabon.com
+SMTP_PASSWORD=Lah@Gabon2026
+SMTP_FROM=hello@lahagabon.com
+SMTP_FROM_NAME="Laha Marchand"
+
+
+# Moneroo Configuration
+MONEROO_API_KEY=pk_sandbox_REPLACE_ME
+MONEROO_SECRET_KEY=pvk_xuaq1g|01KGZX7ABEEM9A5JX294SWPMQR
+MONEROO_WEBHOOK_SECRET=laha2026
+MONEROO_MODE=sandbox
+MONEROO_CALLBACK_URL=https://www.lahagabon.com/api/webhooks/moneroo

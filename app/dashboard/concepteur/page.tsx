@@ -85,7 +85,7 @@ export default function ConcepteurDashboard() {
       const response = await apiClient.getConcepteurProjects(user.id);
       
       // L'API retourne { projects } ou directement un tableau
-      const projectsData = Array.isArray(response) ? response : (response.projects || []);
+      const projectsData = Array.isArray(response) ? response : ((response as any).projects || []);
       
       setProjects(projectsData);
       
@@ -315,14 +315,6 @@ export default function ConcepteurDashboard() {
               ? "Essayez de modifier vos critères de recherche"
               : "Commencez par créer votre premier projet"}
           </p>
-          {!searchTerm && statusFilter === "all" && (
-            <Link href="/dashboard/concepteur/nouveau-projet">
-              <Button className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Créer un projet
-              </Button>
-            </Link>
-          )}
         </div>
       )}
 
