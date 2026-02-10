@@ -68,5 +68,11 @@ export const monerooClient = new MonerooClient({
 });
 
 export const isMonerooConfigured = () => {
-    return !!(process.env.MONEROO_API_KEY && process.env.MONEROO_SECRET_KEY);
+    const hasSecretKey = !!process.env.MONEROO_SECRET_KEY;
+
+    if (!hasSecretKey) {
+        console.error('📧 Moneroo Configuration Check: MONEROO_SECRET_KEY is missing');
+    }
+
+    return hasSecretKey;
 };
