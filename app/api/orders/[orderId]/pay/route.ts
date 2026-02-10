@@ -37,7 +37,7 @@ export async function POST(
         console.log(`🔍 [API /pay] payment.data?.checkout_url: ${payment.data?.checkout_url}`);
         console.log(`🔍 [API /pay] payment.checkout_url: ${payment.checkout_url}`);
         console.log(`🔍 [API /pay] payment.url: ${payment.url}`);
-        console.log(`🔍 [API /pay] URL finale utilisée: ${paymentUrl}`);
+        console.log(` [API /pay] URL finale utilisée: ${paymentUrl}`);
         console.log(`🔍 [API /pay] Payment ID extrait: ${paymentId}`);
 
         if (!paymentUrl) {
