@@ -33,6 +33,11 @@ export class PaymentService {
             throw new Error("Commande déjà payée");
         }
 
+        // Déterminer l'URL de base de l'application de manière robuste
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
+            process.env.NEXTAUTH_URL ||
+            (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://www.lahagabon.com');
+
         // Préparation des données pour Moneroo
         const payload = {
             amount: order.total,
@@ -43,8 +48,8 @@ export class PaymentService {
                 last_name: order.user.name?.split(' ').slice(1).join(' ') || 'Laha',
                 phone: order.user.phone || undefined,
             },
-            return_url: `${process.env.NEXT_PUBLIC_APP_URL}/orders/${order.id}/success`, // Page de succès
-            cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/orders/${order.id}/cancel`,   // Page d'annulation
+            return_url: `${baseUrl}/orders/${order.id}/success`, // Page de succès
+            cancel_url: `${baseUrl}/orders/${order.id}/cancel`,   // Page d'annulation
             reference: order.id, // On utilise l'ID de commande comme référence
             description: `Paiement commande #${order.id.slice(-8)}`,
             metadata: {
