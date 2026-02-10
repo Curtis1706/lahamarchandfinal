@@ -31,12 +31,14 @@ export async function POST(
 
         // Adaptation à la réponse réelle de Moneroo : vérifier plusieurs champs possibles
         const paymentUrl = payment.data?.checkout_url || payment.data?.url || payment.checkout_url || payment.url || payment.payment_url || payment.link;
+        const paymentId = payment.data?.id || payment.id;
 
         console.log(`🔍 [API /pay] Extraction de l'URL de paiement...`);
         console.log(`🔍 [API /pay] payment.data?.checkout_url: ${payment.data?.checkout_url}`);
         console.log(`🔍 [API /pay] payment.checkout_url: ${payment.checkout_url}`);
         console.log(`🔍 [API /pay] payment.url: ${payment.url}`);
         console.log(`🔍 [API /pay] URL finale utilisée: ${paymentUrl}`);
+        console.log(`🔍 [API /pay] Payment ID extrait: ${paymentId}`);
 
         if (!paymentUrl) {
             console.error(`❌❌ [API /pay] AUCUNE URL de paiement trouvée dans la réponse !`);
@@ -48,7 +50,7 @@ export async function POST(
         }
 
         console.log(`✅ [API /pay] URL de paiement trouvée: ${paymentUrl}`);
-        console.log(`✅ [API /pay] Payment ID: ${payment.id}`);
+        console.log(`✅ [API /pay] Payment ID: ${paymentId}`);
         console.log(`\n${'='.repeat(80)}`);
         console.log(`✅ [API /pay] RÉPONSE ENVOYÉE AU CLIENT`);
         console.log(`${'='.repeat(80)}\n`);
@@ -56,7 +58,7 @@ export async function POST(
         return NextResponse.json({
             success: true,
             paymentUrl: paymentUrl,
-            paymentId: payment.id
+            paymentId: paymentId
         });
 
     } catch (error: any) {

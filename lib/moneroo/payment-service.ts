@@ -76,23 +76,33 @@ export class PaymentService {
             const payment = await monerooClient.payments.initialize(payload);
 
             console.log(`✅ [PaymentService] Réponse Moneroo reçue:`, JSON.stringify(payment, null, 2));
-            console.log(`💳 [PaymentService] Payment ID Moneroo: ${payment.id}`);
-            console.log(`📊 [PaymentService] Payment Status: ${payment.status}`);
+            console.log(`💳 [PaymentService] Payment ID Moneroo (payment.data.id): ${payment.data?.id}`);
+            console.log(`📊 [PaymentService] Payment Status dans data: ${payment.data?.status || 'N/A'}`);
+
+            // 🔧 FIX: L'ID est dans payment.data.id, pas payment.id
+            const monerooPaymentId = payment.data?.id;
+
+            if (!monerooPaymentId) {
+                console.error(`❌❌ [PaymentService] ERREUR CRITIQUE: payment.data.id est undefined !`);
+                console.error(`❌ [PaymentService] Réponse complète:`, payment);
+                throw new Error("Moneroo n'a pas retourné d'ID de paiement");
+            }
 
             // Sauvegarder l'ID de paiement Moneroo dans la commande
-            console.log(`💾 [PaymentService] Mise à jour de la commande ${orderId} avec monerooPaymentId: ${payment.id}...`);
+            console.log(`💾 [PaymentService] Mise à jour de la commande ${orderId} avec monerooPaymentId: ${monerooPaymentId}...`);
 
             const updatedOrder = await prisma.order.update({
                 where: { id: orderId },
                 data: {
-                    monerooPaymentId: payment.id,
-                    monerooStatus: payment.status,
+                    monerooPaymentId: monerooPaymentId,
+                    monerooStatus: 'initialized',
                     paymentMethod: 'Moneroo'
                 }
             });
 
             console.log(`✅ [PaymentService] Commande mise à jour avec succès !`);
             console.log(`✅ [PaymentService] monerooPaymentId sauvegardé: ${updatedOrder.monerooPaymentId}`);
+            console.log(`✅ [PaymentService] Vérification: ${updatedOrder.monerooPaymentId === monerooPaymentId ? 'CORRESPONDANCE OK ✓' : 'ERREUR DE CORRESPONDANCE ✗'}`);
 
             return payment;
         } catch (error: any) {
