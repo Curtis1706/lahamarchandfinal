@@ -18,8 +18,8 @@ model User {
   role                             Role
   status                           UserStatus               @default(PENDING)
   disciplineId                     String?
-  representantId                   String? // Repr????sentant assign???? (pour auteurs)
-  lastLoginAt                      DateTime? // Derni????re connexion
+  representantId                   String? // Représentant assigné (pour auteurs)
+  lastLoginAt                      DateTime? // Dernière connexion
   createdAt                        DateTime                 @default(now())
   updatedAt                        DateTime                 @updatedAt
   accounts                         Account[]
@@ -67,6 +67,7 @@ model User {
   representantWithdrawals          RepresentantWithdrawal[] @relation("RepresentantWithdrawals")
   validatedRepresentantWithdrawals RepresentantWithdrawal[] @relation("ValidatedRepresentantWithdrawals")
   recordedPayments                 Payment[]                @relation("RecordedPayments")
+  withdrawalRequests               WithdrawalRequest[]
 
   @@index([role])
   @@index([status])
@@ -89,6 +90,7 @@ model Account {
   session_state     String?
   user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+
   @@unique([provider, providerAccountId])
 }
 
@@ -98,6 +100,37 @@ model Session {
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model WithdrawalRequest {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  
+  amount          Float
+  method          String    // "mobile_money", "bank_transfer"
+  
+  // Informations Mobile Money
+  phoneNumber     String?
+  provider        String?   // "mtn", "moov", "orange"
+  
+  // Informations bancaires (optionnel)
+  bankName        String?
+  accountNumber   String?
+  accountName     String?
+  
+  // Moneroo
+  monerooPayoutId String?   @unique
+  status          String    @default("pending") // pending, processing, completed, failed
+  failureReason   String?
+  
+  processedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([userId])
+  @@index([status])
+  @@index([monerooPayoutId])
 }
 
 model Project {
@@ -270,7 +303,7 @@ model PartnerStock {
   allocatedQuantity Int
   soldQuantity      Int      @default(0)
   returnedQuantity  Int      @default(0)
-  // availableQuantity supprim???? - calcul???? ???? la lecture: allocatedQuantity - soldQuantity + returnedQuantity
+  // availableQuantity supprimé - calculé à la lecture: allocatedQuantity - soldQuantity + returnedQuantity
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   partner           Partner  @relation(fields: [partnerId], references: [id])
@@ -286,23 +319,23 @@ model Order {
   id                 String              @id @default(cuid())
   userId             String
   partnerId          String?
-  paymentMethod      String? // Mobile Money, Virement, Esp????ces, Carte Bancaire
-  paymentReference   String? // R????f????rence de transaction
-  paymentType        PaymentType         @default(CASH) // Type: Comptant, D????p????t, Cr????dit
-  amountPaid         Float               @default(0) // Montant vers????/pay????
-  remainingAmount    Float               @default(0) // Reste ???? payer
-  depositAmount      Float? // Montant du d????p????t initial (si paymentType = DEPOSIT)
-  depositDate        DateTime? // Date du versement du d????p????t
+  paymentMethod      String? // Mobile Money, Virement, Espèces, Carte Bancaire
+  paymentReference   String? // Référence de transaction
+  paymentType        PaymentType         @default(CASH) // Type: Comptant, Dépôt, Crédit
+  amountPaid         Float               @default(0) // Montant versé/payé
+  remainingAmount    Float               @default(0) // Reste à payer
+  depositAmount      Float? // Montant du dépôt initial (si paymentType = DEPOSIT)
+  depositDate        DateTime? // Date du versement du dépôt
   fullPaymentDate    DateTime? // Date du paiement complet
-  paymentStatus      PaymentStatus       @default(UNPAID) // ????tat du paiement
-  deliveryDate       DateTime? // Date de livraison pr????vue/effective
-  deliveryStatus     DeliveryStatus      @default(PENDING) // ????tat de livraison
-  receivedAt         DateTime? // Date de r????ception par le client
-  receivedBy         String? // Nom de la personne ayant r????ceptionn????
+  paymentStatus      PaymentStatus       @default(UNPAID) // État du paiement
+  deliveryDate       DateTime? // Date de livraison prévue/effective
+  deliveryStatus     DeliveryStatus      @default(PENDING) // État de livraison
+  receivedAt         DateTime? // Date de réception par le client
+  receivedBy         String? // Nom de la personne ayant réceptionné
   subtotal           Float               @default(0)
   tax                Float               @default(0)
-  discount           Float               @default(0) // R????duction appliqu????e (code promo)
-  promoCode          String? // Code promo utilis????
+  discount           Float               @default(0) // Réduction appliquée (code promo)
+  promoCode          String? // Code promo utilisé
   total              Float               @default(0)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @default(now()) @updatedAt
@@ -317,6 +350,11 @@ model Order {
   royalties          Royalty[]           @relation("OrderRoyalties")
   partnerRebates     PartnerRebate[]     @relation("OrderPartnerRebates")
   payments           Payment[]           @relation("OrderPayments")
+  
+  // Nouveaux champs Moneroo
+  monerooPaymentId String?    @unique
+  monerooStatus    String?
+  paidAt           DateTime?
 
   @@index([promoCode])
   @@index([paymentType])
@@ -328,6 +366,7 @@ model Order {
   @@index([userId])
   @@index([status])
   @@index([createdAt])
+  @@index([monerooPaymentId])
 }
 
 model OrderItem {
@@ -347,11 +386,11 @@ model Payment {
   id               String   @id @default(cuid())
   orderId          String
   amount           Float // Montant du paiement
-  paymentMethod    String // Mobile Money, Virement, Esp????ces, etc.
-  paymentReference String? // R????f????rence de transaction
+  paymentMethod    String // Mobile Money, Virement, Espèces, etc.
+  paymentReference String? // Référence de transaction
   paymentDate      DateTime @default(now())
   notes            String? // Notes sur le paiement
-  recordedById     String // ID de l'utilisateur qui a enregistr???? le paiement
+  recordedById     String // ID de l'utilisateur qui a enregistré le paiement
   recordedBy       User     @relation("RecordedPayments", fields: [recordedById], references: [id])
   order            Order    @relation("OrderPayments", fields: [orderId], references: [id])
   createdAt        DateTime @default(now())
@@ -363,19 +402,19 @@ model Payment {
 
 model DeliveryNote {
   id             String             @id @default(cuid())
-  reference      String             @unique // R????f????rence unique du bon de sortie (ex: BS-2025-001)
+  reference      String             @unique // Référence unique du bon de sortie (ex: BS-2025-001)
   orderId        String             @unique // Lien vers la commande
   order          Order              @relation(fields: [orderId], references: [id])
-  generatedById  String // ID de l'utilisateur qui a g????n????r???? le bon
+  generatedById  String // ID de l'utilisateur qui a généré le bon
   generatedBy    User               @relation("GeneratedDeliveryNotes", fields: [generatedById], references: [id])
-  validatedById  String? // ID de l'utilisateur qui a valid????
+  validatedById  String? // ID de l'utilisateur qui a validé
   validatedBy    User?              @relation("ValidatedDeliveryNotes", fields: [validatedById], references: [id])
   validatedAt    DateTime? // Date de validation
-  controlledById String? // ID de l'utilisateur qui a contr????l????
+  controlledById String? // ID de l'utilisateur qui a contrôlé
   controlledBy   User?              @relation("ControlledDeliveryNotes", fields: [controlledById], references: [id])
-  controlledAt   DateTime? // Date de contr????le
+  controlledAt   DateTime? // Date de contrôle
   status         DeliveryNoteStatus @default(PENDING)
-  period         String? // P????riode (ex: "Vacances et rentr????e scolaire")
+  period         String? // Période (ex: "Vacances et rentrée scolaire")
   notes          String? // Notes additionnelles
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
@@ -389,7 +428,7 @@ model DeliveryNote {
 model Proforma {
   id             String   @id @default(cuid())
   proformaNumber String?  @unique // ex: PF-2026-000023 (temporairement nullable pour migration)
-  reference      String?  @unique // Ancien champ pour compatibilit????
+  reference      String?  @unique // Ancien champ pour compatibilité
   country        String   @default("Gabon")
   currency       Currency @default(FCFA)
 
@@ -402,13 +441,13 @@ model Proforma {
 
   status ProformaStatus @default(DRAFT)
 
-  issuedAt           DateTime  @default(now()) // Date d'????mission
-  validUntil         DateTime? // Date de validit???? (temporairement nullable pour migration)
+  issuedAt           DateTime  @default(now()) // Date d'émission
+  validUntil         DateTime? // Date de validité (temporairement nullable pour migration)
   acceptedAt         DateTime? // Date d'acceptation
   cancelledAt        DateTime? // Date d'annulation
   cancellationReason String? // Raison de l'annulation
 
-  // Totaux (stock????s pour ????viter recalcul + audit)
+  // Totaux (stockés pour éviter recalcul + audit)
   subtotalHT    Float @default(0) // Total HT
   discountTotal Float @default(0) // Remise totale
   taxableBase   Float @default(0) // Base taxable (HT - remise)
@@ -419,18 +458,18 @@ model Proforma {
   promoCode         String?
   promoDiscountRate Float? // 0..1 (pourcentage de remise globale)
 
-  // Type de commande (rentr????e, vacances, etc.)
+  // Type de commande (rentrée, vacances, etc.)
   orderType String?
 
-  notes String? // Notes additionnelles / conditions particuli????res
+  notes String? // Notes additionnelles / conditions particulières
 
-  createdById String // ID du PDG qui a cr???????? le proforma
+  createdById String // ID du PDG qui a créé le proforma
   createdBy   User   @relation("CreatedProformas", fields: [createdById], references: [id])
 
   items          ProformaItem[]
   clientSnapshot ProformaClientSnapshot?
 
-  // Lien ????ventuel vers une commande / une facture
+  // Lien éventuel vers une commande / une facture
   orderId          String? @unique
   convertedToOrder Order?  @relation("ProformaOrder", fields: [orderId], references: [id])
 
@@ -454,31 +493,31 @@ model ProformaItem {
   proformaId String
   proforma   Proforma @relation(fields: [proformaId], references: [id], onDelete: Cascade)
 
-  // R????f????rence livre ???? l'instant T (peut ????tre null si livre supprim????)
+  // Référence livre à l'instant T (peut être null si livre supprimé)
   workId String?
   work   Work?   @relation("ProformaItemWork", fields: [workId], references: [id])
 
   // Snapshot des informations du livre (immuable)
-  reference  String? // R????f????rence interne
+  reference  String? // Référence interne
   isbn       String?
   title      String? // Temporairement nullable pour migration
   authorName String?
 
   quantity    Int
   unitPriceHT Float? // Prix unitaire HT (temporairement nullable pour migration)
-  unitPrice   Float? // Ancien champ pour compatibilit????
+  unitPrice   Float? // Ancien champ pour compatibilité
 
   discountRate Float  @default(0) // 0..1 (pourcentage de remise ligne)
-  discount     Float? @default(0) // Ancien champ pour compatibilit????
-  tvaRate      Float  @default(0.18) // 0..1 (taux TVA, par d????faut 18%)
+  discount     Float? @default(0) // Ancien champ pour compatibilité
+  tvaRate      Float  @default(0.18) // 0..1 (taux TVA, par défaut 18%)
 
-  // Totaux ligne (calcul????s et stock????s)
+  // Totaux ligne (calculés et stockés)
   lineHT       Float  @default(0) // HT = quantity * unitPriceHT
   lineDiscount Float  @default(0) // Remise = lineHT * discountRate
   lineTaxable  Float  @default(0) // Base taxable = lineHT - lineDiscount
   lineTVA      Float  @default(0) // TVA = lineTaxable * tvaRate
   totalTTC     Float  @default(0) // Total TTC = lineTaxable + lineTVA
-  total        Float? @default(0) // Ancien champ pour compatibilit????
+  total        Float? @default(0) // Ancien champ pour compatibilité
 
   createdAt DateTime  @default(now())
   updatedAt DateTime? @updatedAt // Temporairement nullable pour migration
@@ -552,13 +591,13 @@ model Royalty {
   workId     String
   userId     String
   amount     Float
-  approved   Boolean   @default(false) // Royalties approuv????es par le PDG (pr????tes ???? ????tre retir????es)
+  approved   Boolean   @default(false) // Royalties approuvées par le PDG (prêtes à être retirées)
   approvedAt DateTime? // Date d'approbation par le PDG
-  paid       Boolean   @default(false) // Royalties d????j???? pay????es ???? l'auteur
+  paid       Boolean   @default(false) // Royalties déjà payées à l'auteur
   paidAt     DateTime?
-  orderId    String? // ID de la commande qui a g????n????r???? cette royalty
+  orderId    String? // ID de la commande qui a généré cette royalty
   saleId     String? // ID de la vente directe (si applicable)
-  rate       Float? // Taux utilis???? pour le calcul (en %)
+  rate       Float? // Taux utilisé pour le calcul (en %)
   createdAt  DateTime  @default(now())
   user       User      @relation(fields: [userId], references: [id])
   work       Work      @relation(fields: [workId], references: [id])
@@ -578,15 +617,15 @@ model Royalty {
 model Withdrawal {
   id              String           @id @default(cuid())
   userId          String // ID de l'auteur
-  amount          Float // Montant demand????
-  method          WithdrawalMethod // M????thode de paiement
-  momoNumber      String? // Num????ro Mobile Money (si method = MOMO)
+  amount          Float // Montant demandé
+  method          WithdrawalMethod // Méthode de paiement
+  momoNumber      String? // Numéro Mobile Money (si method = MOMO)
   bankName        String? // Nom de la banque (si method = BANK)
-  bankAccount     String? // Num????ro de compte bancaire (si method = BANK)
+  bankAccount     String? // Numéro de compte bancaire (si method = BANK)
   bankAccountName String? // Nom du titulaire du compte
   status          WithdrawalStatus @default(PENDING)
   requestedAt     DateTime         @default(now())
-  validatedById   String? // ID du PDG qui a valid????
+  validatedById   String? // ID du PDG qui a validé
   validatedBy     User?            @relation("ValidatedWithdrawals", fields: [validatedById], references: [id])
   validatedAt     DateTime?
   paidAt          DateTime?
@@ -604,30 +643,30 @@ model Withdrawal {
 enum WithdrawalMethod {
   MOMO // Mobile Money (MTN/Moov)
   BANK // Virement bancaire
-  CASH // Esp????ces
+  CASH // Espèces
 }
 
 enum WithdrawalStatus {
   PENDING // En attente de validation
-  APPROVED // Approuv???? par le PDG
-  REJECTED // Rejet???? par le PDG
-  PAID // Pay????
-  CANCELLED // Annul???? par l'auteur
+  APPROVED // Approuvé par le PDG
+  REJECTED // Rejeté par le PDG
+  PAID // Payé
+  CANCELLED // Annulé par l'auteur
 }
 
-// Retraits des repr????sentants (RepresentantWithdrawals)
+// Retraits des représentants (RepresentantWithdrawals)
 model RepresentantWithdrawal {
   id              String           @id @default(cuid())
-  userId          String // ID du repr????sentant
-  amount          Float // Montant demand????
-  method          WithdrawalMethod // M????thode de paiement
-  momoNumber      String? // Num????ro Mobile Money (si method = MOMO)
+  userId          String // ID du représentant
+  amount          Float // Montant demandé
+  method          WithdrawalMethod // Méthode de paiement
+  momoNumber      String? // Numéro Mobile Money (si method = MOMO)
   bankName        String? // Nom de la banque (si method = BANK)
-  bankAccount     String? // Num????ro de compte bancaire (si method = BANK)
+  bankAccount     String? // Numéro de compte bancaire (si method = BANK)
   bankAccountName String? // Nom du titulaire du compte
   status          WithdrawalStatus @default(PENDING)
   requestedAt     DateTime         @default(now())
-  validatedById   String? // ID du PDG qui a valid????
+  validatedById   String? // ID du PDG qui a validé
   validatedBy     User?            @relation("ValidatedRepresentantWithdrawals", fields: [validatedById], references: [id])
   validatedAt     DateTime?
   paidAt          DateTime?
@@ -648,11 +687,11 @@ model PartnerRebate {
   partnerId     String
   orderId       String? // ID de la commande (si applicable)
   saleId        String? // ID de la vente directe (si applicable)
-  workId        String? // ID de l'????uvre (si calcul???? par ????uvre)
+  workId        String? // ID de l'œuvre (si calculé par œuvre)
   amount        Float // Montant de la ristourne
-  rate          Float // Taux utilis???? (en %)
+  rate          Float // Taux utilisé (en %)
   status        RebateStatus @default(PENDING)
-  validatedById String? // ID du PDG qui a valid????
+  validatedById String? // ID du PDG qui a validé
   validatedBy   User?        @relation("ValidatedPartnerRebates", fields: [validatedById], references: [id])
   validatedAt   DateTime?
   paidAt        DateTime?
@@ -679,9 +718,9 @@ model RebateRate {
   workId      String? // Si type = WORK
   rate        Float // Taux en pourcentage (ex: 15.5 pour 15.5%)
   isActive    Boolean        @default(true)
-  startDate   DateTime? // Date de d????but d'application
+  startDate   DateTime? // Date de début d'application
   endDate     DateTime? // Date de fin d'application
-  createdById String // ID du PDG qui a cr????????
+  createdById String // ID du PDG qui a créé
   createdBy   User           @relation("CreatedRebateRates", fields: [createdById], references: [id])
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
@@ -699,16 +738,16 @@ model RebateRate {
 
 enum RebateStatus {
   PENDING // En attente de validation
-  VALIDATED // Valid???? par le PDG
-  PAID // Pay????
-  CANCELLED // Annul????
+  VALIDATED // Validé par le PDG
+  PAID // Payé
+  CANCELLED // Annulé
 }
 
 enum RebateRateType {
   GLOBAL // Taux global pour tous
-  PARTNER // Taux sp????cifique ???? un partenaire
-  AUTHOR // Taux sp????cifique ???? un auteur
-  WORK // Taux sp????cifique ???? une ????uvre
+  PARTNER // Taux spécifique à un partenaire
+  AUTHOR // Taux spécifique à un auteur
+  WORK // Taux spécifique à une œuvre
 }
 
 model Message {
@@ -765,15 +804,15 @@ model NotificationTemplate {
 model NotificationChain {
   id            String   @id @default(cuid())
   title         String
-  clientId      String? // ID du client concern???? (peut ????tre null pour tous les clients)
+  clientId      String? // ID du client concerné (peut être null pour tous les clients)
   client        User?    @relation("NotificationChains", fields: [clientId], references: [id])
-  scheduledDate DateTime // Date et heure programm????e
+  scheduledDate DateTime // Date et heure programmée
   sendSMS       Boolean  @default(true)
   sendEmail     Boolean  @default(true)
-  daysBefore    Int      @default(1) // Nombre de jours avant l'????v????nement
-  status        String   @default("Actif") // Actif ou D????sactiv????
+  daysBefore    Int      @default(1) // Nombre de jours avant l'événement
+  status        String   @default("Actif") // Actif ou Désactivé
   message       String
-  orderId       String? // ID de la commande si li????e ???? une commande
+  orderId       String? // ID de la commande si liée à une commande
   order         Order?   @relation("NotificationChainOrders", fields: [orderId], references: [id])
   createdById   String
   createdBy     User     @relation("CreatedNotificationChains", fields: [createdById], references: [id])
@@ -998,7 +1037,7 @@ enum ProjectStatus {
   DRAFT
   SUBMITTED
   UNDER_REVIEW
-  ACCEPTED // compat legacy (???? migrer plus tard)
+  ACCEPTED // compat legacy (à migrer plus tard)
   APPROVED // nouveau officiel
   REJECTED
   ARCHIVED // nouveau officiel
@@ -1026,27 +1065,27 @@ enum OrderStatus {
 }
 
 enum PaymentType {
-  CASH // Achat comptant (paiement complet imm????diat)
-  DEPOSIT // D????p????t (acompte + solde)
-  CREDIT // Cr????dit (paiement diff????r????/????chelonn????)
+  CASH // Achat comptant (paiement complet immédiat)
+  DEPOSIT // Dépôt (acompte + solde)
+  CREDIT // Crédit (paiement différé/échelonné)
 }
 
 enum PaymentStatus {
-  UNPAID // Non pay????
-  PARTIAL // Partiellement pay???? (d????p????t vers????)
-  PAID // Enti????rement pay????
+  UNPAID // Non payé
+  PARTIAL // Partiellement payé (dépôt versé)
+  PAID // Entièrement payé
   OVERDUE // En retard de paiement
-  CANCELLED // Annul????
+  CANCELLED // Annulé
 }
 
 enum DeliveryStatus {
   PENDING // En attente
-  PREPARING // En pr????paration
-  READY // Pr????t pour livraison
+  PREPARING // En préparation
+  READY // Prêt pour livraison
   IN_TRANSIT // En cours de livraison
-  DELIVERED // Livr????
-  RECEIVED // R????ceptionn???? par le client
-  FAILED // ????chec de livraison
+  DELIVERED // Livré
+  RECEIVED // Réceptionné par le client
+  FAILED // Échec de livraison
 }
 
 enum DeliveryNoteStatus {
@@ -1058,22 +1097,22 @@ enum DeliveryNoteStatus {
 }
 
 enum ProformaStatus {
-  PENDING // Ancien statut pour compatibilit???? (sera migr???? vers DRAFT)
+  PENDING // Ancien statut pour compatibilité (sera migré vers DRAFT)
   DRAFT // Brouillon
-  SENT // Envoy???? au client
-  AWAITING_RESPONSE // Ancien statut pour compatibilit????
-  ACCEPTED // Accept???? par le client
-  REJECTED // Ancien statut pour compatibilit????
-  CONVERTED // Ancien statut pour compatibilit???? (sera migr???? vers ACCEPTED)
-  EXPIRED // Expir????
-  CANCELLED // Annul????
+  SENT // Envoyé au client
+  AWAITING_RESPONSE // Ancien statut pour compatibilité
+  ACCEPTED // Accepté par le client
+  REJECTED // Ancien statut pour compatibilité
+  CONVERTED // Ancien statut pour compatibilité (sera migré vers ACCEPTED)
+  EXPIRED // Expiré
+  CANCELLED // Annulé
 }
 
 enum ProformaClientType {
-  ECOLE // ????cole
+  ECOLE // École
   PARTENAIRE // Partenaire
   CLIENT // Client
-  INVITE // Client invit???? (sans compte)
+  INVITE // Client invité (sans compte)
 }
 
 enum Currency {
@@ -1195,20 +1234,20 @@ enum SyncStatus {
   DISABLED
 }
 
-// Mod????le pour les codes promo et promotions
+// Modèle pour les codes promo et promotions
 model Promotion {
   id               String          @id @default(cuid())
   libelle          String // Nom de la promotion
   code             String          @unique // Code promo unique
-  periode          String // P????riode de validit???? (texte libre)
-  startDate        DateTime? // Date de d????but (optionnel)
+  periode          String // Période de validité (texte libre)
+  startDate        DateTime? // Date de début (optionnel)
   endDate          DateTime? // Date de fin (optionnel)
-  livre            String // Livres concern????s
+  livre            String // Livres concernés
   statut           PromotionStatus @default(ACTIF)
-  taux             String // Montant ou pourcentage de r????duction
+  taux             String // Montant ou pourcentage de réduction
   quantiteMinimale Int             @default(1)
   description      String? // Description optionnelle
-  createdBy        String // Cr???????? par
+  createdBy        String // Créé par
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
@@ -1222,7 +1261,7 @@ enum PromotionStatus {
   EXPIRE
 }
 
-// Mod????le pour les cat????gories de livres
+// Modèle pour les catégories de livres
 model Category {
   id          String   @id @default(cuid())
   name        String   @unique
@@ -1236,7 +1275,7 @@ model Category {
   @@index([isActive])
 }
 
-// Mod????le pour les classes scolaires
+// Modèle pour les classes scolaires
 model SchoolClass {
   id        String   @id @default(cuid())
   name      String   @unique // ex: "CI", "CP", "CE1", etc.
@@ -1251,13 +1290,13 @@ model SchoolClass {
   @@index([isActive])
 }
 
-// Mod????le pour les r????ductions (diff????rent des promotions)
+// Modèle pour les réductions (différent des promotions)
 model Discount {
   id          String         @id @default(cuid())
-  client      String // Type de client (Librairie, ????cole, etc.)
-  livre       String // Livres concern????s
+  client      String // Type de client (Librairie, École, etc.)
+  livre       String // Livres concernés
   quantiteMin Int            @default(1)
-  reduction   Float // Montant de la r????duction
+  reduction   Float // Montant de la réduction
   statut      DiscountStatus @default(ACTIF)
   description String?
   type        String         @default("Montant") // "Montant" ou "Pourcentage"
@@ -1275,13 +1314,13 @@ enum DiscountStatus {
   INACTIF
 }
 
-// Mod????le pour les clients (librairies, ????coles, etc.)
+// Modèle pour les clients (librairies, écoles, etc.)
 model Client {
   id             String       @id @default(cuid())
   nom            String
   telephone      String?
   email          String?
-  type           String // Concepteur, ????cole, Librairie, Auteur, etc.
+  type           String // Concepteur, École, Librairie, Auteur, etc.
   departement    String?
   address        String?
   city           String?
@@ -1289,7 +1328,7 @@ model Client {
   statut         ClientStatus @default(EN_ATTENTE)
   dette          Float        @default(0)
   notes          String?
-  representantId String? // Repr????sentant assign????
+  representantId String? // Représentant assigné
   totalOrders    Int          @default(0)
   totalSpent     Float        @default(0)
   lastOrder      DateTime?
@@ -1312,13 +1351,13 @@ enum ClientStatus {
   SUSPENDU
 }
 
-// Mod????le pour les communications et diffusions
+// Modèle pour les communications et diffusions
 model Communication {
   id             String              @id @default(cuid())
   title          String
   message        String              @db.Text
   type           CommunicationType   @default(ANNOUNCEMENT)
-  targetAudience String // JSON array des r????les cibl????s
+  targetAudience String // JSON array des rôles ciblés
   status         CommunicationStatus @default(DRAFT)
   scheduledFor   DateTime?
   sentAt         DateTime?
@@ -1347,11 +1386,11 @@ enum CommunicationStatus {
   CANCELLED
 }
 
-// Mod????le pour les param????tres globaux du syst????me
+// Modèle pour les paramètres globaux du système
 model Setting {
   id        String   @id @default(cuid())
   category  String // platform, business, stock, pricing, notifications, security, audit
-  key       String // Cl???? du param????tre
+  key       String // Clé du paramètre
   value     String   @db.Text // Valeur (JSON ou texte)
   type      String   @default("string") // string, number, boolean, json
   updatedBy String?

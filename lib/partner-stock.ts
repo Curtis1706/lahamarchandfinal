@@ -25,18 +25,8 @@ export function calculateAvailableStock(
 /**
  * Type helper pour PartnerStock avec available calculé
  */
-export interface PartnerStockWithAvailable {
-  id: string;
-  partnerId: string;
-  workId: string;
-  allocatedQuantity: number;
-  soldQuantity: number;
-  returnedQuantity: number;
-  availableQuantity: number; // Calculé, pas stocké en DB
-  createdAt: Date;
-  updatedAt: Date;
-  work?: Pick<Work, 'id' | 'title' | 'price' | 'isbn'>;
-  partner?: Pick<Partner, 'id' | 'name' | 'type'>;
+export type PartnerStockWithAvailable<T> = T & {
+  availableQuantity: number;
 }
 
 /**
@@ -45,20 +35,13 @@ export interface PartnerStockWithAvailable {
  * @param stock - PartnerStock de Prisma
  * @returns PartnerStock avec availableQuantity calculé
  */
-export function enrichPartnerStockWithAvailable(
-  stock: {
-    id: string;
-    partnerId: string;
-    workId: string;
-    allocatedQuantity: number;
-    soldQuantity: number;
-    returnedQuantity: number;
-    createdAt: Date;
-    updatedAt: Date;
-    work?: Pick<Work, 'id' | 'title' | 'price' | 'isbn'>;
-    partner?: Pick<Partner, 'id' | 'name' | 'type'>;
-  }
-): PartnerStockWithAvailable {
+export function enrichPartnerStockWithAvailable<T extends {
+  allocatedQuantity: number;
+  soldQuantity: number;
+  returnedQuantity: number;
+}>(
+  stock: T
+): PartnerStockWithAvailable<T> {
   return {
     ...stock,
     availableQuantity: calculateAvailableStock(

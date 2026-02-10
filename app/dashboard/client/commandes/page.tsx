@@ -94,10 +94,11 @@ interface Order {
   id: string
   reference: string
   date: string
-  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled'
+  status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
   total: number
   itemCount: number
   paymentMethod: string
+  paymentStatus: 'UNPAID' | 'PAID' | 'FAILED'
   deliveryAddress: string
   items: OrderItem[]
   trackingNumber?: string
@@ -119,7 +120,7 @@ function ClientCommandePageContent() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [openOrderId, setOpenOrderId] = useState<string | null>(null)
   const searchParams = useSearchParams()
-  
+
   // États pour le modal de création de commande
   const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false)
   const [works, setWorks] = useState<any[]>([])
@@ -174,28 +175,28 @@ function ClientCommandePageContent() {
             return []
           })
         ])
-        
+
         // S'assurer que worksData est un tableau
-        const worksArray = Array.isArray(worksData) ? worksData : (worksData?.works || [])
+        const worksArray = Array.isArray(worksData) ? worksData : []
         // Filtrer uniquement les livres PUBLISHED (sécurité supplémentaire)
         const publishedWorks = worksArray.filter((work: any) => work.status === 'PUBLISHED' || !work.status)
-        
+
         // Traiter les catégories
         const categoriesArray = Array.isArray(categoriesResponse) ? categoriesResponse : (categoriesResponse?.error ? [] : categoriesResponse || [])
-        
+
         // Traiter les classes
         const classesArray = Array.isArray(classesResponse) ? classesResponse : (classesResponse?.error ? [] : classesResponse || [])
-        
-                
+
+
         setWorks(publishedWorks)
         setCategories(categoriesArray)
         setDisciplines(disciplinesData || [])
         setClasses(classesArray)
-        
+
         if (categoriesArray.length === 0) {
-                  }
+        }
         if (classesArray.length === 0) {
-                  }
+        }
       } catch (error) {
         console.error("❌ Error fetching form data:", error)
         setWorks([])
@@ -252,7 +253,7 @@ function ClientCommandePageContent() {
       delivered: { variant: "default" as const, label: "Livrée", color: "bg-green-100 text-green-800" },
       cancelled: { variant: "destructive" as const, label: "Annulée", color: "bg-red-100 text-red-800" }
     }
-    
+
     const config = variants[status] || variants.pending // Fallback vers "pending" si statut non reconnu
     return (
       <Badge className={config.color}>
@@ -263,7 +264,7 @@ function ClientCommandePageContent() {
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = order.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.deliveryAddress.toLowerCase().includes(searchTerm.toLowerCase())
+      order.deliveryAddress.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === "all" || order.status === statusFilter
     return matchesSearch && matchesStatus
   })
@@ -304,9 +305,9 @@ function ClientCommandePageContent() {
     if (!newOrderData.selectedCategory) {
       return []
     }
-    
+
     let filtered = getWorks()
-        
+
     // Filtrer par catégorie (obligatoire)
     const selectedCategoryName = categories.find(cat => (cat.nom || cat.name) === newOrderData.selectedCategory)?.nom || newOrderData.selectedCategory
     filtered = filtered.filter(work => {
@@ -316,39 +317,39 @@ function ClientCommandePageContent() {
         return false // Exclure les livres sans catégorie
       }
       // Comparer le nom de la catégorie du work avec la catégorie sélectionnée
-      const matches = workCategory.toLowerCase() === selectedCategoryName.toLowerCase() || 
-             workCategory.toLowerCase().includes(selectedCategoryName.toLowerCase())
+      const matches = workCategory.toLowerCase() === selectedCategoryName.toLowerCase() ||
+        workCategory.toLowerCase().includes(selectedCategoryName.toLowerCase())
       return matches
     })
-        
+
     // Filtrer par matière (discipline) - optionnel
     if (newOrderData.selectedDiscipline) {
       filtered = filtered.filter(work => work.disciplineId === newOrderData.selectedDiscipline)
-          }
-    
+    }
+
     // Filtrer par terme de recherche (titre du livre ou ISBN) - optionnel
     if (bookSearchTerm.trim()) {
       const searchLower = bookSearchTerm.toLowerCase().trim()
-      filtered = filtered.filter(work => 
+      filtered = filtered.filter(work =>
         work.title?.toLowerCase().includes(searchLower) ||
         work.isbn?.toLowerCase().includes(searchLower)
       )
-          }
-    
+    }
+
     // Filtrer les livres sans stock (stock <= 0)
     filtered = filtered.filter(work => {
       const stock = work.stock ?? 0
       return stock > 0
     })
-        
+
     // Note: La classe est optionnelle et ne filtre pas les livres
     // Elle peut être utilisée pour d'autres fins (ex: informations de livraison)
-    
-        return filtered
+
+    return filtered
   }
 
   const handleAddToCart = () => {
-    
+
     if (!newOrderData.selectedWork) {
       toast.error("Veuillez sélectionner un livre")
       return
@@ -374,7 +375,7 @@ function ClientCommandePageContent() {
       return
     }
 
-    
+
     const existingItem = cartItems.find(item => item.workId === newOrderData.selectedWork)
     if (existingItem) {
       // Vérifier que la quantité totale (existante + nouvelle) ne dépasse pas le stock
@@ -383,14 +384,14 @@ function ClientCommandePageContent() {
         toast.error(`Stock insuffisant pour ${work.title}. Stock disponible: ${stock}, Quantité demandée: ${totalQuantity}`)
         return
       }
-      
-            setCartItems(prev => {
-        const updated = prev.map(item => 
+
+      setCartItems(prev => {
+        const updated = prev.map(item =>
           item.workId === newOrderData.selectedWork
             ? { ...item, quantity: item.quantity + quantity }
             : item
         )
-                return updated
+        return updated
       })
       toast.success(`${work.title} ajouté au panier (quantité: ${quantity})`)
     } else {
@@ -399,7 +400,7 @@ function ClientCommandePageContent() {
         toast.error(`Stock insuffisant pour ${work.title}. Stock disponible: ${stock}, Quantité demandée: ${quantity}`)
         return
       }
-            const newItem = {
+      const newItem = {
         workId: work.id,
         title: work.title,
         price: work.price || 0,
@@ -407,7 +408,7 @@ function ClientCommandePageContent() {
       }
       setCartItems(prev => {
         const updated = [...prev, newItem]
-                return updated
+        return updated
       })
       toast.success(`${work.title} ajouté au panier`)
     }
@@ -482,19 +483,19 @@ function ClientCommandePageContent() {
         orderData.deliveryTimeFrom = newOrderData.deliveryTimeFrom
         orderData.deliveryTimeTo = newOrderData.deliveryTimeTo
       }
-      
+
       // Ajouter le mode de paiement
       if (newOrderData.paymentMethod) {
         orderData.paymentMethod = newOrderData.paymentMethod
       }
-      
+
       // Ajouter le type de commande
       if (newOrderData.orderType) {
         orderData.orderType = newOrderData.orderType
       }
 
       await apiClient.createOrder(orderData)
-      
+
       // Réinitialiser le formulaire
       setNewOrderData({
         selectedCategory: '',
@@ -513,10 +514,10 @@ function ClientCommandePageContent() {
       setCartItems([])
       setBookSearchTerm("")
       setIsCreateOrderOpen(false)
-      
+
       // Rafraîchir les commandes pour mettre à jour la liste et les statistiques
       await refreshOrders()
-      
+
       toast.success("Commande créée avec succès")
     } catch (error: any) {
       toast.error(error.message || "Erreur lors de la création de la commande")
@@ -525,7 +526,7 @@ function ClientCommandePageContent() {
 
   if (userLoading || ordersLoading) {
     return (
-      <DynamicDashboardLayout>
+      <DynamicDashboardLayout title="Mes Commandes">
         <div className="flex items-center justify-center h-96">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
@@ -535,7 +536,7 @@ function ClientCommandePageContent() {
 
   if (!user) {
     return (
-      <DynamicDashboardLayout>
+      <DynamicDashboardLayout title="Mes Commandes">
         <div className="text-center py-12">
           <p className="text-muted-foreground">Vous devez être connecté pour voir vos commandes.</p>
         </div>
@@ -544,35 +545,35 @@ function ClientCommandePageContent() {
   }
 
   return (
-    <DynamicDashboardLayout>
+    <DynamicDashboardLayout title="Mes Commandes">
       <div className="space-y-8">
         {/* En-tête */}
         <div className="flex flex-col space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
+          <div className="flex items-center justify-between">
+            <div>
               <h1 className="text-3xl font-bold">Mes Commandes</h1>
               <p className="text-muted-foreground">
                 Suivez l'état de vos commandes de livres scolaires
               </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={handleRefresh}
-            variant="outline"
-            disabled={ordersLoading}
-            title="Actualiser les commandes"
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${ordersLoading ? 'animate-spin' : ''}`} />
-            Actualiser
-          </Button>
-          <Link href="/dashboard/client/commande/nouvelle">
-            <Button className="bg-indigo-600 hover:bg-indigo-700">
-              <Plus className="h-4 w-4 mr-2" />
-              Commande +
-            </Button>
-          </Link>
-        </div>
-      </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleRefresh}
+                variant="outline"
+                disabled={ordersLoading}
+                title="Actualiser les commandes"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${ordersLoading ? 'animate-spin' : ''}`} />
+                Actualiser
+              </Button>
+              <Link href="/dashboard/client/commande/nouvelle">
+                <Button className="bg-indigo-600 hover:bg-indigo-700">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Commande +
+                </Button>
+              </Link>
+            </div>
+          </div>
 
           {/* Filtres */}
           <div className="flex flex-col sm:flex-row gap-4">
@@ -584,23 +585,23 @@ function ClientCommandePageContent() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
               />
-                      </div>
+            </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full sm:w-[200px]">
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="Statut" />
-                            </SelectTrigger>
-                            <SelectContent>
+              </SelectTrigger>
+              <SelectContent>
                 <SelectItem value="all">Tous les statuts</SelectItem>
                 <SelectItem value="pending">En attente</SelectItem>
                 <SelectItem value="confirmed">Confirmée</SelectItem>
                 <SelectItem value="shipped">Expédiée</SelectItem>
                 <SelectItem value="delivered">Livrée</SelectItem>
                 <SelectItem value="cancelled">Annulée</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
         {/* Statistiques rapides */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -621,7 +622,7 @@ function ClientCommandePageContent() {
             <CardContent>
               <div className="text-2xl font-bold">
                 {orders.filter(o => ['pending', 'confirmed', 'shipped'].includes(o.status)).length}
-                        </div>
+              </div>
             </CardContent>
           </Card>
           <Card>
@@ -632,7 +633,7 @@ function ClientCommandePageContent() {
             <CardContent>
               <div className="text-2xl font-bold">
                 {orders.filter(o => o.status === 'delivered').length}
-                        </div>
+              </div>
             </CardContent>
           </Card>
           <Card>
@@ -643,10 +644,10 @@ function ClientCommandePageContent() {
             <CardContent>
               <div className="text-2xl font-bold">
                 {orders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + o.total, 0).toLocaleString()} F CFA
-                        </div>
+              </div>
             </CardContent>
           </Card>
-                      </div>
+        </div>
 
         {/* Liste des commandes */}
         {filteredOrders.length === 0 ? (
@@ -655,7 +656,7 @@ function ClientCommandePageContent() {
               <ShoppingCart className="h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">Aucune commande trouvée</h3>
               <p className="text-muted-foreground text-center mb-4">
-                {searchTerm || statusFilter !== "all" 
+                {searchTerm || statusFilter !== "all"
                   ? "Essayez de modifier vos critères de recherche"
                   : "Vous n'avez pas encore passé de commande"
                 }
@@ -665,7 +666,7 @@ function ClientCommandePageContent() {
                   <Button className="mt-4">
                     <ShoppingCart className="h-4 w-4 mr-2" />
                     Explorer le catalogue
-                      </Button>
+                  </Button>
                 </Link>
               )}
             </CardContent>
@@ -676,7 +677,7 @@ function ClientCommandePageContent() {
               <Card key={order.id} className={openOrderId === order.id ? "ring-2 ring-blue-500" : ""}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                        <div>
+                    <div>
                       <CardTitle className="text-lg flex items-center space-x-2">
                         <span>{order.reference}</span>
                         {openOrderId === order.id && (
@@ -688,29 +689,29 @@ function ClientCommandePageContent() {
                       <CardDescription>
                         Commandé le {new Date(order.date).toLocaleDateString('fr-FR')}
                       </CardDescription>
-                        </div>
+                    </div>
                     {getStatusBadge(order.status)}
-                      </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
+                    <div>
                       <p className="text-sm font-medium text-muted-foreground">Articles</p>
                       <p className="text-lg font-semibold">{order.itemCount} livre{order.itemCount > 1 ? 's' : ''}</p>
-                      </div>
-                        <div>
+                    </div>
+                    <div>
                       <p className="text-sm font-medium text-muted-foreground">Total</p>
                       <p className="text-lg font-semibold">{order.total.toLocaleString()} F CFA</p>
-                        </div>
-                        <div>
+                    </div>
+                    <div>
                       <p className="text-sm font-medium text-muted-foreground">Paiement</p>
                       <p className="text-sm">{order.paymentMethod}</p>
-                        </div>
-                      </div>
+                    </div>
+                  </div>
                   <div className="mt-4">
                     <p className="text-sm font-medium text-muted-foreground">Adresse de livraison</p>
                     <p className="text-sm">{order.deliveryAddress}</p>
-                      </div>
+                  </div>
                   <div className="flex items-center justify-end mt-4 space-x-2">
                     <Dialog open={openOrderId === order.id} onOpenChange={(open) => {
                       if (open) {
@@ -720,8 +721,8 @@ function ClientCommandePageContent() {
                       }
                     }}>
                       <DialogTrigger asChild>
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           size="sm"
                           onClick={() => setOpenOrderId(order.id)}
                         >
@@ -739,11 +740,11 @@ function ClientCommandePageContent() {
                             Informations complètes sur votre commande
                           </DialogDescription>
                         </DialogHeader>
-                        
+
                         <div className="space-y-6">
                           {/* Informations générales */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
                               <h4 className="font-semibold mb-2">Informations de commande</h4>
                               <div className="space-y-2 text-sm">
                                 <p><span className="font-medium">Référence:</span> {order.reference}</p>
@@ -757,23 +758,23 @@ function ClientCommandePageContent() {
                                   <p><span className="font-medium">Livraison estimée:</span> {new Date(order.estimatedDelivery).toLocaleDateString('fr-FR')}</p>
                                 )}
                               </div>
-                        </div>
-                        <div>
+                            </div>
+                            <div>
                               <h4 className="font-semibold mb-2">Adresse de livraison</h4>
                               <p className="text-sm">{order.deliveryAddress}</p>
                               {order.notes && (
                                 <div className="mt-2">
                                   <h5 className="font-medium text-sm">Notes:</h5>
                                   <p className="text-sm text-muted-foreground">{order.notes}</p>
-                          </div>
+                                </div>
                               )}
-                        </div>
-                      </div>
+                            </div>
+                          </div>
 
                           <Separator />
 
                           {/* Articles commandés */}
-                      <div>
+                          <div>
                             <h4 className="font-semibold mb-4">Articles commandés</h4>
                             <div className="space-y-3">
                               {order.items.map((item) => (
@@ -785,22 +786,22 @@ function ClientCommandePageContent() {
                                       fill
                                       className="object-cover rounded"
                                       sizes="64px"
-                        />
-                      </div>
+                                    />
+                                  </div>
                                   <div className="flex-1">
                                     <h5 className="font-medium text-sm">{item.title}</h5>
                                     <p className="text-xs text-muted-foreground">ISBN: {item.isbn}</p>
                                     <p className="text-sm font-semibold text-blue-600">
                                       {item.price.toLocaleString()} F CFA
                                     </p>
-                      </div>
+                                  </div>
                                   <div className="text-sm">
                                     <span className="font-medium">Quantité:</span> {item.quantity}
-                      </div>
-                    </div>
+                                  </div>
+                                </div>
                               ))}
-            </div>
-          </div>
+                            </div>
+                          </div>
 
                           <Separator />
 
@@ -810,8 +811,23 @@ function ClientCommandePageContent() {
                             <span className="text-xl font-bold text-blue-600">
                               {order.total.toLocaleString()} F CFA
                             </span>
-          </div>
-        </div>
+                          </div>
+
+                          {/* Bouton de Paiement si Validée et Non Payée */}
+                          {(order.status === 'confirmed' && order.paymentStatus !== 'PAID') && (
+                            <div className="mt-6">
+                              <Link href={`/orders/${order.id}/checkout`}>
+                                <Button className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 text-lg">
+                                  <CreditCard className="mr-2 h-5 w-5" />
+                                  Procéder au paiement
+                                </Button>
+                              </Link>
+                              <p className="text-xs text-center text-muted-foreground mt-2">
+                                Votre commande a été validée. Vous pouvez maintenant procéder au paiement sécurisé.
+                              </p>
+                            </div>
+                          )}
+                        </div>
                       </DialogContent>
                     </Dialog>
 
@@ -820,19 +836,19 @@ function ClientCommandePageContent() {
                         <AlertDialogTrigger asChild>
                           <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
                             Annuler
-              </Button>
+                          </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
                             <AlertDialogTitle>Annuler la commande</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Êtes-vous sûr de vouloir annuler la commande {order.reference} ? 
+                              Êtes-vous sûr de vouloir annuler la commande {order.reference} ?
                               Cette action est irréversible.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Non, garder la commande</AlertDialogCancel>
-                            <AlertDialogAction 
+                            <AlertDialogAction
                               onClick={() => handleCancelOrder(order.id)}
                               className="bg-red-600 hover:bg-red-700"
                             >
@@ -842,7 +858,7 @@ function ClientCommandePageContent() {
                         </AlertDialogContent>
                       </AlertDialog>
                     )}
-            </div>
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -850,8 +866,8 @@ function ClientCommandePageContent() {
         )}
 
         {/* Modal de création de commande */}
-        <Dialog 
-          open={isCreateOrderOpen} 
+        <Dialog
+          open={isCreateOrderOpen}
           onOpenChange={(open) => {
             setIsCreateOrderOpen(open)
             if (!open) {
@@ -872,7 +888,7 @@ function ClientCommandePageContent() {
                 </Button>
               </div>
             </DialogHeader>
-            
+
             <div className="space-y-6">
               {/* Section de sélection des articles */}
               <div className="space-y-4">
@@ -880,8 +896,8 @@ function ClientCommandePageContent() {
                   {/* Choix de la catégorie */}
                   <div className="space-y-2">
                     <Label>Choix de la catégorie</Label>
-                    <Select 
-                      value={newOrderData.selectedCategory} 
+                    <Select
+                      value={newOrderData.selectedCategory}
                       onValueChange={(value) => {
                         setNewOrderData(prev => ({ ...prev, selectedCategory: value, selectedWork: '' }))
                         setBookSearchTerm("")
@@ -907,8 +923,8 @@ function ClientCommandePageContent() {
                   {/* Choix de la matière */}
                   <div className="space-y-2">
                     <Label>Choix de la Matière</Label>
-                    <Select 
-                      value={newOrderData.selectedDiscipline} 
+                    <Select
+                      value={newOrderData.selectedDiscipline}
                       onValueChange={(value) => {
                         setNewOrderData(prev => ({ ...prev, selectedDiscipline: value, selectedWork: '' }))
                         setBookSearchTerm("")
@@ -930,8 +946,8 @@ function ClientCommandePageContent() {
                   {/* Choix de la classe */}
                   <div className="space-y-2">
                     <Label>Choix de la classe</Label>
-                    <Select 
-                      value={newOrderData.selectedClass} 
+                    <Select
+                      value={newOrderData.selectedClass}
                       onValueChange={(value) => setNewOrderData(prev => ({ ...prev, selectedClass: value }))}
                     >
                       <SelectTrigger>
@@ -956,8 +972,8 @@ function ClientCommandePageContent() {
                   {/* Choix du livre */}
                   <div className="space-y-2">
                     <Label>Choix du livre</Label>
-                    <Popover 
-                      open={isBookComboboxOpen} 
+                    <Popover
+                      open={isBookComboboxOpen}
                       onOpenChange={(open) => {
                         setIsBookComboboxOpen(open)
                         if (!open) {
@@ -980,8 +996,8 @@ function ClientCommandePageContent() {
                       </PopoverTrigger>
                       <PopoverContent className="w-[400px] p-0" align="start">
                         <Command shouldFilter={false} className="rounded-lg border-none">
-                          <CommandInput 
-                            placeholder="Rechercher un livre..." 
+                          <CommandInput
+                            placeholder="Rechercher un livre..."
                             value={bookSearchTerm}
                             onValueChange={(value) => setBookSearchTerm(value)}
                             className="h-9"
@@ -1053,14 +1069,14 @@ function ClientCommandePageContent() {
 
                   {/* Boutons Ajouter et Auto */}
                   <div className="flex items-end gap-2">
-                    <Button 
+                    <Button
                       onClick={handleAddToCart}
                       className="bg-indigo-600 hover:bg-indigo-700 flex-1"
                     >
                       Ajouter
                       <ChevronDown className="h-4 w-4 ml-2" />
                     </Button>
-                    <Button 
+                    <Button
                       variant="outline"
                       className="bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600"
                     >
@@ -1142,8 +1158,8 @@ function ClientCommandePageContent() {
                 {/* Type de commande */}
                 <div className="space-y-2">
                   <Label>Type de commande</Label>
-                  <Select 
-                    value={newOrderData.orderType} 
+                  <Select
+                    value={newOrderData.orderType}
                     onValueChange={(value) => setNewOrderData(prev => ({ ...prev, orderType: value }))}
                   >
                     <SelectTrigger>
@@ -1162,7 +1178,7 @@ function ClientCommandePageContent() {
                   <div className="bg-black text-white px-4 py-2 rounded">
                     <Label className="text-white font-semibold">Coordonnées de Livraison</Label>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Date de livraison */}
                     <div className="space-y-2">
@@ -1243,8 +1259,8 @@ function ClientCommandePageContent() {
                 {/* Mode de paiement */}
                 <div className="space-y-2">
                   <Label>Sélectionnez Mode de paiement</Label>
-                  <Select 
-                    value={newOrderData.paymentMethod} 
+                  <Select
+                    value={newOrderData.paymentMethod}
                     onValueChange={(value) => setNewOrderData(prev => ({ ...prev, paymentMethod: value }))}
                   >
                     <SelectTrigger>
@@ -1262,18 +1278,18 @@ function ClientCommandePageContent() {
 
               {/* Actions */}
               <div className="flex justify-end space-x-2 pt-4 border-t">
-                <Button 
+                <Button
                   onClick={handleCreateOrder}
                   className="bg-indigo-600 hover:bg-indigo-700"
                 >
                   <Save className="h-4 w-4 mr-2" />
                   Enregistrer
                 </Button>
-                <Button 
+                <Button
                   onClick={() => {
                     setBookSearchTerm("")
                     setIsCreateOrderOpen(false)
-                  }} 
+                  }}
                   variant="destructive"
                 >
                   <X className="h-4 w-4 mr-2" />
@@ -1283,7 +1299,7 @@ function ClientCommandePageContent() {
             </div>
           </DialogContent>
         </Dialog>
-        </div>
+      </div>
     </DynamicDashboardLayout>
   )
 }

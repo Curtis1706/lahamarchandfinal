@@ -72,6 +72,7 @@ export async function GET(request: NextRequest) {
         total: order.total || order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0),
         itemsCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
         paymentMethod: order.paymentMethod || null,
+        paymentStatus: order.paymentStatus,
         deliveryAddress: deliveryAddress || null,
         items: order.items.map(item => ({
           id: item.id,
@@ -82,7 +83,7 @@ export async function GET(request: NextRequest) {
           unitPrice: item.price,
           totalPrice: item.price * item.quantity,
           isbn: item.work.isbn,
-          image: item.work.image || null,
+          image: null,
           workId: item.workId,
           work: item.work
         }))
@@ -139,8 +140,8 @@ export async function PATCH(request: NextRequest) {
     if (action === "cancel" || status === "CANCELLED") {
       // Seules les commandes PENDING peuvent être annulées
       if (existingOrder.status !== OrderStatus.PENDING) {
-        return NextResponse.json({ 
-          error: "Seules les commandes en attente peuvent être annulées" 
+        return NextResponse.json({
+          error: "Seules les commandes en attente peuvent être annulées"
         }, { status: 400 })
       }
 
@@ -193,7 +194,7 @@ export async function PATCH(request: NextRequest) {
           unitPrice: item.price,
           totalPrice: item.price * item.quantity,
           isbn: item.work.isbn,
-          image: item.work.image || null,
+          image: null,
           workId: item.workId
         }))
       }
@@ -214,8 +215,8 @@ export async function PATCH(request: NextRequest) {
       }
 
       if (!validTransitions[existingOrder.status].includes(status as OrderStatus)) {
-        return NextResponse.json({ 
-          error: `Impossible de changer le statut de ${existingOrder.status} à ${status}` 
+        return NextResponse.json({
+          error: `Impossible de changer le statut de ${existingOrder.status} à ${status}`
         }, { status: 400 })
       }
 
@@ -263,7 +264,7 @@ export async function PATCH(request: NextRequest) {
           unitPrice: item.price,
           totalPrice: item.price * item.quantity,
           isbn: item.work.isbn,
-          image: item.work.image || null,
+          image: null,
           workId: item.workId
         }))
       })

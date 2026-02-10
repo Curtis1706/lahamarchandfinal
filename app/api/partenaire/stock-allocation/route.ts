@@ -1,10 +1,44 @@
-import { logger } from '@/lib/logger'
+import { Prisma } from "@prisma/client"
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { enrichPartnerStockWithAvailable } from "@/lib/partner-stock"
 import { getPaginationParams } from "@/lib/pagination"
+import { logger } from "@/lib/logger"
+
+// Define the type for stock items including relations
+type StockItemWithRelations = Prisma.PartnerStockGetPayload<{
+  include: {
+    work: {
+      select: {
+        id: true;
+        title: true;
+        isbn: true;
+        price: true;
+        author: {
+          select: {
+            id: true;
+            name: true;
+            email: true;
+          };
+        };
+        discipline: {
+          select: {
+            id: true;
+            name: true;
+          };
+        };
+        project: {
+          select: {
+            id: true;
+            title: true;
+          };
+        };
+      };
+    };
+  };
+}>;
 
 export const dynamic = 'force-dynamic'
 
@@ -139,7 +173,7 @@ export async function GET(request: NextRequest) {
     }
 
     logger.debug('📍 Step 8: Querying database')
-    const stockItems = await prisma.partnerStock.findMany(queryOptions)
+    const stockItems = await prisma.partnerStock.findMany(queryOptions) as unknown as StockItemWithRelations[]
     logger.debug(`✅ Found ${stockItems.length} stock items`)
 
     logger.debug('📍 Step 9: Calculating pagination')

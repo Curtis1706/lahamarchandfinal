@@ -10,6 +10,7 @@ export interface OrderItem {
   quantity: number
   price: number
   image: string
+  isbn: string
 }
 
 export interface Order {
@@ -20,6 +21,7 @@ export interface Order {
   total: number
   itemCount: number
   paymentMethod: string
+  paymentStatus: 'UNPAID' | 'PAID' | 'FAILED'
   deliveryAddress: string
   items: OrderItem[]
   customerInfo: {
@@ -63,7 +65,7 @@ export const useOrders = (): UseOrdersResult => {
       case 'CANCELLED':
         return 'cancelled'
       default:
-                return 'pending'
+        return 'pending'
     }
   }
 
@@ -83,22 +85,22 @@ export const useOrders = (): UseOrdersResult => {
           'Content-Type': 'application/json',
         }
       })
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         console.error("❌ Erreur API client/orders:", response.status, errorData)
         throw new Error(errorData.error || 'Erreur lors du chargement des commandes')
       }
-      
+
       const data = await response.json()
       const userOrders = data.orders || [] // L'API filtre déjà par userId
-      
-            
+
+
       // Convertir au format attendu par le frontend
       const formattedOrders: Order[] = userOrders.map((order: any) => {
         // Générer une référence depuis l'ID (format: CMK + 8 premiers caractères)
         const reference = order.id ? `CMK${order.id.substring(0, 8).toUpperCase()}` : ''
-        
+
         // Extraire l'adresse de livraison si elle est dans paymentReference (JSON)
         let deliveryAddress = order.deliveryAddress || null
         if (!deliveryAddress && order.paymentReference) {
@@ -109,7 +111,7 @@ export const useOrders = (): UseOrdersResult => {
             // Pas du JSON, ignorer
           }
         }
-        
+
         return {
           id: order.id,
           reference,
@@ -118,13 +120,14 @@ export const useOrders = (): UseOrdersResult => {
           total: order.total || (order.items ? order.items.reduce((sum: number, item: any) => sum + ((item.price || item.unitPrice || 0) * (item.quantity || 0)), 0) : 0),
           itemCount: order.itemCount || order.itemsCount || (order.items ? order.items.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) : 0),
           paymentMethod: order.paymentMethod || 'Non spécifié',
+          paymentStatus: order.paymentStatus || 'UNPAID',
           deliveryAddress: deliveryAddress || 'Adresse non spécifiée',
           items: (order.items || []).map((item: any) => ({
             id: item.workId || item.work?.id || item.id,
             title: item.work?.title || item.title,
             quantity: item.quantity,
             price: item.price || item.unitPrice || item.work?.price || 0,
-            image: item.work?.image || item.image || '/placeholder-book.jpg',
+            image: '/placeholder-book.jpg', // Work doesn't have image field
             isbn: item.work?.isbn || item.isbn
           })),
           customerInfo: {
@@ -135,8 +138,8 @@ export const useOrders = (): UseOrdersResult => {
           }
         }
       })
-      
-            setOrders(formattedOrders)
+
+      setOrders(formattedOrders)
     } catch (error) {
       console.error("❌ Erreur lors du chargement des commandes:", error)
       setOrders([])
@@ -174,12 +177,12 @@ export const useOrders = (): UseOrdersResult => {
         })
       }
 
-      
+
       const createdOrder = await apiClient.createOrder(apiOrderData)
-      
+
       // Recharger les commandes pour avoir les données à jour
       await loadOrders()
-      
+
       // Ajouter une notification
       addNotification({
         type: 'order',
@@ -189,7 +192,7 @@ export const useOrders = (): UseOrdersResult => {
       })
 
       toast.success("Commande créée avec succès !")
-      
+
       // Retourner l'ordre formaté pour le frontend
       return {
         id: createdOrder.id,
@@ -199,13 +202,15 @@ export const useOrders = (): UseOrdersResult => {
         total: createdOrder.items.reduce((sum, item) => sum + (item.price * item.quantity), 0),
         itemCount: createdOrder.items.reduce((sum, item) => sum + item.quantity, 0),
         paymentMethod: 'Carte bancaire',
+        paymentStatus: 'UNPAID' as const,
         deliveryAddress: 'Adresse par défaut',
-        items: createdOrder.items.map(item => ({
+        items: (createdOrder.items as any[]).map(item => ({
           id: item.id,
-          title: item.work.title,
+          title: item.work?.title || item.title || 'Livre inconnu',
           quantity: item.quantity,
           price: item.price,
-          image: '/placeholder-book.jpg'
+          image: '/placeholder-book.jpg',
+          isbn: item.work?.isbn || item.isbn || 'N/A'
         })),
         customerInfo: {
           fullName: orderData.customerInfo.fullName,
@@ -225,7 +230,7 @@ export const useOrders = (): UseOrdersResult => {
     try {
       // Mapper le statut frontend vers le statut backend
       const backendStatus = status === 'cancelled' ? 'CANCELLED' : status.toUpperCase()
-      
+
       // Appeler l'API pour mettre à jour le statut dans la base de données
       const response = await fetch('/api/client/orders', {
         method: 'PATCH',

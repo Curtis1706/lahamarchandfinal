@@ -62,14 +62,14 @@ interface User {
   email: string
   phone?: string
   role: string
-  disciplineId?: string
+  disciplineId?: string | null
   discipline?: {
     id: string
     name: string
   }
-  createdAt: string
+  createdAt?: string
   updatedAt?: string
-  status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'PENDING' | 'APPROVED' | 'REJECTED'
+  status?: string
   // Optional work statistics for authors
   worksCount?: number
   publishedWorksCount?: number
@@ -100,13 +100,13 @@ export default function GestionUtilisateursPage() {
   const loadUsers = async () => {
     try {
       setIsLoading(true)
-      
+
       const [usersData, disciplinesData] = await Promise.all([
         apiClient.getUsers(),
         apiClient.getDisciplines()
       ])
 
-      
+
       const usersArray = Array.isArray(usersData) ? usersData : []
       const disciplinesArray = Array.isArray(disciplinesData) ? disciplinesData : []
 
@@ -137,7 +137,7 @@ export default function GestionUtilisateursPage() {
       setUsers(enrichedUsers)
       setDisciplines(disciplinesArray)
 
-          } catch (error: any) {
+    } catch (error: any) {
       console.error("❌ Error fetching data:", error)
       console.error("❌ Error details:", {
         message: error.message,
@@ -147,7 +147,7 @@ export default function GestionUtilisateursPage() {
       toast.error("Erreur lors du chargement des données: " + error.message)
     } finally {
       setIsLoading(false)
-          }
+    }
   }
 
   // Charger les données au montage du composant
@@ -263,7 +263,7 @@ export default function GestionUtilisateursPage() {
   }) : []
 
   // Logs de debug pour le filtrage
-  
+
   // Pagination
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
@@ -271,7 +271,7 @@ export default function GestionUtilisateursPage() {
   const paginatedUsers = filteredUsers.slice(startIndex, endIndex)
 
   // Logs de debug pour la pagination
-  
+
   const getStatusBadge = (status: string | undefined) => {
     switch (status) {
       case 'ACTIVE':
@@ -314,7 +314,8 @@ export default function GestionUtilisateursPage() {
     }
   }
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "Date inconnue"
     try {
       const date = new Date(dateString)
       return format(date, "EEEE d MMMM yyyy 'à' HH:mm", { locale: fr })
@@ -344,7 +345,7 @@ export default function GestionUtilisateursPage() {
   }
 
   // Logs de debug pour l'état de chargement
-  
+
   if (userLoading || isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
