@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       );
     }
-
+//lo
     const body = await request.json();
     const { withdrawalId, withdrawalType } = body; // withdrawalType: "author", "representant" ou "partner"
 
