@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
       contentType,
       estimatedPrice = 0,
       price, // Support du champ 'price' envoyé par le CONCEPTEUR
+      tva,
       keywords = [],
       files = [],
       status = "PENDING",
@@ -156,7 +157,7 @@ export async function POST(request: NextRequest) {
         isbn: workIsbn,
         internalCode: internalCode?.trim() || null,
         price: finalPrice || 0,
-        tva: 0.18,
+        tva: tva !== undefined ? parseFloat(tva) : 0.18,
         stock: 0,
         minStock: 0,
 
