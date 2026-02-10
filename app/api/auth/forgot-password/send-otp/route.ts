@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createOTP } from "@/lib/simple-otp";
-import { sendEmail } from "@/lib/simple-email-service";
+import { sendEmail } from "@/lib/native-email";
+import { getOTPEmailHTML, getOTPEmailText } from "@/lib/simple-email-templates";
 
 export async function POST(request: NextRequest) {
     try {
@@ -35,11 +36,16 @@ export async function POST(request: NextRequest) {
         await sendEmail({
             to: email,
             subject: "Réinitialisation de votre mot de passe - Laha Marchand",
-            template: "password-reset",
-            data: {
-                name: existingUser.name || "Utilisateur",
-                code: code,
-            },
+            html: getOTPEmailHTML({
+                otp: code,
+                email: email,
+                expiryMinutes: 10
+            }),
+            text: getOTPEmailText({
+                otp: code,
+                email: email,
+                expiryMinutes: 10
+            })
         });
 
         return NextResponse.json({
