@@ -149,13 +149,19 @@ export default function SignupPage() {
       </div>
 
       <div className="py-4">
-        <OTPInput
+        <Input
+          type="text"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          pattern="\d{6}"
+          maxLength={6}
+          placeholder="Code à 6 chiffres"
           value={otpCode}
-          onChange={setOtpCode}
-          onComplete={(code) => {
-            setOtpCode(code)
-            // Optionnel : auto-submit quand complet
+          onChange={(e) => {
+            const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+            setOtpCode(val);
           }}
+          className="text-center text-3xl font-bold tracking-[1em] h-16 w-full max-w-[300px] mx-auto bg-gray-50 border-gray-200 focus:border-blue-500 focus:ring-blue-500 rounded-xl"
         />
       </div>
 
