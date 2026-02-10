@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useGuest } from "@/hooks/use-guest"
 import { useCart } from "@/hooks/use-cart"
 import { GuestBanner } from "@/components/guest-banner"
+import { cn } from "@/lib/utils"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -700,15 +701,27 @@ export default function GuestCheckoutPage() {
 
                       <div className="space-y-2">
                         <Label className="text-center block">Entrez le code à 6 chiffres</Label>
-                        <OTPInput
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          pattern="\d{6}"
+                          maxLength={6}
+                          placeholder="Code à 6 chiffres"
                           value={otpCode}
-                          onChange={setOtpCode}
-                          onComplete={(code) => setOtpCode(code)}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                            setOtpCode(val);
+                            if (val.length > 0) setOtpError("");
+                          }}
                           disabled={isVerifyingOTP}
-                          error={!!otpError}
+                          className={cn(
+                            "text-center text-3xl font-bold tracking-[1em] h-16 w-full max-w-[300px] mx-auto bg-white/50 border-gray-200 focus:border-blue-500 focus:ring-blue-500 rounded-xl",
+                            otpError ? "border-red-500 focus-visible:ring-red-500" : ""
+                          )}
                         />
                         {otpError && (
-                          <p className="text-sm text-red-500 text-center">{otpError}</p>
+                          <p className="text-sm text-red-500 text-center mt-2">{otpError}</p>
                         )}
                       </div>
 
