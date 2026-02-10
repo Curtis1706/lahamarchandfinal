@@ -167,8 +167,8 @@ export async function POST(request: NextRequest) {
     const totalWithdrawn = withdrawals.reduce((sum, w) => sum + w.amount, 0)
     const availableBalance = Math.max(0, totalGenerated - totalWithdrawn)
 
-    // Vérifier le montant minimum (par défaut 5000 F CFA, peut être configuré)
-    const MIN_WITHDRAWAL_AMOUNT = 5000
+    // Vérifier le montant minimum (par défaut 500 F CFA)
+    const MIN_WITHDRAWAL_AMOUNT = 500
     if (amount < MIN_WITHDRAWAL_AMOUNT) {
       return NextResponse.json(
         {

@@ -98,7 +98,7 @@ export default function RetraitsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    const MIN_WITHDRAWAL_AMOUNT = 5000 // Montant minimum de retrait
+    const MIN_WITHDRAWAL_AMOUNT = 500 // Montant minimum de retrait
 
     if (!formData.amount || parseFloat(formData.amount) <= 0) {
       toast({
