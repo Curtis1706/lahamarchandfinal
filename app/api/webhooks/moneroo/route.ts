@@ -64,6 +64,17 @@ async function handlePaymentSuccess(payment: any) {
     const orderId = payment.reference;
     if (!orderId) return;
 
+    // Récupérer d'abord la commande pour obtenir le total
+    const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        select: { total: true }
+    });
+
+    if (!order) {
+        console.error(`Commande ${orderId} introuvable pour le webhook.`);
+        return;
+    }
+
     // Utilisation de update avec types corrects (si prisma generate est ok)
     await prisma.order.update({
         where: { id: orderId },
@@ -71,7 +82,10 @@ async function handlePaymentSuccess(payment: any) {
             status: 'VALIDATED',
             paymentStatus: 'PAID',
             paidAt: new Date(),
-            monerooStatus: 'successful'
+            monerooStatus: 'successful',
+            // Mise à jour des champs financiers
+            amountPaid: order.total,
+            remainingAmount: 0
         }
     });
 
