@@ -18,7 +18,10 @@ export async function POST(request: NextRequest) {
 
     const { workId, action, authorId, rejectionReason } = await request.json() // action: "validate", "publish" ou "reject"
 
+    logger.info("Publish request received", { workId, action, authorId, role: session.user.role });
+
     if (!workId || !action) {
+      logger.error("Missing workId or action");
       return NextResponse.json({ error: "ID du livre et action requis" }, { status: 400 })
     }
 
@@ -36,8 +39,11 @@ export async function POST(request: NextRequest) {
     })
 
     if (!work) {
+      logger.error("Work not found", { workId });
       return NextResponse.json({ error: "Livre introuvable" }, { status: 404 })
     }
+
+    logger.info("Work found", { workId, status: work.status });
 
     // Validation : PENDING → VALIDATED
     if (action === "validate") {
@@ -99,7 +105,7 @@ export async function POST(request: NextRequest) {
             userId: finalAuthorId,
             type: "WORK_VALIDATED",
             title: "Œuvre validée",
-            message: authorId 
+            message: authorId
               ? `Le livre "${work.title}" vous a été attribué et a été validé. Il peut maintenant être publié.`
               : `Votre livre "${work.title}" a été validé. Il peut maintenant être publié.`,
             data: JSON.stringify({
@@ -119,10 +125,12 @@ export async function POST(request: NextRequest) {
         work: updatedWork
       }, { status: 200 })
 
-    // Publication : VALIDATED → PUBLISHED
+      // Publication : VALIDATED → PUBLISHED
     } else if (action === "publish") {
-      if (work.status !== "VALIDATED") {
-        return NextResponse.json({ error: "Seules les œuvres validées peuvent être publiées" }, { status: 400 })
+      // Le PDG peut publier directement un brouillon, une œuvre en attente ou une œuvre validée
+      if (work.status !== "VALIDATED" && work.status !== "DRAFT" && work.status !== "PENDING") {
+        logger.warn("Invalid status for publication", { workId, status: work.status });
+        return NextResponse.json({ error: `Seules les œuvres validées, en attente ou brouillons peuvent être publiées (Statut actuel: ${work.status})` }, { status: 400 })
       }
       let updateData: any = {
         status: "PUBLISHED",
@@ -158,7 +166,7 @@ export async function POST(request: NextRequest) {
             userId: finalAuthorId,
             type: "WORK_APPROVED",
             title: "Livre publié",
-            message: authorId 
+            message: authorId
               ? `Le livre "${work.title}" vous a été attribué et a été publié avec succès. Il est maintenant visible dans le catalogue.`
               : `Votre livre "${work.title}" a été publié avec succès. Il est maintenant visible dans le catalogue.`,
             data: JSON.stringify({
@@ -178,7 +186,7 @@ export async function POST(request: NextRequest) {
         work: updatedWork
       }, { status: 200 })
 
-    // Refus : PENDING → REJECTED
+      // Refus : PENDING → REJECTED
     } else if (action === "reject") {
       if (work.status !== "PENDING") {
         return NextResponse.json({ error: "Seules les œuvres en attente peuvent être refusées" }, { status: 400 })
@@ -236,8 +244,8 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     logger.error("Error publishing/rejecting work:", error)
-    return NextResponse.json({ 
-      error: error.message || "Erreur lors de la publication/refus du livre" 
+    return NextResponse.json({
+      error: error.message || "Erreur lors de la publication/refus du livre"
     }, { status: 500 })
   }
 }

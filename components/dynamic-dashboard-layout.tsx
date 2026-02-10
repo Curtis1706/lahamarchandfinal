@@ -29,13 +29,13 @@ import {
   GraduationCap,
   DollarSign,
   History,
+  Loader2,
   MessageSquare,
   Building2,
   Camera,
-  Wallet,
-  Loader2,
   TrendingUp,
   ArrowRightLeft,
+  Wallet,
   RotateCcw
 } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/notification-bell";
@@ -75,38 +75,13 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
         ...commonItems,
         {
           href: `${basePath}/validation-inscriptions`,
-          icon: Users,
+          icon: UserCheck,
           label: "Validation Inscriptions"
         },
         {
           href: `${basePath}/gestion-utilisateurs`,
           icon: Users,
           label: "Gestion Utilisateurs"
-        },
-        {
-          href: `${basePath}/gestion-disciplines`,
-          icon: GraduationCap,
-          label: "Gestion Disciplines"
-        },
-        {
-          href: `${basePath}/validation-oeuvres`,
-          icon: BookOpen,
-          label: "Validation Œuvres"
-        },
-        {
-          href: `${basePath}/gestion-projets`,
-          icon: FileText,
-          label: "Gestion des Projets"
-        },
-        {
-          href: `${basePath}/gestion-commandes`,
-          icon: ShoppingCart,
-          label: "Gestion Commandes"
-        },
-        {
-          href: `${basePath}/gestion-stock`,
-          icon: Package,
-          label: "Gestion Stock"
         },
         {
           href: `${basePath}/gestion-partenaires`,
@@ -119,14 +94,101 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           label: "Gestion Écoles"
         },
         {
+          href: `${basePath}/clients`,
+          icon: Users,
+          label: "Clients"
+        },
+        {
+          href: `${basePath}/gestion-commandes`,
+          icon: ShoppingCart,
+          label: "Gestion Commandes"
+        },
+        {
+          href: `${basePath}/gestion-stock`,
+          icon: Package,
+          label: "Gestion Stock"
+        },
+        {
+          href: `${basePath}/gestion-stock/operations`,
+          icon: ArrowRightLeft,
+          label: "Opérations de stock"
+        },
+        {
+          href: `${basePath}/bon-sortie`,
+          icon: FileText,
+          label: "Bon de sortie"
+        },
+        {
+          href: `${basePath}/proforma`,
+          icon: FileText,
+          label: "Proforma"
+        },
+        {
+          href: `${basePath}/livres`,
+          icon: BookOpen,
+          label: "Nos livres",
+          children: [
+            { href: `${basePath}/livres/liste`, label: "Livres" },
+            { href: `${basePath}/livres/collections`, label: "Collections" },
+            { href: `${basePath}/livres/categories`, label: "Catégories" },
+            { href: `${basePath}/livres/classes`, label: "Classes" },
+            { href: `${basePath}/livres/matieres`, label: "Matières" },
+            { href: `${basePath}/livres/code-promo`, label: "Code Promo" }
+          ]
+        },
+        {
+          href: `${basePath}/ristournes`,
+          icon: Package,
+          label: "Ristournes",
+          children: [
+            { href: `${basePath}/ristournes/partenaire`, label: "Partenaire" },
+            { href: `${basePath}/ristournes/droit-auteur`, label: "Droits d'auteur" }
+          ]
+        },
+        {
+          href: `${basePath}/ventes-retours`,
+          icon: Camera,
+          label: "Ventes & retours"
+        },
+        {
           href: `${basePath}/gestion-financiere`,
           icon: DollarSign,
           label: "Gestion Financière"
         },
         {
+          href: `${basePath}/retraits-auteurs`,
+          icon: Wallet,
+          label: "Retraits Auteurs"
+        },
+        {
+          href: `${basePath}/notifications`,
+          icon: Bell,
+          label: "Notifications",
+          children: [
+            { href: `${basePath}/notifications/liste`, label: "Liste" },
+            { href: `${basePath}/notifications/diffusion`, label: "Diffusion" }
+          ]
+        },
+        {
+          href: `${basePath}/messagerie`,
+          icon: MessageSquare,
+          label: "Messagerie"
+        },
+        {
           href: `${basePath}/audit-historique`,
           icon: History,
           label: "Audit & Historique"
+        },
+        {
+          href: `${basePath}/parametres`,
+          icon: Settings,
+          label: "Paramètres",
+          children: [
+            { href: `${basePath}/parametres/departements`, label: "Départements" },
+            { href: `${basePath}/parametres/zones`, label: "Zones" },
+            { href: `${basePath}/parametres/remises`, label: "Remises" },
+            { href: `${basePath}/parametres/avance`, label: "Avancé" }
+          ]
         },
         {
           href: `${basePath}/administration-parametres`,
@@ -149,14 +211,24 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           label: "Mes œuvres"
         },
         {
-          href: `${basePath}/royalties`,
+          href: `${basePath}/mes-droits`,
+          icon: DollarSign,
+          label: "Mes droits"
+        },
+        {
+          href: `${basePath}/retraits`,
           icon: Wallet,
-          label: "Royalties & Retraits"
+          label: "Retraits"
         },
         {
           href: `${basePath}/historique`,
           icon: History,
           label: "Historique"
+        },
+        {
+          href: `${basePath}/messagerie`,
+          icon: MessageSquare,
+          label: "Messages"
         },
         {
           href: `${basePath}/notifications`,
@@ -169,6 +241,11 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
       return [
         ...commonItems,
         {
+          href: `${basePath}/nouveau-projet`,
+          icon: Plus,
+          label: "Nouveau projet"
+        },
+        {
           href: `${basePath}/mes-projets`,
           icon: PenTool,
           label: "Mes projets"
@@ -176,12 +253,22 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
         {
           href: `${basePath}/mes-oeuvres`,
           icon: BookOpen,
-          label: "Mes œuvres"
+          label: "Œuvres des projets"
+        },
+        {
+          href: `${basePath}/gains`,
+          icon: Wallet,
+          label: "Gains"
         },
         {
           href: `${basePath}/notifications`,
           icon: Bell,
           label: "Notifications"
+        },
+        {
+          href: `${basePath}/messages`,
+          icon: MessageSquare,
+          label: "Messages"
         }
       ];
 
@@ -189,19 +276,39 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
       return [
         ...commonItems,
         {
-          href: `${basePath}/mes-clients`,
-          icon: Users,
-          label: "Mes clients"
+          href: `${basePath}/oeuvres`,
+          icon: BookOpen,
+          label: "Catalogue"
         },
         {
-          href: `${basePath}/mes-commandes`,
-          icon: ShoppingCart,
-          label: "Mes commandes"
-        },
-        {
-          href: `${basePath}/mes-partenaires`,
+          href: `${basePath}/partenaires`,
           icon: Building2,
-          label: "Mes partenaires"
+          label: "Mes Partenaires"
+        },
+        {
+          href: `${basePath}/commandes`,
+          icon: ShoppingCart,
+          label: "Mes Commandes"
+        },
+        {
+          href: `${basePath}/commissions`,
+          icon: DollarSign,
+          label: "Mes Commissions"
+        },
+        {
+          href: `${basePath}/clients`,
+          icon: Users,
+          label: "Mes Clients"
+        },
+        {
+          href: `${basePath}/rapports`,
+          icon: FileText,
+          label: "Rapports"
+        },
+        {
+          href: `${basePath}/messagerie`,
+          icon: MessageSquare,
+          label: "Messagerie"
         },
         {
           href: `${basePath}/notifications`,
@@ -214,28 +321,42 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
       return [
         ...commonItems,
         {
-          href: `${basePath}/mes-commandes`,
-          icon: ShoppingCart,
-          label: "Mes commandes"
-        },
-        {
-          href: `${basePath}/mes-stocks`,
+          href: `${basePath}/stock/niveau`,
           icon: Package,
-          label: "Mes stocks"
+          label: "Stock alloué"
         },
         {
-          href: `${basePath}/mes-clients`,
-          icon: Users,
-          label: "Mes clients"
+          href: `${basePath}/catalogue`,
+          icon: BookOpen,
+          label: "Catalogue"
         },
         {
-          href: `${basePath}/notifications`,
+          href: `${basePath}/ventes`,
+          icon: TrendingUp,
+          label: "Ventes"
+        },
+        {
+          href: `${basePath}/retours`,
+          icon: RotateCcw,
+          label: "Retours"
+        },
+        {
+          href: `${basePath}/rapports`,
+          icon: FileText,
+          label: "Rapports"
+        },
+        {
+          href: `${basePath}/messagerie`,
+          icon: MessageSquare,
+          label: "Messages"
+        },
+        {
+          href: `${basePath}/notifications/liste`,
           icon: Bell,
           label: "Notifications"
         }
       ];
-
-    case "CLIENT":
+       case "CLIENT":
       return [
         ...commonItems,
         {
@@ -255,6 +376,16 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
         }
       ];
 
+    case "INVITE":
+      return [
+        ...commonItems,
+        {
+          href: `${basePath}/catalogue`,
+          icon: BookOpen,
+          label: "Catalogue"
+        }
+      ];
+
     default:
       return commonItems;
   }
@@ -267,7 +398,7 @@ export default function DynamicDashboardLayout({
   showActions = false,
   onRefresh
 }: DynamicDashboardLayoutProps) {
-  const { user } = useCurrentUser();
+  const { user, isLoading: userLoading, isAuthenticated } = useCurrentUser();
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -275,15 +406,62 @@ export default function DynamicDashboardLayout({
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
 
-  // Calculer les variables avant les returns conditionnels
-  const basePath = user ? `/dashboard/${user.role.toLowerCase()}` : '';
-  const navigation = user ? getNavigationForRole(user.role, basePath) : [];
+  // Références pour éviter les redirections en boucle
+  const authRedirectDone = useRef(false);
+  const routeCheckDone = useRef<string | null>(null);
 
-  // Restreindre l'accès aux routes non prévues pour le rôle
+  // Debug: logger les changements de user
   useEffect(() => {
-    if (!user || !basePath) return; // Vérifications de sécurité
+    if (user) {
+      // console.log("User updated:", user.role);
+    } else {
+      // console.log("User unavailable");
+    }
+  }, [user])
 
-    const allowed: string[] = [];
+  // Mémoriser basePath et navigation pour éviter les re-renders infinis
+  const basePath = useMemo(() => {
+    if (!user || !user.role) return '';
+    const role = user.role.toUpperCase()
+    const validRoles = ['PDG', 'REPRESENTANT', 'PARTENAIRE', 'CONCEPTEUR', 'AUTEUR', 'CLIENT']
+    if (!validRoles.includes(role)) {
+      return ''
+    }
+    return `/dashboard/${role.toLowerCase()}`;
+  }, [user?.role]);
+
+  const navigation = useMemo(() => {
+    return user ? getNavigationForRole(user.role, basePath) : [];
+  }, [user?.role, basePath]);
+
+  // Vérifier l'authentification et rediriger si nécessaire (une seule fois)
+  // Ne pas vérifier pour les routes invitées
+  useEffect(() => {
+    // Ne pas vérifier pour /dashboard/invite
+    if (pathname.startsWith('/dashboard/invite')) {
+      return
+    }
+
+    // Ne faire la vérification qu'une seule fois
+    if (authRedirectDone.current) return;
+
+    if (!userLoading && (!isAuthenticated || !user || !user.role)) {
+      authRedirectDone.current = true;
+      router.replace("/auth/login")
+      return
+    }
+
+    // Si l'utilisateur est authentifié, marquer comme fait
+    if (!userLoading && isAuthenticated && user && user.role) {
+      authRedirectDone.current = true;
+    }
+  }, [userLoading, isAuthenticated, user, router, pathname])
+
+  // Mémoriser les routes autorisées
+  const allowedRoutes = useMemo(() => {
+    if (!user || !basePath) return [];
+
+    const allowed: string[] = [basePath]; // Toujours autoriser basePath
     navigation.forEach((item) => {
       allowed.push(item.href);
       if (item.children) {
@@ -291,12 +469,75 @@ export default function DynamicDashboardLayout({
       }
     });
     allowed.push(`${basePath}/profil`);
+    return allowed;
+  }, [user, basePath, navigation]);
 
-    const isAllowed = allowed.some((p) => pathname === p || pathname.startsWith(p + "/"));
-    if (!isAllowed) {
-      router.replace(basePath);
+  // Restreindre l'accès aux routes non prévues pour le rôle
+  // Ne pas vérifier pour les routes invitées
+  useEffect(() => {
+    // Ne pas vérifier pour /dashboard/invite
+    if (pathname.startsWith('/dashboard/invite')) {
+      return
     }
-  }, [pathname, basePath, navigation, router, user]);
+
+    if (!user || !basePath || !allowedRoutes.length) return; // Vérifications de sécurité
+
+    // Ne pas rediriger si on est déjà sur basePath
+    if (pathname === basePath) {
+      routeCheckDone.current = pathname;
+      return;
+    }
+
+    // Ne pas rediriger si on a déjà vérifié cette route
+    if (routeCheckDone.current === pathname) return;
+
+    const isAllowed = allowedRoutes.some((p) => pathname === p || pathname.startsWith(p + "/"));
+    if (!isAllowed) {
+      // Éviter les redirections en boucle
+      routeCheckDone.current = pathname;
+
+      // Ne pas rediriger si basePath est vide ou invalide
+      if (!basePath || basePath === '/dashboard/') {
+        console.error(`❌ basePath invalide, impossible de rediriger`)
+        return
+      }
+
+      router.replace(basePath);
+    } else {
+      routeCheckDone.current = pathname;
+    }
+  }, [pathname, basePath, allowedRoutes, router, user]);
+
+  // Ne pas bloquer les routes invitées - elles ont leur propre layout
+  if (pathname.startsWith('/dashboard/invite')) {
+    return <>{children}</>
+  }
+
+  // Si l'utilisateur n'est pas authentifié, ne rien afficher (redirection en cours)
+  // Ne pas bloquer si on est en train de charger (pour éviter les conflits avec les pages)
+  if (userLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+          <p className="text-gray-500">Vérification de l'authentification...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Seulement rediriger si on est sûr que l'utilisateur n'est pas authentifié
+  if (!isAuthenticated || !user || !user.role) {
+    // La redirection sera gérée par le useEffect
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+          <p className="text-gray-500">Redirection en cours...</p>
+        </div>
+      </div>
+    )
+  }
 
   const handleLogout = async () => {
     try {
@@ -347,10 +588,11 @@ export default function DynamicDashboardLayout({
 
       {/* Sidebar - UNIQUE */}
       {!isFullscreen && (
-        <div
+        <aside
+          id="unique-sidebar"
           className={`
             ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
-            fixed lg:static left-0 top-0 h-full w-64 bg-white shadow-lg flex flex-col z-50 lg:z-auto
+            fixed lg:relative left-0 top-0 h-full w-64 bg-white shadow-lg flex flex-col z-50 lg:z-auto
             transition-transform duration-300 ease-in-out
           `}
         >
@@ -384,7 +626,7 @@ export default function DynamicDashboardLayout({
           </div>
 
           {/* Navigation - UNIQUE */}
-          <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+          <nav id="unique-navigation" className="flex-1 p-4 space-y-2 overflow-y-auto">
             {navigation.map((item, index) => {
               const isActive = isActivePath(item.href, item.exact);
               return (
@@ -457,7 +699,7 @@ export default function DynamicDashboardLayout({
               </button>
             </div>
           </nav>
-        </div>
+        </aside>
       )}
 
       {/* Main content */}
@@ -477,7 +719,9 @@ export default function DynamicDashboardLayout({
                 <div>
                   <h1 className="text-xl font-semibold">{title}</h1>
                   {breadcrumb && (
-                    <p className="text-sm text-slate-300">{breadcrumb}</p>
+                    <div className="text-sm text-slate-300">
+                      {typeof breadcrumb === 'string' ? breadcrumb : breadcrumb}
+                    </div>
                   )}
                 </div>
               </div>

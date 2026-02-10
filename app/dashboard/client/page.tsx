@@ -279,13 +279,10 @@ export default function ClientDashboard() {
                   <User className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="font-semibold">Client</h3>
                   <p className="text-indigo-200">+22952734444</p>
                   <span className="inline-block mt-2 px-3 py-1 bg-yellow-500 text-yellow-900 rounded-full text-xs font-medium">
                     Client
                   </span>
-                  <h4>Votre représentant</h4>
-                  <p>+22952734444</p>
                 </div>
               </div>
             </div>

@@ -2,6 +2,7 @@ import { useSession } from "next-auth/react"
 import { Role } from "@prisma/client"
 
 export interface CurrentUser {
+  phone: ReactNode
   id: string
   name: string
   email: string

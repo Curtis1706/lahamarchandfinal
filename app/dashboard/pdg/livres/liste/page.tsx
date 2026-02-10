@@ -1074,7 +1074,7 @@ export default function LivresListePage() {
           setCoverImagePreview(null);
         }
       }}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" style={{ zIndex: 9999 }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold">
               {showEditModal ? "Modifier un livre" : "Ajouter un livre"}

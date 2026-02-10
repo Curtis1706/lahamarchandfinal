@@ -262,6 +262,17 @@ function ClientCommandePageContent() {
     )
   }
 
+  const getPaymentStatusBadge = (status: Order['paymentStatus']) => {
+    switch (status) {
+      case 'PAID':
+        return <Badge className="bg-green-100 text-green-800 border-green-200 ml-2 hover:bg-green-100">Payée</Badge>
+      case 'FAILED':
+        return <Badge className="bg-red-100 text-red-800 border-red-200 ml-2 hover:bg-red-100">Échoué</Badge>
+      default:
+        return <Badge variant="outline" className="ml-2 text-gray-500 border-gray-200">Non payée</Badge>
+    }
+  }
+
   const filteredOrders = orders.filter(order => {
     const matchesSearch = order.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.deliveryAddress.toLowerCase().includes(searchTerm.toLowerCase())
@@ -705,7 +716,10 @@ function ClientCommandePageContent() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Paiement</p>
-                      <p className="text-sm">{order.paymentMethod}</p>
+                      <div className="flex items-center">
+                        <p className="text-sm">{order.paymentMethod}</p>
+                        {getPaymentStatusBadge(order.paymentStatus)}
+                      </div>
                     </div>
                   </div>
                   <div className="mt-4">
@@ -750,7 +764,11 @@ function ClientCommandePageContent() {
                                 <p><span className="font-medium">Référence:</span> {order.reference}</p>
                                 <p><span className="font-medium">Date:</span> {new Date(order.date).toLocaleDateString('fr-FR')}</p>
                                 <p><span className="font-medium">Statut:</span> {getStatusBadge(order.status)}</p>
-                                <p><span className="font-medium">Paiement:</span> {order.paymentMethod}</p>
+                                <div className="flex items-center">
+                                  <span className="font-medium mr-1">Paiement:</span>
+                                  {order.paymentMethod}
+                                  {getPaymentStatusBadge(order.paymentStatus)}
+                                </div>
                                 {order.trackingNumber && (
                                   <p><span className="font-medium">N° de suivi:</span> {order.trackingNumber}</p>
                                 )}

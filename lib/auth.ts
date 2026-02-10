@@ -10,6 +10,30 @@ if (!process.env.DATABASE_URL) {
   require('dotenv').config()
 }
 
+
+// Étendre les types NextAuth
+declare module "next-auth" {
+  interface User {
+    role: Role
+    status?: string
+  }
+  interface Session {
+    user: User & {
+      id: string
+      role: Role
+      status?: string
+    }
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string
+    role: Role
+    status?: string
+  }
+}
+
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET || "fallback-secret-key-for-development",
   providers: [
@@ -39,7 +63,13 @@ export const authOptions: NextAuthOptions = {
             return null
           }
 
-          logger.debug("User found", { userId: user.id, role: user.role });
+          logger.debug("User found", { userId: user.id, role: user.role, status: user.status });
+
+          // Vérifier si l'utilisateur est suspendu ou inactif
+          if (user.status === 'SUSPENDED' || user.status === 'INACTIVE') {
+            logger.warn("Login attempt by suspended/inactive user", { userId: user.id, status: user.status });
+            throw new Error(user.status === 'SUSPENDED' ? "Votre compte a été suspendu. Veuillez contacter l'administrateur." : "Votre compte est désactivé.");
+          }
 
           const isPasswordValid = await bcryptjs.compare(
             credentials.password,
@@ -69,6 +99,7 @@ export const authOptions: NextAuthOptions = {
             email: user.email,
             name: user.name,
             role: user.role,
+            status: user.status,
           }
         } catch (error) {
           logger.error("NextAuth authorize error", error);
@@ -85,6 +116,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id
         token.role = user.role
+        token.status = user.status
       }
       return token
     },
@@ -92,6 +124,7 @@ export const authOptions: NextAuthOptions = {
       if (token) {
         session.user.id = (token.id as string) || (token.sub as string) || ''
         session.user.role = token.role as Role
+        session.user.status = token.status as string
       }
       return session
     }
