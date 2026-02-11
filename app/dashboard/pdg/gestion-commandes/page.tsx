@@ -65,6 +65,9 @@ import { format, parseISO } from "date-fns"
 import { fr } from "date-fns/locale"
 import { cn } from "@/lib/utils"
 import type { DateRange } from "react-day-picker"
+import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 // Types pour les commandes
 interface Order {
@@ -734,13 +737,163 @@ export default function GestionCommandesPage() {
     toast.success("Filtres appliqués")
   }, [])
 
-  const handleExportPDF = useCallback(() => {
-    toast.success("Export PDF en cours...")
-  }, [])
-
+  // Fonction d'export Excel
   const handleExportExcel = useCallback(() => {
-    toast.success("Export Excel en cours...")
-  }, [])
+    try {
+      // Préparer les données pour Excel
+      const excelData = filteredOrders.map((order, index) => ({
+        'N°': index + 1,
+        'Référence': generateOrderReference(order.id),
+        'Client': order.user?.name || order.partner?.name || 'Client inconnu',
+        'Type': 'Commande',
+        'Statut': order.status === 'VALIDATED' || order.status === 'PROCESSING' || order.status === 'SHIPPED' || order.status === 'DELIVERED'
+          ? 'Validée'
+          : order.status === 'PENDING' ? 'En attente' : 'Annulée',
+        'Livraison': order.deliveryStatus && ['DELIVERED', 'RECEIVED'].includes(order.deliveryStatus)
+          ? 'Livraison terminée'
+          : 'En attente de validation',
+        'Paiement': order.paymentStatus === 'PAID' ? 'Enregistrée' : 'En attente',
+        'Méthode': order.paymentMethod || '-',
+        'Montant (FCFA)': order.items.reduce((total, item) => total + (item.price * item.quantity), 0).toFixed(0),
+        'Date': formatDate(order.createdAt),
+        'Nbr. Livres': order.bookCount || order.items.reduce((sum, item) => sum + item.quantity, 0),
+        'Email Client': order.user?.email || order.partner?.email || '-',
+        'Téléphone': order.user?.phone || '-'
+      }))
+
+      // Créer un workbook
+      const workbook = XLSX.utils.book_new()
+      const worksheet = XLSX.utils.json_to_sheet(excelData)
+
+      // Ajuster les largeurs de colonnes
+      const columnWidths = [
+        { wch: 5 },  // N°
+        { wch: 15 }, // Référence
+        { wch: 20 }, // Client
+        { wch: 12 }, // Type
+        { wch: 15 }, // Statut
+        { wch: 22 }, // Livraison
+        { wch: 15 }, // Paiement
+        { wch: 18 }, // Méthode
+        { wch: 15 }, // Montant
+        { wch: 12 }, // Date
+        { wch: 12 }, // Nbr. Livres
+        { wch: 25 }, // Email
+        { wch: 15 }  // Téléphone
+      ]
+      worksheet['!cols'] = columnWidths
+
+      // Ajouter la feuille au workbook
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Commandes')
+
+      // Générer le nom du fichier avec la date
+      const fileName = `Commandes_${format(new Date(), 'dd-MM-yyyy', { locale: fr })}.xlsx`
+
+      // Télécharger le fichier
+      XLSX.writeFile(workbook, fileName)
+
+      toast.success(`Export Excel réussi - ${filteredOrders.length} commande(s) exportée(s)`)
+    } catch (error) {
+      console.error('Erreur export Excel:', error)
+      toast.error("Erreur lors de l'export Excel")
+    }
+  }, [filteredOrders, generateOrderReference, formatDate])
+
+  // Fonction d'export PDF
+  const handleExportPDF = useCallback(() => {
+    try {
+      // Créer un nouveau document PDF
+      const doc = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4'
+      })
+
+      // Titre du document
+      const title = 'Liste des Commandes'
+      const dateStr = format(new Date(), 'dd MMMM yyyy', { locale: fr })
+
+      doc.setFontSize(18)
+      doc.setFont('helvetica', 'bold')
+      doc.text(title, 14, 15)
+
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'normal')
+      doc.text(`Généré le ${dateStr}`, 14, 22)
+      doc.text(`Total: ${filteredOrders.length} commande(s)`, 14, 27)
+
+      // Préparer les données pour le tableau
+      const tableData = filteredOrders.map((order, index) => [
+        (index + 1).toString(),
+        generateOrderReference(order.id),
+        order.user?.name || order.partner?.name || 'Client inconnu',
+        order.status === 'VALIDATED' || order.status === 'PROCESSING' || order.status === 'SHIPPED' || order.status === 'DELIVERED'
+          ? 'Validée'
+          : order.status === 'PENDING' ? 'En attente' : 'Annulée',
+        order.deliveryStatus && ['DELIVERED', 'RECEIVED'].includes(order.deliveryStatus)
+          ? 'Terminée'
+          : 'En attente',
+        order.paymentStatus === 'PAID' ? 'Enregistrée' : 'En attente',
+        order.paymentMethod || '-',
+        order.items.reduce((total, item) => total + (item.price * item.quantity), 0).toFixed(0) + ' FCFA',
+        formatDate(order.createdAt)
+      ])
+
+      // Créer le tableau avec autoTable
+      autoTable(doc, {
+        startY: 32,
+        head: [[
+          'N°',
+          'Référence',
+          'Client',
+          'Statut',
+          'Livraison',
+          'Paiement',
+          'Méthode',
+          'Montant',
+          'Date'
+        ]],
+        body: tableData,
+        styles: {
+          fontSize: 8,
+          cellPadding: 2,
+        },
+        headStyles: {
+          fillColor: [71, 85, 105], // Gris foncé
+          textColor: 255,
+          font: 'helvetica',
+          fontStyle: 'bold',
+          halign: 'center'
+        },
+        columnStyles: {
+          0: { halign: 'center', cellWidth: 10 },  // N°
+          1: { halign: 'center', cellWidth: 28 },  // Référence
+          2: { halign: 'left', cellWidth: 40 },    // Client
+          3: { halign: 'center', cellWidth: 22 },  // Statut
+          4: { halign: 'center', cellWidth: 22 },  // Livraison
+          5: { halign: 'center', cellWidth: 24 },  // Paiement
+          6: { halign: 'left', cellWidth: 30 },    // Méthode
+          7: { halign: 'right', cellWidth: 28 },   // Montant
+          8: { halign: 'center', cellWidth: 22 }   // Date
+        },
+        alternateRowStyles: {
+          fillColor: [245, 245, 245]
+        },
+        margin: { top: 32, left: 14, right: 14 }
+      })
+
+      // Générer le nom du fichier
+      const fileName = `Commandes_${format(new Date(), 'dd-MM-yyyy', { locale: fr })}.pdf`
+
+      // Télécharger le PDF
+      doc.save(fileName)
+
+      toast.success(`Export PDF réussi - ${filteredOrders.length} commande(s) exportée(s)`)
+    } catch (error) {
+      console.error('Erreur export PDF:', error)
+      toast.error("Erreur lors de l'export PDF")
+    }
+  }, [filteredOrders, generateOrderReference, formatDate])
 
   const handlePrint = useCallback(() => {
     window.print()
