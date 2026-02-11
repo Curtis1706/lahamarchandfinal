@@ -587,6 +587,60 @@ export default function GestionCommandesPage() {
   const paginatedOrders = useMemo(() => filteredOrders.slice(startIndex, endIndex), [filteredOrders, startIndex, endIndex])
 
   // Fonctions utilitaires
+  // Nouvelle fonction simplifiée pour le statut de commande
+  const getOrderStatusBadge = (status: string) => {
+    const statusConfig = {
+      'VALIDATED': { label: 'Validée', className: 'bg-green-100 text-green-800' },
+      'PENDING': { label: 'En attente', className: 'bg-yellow-100 text-yellow-800' },
+      'CANCELLED': { label: 'Annulée', className: 'bg-red-100 text-red-800' },
+      'PROCESSING': { label: 'Validée', className: 'bg-green-100 text-green-800' },
+      'SHIPPED': { label: 'Validée', className: 'bg-green-100 text-green-800' },
+      'DELIVERED': { label: 'Validée', className: 'bg-green-100 text-green-800' }
+    }
+
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.PENDING
+    return <Badge className={config.className}>{config.label}</Badge>
+  }
+
+  // Nouvelle fonction pour le statut de livraison
+  const getDeliveryBadge = (deliveryStatus?: string) => {
+    if (!deliveryStatus) {
+      return <Badge className="bg-gray-100 text-gray-800">En attente de validation</Badge>
+    }
+
+    const isDelivered = ['DELIVERED', 'RECEIVED'].includes(deliveryStatus)
+
+    return (
+      <Badge className={isDelivered ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
+        {isDelivered ? 'Livraison terminée' : 'En attente de validation'}
+      </Badge>
+    )
+  }
+
+  // Nouvelle fonction pour le statut de paiement
+  const getPaymentBadge = (paymentStatus?: string) => {
+    if (!paymentStatus || paymentStatus === 'UNPAID' || paymentStatus === 'PARTIAL' || paymentStatus === 'OVERDUE') {
+      return <Badge className="bg-yellow-100 text-yellow-800">En attente</Badge>
+    }
+
+    return <Badge className="bg-green-100 text-green-800">Enregistrée</Badge>
+  }
+
+  // Fonction pour afficher la méthode de paiement
+  const getPaymentMethodDisplay = (paymentMethod?: string) => {
+    if (!paymentMethod) {
+      return <span className="text-gray-400 text-sm">-</span>
+    }
+
+    return <span className="text-sm">{paymentMethod}</span>
+  }
+
+  // Fonction pour afficher le type (toujours "Commande")
+  const getTypeBadge = () => {
+    return <Badge variant="outline" className="border-gray-300 text-gray-700">Commande</Badge>
+  }
+
+  // Anciennes fonctions conservées pour compatibilité
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       PENDING: { label: 'En attente', className: 'bg-yellow-100 text-yellow-800' },
@@ -902,21 +956,21 @@ export default function GestionCommandesPage() {
           <TableHeader>
             <TableRow className="bg-gray-50">
               <TableHead className="font-semibold">Référence</TableHead>
-              <TableHead className="font-semibold">Nbr. livre</TableHead>
-              <TableHead className="font-semibold">Demandé par</TableHead>
-              <TableHead className="font-semibold">Fait le</TableHead>
-              <TableHead className="font-semibold">Date livraison</TableHead>
-              <TableHead className="font-semibold">Lieu de livraison</TableHead>
+              <TableHead className="font-semibold">Client</TableHead>
               <TableHead className="font-semibold">Type</TableHead>
               <TableHead className="font-semibold">Statut</TableHead>
+              <TableHead className="font-semibold">Livraison</TableHead>
               <TableHead className="font-semibold">Paiement</TableHead>
+              <TableHead className="font-semibold">Méthode</TableHead>
+              <TableHead className="font-semibold">Montant</TableHead>
+              <TableHead className="font-semibold">Date</TableHead>
               <TableHead className="font-semibold">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedOrders.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8">
+                <TableCell colSpan={10} className="text-center py-8">
                   <div className="flex flex-col items-center space-y-2">
                     <Info className="h-8 w-8 text-gray-400" />
                     <p className="text-gray-500">Aucune donnée disponible dans le tableau</p>
@@ -926,59 +980,36 @@ export default function GestionCommandesPage() {
             ) : (
               paginatedOrders.map((order) => (
                 <TableRow key={order.id} className="hover:bg-gray-50">
+                  {/* Référence */}
                   <TableCell className="font-medium">{generateOrderReference(order.id)}</TableCell>
-                  <TableCell>{order.bookCount}</TableCell>
+
+                  {/* Client */}
                   <TableCell>{order.user?.name || order.partner?.name || 'Client inconnu'}</TableCell>
+
+                  {/* Type */}
+                  <TableCell>{getTypeBadge()}</TableCell>
+
+                  {/* Statut */}
+                  <TableCell>{getOrderStatusBadge(order.status)}</TableCell>
+
+                  {/* Livraison */}
+                  <TableCell>{getDeliveryBadge(order.deliveryStatus)}</TableCell>
+
+                  {/* Paiement */}
+                  <TableCell>{getPaymentBadge(order.paymentStatus)}</TableCell>
+
+                  {/* Méthode */}
+                  <TableCell>{getPaymentMethodDisplay(order.paymentMethod)}</TableCell>
+
+                  {/* Montant */}
+                  <TableCell className="font-medium">
+                    {order.items.reduce((total, item) => total + (item.price * item.quantity), 0).toFixed(0)} FCFA
+                  </TableCell>
+
+                  {/* Date */}
                   <TableCell>{formatDate(order.createdAt)}</TableCell>
-                  <TableCell>
-                    {order.deliveryDate ? formatDate(order.deliveryDate) : '-'}
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm" title={getDeliveryAddress(order)}>
-                      {getDeliveryAddress(order).length > 50
-                        ? getDeliveryAddress(order).substring(0, 50) + '...'
-                        : getDeliveryAddress(order)}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    {order.items[0]?.work?.discipline?.name || 'Divers'}
-                  </TableCell>
-                  <TableCell>{getStatusBadge(order.status)}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-col space-y-1">
-                      <div className="flex items-center gap-2">
-                        {getPaymentTypeBadge(order.paymentType)}
-                        {getPaymentStatusBadge(order.paymentStatus)}
-                        {/* Afficher le bouton Vérifier si non payé OU si payé mais avec un reste (pour corriger les incohérences) */}
-                        {(order.paymentStatus !== 'PAID' || (order.remainingAmount && order.remainingAmount > 0)) && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 ml-1"
-                            onClick={() => handleVerifyPayment(order.id)}
-                            disabled={verifyingOrder === order.id}
-                            title="Vérifier le paiement auprès de Moneroo"
-                          >
-                            <RefreshCw className={`h-3 w-3 ${verifyingOrder === order.id ? 'animate-spin' : ''}`} />
-                          </Button>
-                        )}
-                      </div>
-                      {order.paymentMethod && (
-                        <span className="text-xs text-gray-600">{order.paymentMethod}</span>
-                      )}
-                      {order.paymentType === 'DEPOSIT' && order.depositAmount && (
-                        <span className="text-xs text-gray-500">
-                          Acompte: {order.depositAmount.toFixed(0)} FCFA
-                        </span>
-                      )}
-                      {/* N'afficher le reste que s'il est > 0 ET que la commande n'est pas déjà marquée comme PAYÉE */}
-                      {order.remainingAmount && order.remainingAmount > 0 && order.paymentStatus !== 'PAID' && (
-                        <span className="text-xs text-red-600">
-                          Reste: {order.remainingAmount.toFixed(0)} FCFA
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
+
+                  {/* Actions */}
                   <TableCell>
                     <div className="flex space-x-1">
                       <Button
