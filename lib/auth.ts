@@ -108,6 +108,45 @@ export const authOptions: NextAuthOptions = {
       }
     })
   ],
+  callbacks: {
+    async jwt({ token, user, trigger, session }) {
+      // Initial sign in
+      if (user) {
+        token.id = user.id
+        token.role = user.role
+        token.status = user.status
+      }
+
+      // When update() is called from client
+      if (trigger === "update") {
+        // Fetch fresh user data from database
+        const freshUser = await prisma.user.findUnique({
+          where: { id: token.id }
+        })
+
+        if (freshUser) {
+          token.name = freshUser.name
+          token.email = freshUser.email
+          token.picture = freshUser.image
+          token.role = freshUser.role
+          token.status = freshUser.status
+        }
+      }
+
+      return token
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = token.id
+        session.user.role = token.role
+        session.user.status = token.status
+        session.user.name = token.name as string
+        session.user.email = token.email as string
+        session.user.image = token.picture as string | null
+      }
+      return session
+    }
+  },
   session: {
     strategy: "jwt"
   },
