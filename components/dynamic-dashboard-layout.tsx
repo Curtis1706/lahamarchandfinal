@@ -73,11 +73,11 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
     case "PDG":
       return [
         ...commonItems,
-        {
+        /* {
           href: `${basePath}/validation-inscriptions`,
           icon: UserCheck,
           label: "Validation Inscriptions"
-        },
+        }, */
         /* {
           href: `${basePath}/gestion-utilisateurs`,
           icon: Users,

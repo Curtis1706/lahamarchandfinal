@@ -60,6 +60,7 @@ interface DeliveryNote {
 }
 
 export default function BonSortiePage() {
+  const router = useRouter();
   const [deliveryNotes, setDeliveryNotes] = useState<DeliveryNote[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -484,10 +485,7 @@ export default function BonSortiePage() {
                           size="sm"
                           className="h-8 w-8 p-0"
                           title="Voir les détails"
-                          onClick={() => {
-                            setSelectedNote(note);
-                            setShowViewModal(true);
-                          }}
+                          onClick={() => router.push(`/dashboard/pdg/bon-sortie/${note.id}`)}
                         >
                           <Eye className="h-4 w-4 text-gray-600" />
                         </Button>
