@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dialog"
 
 export default function ProfilPage() {
-  const { user, isLoading } = useCurrentUser()
+  const { user, isLoading, refreshUser } = useCurrentUser()
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false)
@@ -73,14 +73,15 @@ export default function ProfilPage() {
         throw new Error(errorData.error || 'Erreur lors de la mise à jour du profil')
       }
 
+      const data = await response.json()
+
       toast.success("Profil mis à jour avec succès !")
       setIsEditing(false)
-      setIsSaving(false)
 
-      // Rafraîchir les données utilisateur en rechargeant la page
-      setTimeout(() => {
-        window.location.reload()
-      }, 1000)
+      // Rafraîchir la session NextAuth pour récupérer les nouvelles données
+      await refreshUser()
+
+      setIsSaving(false)
     } catch (error: any) {
       console.error("Erreur lors de la mise à jour du profil:", error)
       toast.error(error.message || "Erreur lors de la mise à jour du profil")

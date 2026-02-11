@@ -56,12 +56,14 @@ export default function ProfilPage() {
         throw new Error(errorData.error || 'Erreur lors de la mise à jour du profil');
       }
 
+      const data = await response.json();
+
       toast.success("Profil mis à jour avec succès !");
 
-      // Attendre un peu pour que le toast s'affiche avant le rechargement
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      // Rafraîchir la session NextAuth pour récupérer les nouvelles données
+      await refreshUser();
+
+      setSaving(false);
     } catch (error: any) {
       console.error("Error updating profile:", error);
       toast.error(error.message || "Erreur lors de la mise à jour du profil");
