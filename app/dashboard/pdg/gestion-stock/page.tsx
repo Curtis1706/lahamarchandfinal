@@ -450,8 +450,8 @@ export default function GestionStockPage() {
       setWorks(worksData as Work[])
       setStockMovements(movementsData as StockMovement[])
       setStockAlerts(alertsData as StockAlert[])
-      setStockStats(statsData as StockStats)
-      setPendingOperations(pendingData as PendingOperation[])
+      setStockStats(statsData as any)
+      setPendingOperations(pendingData as any)
       setDisciplines((disciplinesData as any) || [])
 
       // Charger les règles d'alerte
@@ -481,11 +481,14 @@ export default function GestionStockPage() {
       }
 
       const conditions = {
+        event: alertRuleForm.type,
         minStock: parseInt(alertRuleForm.minStock),
         maxStock: alertRuleForm.maxStock ? parseInt(alertRuleForm.maxStock) : null
       }
 
       const actions = {
+        type: 'IN_APP' as 'EMAIL' | 'SMS' | 'IN_APP',
+        recipients: [],
         notify: true,
         email: false
       }

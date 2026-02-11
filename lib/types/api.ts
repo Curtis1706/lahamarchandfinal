@@ -435,11 +435,15 @@ export interface PartnerStockAllocationInput {
 }
 
 export interface StockOperationInput {
-    type: 'allocation' | 'return' | 'transfer'
+    operationType: 'ENTRY' | 'EXIT'
+    subType: 'APPROVISIONNEMENT' | 'RETOUR_PARTENAIRE' | 'CORRECTION' | 'VENTE_DIRECTE' | 'DEPOT_PARTENAIRE' | 'PERTE' | 'TRANSFERT'
     workId: string
     quantity: number
+    source?: string
+    destination?: string
     partnerId?: string
-    sourcePartnerId?: string
-    targetPartnerId?: string
     reason?: string
+    notes?: string
+    unitPrice?: number
+    transferDestinationId?: string
 }
