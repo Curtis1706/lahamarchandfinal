@@ -8,6 +8,8 @@ export interface CurrentUser {
   role: Role
   phone?: string
   image?: string | null
+  status?: string
+  createdAt?: string
 }
 
 export function useCurrentUser() {

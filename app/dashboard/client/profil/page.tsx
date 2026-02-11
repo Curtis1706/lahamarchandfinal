@@ -11,21 +11,31 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { RefreshCw, Upload, User, Mail, Phone, MapPin, Building, Calendar, Loader2 } from "lucide-react"
 import { toast } from "sonner"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
 export default function ProfilPage() {
   const { user, isLoading } = useCurrentUser()
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false)
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: ""
+  })
   const [profileData, setProfileData] = useState({
     name: "",
     email: "",
-    phone: "",
-    address: "",
-    ifu: "",
-    establishment: "",
-    director: "",
-    department: "",
-    founded: ""
+    phone: ""
   })
 
   // Initialiser les données du formulaire avec les données utilisateur
@@ -34,13 +44,7 @@ export default function ProfilPage() {
       setProfileData({
         name: user.name || "",
         email: user.email || "",
-        phone: user.phone || "",
-        address: user.address || "",
-        ifu: user.ifu || "",
-        establishment: user.establishment || "",
-        director: user.director || "",
-        department: user.department || "",
-        founded: user.founded || ""
+        phone: user.phone || ""
       })
     }
   }, [user])
@@ -60,8 +64,7 @@ export default function ProfilPage() {
         credentials: 'include',
         body: JSON.stringify({
           name: profileData.name,
-          phone: profileData.phone,
-          address: profileData.address,
+          phone: profileData.phone
         })
       })
 
@@ -85,13 +88,7 @@ export default function ProfilPage() {
       setProfileData({
         name: user.name || "",
         email: user.email || "",
-        phone: user.phone || "",
-        address: user.address || "",
-        ifu: user.ifu || "",
-        establishment: user.establishment || "",
-        director: user.director || "",
-        department: user.department || "",
-        founded: user.founded || ""
+        phone: user.phone || ""
       })
     }
     setIsEditing(false)
@@ -99,16 +96,63 @@ export default function ProfilPage() {
 
   const handleRefresh = async () => {
     try {
-      await refreshUser();
+      window.location.reload();
       toast.success("Profil actualisé");
     } catch (error) {
       toast.error("Erreur lors de l'actualisation");
     }
   }
 
+  const handleChangePassword = async () => {
+    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+      toast.error("Veuillez remplir tous les champs")
+      return
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error("Les nouveaux mots de passe ne correspondent pas")
+      return
+    }
+
+    if (passwordData.newPassword.length < 8) {
+      toast.error("Le nouveau mot de passe doit contenir au moins 8 caractères")
+      return
+    }
+
+    try {
+      setIsChangingPassword(true)
+
+      const response = await fetch('/api/users/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Erreur lors du changement de mot de passe')
+      }
+
+      toast.success("Mot de passe changé avec succès")
+      setIsPasswordDialogOpen(false)
+      setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" })
+    } catch (error: any) {
+      console.error("Erreur lors du changement de mot de passe:", error)
+      toast.error(error.message || "Erreur lors du changement de mot de passe")
+    } finally {
+      setIsChangingPassword(false)
+    }
+  }
+
   if (isLoading) {
     return (
-      <DynamicDashboardLayout>
+      <DynamicDashboardLayout title="Mon Profil">
         <div className="flex items-center justify-center h-96">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
@@ -118,7 +162,7 @@ export default function ProfilPage() {
 
   if (!user) {
     return (
-      <DynamicDashboardLayout>
+      <DynamicDashboardLayout title="Mon Profil">
         <div className="text-center py-12">
           <p className="text-muted-foreground">Vous devez être connecté pour voir votre profil.</p>
         </div>
@@ -127,7 +171,7 @@ export default function ProfilPage() {
   }
 
   return (
-    <DynamicDashboardLayout onRefresh={handleRefresh}>
+    <DynamicDashboardLayout title="Mon Profil" onRefresh={handleRefresh}>
       <div className="space-y-8">
         {/* En-tête */}
         <div className="flex flex-col space-y-4">
@@ -216,30 +260,6 @@ export default function ProfilPage() {
                       className="mt-1"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="ifu">N° IFU</Label>
-                    <Input
-                      id="ifu"
-                      value={profileData.ifu}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, ifu: e.target.value }))}
-                      placeholder="Numéro d'identification fiscale"
-                      disabled={!isEditing}
-                      className="mt-1"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="address">Adresse complète</Label>
-                  <textarea
-                    id="address"
-                    value={profileData.address}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, address: e.target.value }))}
-                    className="mt-1 w-full p-3 border rounded-lg resize-none disabled:bg-muted disabled:cursor-not-allowed"
-                    rows={3}
-                    placeholder="Votre adresse complète"
-                    disabled={!isEditing}
-                  />
                 </div>
               </CardContent>
             </Card>
@@ -271,10 +291,77 @@ export default function ProfilPage() {
                 </div>
                 <Separator />
                 <div className="text-center">
-                  <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Changer mot de passe
-                  </Button>
+                  <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Changer mot de passe
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Changer le mot de passe</DialogTitle>
+                        <DialogDescription>
+                          Entrez votre mot de passe actuel et choisissez un nouveau mot de passe.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div>
+                          <Label htmlFor="currentPassword">Mot de passe actuel</Label>
+                          <Input
+                            id="currentPassword"
+                            type="password"
+                            value={passwordData.currentPassword}
+                            onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="newPassword">Nouveau mot de passe</Label>
+                          <Input
+                            id="newPassword"
+                            type="password"
+                            value={passwordData.newPassword}
+                            onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                            className="mt-1"
+                            placeholder="Au moins 8 caractères"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="confirmPassword">Confirmer le nouveau mot de passe</Label>
+                          <Input
+                            id="confirmPassword"
+                            type="password"
+                            value={passwordData.confirmPassword}
+                            onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setIsPasswordDialogOpen(false)
+                            setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" })
+                          }}
+                          disabled={isChangingPassword}
+                        >
+                          Annuler
+                        </Button>
+                        <Button onClick={handleChangePassword} disabled={isChangingPassword}>
+                          {isChangingPassword ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Changement...
+                            </>
+                          ) : (
+                            "Changer le mot de passe"
+                          )}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </CardContent>
             </Card>
