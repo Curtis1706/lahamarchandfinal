@@ -224,11 +224,11 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           icon: DollarSign,
           label: "Mes droits"
         },
-        {
-          href: `${basePath}/retraits`,
-          icon: Wallet,
-          label: "Retraits"
-        },
+        // {
+        //   href: `${basePath}/retraits`,
+        //   icon: Wallet,
+        //   label: "Retraits"
+        // },
         {
           href: `${basePath}/historique`,
           icon: History,
