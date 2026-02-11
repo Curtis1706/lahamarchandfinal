@@ -74,6 +74,9 @@ export async function GET(request: NextRequest) {
         paymentMethod: order.paymentMethod || null,
         paymentStatus: order.paymentStatus,
         deliveryAddress: deliveryAddress || null,
+        deliveryStatus: order.deliveryStatus,
+        receivedAt: order.receivedAt,
+        receivedBy: order.receivedBy,
         items: order.items.map(item => {
           let coverImage = null
           if (item.work.files) {
