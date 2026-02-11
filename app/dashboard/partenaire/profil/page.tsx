@@ -149,15 +149,6 @@ export default function ProfilPage() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>Photo de profil</Label>
-                <div className="flex items-center gap-3">
-                  <Button variant="outline" size="sm">
-                    Choisir un fichier
-                  </Button>
-                  <span className="text-sm text-gray-500">Aucun fichier choisi</span>
-                </div>
-              </div>
             </div>
 
             <div className="flex justify-end mt-6">

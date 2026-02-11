@@ -338,57 +338,6 @@ export default function ProfilPage() {
                 </div>
               </CardContent>
             </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Photo de profil</CardTitle>
-                <CardDescription>
-                  Ajoutez une photo pour personnaliser votre profil
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col items-center space-y-4">
-                  <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center">
-                    {user.profileImage ? (
-                      <img 
-                        src={user.profileImage} 
-                        alt="Photo de profil" 
-                        className="w-20 h-20 rounded-full object-cover"
-                      />
-                    ) : (
-                      <User className="h-8 w-8 text-muted-foreground" />
-                    )}
-                  </div>
-                  <Button variant="outline" size="sm" disabled={!isEditing}>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Changer la photo
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Documents</CardTitle>
-                <CardDescription>
-                  Gérez vos documents administratifs
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Contrat signé</span>
-                  <Button variant="outline" size="sm" disabled={!isEditing}>
-                    <Upload className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Pièce d'identité</span>
-                  <Button variant="outline" size="sm" disabled={!isEditing}>
-                    <Upload className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>

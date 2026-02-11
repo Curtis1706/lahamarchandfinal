@@ -284,20 +284,7 @@ export default function ProfilPage() {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Photo de profil */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Photo de profil</CardTitle>
-            </CardHeader>
-            <CardContent className="text-center">
-              <div className="w-32 h-32 bg-gray-200 rounded-full mx-auto mb-4 flex items-center justify-center">
-                <User className="w-16 h-16 text-gray-400" />
-              </div>
-              <Button variant="outline" size="sm" disabled={!isEditing}>
-                Changer la photo
-              </Button>
-            </CardContent>
-          </Card>
+
 
           {/* Informations du compte */}
           <Card>
