@@ -184,11 +184,11 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           icon: MessageSquare,
           label: "Messagerie"
         },
-        {
-          href: `${basePath}/audit-historique`,
-          icon: History,
-          label: "Audit & Historique"
-        },
+        /*         {
+                  href: `${basePath}/audit-historique`,
+                  icon: History,
+                  label: "Audit & Historique"
+                }, */
         {
           href: `${basePath}/parametres`,
           icon: Settings,
