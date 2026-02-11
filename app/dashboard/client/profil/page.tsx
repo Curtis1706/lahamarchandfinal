@@ -73,8 +73,14 @@ export default function ProfilPage() {
         throw new Error(errorData.error || 'Erreur lors de la mise à jour du profil')
       }
 
-      // Recharger la page pour afficher les données mises à jour
-      window.location.reload()
+      toast.success("Profil mis à jour avec succès !")
+      setIsEditing(false)
+      setIsSaving(false)
+
+      // Rafraîchir les données utilisateur en rechargeant la page
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000)
     } catch (error: any) {
       console.error("Erreur lors de la mise à jour du profil:", error)
       toast.error(error.message || "Erreur lors de la mise à jour du profil")
