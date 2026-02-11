@@ -18,6 +18,27 @@ model User {
   role                             Role
   status                           UserStatus               @default(PENDING)
   disciplineId                     String?
+  address                          String?
+  bio                              String?
+  website                          String?
+  linkedin                         String?
+  twitter                          String?
+  
+  // Champs pour les institutions (Clients/Partenaires)
+  ifu                              String?
+  establishment                    String?
+  director                         String?
+  department                       String?
+  founded                          String?
+  
+  // Champs bancaires (Auteurs)
+  bankName                         String?
+  accountNumber                    String?
+  accountName                      String?
+  iban                             String?
+  swiftCode                        String?
+  mobileMoneyProvider              String?
+  mobileMoneyNumber                String?
   createdAt                        DateTime                 @default(now())
   updatedAt                        DateTime                 @updatedAt
   lastLoginAt                      DateTime?

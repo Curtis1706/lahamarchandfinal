@@ -49,19 +49,63 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, phone, address, bio, website, linkedin, twitter, profileImage } = body
+    const {
+      name,
+      phone,
+      address,
+      bio,
+      website,
+      linkedin,
+      twitter,
+      profileImage,
+      image,
+      ifu,
+      establishment,
+      director,
+      department,
+      founded,
+      bankName,
+      accountNumber,
+      accountName,
+      iban,
+      swiftCode,
+      mobileMoneyProvider,
+      mobileMoneyNumber
+    } = body
 
     // Préparer les données à mettre à jour
     const updateData: any = {}
 
+    // Champs de base
     if (name !== undefined) updateData.name = name
     if (phone !== undefined) updateData.phone = phone
+
+    // Champs de profil
     if (address !== undefined) updateData.address = address
     if (bio !== undefined) updateData.bio = bio
     if (website !== undefined) updateData.website = website
     if (linkedin !== undefined) updateData.linkedin = linkedin
     if (twitter !== undefined) updateData.twitter = twitter
-    if (profileImage !== undefined) updateData.profileImage = profileImage
+
+    // Image (accepte profileImage ou image)
+    if (profileImage !== undefined) updateData.image = profileImage
+    if (image !== undefined) updateData.image = image
+
+    // Champs institutionnels
+    if (ifu !== undefined) updateData.ifu = ifu
+    if (establishment !== undefined) updateData.establishment = establishment
+    if (director !== undefined) updateData.director = director
+    if (department !== undefined) updateData.department = department
+    if (founded !== undefined) updateData.founded = founded
+
+    // Champs bancaires
+    if (bankName !== undefined) updateData.bankName = bankName
+    if (accountNumber !== undefined) updateData.accountNumber = accountNumber
+    if (accountName !== undefined) updateData.accountName = accountName
+    if (iban !== undefined) updateData.iban = iban
+    if (swiftCode !== undefined) updateData.swiftCode = swiftCode
+    if (mobileMoneyProvider !== undefined) updateData.mobileMoneyProvider = mobileMoneyProvider
+    if (mobileMoneyNumber !== undefined) updateData.mobileMoneyNumber = mobileMoneyNumber
 
     // Mettre à jour le profil
     const updatedUser = await prisma.user.update({

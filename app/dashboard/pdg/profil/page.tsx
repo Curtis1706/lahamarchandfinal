@@ -1,30 +1,78 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Trash2 } from "lucide-react"
+import { useCurrentUser } from "@/hooks/use-current-user"
+import { toast } from "sonner"
 
 
 export default function ProfilPage() {
+  const { user, refreshUser } = useCurrentUser();
   const [profileData, setProfileData] = useState({
-    nom: "Super",
-    prenoms: "Administrateur",
-    email: "support@lahamarchand.com",
-    telephone: "+229 52 73 44 44",
+    nom: "",
+    prenoms: "",
+    email: "",
+    telephone: "",
     role: "PDG",
     imageProfile: "",
   })
 
-  const handleRefresh = () => {
+  useEffect(() => {
+    if (user) {
+      const nameParts = (user.name || "").split(" ");
+      setProfileData({
+        nom: nameParts[0] || "",
+        prenoms: nameParts.slice(1).join(" ") || "",
+        email: user.email || "",
+        telephone: user.phone || "",
+        role: user.role || "PDG",
+        imageProfile: user.image || "",
+      });
+    }
+  }, [user]);
+
+  const handleRefresh = async () => {
+    try {
+      await refreshUser();
+      toast.success("Profil actualisé");
+    } catch (error) {
+      toast.error("Erreur lors de l'actualisation");
+    }
+  }
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+
+    try {
+      const response = await fetch('/api/users/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: `${profileData.nom} ${profileData.prenoms}`.trim(),
+          phone: profileData.telephone,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Erreur lors de la mise à jour du profil');
       }
 
-  const handleSaveProfile = () => {
-      }
+      await refreshUser();
+      toast.success("Profil mis à jour avec succès");
+    } catch (error: any) {
+      console.error("Erreur lors de la mise à jour du profil:", error);
+      toast.error(error.message || "Erreur lors de la mise à jour du profil");
+    }
+  }
 
   const handleDeleteAccount = () => {
-        // Add confirmation dialog logic here
+    // Add confirmation dialog logic here
   }
 
   return (
@@ -42,7 +90,7 @@ export default function ProfilPage() {
           </div>
         </div>
       </div>
-      
+
       <div className="p-4 lg:p-6">
         <div className="bg-white rounded-lg shadow-sm">
           {/* Header Section */}

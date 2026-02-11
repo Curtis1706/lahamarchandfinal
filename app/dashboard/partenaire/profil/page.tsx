@@ -41,13 +41,43 @@ export default function ProfilPage() {
   };
 
   const handleFullscreen = () => {
-      };
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen()
+    } else {
+      document.exitFullscreen()
+    }
+  }
 
-  const handleSave = () => {
-      };
+  const handleSave = async () => {
+    if (!user) return;
+
+    try {
+      const response = await fetch('/api/users/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: `${profileData.nom} ${profileData.prenoms}`.trim(),
+          phone: profileData.telephone,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Erreur lors de la mise à jour du profil');
+      }
+
+      await refreshUser();
+      toast.success("Profil mis à jour avec succès");
+    } catch (error: any) {
+      console.error("Erreur lors de la mise à jour du profil:", error);
+      toast.error(error.message || "Erreur lors de la mise à jour du profil");
+    }
+  };
 
   const handleDeleteAccount = () => {
-        // Add confirmation dialog logic here
+    // Add confirmation dialog logic here
   }
 
   return (
