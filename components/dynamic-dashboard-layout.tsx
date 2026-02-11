@@ -78,15 +78,15 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           icon: UserCheck,
           label: "Validation Inscriptions"
         },
-        {
+        /* {
           href: `${basePath}/gestion-utilisateurs`,
           icon: Users,
           label: "Gestion Utilisateurs"
-        },
+        }, */
         {
           href: `${basePath}/gestion-disciplines`,
           icon: GraduationCap,
-          label: "Gestion Disciplines"
+          label: "Disciplines"
         },
         {
           href: `${basePath}/validation-oeuvres`,
@@ -96,27 +96,27 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
         {
           href: `${basePath}/gestion-projets`,
           icon: FileText,
-          label: "Gestion des Projets"
+          label: "Projets"
         },
         {
           href: `${basePath}/gestion-partenaires`,
           icon: Building2,
-          label: "Gestion Partenaires"
+          label: "Partenaires"
         },
         {
           href: `${basePath}/gestion-ecoles`,
           icon: GraduationCap,
-          label: "Gestion Écoles"
+          label: "Écoles"
         },
         {
           href: `${basePath}/gestion-commandes`,
           icon: ShoppingCart,
-          label: "Gestion Commandes"
+          label: "Commandes"
         },
         {
           href: `${basePath}/gestion-stock`,
           icon: Package,
-          label: "Gestion Stock"
+          label: "Stock"
         },
         {
           href: `${basePath}/gestion-stock/operations`,
@@ -163,13 +163,13 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
         {
           href: `${basePath}/gestion-financiere`,
           icon: DollarSign,
-          label: "Gestion Financière"
+          label: " Gestion Financière"
         },
-        {
+        /* {
           href: `${basePath}/retraits-auteurs`,
           icon: Wallet,
           label: "Retraits Auteurs"
-        },
+        }, */
         {
           href: `${basePath}/notifications`,
           icon: Bell,
