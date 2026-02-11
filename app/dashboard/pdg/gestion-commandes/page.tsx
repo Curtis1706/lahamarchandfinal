@@ -607,15 +607,24 @@ export default function GestionCommandesPage() {
 
   // Nouvelle fonction pour le statut de livraison
   const getDeliveryBadge = (deliveryStatus?: string) => {
-    if (!deliveryStatus) {
-      return <Badge className="bg-gray-100 text-gray-800">En attente de validation</Badge>
+    if (!deliveryStatus || deliveryStatus === 'PENDING') {
+      return <Badge className="bg-gray-100 text-gray-800">En attente d'expédition</Badge>
     }
 
-    const isDelivered = ['DELIVERED', 'RECEIVED'].includes(deliveryStatus)
+    if (deliveryStatus === 'RECEIVED') {
+      return (
+        <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+          <CheckCircle className="h-3 w-3 mr-1" />
+          Réceptionnée par le client
+        </Badge>
+      )
+    }
+
+    const isDelivered = deliveryStatus === 'DELIVERED'
 
     return (
-      <Badge className={isDelivered ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
-        {isDelivered ? 'Livraison terminée' : 'En attente de validation'}
+      <Badge className={isDelivered ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
+        {isDelivered ? 'Livrée' : 'En cours de livraison'}
       </Badge>
     )
   }
@@ -625,15 +634,23 @@ export default function GestionCommandesPage() {
     if (order.receivedAt) {
       return (
         <div className="flex flex-col">
-          <Badge className="bg-green-100 text-green-800 w-fit">Confirmée</Badge>
+          <Badge className="bg-blue-100 text-blue-800 border-blue-200 w-fit">
+            <Check className="h-3 w-3 mr-1" />
+            Confirmée
+          </Badge>
           <span className="text-[10px] text-gray-500 mt-1">
             Le {formatDate(order.receivedAt)}
           </span>
+          {order.receivedBy && (
+            <span className="text-[10px] text-gray-400">
+              Par {order.receivedBy}
+            </span>
+          )}
         </div>
       )
     }
 
-    return <Badge className="bg-gray-100 text-gray-500">Non confirmée</Badge>
+    return <Badge className="bg-gray-100 text-gray-400 italic">En attente du client</Badge>
   }
 
   // Nouvelle fonction pour le statut de paiement

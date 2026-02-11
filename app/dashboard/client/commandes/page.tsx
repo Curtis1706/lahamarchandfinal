@@ -214,7 +214,16 @@ function ClientCommandePageContent() {
     }
   }
 
-  const getStatusBadge = (status: Order['status']) => {
+  const getStatusBadge = (order: Order) => {
+    if (order.receivedAt) {
+      return (
+        <Badge className="bg-blue-600 text-white font-semibold">
+          <CheckCircle className="h-3 w-3 mr-1" />
+          Réceptionnée
+        </Badge>
+      )
+    }
+
     const variants = {
       pending: { variant: "secondary" as const, label: "En attente", color: "bg-yellow-100 text-yellow-800" },
       confirmed: { variant: "default" as const, label: "Validée", color: "bg-blue-100 text-blue-800" },
@@ -224,7 +233,7 @@ function ClientCommandePageContent() {
       cancelled: { variant: "destructive" as const, label: "Annulée", color: "bg-red-100 text-red-800" }
     }
 
-    const config = variants[status] || variants.pending // Fallback vers "pending" si statut non reconnu
+    const config = variants[order.status] || variants.pending
     return (
       <Badge className={config.color}>
         {config.label}
@@ -239,6 +248,7 @@ function ClientCommandePageContent() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           orderId,
           action: 'confirm_reception'
@@ -287,8 +297,11 @@ function ClientCommandePageContent() {
     }
   }
 
-  const getStatusIcon = (status: Order['status']) => {
-    switch (status) {
+  const getStatusIcon = (order: Order) => {
+    if (order.receivedAt) {
+      return <CheckCircle className="h-4 w-4 text-green-600" />
+    }
+    switch (order.status) {
       case 'pending':
         return <Clock className="h-4 w-4" />
       case 'confirmed':
@@ -697,7 +710,7 @@ function ClientCommandePageContent() {
                         Commandé le {new Date(order.date).toLocaleDateString('fr-FR')}
                       </CardDescription>
                     </div>
-                    {getStatusBadge(order.status)}
+                    {getStatusBadge(order)}
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -743,7 +756,7 @@ function ClientCommandePageContent() {
                       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
                         <DialogHeader>
                           <DialogTitle className="flex items-center space-x-2">
-                            {getStatusIcon(order.status)}
+                            {getStatusIcon(order)}
                             <span>Détails de la commande {order.reference}</span>
                           </DialogTitle>
                           <DialogDescription>
@@ -759,7 +772,7 @@ function ClientCommandePageContent() {
                               <div className="space-y-2 text-sm">
                                 <p><span className="font-medium">Référence:</span> {order.reference}</p>
                                 <p><span className="font-medium">Date:</span> {new Date(order.date).toLocaleDateString('fr-FR')}</p>
-                                <p><span className="font-medium">Statut:</span> {getStatusBadge(order.status)}</p>
+                                <p><span className="font-medium">Statut:</span> {getStatusBadge(order)}</p>
                                 <div className="flex items-center">
                                   <span className="font-medium mr-1">Paiement:</span>
                                   {order.paymentMethod}

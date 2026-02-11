@@ -157,12 +157,14 @@ export async function PATCH(request: NextRequest) {
         }, { status: 400 })
       }
 
-      // Mettre à jour la date de réception
+      // Mettre à jour la date de réception et le statut de livraison
+      logger.info(`Confirming reception for order ${orderId} by user ${session.user.id}`);
       const updatedOrder = await prisma.order.update({
         where: { id: orderId },
         data: {
           receivedAt: new Date(),
-          receivedBy: session.user.name || "Client"
+          receivedBy: session.user.name || session.user.email || "Client",
+          deliveryStatus: 'RECEIVED'
         },
         include: {
           items: {
