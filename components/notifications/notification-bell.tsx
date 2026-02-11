@@ -16,12 +16,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { 
-  Bell, 
-  CheckCircle, 
-  XCircle, 
-  FileText, 
-  BookOpen, 
+import {
+  Bell,
+  CheckCircle,
+  XCircle,
+  FileText,
+  BookOpen,
   FolderOpen,
   Clock,
   User,
@@ -38,7 +38,7 @@ interface Notification {
   type: string;
   read: boolean;
   createdAt: string;
-  data?: string;
+  data?: string | null;
 }
 
 export function NotificationBell() {
@@ -56,7 +56,7 @@ export function NotificationBell() {
 
   const fetchNotifications = async () => {
     if (!user) return;
-    
+
     try {
       setIsLoading(true);
       const response = await apiClient.getNotifications(user.id);
@@ -72,9 +72,9 @@ export function NotificationBell() {
   const markAsRead = async (notificationId: string) => {
     try {
       await apiClient.updateNotification(notificationId, { read: true });
-      setNotifications(prev => 
-        prev.map(notif => 
-          notif.id === notificationId 
+      setNotifications(prev =>
+        prev.map(notif =>
+          notif.id === notificationId
             ? { ...notif, read: true }
             : notif
         )
@@ -89,11 +89,11 @@ export function NotificationBell() {
     try {
       const unreadNotifications = notifications.filter(n => !n.read);
       await Promise.all(
-        unreadNotifications.map(notif => 
+        unreadNotifications.map(notif =>
           apiClient.updateNotification(notif.id, { read: true })
         )
       );
-      setNotifications(prev => 
+      setNotifications(prev =>
         prev.map(notif => ({ ...notif, read: true }))
       );
       setUnreadCount(0);
@@ -145,8 +145,8 @@ export function NotificationBell() {
         <Button variant="ghost" size="sm" className="relative" type="button">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <Badge 
-              variant="destructive" 
+            <Badge
+              variant="destructive"
               className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
             >
               {unreadCount > 9 ? "9+" : unreadCount}
@@ -169,7 +169,7 @@ export function NotificationBell() {
           )}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        
+
         <ScrollArea className="h-96">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
@@ -181,13 +181,12 @@ export function NotificationBell() {
               <p className="text-sm text-muted-foreground">Aucune notification</p>
             </div>
           ) : (
-            <div className="space-y-1 p-1">
+            <div className="divide-y divide-gray-100">
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`p-3 rounded-lg border-l-4 cursor-pointer hover:bg-muted/50 transition-colors ${
-                    !notification.read ? 'bg-muted/30' : ''
-                  } ${getNotificationColor(notification.type)}`}
+                  className={`px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors ${!notification.read ? 'bg-blue-50/30' : ''
+                    }`}
                   onClick={() => markAsRead(notification.id)}
                 >
                   <div className="flex items-start space-x-3">
@@ -217,11 +216,11 @@ export function NotificationBell() {
             </div>
           )}
         </ScrollArea>
-        
+
         {notifications.length > 0 && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
+            <DropdownMenuItem
               className="justify-center cursor-pointer"
               onClick={() => {
                 const role = user?.role?.toLowerCase() || 'auteur';
