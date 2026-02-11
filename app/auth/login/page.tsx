@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { User, Eye, EyeOff, Lock } from "lucide-react"
 import { CountrySelector } from "@/components/country-selector"
+import { SuspensionModal } from "@/components/suspension-modal"
 import Link from "next/link"
 import { toast } from "sonner"
 
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const [emailValue, setEmailValue] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [showSuspensionModal, setShowSuspensionModal] = useState(false)
   const router = useRouter()
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -35,6 +37,13 @@ export default function LoginPage() {
       })
 
       if (result?.error) {
+        // Détection de compte suspendu
+        if (result.error.includes('suspendu') || result.error.includes('suspended')) {
+          setShowSuspensionModal(true)
+          setIsLoading(false)
+          return
+        }
+
         toast.error("Email ou mot de passe incorrect")
         setIsLoading(false)
         return
@@ -44,35 +53,35 @@ export default function LoginPage() {
       let session = null
       let attempts = 0
       const maxAttempts = 10
-      
+
       while (!session?.user?.role && attempts < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, 200))
         session = await getSession()
         attempts++
-              }
-      
+      }
+
       if (session?.user?.role) {
         const role = session.user.role.toUpperCase()
         const validRoles = ['PDG', 'REPRESENTANT', 'PARTENAIRE', 'CONCEPTEUR', 'AUTEUR', 'CLIENT', 'INVITE']
-        
+
         if (!validRoles.includes(role)) {
           console.error(`❌ Rôle invalide: ${role}`)
           toast.error("Rôle utilisateur invalide")
           setIsLoading(false)
           return
         }
-        
+
         // Si un callbackUrl est fourni et valide, l'utiliser
         if (callbackUrl && callbackUrl.startsWith('/dashboard/') && !callbackUrl.startsWith('/dashboard/invite')) {
-                    toast.success("Connexion réussie !")
+          toast.success("Connexion réussie !")
           router.replace(callbackUrl)
           return
         }
-        
+
         // Rediriger vers le dashboard approprié selon le rôle
         const dashboardPath = `/dashboard/${role.toLowerCase()}`
-        
-                toast.success("Connexion réussie !")
+
+        toast.success("Connexion réussie !")
         router.replace(dashboardPath)
       } else {
         console.error("❌ Impossible de récupérer la session après connexion")
@@ -138,17 +147,17 @@ export default function LoginPage() {
             {/* Mot de passe */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Mot de passe</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <Input
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Mot de passe"
-                    className="pl-10 pr-10 h-12 bg-gray-50 border-0 rounded-xl"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    autoComplete="current-password"
-                    required
-                  />
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Mot de passe"
+                  className="pl-10 pr-10 h-12 bg-gray-50 border-0 rounded-xl"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  required
+                />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
@@ -192,6 +201,12 @@ export default function LoginPage() {
           </Link>
         </div>
       </div>
+
+      {/* Modale de suspension */}
+      <SuspensionModal
+        isOpen={showSuspensionModal}
+        onClose={() => setShowSuspensionModal(false)}
+      />
     </div>
   )
 }

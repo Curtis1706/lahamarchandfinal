@@ -67,6 +67,16 @@ export class ApiClient {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Erreur inconnue' }))
+
+        // Détection de compte suspendu
+        if (response.status === 403 && errorData.error === 'ACCOUNT_SUSPENDED') {
+          // Déclencher l'événement de suspension
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('account-suspended'))
+          }
+          throw new Error(errorData.message || 'Votre compte a été suspendu')
+        }
+
         const errorMessage = errorData.error || errorData.message || `HTTP ${response.status}`
         throw new Error(errorMessage)
       }

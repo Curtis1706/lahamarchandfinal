@@ -117,14 +117,22 @@ export const authOptions: NextAuthOptions = {
         token.status = user.status
       }
 
-      // When update() is called from client
-      if (trigger === "update") {
+      // When update() is called from client OR on any JWT generation
+      if (trigger === "update" || token.id) {
         // Fetch fresh user data from database
         const freshUser = await prisma.user.findUnique({
-          where: { id: token.id }
+          where: { id: token.id },
+          select: { name: true, email: true, image: true, role: true, status: true }
         })
 
         if (freshUser) {
+          // Check if user is suspended - invalidate token if so
+          if (freshUser.status === 'SUSPENDED' || freshUser.status === 'INACTIVE') {
+            // Return null to invalidate the token
+            return null as any
+          }
+
+          // Update token with fresh data
           token.name = freshUser.name
           token.email = freshUser.email
           token.picture = freshUser.image
@@ -149,24 +157,6 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: "jwt"
-  },
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id
-        token.role = user.role
-        token.status = user.status
-      }
-      return token
-    },
-    async session({ session, token }) {
-      if (token) {
-        session.user.id = (token.id as string) || (token.sub as string) || ''
-        session.user.role = token.role as Role
-        session.user.status = token.status as string
-      }
-      return session
-    }
   },
   pages: {
     signIn: "/auth/login",
