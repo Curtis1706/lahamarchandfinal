@@ -31,14 +31,14 @@ interface Work {
   isbn: string
   price: number
   discipline: string
-}
-
-interface OutOfStockWork {
+  coverImage?: string | null
+}interface OutOfStockWork {
   id: string
   title: string
   isbn: string
   stock: number
   physicalStock: number
+  coverImage?: string | null
 }
 
 export default function PDGDashboard() {
@@ -207,8 +207,16 @@ export default function PDGDashboard() {
               </div>
             </div>
             <div className="flex-shrink-0">
-              <div className="w-24 h-28 bg-indigo-100 rounded-md flex items-center justify-center">
-                <BookOpen className="w-12 h-12 text-indigo-600" />
+              <div className="w-24 h-28 bg-indigo-100 rounded-md flex items-center justify-center overflow-hidden">
+                {currentBook.coverImage ? (
+                  <img
+                    src={currentBook.coverImage}
+                    alt={currentBook.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <BookOpen className="w-12 h-12 text-indigo-600" />
+                )}
               </div>
             </div>
           </div>
@@ -304,8 +312,16 @@ export default function PDGDashboard() {
                 {outOfStockWorks.map((work) => (
                   <tr key={work.id} className="border-b">
                     <td className="py-2 flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-red-500 rounded flex items-center justify-center">
-                        <BookOpen className="w-4 h-4 text-white" />
+                      <div className="w-8 h-8 bg-indigo-50 rounded flex items-center justify-center overflow-hidden border">
+                        {work.coverImage ? (
+                          <img
+                            src={work.coverImage}
+                            alt={work.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <BookOpen className="w-4 h-4 text-indigo-600" />
+                        )}
                       </div>
                       <span>{work.title}</span>
                     </td>

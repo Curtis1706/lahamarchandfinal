@@ -78,11 +78,11 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           icon: UserCheck,
           label: "Validation Inscriptions"
         }, */
-        /* {
+        {
           href: `${basePath}/gestion-utilisateurs`,
           icon: Users,
-          label: "Gestion Utilisateurs"
-        }, */
+          label: "Utilisateurs"
+        },
         {
           href: `${basePath}/gestion-disciplines`,
           icon: GraduationCap,

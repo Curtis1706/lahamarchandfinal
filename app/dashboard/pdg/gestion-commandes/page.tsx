@@ -620,6 +620,22 @@ export default function GestionCommandesPage() {
     )
   }
 
+  // Fonction pour afficher l'état de réception
+  const getReceptionBadge = (order: Order) => {
+    if (order.receivedAt) {
+      return (
+        <div className="flex flex-col">
+          <Badge className="bg-green-100 text-green-800 w-fit">Confirmée</Badge>
+          <span className="text-[10px] text-gray-500 mt-1">
+            Le {formatDate(order.receivedAt)}
+          </span>
+        </div>
+      )
+    }
+
+    return <Badge className="bg-gray-100 text-gray-500">Non confirmée</Badge>
+  }
+
   // Nouvelle fonction pour le statut de paiement
   const getPaymentBadge = (paymentStatus?: string) => {
     if (!paymentStatus || paymentStatus === 'UNPAID' || paymentStatus === 'PARTIAL' || paymentStatus === 'OVERDUE') {
@@ -752,6 +768,7 @@ export default function GestionCommandesPage() {
         'Livraison': order.deliveryStatus && ['DELIVERED', 'RECEIVED'].includes(order.deliveryStatus)
           ? 'Livraison terminée'
           : 'En attente de validation',
+        'Réception': order.receivedAt ? `Confirmée le ${formatDate(order.receivedAt)}` : 'Non confirmée',
         'Paiement': order.paymentStatus === 'PAID' ? 'Enregistrée' : 'En attente',
         'Méthode': order.paymentMethod || '-',
         'Montant (FCFA)': order.items.reduce((total, item) => total + (item.price * item.quantity), 0).toFixed(0),
@@ -773,6 +790,7 @@ export default function GestionCommandesPage() {
         { wch: 12 }, // Type
         { wch: 15 }, // Statut
         { wch: 22 }, // Livraison
+        { wch: 20 }, // Réception
         { wch: 15 }, // Paiement
         { wch: 18 }, // Méthode
         { wch: 15 }, // Montant
@@ -833,6 +851,7 @@ export default function GestionCommandesPage() {
         order.deliveryStatus && ['DELIVERED', 'RECEIVED'].includes(order.deliveryStatus)
           ? 'Terminée'
           : 'En attente',
+        order.receivedAt ? `Reçu le ${formatDate(order.receivedAt)}` : 'Non confirmée',
         order.paymentStatus === 'PAID' ? 'Enregistrée' : 'En attente',
         order.paymentMethod || '-',
         order.items.reduce((total, item) => total + (item.price * item.quantity), 0).toFixed(0) + ' FCFA',
@@ -848,6 +867,7 @@ export default function GestionCommandesPage() {
           'Client',
           'Statut',
           'Livraison',
+          'Réception',
           'Paiement',
           'Méthode',
           'Montant',
@@ -869,12 +889,13 @@ export default function GestionCommandesPage() {
           0: { halign: 'center', cellWidth: 10 },  // N°
           1: { halign: 'center', cellWidth: 28 },  // Référence
           2: { halign: 'left', cellWidth: 40 },    // Client
-          3: { halign: 'center', cellWidth: 22 },  // Statut
-          4: { halign: 'center', cellWidth: 22 },  // Livraison
-          5: { halign: 'center', cellWidth: 24 },  // Paiement
-          6: { halign: 'left', cellWidth: 30 },    // Méthode
-          7: { halign: 'right', cellWidth: 28 },   // Montant
-          8: { halign: 'center', cellWidth: 22 }   // Date
+          3: { halign: 'center', cellWidth: 20 },  // Statut
+          4: { halign: 'center', cellWidth: 20 },  // Livraison
+          5: { halign: 'center', cellWidth: 25 },  // Réception
+          6: { halign: 'center', cellWidth: 22 },  // Paiement
+          7: { halign: 'left', cellWidth: 25 },    // Méthode
+          8: { halign: 'right', cellWidth: 25 },   // Montant
+          9: { halign: 'center', cellWidth: 20 }   // Date
         },
         alternateRowStyles: {
           fillColor: [245, 245, 245]
@@ -1113,6 +1134,7 @@ export default function GestionCommandesPage() {
               <TableHead className="font-semibold">Type</TableHead>
               <TableHead className="font-semibold">Statut</TableHead>
               <TableHead className="font-semibold">Livraison</TableHead>
+              <TableHead className="font-semibold">Réception</TableHead>
               <TableHead className="font-semibold">Paiement</TableHead>
               <TableHead className="font-semibold">Méthode</TableHead>
               <TableHead className="font-semibold">Montant</TableHead>
@@ -1123,7 +1145,7 @@ export default function GestionCommandesPage() {
           <TableBody>
             {paginatedOrders.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-8">
+                <TableCell colSpan={11} className="text-center py-8">
                   <div className="flex flex-col items-center space-y-2">
                     <Info className="h-8 w-8 text-gray-400" />
                     <p className="text-gray-500">Aucune donnée disponible dans le tableau</p>
@@ -1147,6 +1169,9 @@ export default function GestionCommandesPage() {
 
                   {/* Livraison */}
                   <TableCell>{getDeliveryBadge(order.deliveryStatus)}</TableCell>
+
+                  {/* Réception */}
+                  <TableCell>{getReceptionBadge(order)}</TableCell>
 
                   {/* Paiement */}
                   <TableCell>{getPaymentBadge(order.paymentStatus)}</TableCell>

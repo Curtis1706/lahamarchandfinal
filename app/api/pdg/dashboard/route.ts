@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user || session.user.role !== 'PDG') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
@@ -30,20 +30,20 @@ export async function GET(request: NextRequest) {
       prisma.user.count({
         where: { status: 'ACTIVE' }
       }),
-      
+
       // Total œuvres publiées
       prisma.work.count({
         where: { status: WorkStatus.PUBLISHED }
       }),
-      
+
       // Total commandes
       prisma.order.count(),
-      
-        // Récupérer les commandes validées/livrées avec leurs items pour calculer les totaux
+
+      // Récupérer les commandes validées/livrées avec leurs items pour calculer les totaux
       prisma.order.findMany({
         where: {
-          status: { 
-            in: [OrderStatus.VALIDATED, OrderStatus.PROCESSING, OrderStatus.SHIPPED, OrderStatus.DELIVERED] 
+          status: {
+            in: [OrderStatus.VALIDATED, OrderStatus.PROCESSING, OrderStatus.SHIPPED, OrderStatus.DELIVERED]
           }
         },
         include: {
@@ -54,8 +54,8 @@ export async function GET(request: NextRequest) {
       // Commandes validées aux clients (non partenaires) avec items
       prisma.order.findMany({
         where: {
-          status: { 
-            in: [OrderStatus.VALIDATED, OrderStatus.PROCESSING, OrderStatus.SHIPPED, OrderStatus.DELIVERED] 
+          status: {
+            in: [OrderStatus.VALIDATED, OrderStatus.PROCESSING, OrderStatus.SHIPPED, OrderStatus.DELIVERED]
           },
           partnerId: null
         },
@@ -77,7 +77,8 @@ export async function GET(request: NextRequest) {
           title: true,
           isbn: true,
           stock: true,
-          physicalStock: true
+          physicalStock: true,
+          files: true
         },
         orderBy: { title: 'asc' },
         take: 10
@@ -95,7 +96,8 @@ export async function GET(request: NextRequest) {
             select: {
               name: true
             }
-          }
+          },
+          files: true
         },
         orderBy: { createdAt: 'desc' },
         take: 5
@@ -106,8 +108,8 @@ export async function GET(request: NextRequest) {
     // Récupérer d'abord les commandes validées aux clients
     const validatedClientOrders = await prisma.order.findMany({
       where: {
-        status: { 
-          in: [OrderStatus.VALIDATED, OrderStatus.PROCESSING, OrderStatus.SHIPPED, OrderStatus.DELIVERED] 
+        status: {
+          in: [OrderStatus.VALIDATED, OrderStatus.PROCESSING, OrderStatus.SHIPPED, OrderStatus.DELIVERED]
         },
         partnerId: null
       },
@@ -152,19 +154,19 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculer le chiffre d'affaires total
-    const totalRevenueAmount = Array.isArray(totalRevenue) 
+    const totalRevenueAmount = Array.isArray(totalRevenue)
       ? totalRevenue.reduce((sum, order) => {
-          const orderTotal = calculateOrderTotal(order)
-          return sum + orderTotal
-        }, 0)
+        const orderTotal = calculateOrderTotal(order)
+        return sum + orderTotal
+      }, 0)
       : 0
 
     // Calculer les montants pour les clients
     const validatedToClientsAmount = Array.isArray(validatedOrders)
       ? validatedOrders.reduce((sum, order) => {
-          const orderTotal = calculateOrderTotal(order)
-          return sum + orderTotal
-        }, 0)
+        const orderTotal = calculateOrderTotal(order)
+        return sum + orderTotal
+      }, 0)
       : 0
 
     // Les livres alloués aux partenaires ne sont pas encore vendus, donc montant = 0
@@ -192,14 +194,45 @@ export async function GET(request: NextRequest) {
           amount: totalValidatedAmount
         }
       },
-      outOfStock: outOfStockWorks,
-      recentWorks: recentWorks.map(work => ({
-        id: work.id,
-        title: work.title,
-        isbn: work.isbn,
-        price: work.price,
-        discipline: work.discipline?.name || 'N/A'
-      })),
+      outOfStock: outOfStockWorks.map(work => {
+        let coverImage = null;
+        try {
+          if (work.files) {
+            const filesData = JSON.parse(work.files);
+            coverImage = filesData.coverImage || null;
+          }
+        } catch (e) {
+          console.error("Error parsing files for outOfStock work", work.id, e);
+        }
+        return {
+          id: work.id,
+          title: work.title,
+          isbn: work.isbn,
+          stock: work.stock,
+          physicalStock: work.physicalStock,
+          coverImage
+        };
+      }),
+      recentWorks: recentWorks.map(work => {
+        let coverImage = null;
+        try {
+          if (work.files) {
+            const filesData = JSON.parse(work.files);
+            coverImage = filesData.coverImage || null;
+          }
+        } catch (e) {
+          console.error("Error parsing files for work", work.id, e);
+        }
+
+        return {
+          id: work.id,
+          title: work.title,
+          isbn: work.isbn,
+          price: work.price,
+          discipline: work.discipline?.name || 'N/A',
+          coverImage
+        };
+      }),
       user: {
         name: session.user.name,
         email: session.user.email,
@@ -216,7 +249,7 @@ export async function GET(request: NextRequest) {
       logger.error("Error code:", error.code)
     }
     return NextResponse.json(
-      { 
+      {
         error: 'Erreur lors de la récupération des statistiques',
         message: process.env.NODE_ENV === 'development' ? (error?.message || String(error)) : undefined,
         code: process.env.NODE_ENV === 'development' ? error?.code : undefined

@@ -148,6 +148,84 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 })
     }
 
+    // Traiter l'action "confirm_reception"
+    if (action === "confirm_reception") {
+      // Seules les commandes DELIVERED peuvent être réceptionnées
+      if (existingOrder.status !== OrderStatus.DELIVERED) {
+        return NextResponse.json({
+          error: "Seules les commandes livrées peuvent être confirmées comme reçues"
+        }, { status: 400 })
+      }
+
+      // Mettre à jour la date de réception
+      const updatedOrder = await prisma.order.update({
+        where: { id: orderId },
+        data: {
+          receivedAt: new Date(),
+          receivedBy: session.user.name || "Client"
+        },
+        include: {
+          items: {
+            include: {
+              work: {
+                include: {
+                  discipline: true,
+                  author: { select: { name: true } }
+                }
+              }
+            }
+          }
+        }
+      })
+
+      // Formater la réponse (réutiliser la logique existante)
+      let deliveryAddress = null
+      if (updatedOrder.paymentReference) {
+        try {
+          const parsed = JSON.parse(updatedOrder.paymentReference)
+          deliveryAddress = parsed.address || null
+        } catch (e) {
+          deliveryAddress = updatedOrder.paymentReference
+        }
+      }
+
+      return NextResponse.json({
+        id: updatedOrder.id,
+        date: updatedOrder.createdAt,
+        status: updatedOrder.status,
+        total: updatedOrder.total || updatedOrder.items.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+        itemsCount: updatedOrder.items.reduce((sum, item) => sum + item.quantity, 0),
+        paymentMethod: updatedOrder.paymentMethod || null,
+        deliveryAddress: deliveryAddress || null,
+        receivedAt: updatedOrder.receivedAt,
+        receivedBy: updatedOrder.receivedBy,
+        items: updatedOrder.items.map(item => {
+          let coverImage = null
+          if (item.work.files) {
+            try {
+              const filesData = typeof item.work.files === 'string' ? JSON.parse(item.work.files) : item.work.files
+              coverImage = filesData.coverImage || null
+            } catch (e) {
+              console.error("Error parsing work files:", e)
+            }
+          }
+
+          return {
+            id: item.id,
+            title: item.work.title,
+            author: item.work.author?.name,
+            discipline: item.work.discipline.name,
+            quantity: item.quantity,
+            unitPrice: item.price,
+            totalPrice: item.price * item.quantity,
+            isbn: item.work.isbn,
+            image: coverImage,
+            workId: item.workId
+          }
+        })
+      })
+    }
+
     // Traiter l'action "cancel" ou le changement de statut directement
     if (action === "cancel" || status === "CANCELLED") {
       // Seules les commandes PENDING peuvent être annulées

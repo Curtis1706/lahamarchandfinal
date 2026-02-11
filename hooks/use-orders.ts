@@ -32,6 +32,7 @@ export interface Order {
   }
   trackingNumber?: string
   estimatedDelivery?: string
+  receivedAt?: string
   notes?: string
 }
 
@@ -122,6 +123,7 @@ export const useOrders = (): UseOrdersResult => {
           paymentMethod: order.paymentMethod || 'Non spécifié',
           paymentStatus: order.paymentStatus || 'UNPAID',
           deliveryAddress: deliveryAddress || 'Adresse non spécifiée',
+          receivedAt: order.receivedAt,
           items: (order.items || []).map((item: any) => ({
             id: item.workId || item.work?.id || item.id,
             title: item.work?.title || item.title,

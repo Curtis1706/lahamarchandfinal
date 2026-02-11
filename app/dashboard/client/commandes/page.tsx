@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout"
 import { useCurrentUser } from "@/hooks/use-current-user"
-import { useOrders } from "@/hooks/use-orders"
+import { useOrders, type Order, type OrderItem } from "@/hooks/use-orders"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -81,37 +81,7 @@ import {
 } from "@/components/ui/alert-dialog"
 
 // Types pour les commandes (importés du hook)
-interface OrderItem {
-  id: string
-  title: string
-  isbn: string
-  price: number
-  quantity: number
-  image: string
-}
 
-interface Order {
-  id: string
-  reference: string
-  date: string
-  status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
-  total: number
-  itemCount: number
-  paymentMethod: string
-  paymentStatus: 'UNPAID' | 'PAID' | 'FAILED'
-  deliveryAddress: string
-  items: OrderItem[]
-  trackingNumber?: string
-  estimatedDelivery?: string
-  notes?: string
-  customerInfo: {
-    fullName: string
-    email: string
-    phone: string
-    address: string
-    city: string
-  }
-}
 
 function ClientCommandePageContent() {
   const { user, isLoading: userLoading } = useCurrentUser()
@@ -260,6 +230,32 @@ function ClientCommandePageContent() {
         {config.label}
       </Badge>
     )
+  }
+
+  const handleConfirmReception = async (orderId: string) => {
+    try {
+      const response = await fetch('/api/client/orders', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId,
+          action: 'confirm_reception'
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Erreur lors de la confirmation");
+      }
+
+      toast.success("Réception confirmée avec succès !");
+      refreshOrders();
+    } catch (error: any) {
+      console.error("Erreur confirmation:", error);
+      toast.error(error.message || "Une erreur est survenue");
+    }
   }
 
   const getPaymentStatusBadge = (status: Order['paymentStatus']) => {
@@ -775,6 +771,12 @@ function ClientCommandePageContent() {
                                 {order.estimatedDelivery && (
                                   <p><span className="font-medium">Livraison estimée:</span> {new Date(order.estimatedDelivery).toLocaleDateString('fr-FR')}</p>
                                 )}
+                                {order.receivedAt && (
+                                  <p className="text-green-600 font-semibold flex items-center">
+                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                    Reçu le {new Date(order.receivedAt).toLocaleDateString('fr-FR')}
+                                  </p>
+                                )}
                               </div>
                             </div>
                             <div>
@@ -784,6 +786,38 @@ function ClientCommandePageContent() {
                                 <div className="mt-2">
                                   <h5 className="font-medium text-sm">Notes:</h5>
                                   <p className="text-sm text-muted-foreground">{order.notes}</p>
+                                </div>
+                              )}
+                              {order.status === 'delivered' && !order.receivedAt && (
+                                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                  <p className="text-sm text-blue-800 font-medium mb-3">
+                                    Avez-vous bien reçu cette commande ?
+                                  </p>
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                                        <Check className="h-4 w-4 mr-2" />
+                                        Confirmer la réception
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Confirmer la réception</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          En confirmant la réception, vous indiquez que tous les articles de cette commande vous ont bien été livrés. Cette action mettra fin au suivi de la commande.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={() => handleConfirmReception(order.id)}
+                                          className="bg-blue-600 hover:bg-blue-700"
+                                        >
+                                          Confirmer
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
                                 </div>
                               )}
                             </div>

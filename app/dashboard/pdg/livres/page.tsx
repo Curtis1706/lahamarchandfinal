@@ -20,6 +20,8 @@ interface Work {
   author?: {
     name: string;
   };
+  coverImage?: string | null;
+  files?: string;
   concepteur?: {
     name: string;
   };
@@ -42,7 +44,19 @@ export default function WorksPage() {
     try {
       setLoading(true);
       const data = await apiClient.getWorks();
-      setWorks(data);
+      const worksWithCovers = data.map((work: any) => {
+        let coverImage = null;
+        if (work.files) {
+          try {
+            const filesData = JSON.parse(work.files);
+            coverImage = filesData.coverImage || null;
+          } catch (e) {
+            console.error("Error parsing files for work", work.id, e);
+          }
+        }
+        return { ...work, coverImage };
+      });
+      setWorks(worksWithCovers);
     } catch (error) {
       console.error("Error loading works:", error);
       toast.error("Erreur lors du chargement des œuvres");
@@ -240,8 +254,16 @@ export default function WorksPage() {
                   <tr key={work.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="h-10 w-10 rounded bg-blue-100 flex items-center justify-center">
-                          <BookOpen className="h-5 w-5 text-blue-600" />
+                        <div className="h-10 w-10 rounded bg-blue-100 flex items-center justify-center overflow-hidden">
+                          {work.coverImage ? (
+                            <img
+                              src={work.coverImage}
+                              alt={work.title}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <BookOpen className="h-5 w-5 text-blue-600" />
+                          )}
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
@@ -260,11 +282,10 @@ export default function WorksPage() {
                       {work.price.toLocaleString()} F CFA
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        work.stock > 10 ? "bg-green-100 text-green-800" : 
-                        work.stock > 0 ? "bg-yellow-100 text-yellow-800" : 
-                        "bg-red-100 text-red-800"
-                      }`}>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${work.stock > 10 ? "bg-green-100 text-green-800" :
+                          work.stock > 0 ? "bg-yellow-100 text-yellow-800" :
+                            "bg-red-100 text-red-800"
+                        }`}>
                         {work.stock} unités
                       </span>
                     </td>
