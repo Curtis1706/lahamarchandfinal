@@ -26,6 +26,32 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
+      // ÉTAPE 1: Vérifier le statut du compte AVANT la connexion
+      const checkResponse = await fetch('/api/auth/check-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailValue })
+      })
+
+      if (checkResponse.ok) {
+        const checkData = await checkResponse.json()
+
+        // Si le compte est suspendu, afficher la modale
+        if (checkData.status === 'SUSPENDED') {
+          setShowSuspensionModal(true)
+          setIsLoading(false)
+          return
+        }
+
+        // Si le compte est inactif
+        if (checkData.status === 'INACTIVE') {
+          toast.error("Votre compte est désactivé")
+          setIsLoading(false)
+          return
+        }
+      }
+
+      // ÉTAPE 2: Procéder avec la connexion normale
       // Récupérer le callbackUrl depuis l'URL si présent
       const searchParams = new URLSearchParams(window.location.search)
       const callbackUrl = searchParams.get("callbackUrl") || null
@@ -37,13 +63,6 @@ export default function LoginPage() {
       })
 
       if (result?.error) {
-        // Détection de compte suspendu
-        if (result.error.includes('suspendu') || result.error.includes('suspended')) {
-          setShowSuspensionModal(true)
-          setIsLoading(false)
-          return
-        }
-
         toast.error("Email ou mot de passe incorrect")
         setIsLoading(false)
         return
