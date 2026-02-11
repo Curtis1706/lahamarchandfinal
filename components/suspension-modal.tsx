@@ -17,7 +17,7 @@ interface SuspensionModalProps {
 export function SuspensionModal({ isOpen, onClose }: SuspensionModalProps) {
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="w-[280px] h-[280px] p-6 gap-0 rounded-xl flex flex-col items-center justify-center text-center">
+            <DialogContent className="w-[140px] h-[140px] p-6 gap-0 rounded-xl flex flex-col items-center justify-center text-center">
                 {/* Icône */}
                 <div className="mb-4">
                     <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
