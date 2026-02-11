@@ -710,19 +710,19 @@ export default function GestionCommandesPage() {
   }
 
   // Extraire l'adresse de livraison depuis paymentReference
-  const getDeliveryAddress = (order: Order) => {
-    if (!order.paymentReference) {
-      return '-'
-    }
+  // const getDeliveryAddress = (order: Order) => {
+  //   if (!order.paymentReference) {
+  //     return '-'
+  //   }
 
-    try {
-      const deliveryInfo = JSON.parse(order.paymentReference)
-      return deliveryInfo.address || '-'
-    } catch {
-      // Si ce n'est pas du JSON, retourner la valeur telle quelle
-      return order.paymentReference || '-'
-    }
-  }
+  //   try {
+  //     const deliveryInfo = JSON.parse(order.paymentReference)
+  //     return deliveryInfo.address || '-'
+  //   } catch {
+  //     // Si ce n'est pas du JSON, retourner la valeur telle quelle
+  //     return order.paymentReference || '-'
+  //   }
+  // }
 
   // Callback mémorisé pour la sélection de date
   const handleDateRangeSelect = useCallback((range: DateRange | undefined) => {
