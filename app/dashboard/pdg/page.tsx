@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { User, BookOpen, ShoppingCart } from "lucide-react";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { toast } from "sonner";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 interface DashboardStats {
   totalUsers: number
@@ -55,6 +56,15 @@ export default function PDGDashboard() {
   const [recentWorks, setRecentWorks] = useState<Work[]>([]);
   const [outOfStockWorks, setOutOfStockWorks] = useState<OutOfStockWork[]>([]);
   const [loading, setLoading] = useState(true);
+  const [chartData, setChartData] = useState([
+    { day: 'Dim', orders: 0, amount: 0 },
+    { day: 'Lun', orders: 0, amount: 0 },
+    { day: 'Mar', orders: 0, amount: 0 },
+    { day: 'Mer', orders: 0, amount: 0 },
+    { day: 'Jeu', orders: 0, amount: 0 },
+    { day: 'Ven', orders: 0, amount: 0 },
+    { day: 'Sam', orders: 0, amount: 0 }
+  ]);
 
   useEffect(() => {
     loadDashboardData();
@@ -73,13 +83,13 @@ export default function PDGDashboard() {
     try {
       setLoading(true);
       const response = await fetch('/api/pdg/dashboard');
-      
+
       if (!response.ok) {
         throw new Error('Erreur lors du chargement des données');
       }
 
       const data = await response.json();
-      
+
       setStats({
         totalUsers: data.stats.totalUsers || 0,
         totalWorks: data.stats.totalWorks || 0,
@@ -130,48 +140,39 @@ export default function PDGDashboard() {
     <>
       {/* Zone graphique */}
       <div className="relative mb-6 w-full">
-        <div className="h-80 bg-slate-700 relative overflow-hidden rounded-lg">
-          {/* Grille */}
-          <div className="absolute inset-0 opacity-30">
-            <svg className="w-full h-full">
-              {[0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875].map((y, i) => (
-                <line
-                  key={i}
-                  x1="0"
-                  y1={`${y * 100}%`}
-                  x2="100%"
-                  y2={`${y * 100}%`}
-                  stroke="#626E82"
-                  strokeWidth="1"
-                />
-              ))}
-              {["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"].map((_, i) => (
-                <line
-                  key={i}
-                  x1={`${(i + 1) * 14.28}%`}
-                  y1="0"
-                  x2={`${(i + 1) * 14.28}%`}
-                  y2="100%"
-                  stroke="#626E82"
-                  strokeWidth="1"
-                />
-              ))}
-            </svg>
-          </div>
-
-          {/* Labels X */}
-          <div className="absolute bottom-4 left-0 right-0 flex justify-around text-[#626E82] text-sm">
-            {["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"].map((day) => (
-              <span key={day}>{day}</span>
-            ))}
-          </div>
-
-          {/* Labels Y */}
-          <div className="absolute left-4 top-0 bottom-0 flex flex-col justify-between text-[#626E82] text-sm py-4">
-            {[0.875, 0.75, 0.625, 0.5, 0.375, 0.25, 0.125, 0].map((val) => (
-              <span key={val}>{val}</span>
-            ))}
-          </div>
+        <div className="h-80 bg-slate-700 relative overflow-hidden rounded-lg p-6">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#626E82" opacity={0.3} />
+              <XAxis
+                dataKey="day"
+                stroke="#9CA3AF"
+                tick={{ fill: '#9CA3AF' }}
+                axisLine={{ stroke: '#626E82' }}
+              />
+              <YAxis
+                stroke="#9CA3AF"
+                tick={{ fill: '#9CA3AF' }}
+                axisLine={{ stroke: '#626E82' }}
+                tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#1e293b',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: '#fff'
+                }}
+                labelStyle={{ color: '#fff' }}
+                formatter={(value: number) => [`${value.toLocaleString()} FCFA`, 'Montant']}
+              />
+              <Bar dataKey="amount" radius={[8, 8, 0, 0]}>
+                {chartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill="#60a5fa" />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 

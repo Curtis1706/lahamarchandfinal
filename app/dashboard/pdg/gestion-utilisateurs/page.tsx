@@ -318,7 +318,7 @@ export default function GestionUtilisateursPage() {
     if (!dateString) return "Date inconnue"
     try {
       const date = new Date(dateString)
-      return format(date, "EEEE d MMMM yyyy 'à' HH:mm", { locale: fr })
+      return format(date, "dd/MM/yyyy", { locale: fr })
     } catch {
       return dateString
     }
@@ -548,12 +548,6 @@ export default function GestionUtilisateursPage() {
               <TableHead className="font-semibold">
                 <div className="flex items-center">
                   <span className="mr-1">♦</span>
-                  Modifié le
-                </div>
-              </TableHead>
-              <TableHead className="font-semibold">
-                <div className="flex items-center">
-                  <span className="mr-1">♦</span>
                   Actions
                 </div>
               </TableHead>
@@ -562,7 +556,7 @@ export default function GestionUtilisateursPage() {
           <TableBody>
             {paginatedUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8">
+                <TableCell colSpan={7} className="text-center py-8">
                   <div className="text-center">
                     <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                     <p className="text-gray-500 text-lg">Aucun utilisateur trouvé</p>
@@ -612,7 +606,6 @@ export default function GestionUtilisateursPage() {
                     <TableCell>{getRoleBadge(user.role)}</TableCell>
                     <TableCell>{getStatusBadge(user.status)}</TableCell>
                     <TableCell>{formatDate(user.createdAt)}</TableCell>
-                    <TableCell>{user.updatedAt ? formatDate(user.updatedAt) : formatDate(user.createdAt)}</TableCell>
                     <TableCell>
                       <div className="flex space-x-1">
                         <Button
@@ -727,7 +720,7 @@ export default function GestionUtilisateursPage() {
                   {/* Détails étendus de l'utilisateur */}
                   {expandedUsers.has(user.id) && (
                     <TableRow>
-                      <TableCell colSpan={8} className="bg-gray-50 p-0">
+                      <TableCell colSpan={7} className="bg-gray-50 p-0">
                         <div className="p-6 space-y-4">
                           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                             <div className="space-y-2">
