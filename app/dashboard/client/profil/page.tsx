@@ -244,66 +244,6 @@ export default function ProfilPage() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Building className="h-5 w-5 mr-2" />
-                  Informations de l'établissement
-                </CardTitle>
-                <CardDescription>
-                  Détails sur votre établissement scolaire
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="establishment">Dénomination</Label>
-                    <Input
-                      id="establishment"
-                      value={profileData.establishment}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, establishment: e.target.value }))}
-                      placeholder="Nom de l'établissement"
-                      disabled={!isEditing}
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="director">Directeur</Label>
-                    <Input
-                      id="director"
-                      value={profileData.director}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, director: e.target.value }))}
-                      placeholder="Nom du directeur"
-                      disabled={!isEditing}
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="department">Département</Label>
-                    <Input
-                      id="department"
-                      value={profileData.department}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, department: e.target.value }))}
-                      placeholder="Département (ex: Atlantique)"
-                      disabled={!isEditing}
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="founded">Année de création</Label>
-                    <Input
-                      id="founded"
-                      type="number"
-                      value={profileData.founded}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, founded: e.target.value }))}
-                      placeholder="2020"
-                      disabled={!isEditing}
-                      className="mt-1"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </div>
 
           {/* Sidebar */}

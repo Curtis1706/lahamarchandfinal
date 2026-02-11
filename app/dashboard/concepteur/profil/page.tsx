@@ -237,49 +237,6 @@ export default function ProfilPage() {
             </CardContent>
           </Card>
 
-          {/* Réseaux sociaux */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Réseaux sociaux</CardTitle>
-              <CardDescription>
-                Vos liens vers vos profils professionnels
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="website">Site web</Label>
-                  <Input
-                    id="website"
-                    value={profileData.website}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, website: e.target.value }))}
-                    disabled={!isEditing}
-                    placeholder="https://votre-site.com"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="linkedin">LinkedIn</Label>
-                  <Input
-                    id="linkedin"
-                    value={profileData.linkedin}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, linkedin: e.target.value }))}
-                    disabled={!isEditing}
-                    placeholder="https://linkedin.com/in/votre-profil"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="twitter">Twitter</Label>
-                  <Input
-                    id="twitter"
-                    value={profileData.twitter}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, twitter: e.target.value }))}
-                    disabled={!isEditing}
-                    placeholder="https://twitter.com/votre-compte"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Sidebar */}
