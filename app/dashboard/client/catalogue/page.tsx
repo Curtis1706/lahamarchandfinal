@@ -63,18 +63,18 @@ const getBookImageUrl = (work: WorkWithDiscipline, title: string, discipline?: s
       console.error("Erreur lors du parsing des fichiers:", e)
     }
   }
-  
+
   // Si pas d'image dans files, utiliser les images par défaut
   const availableImages = [
     '/01.png',
-    '/02.png', 
+    '/02.png',
     '/10001.png',
     '/10002.png',
     '/10011.png',
     '/10012.png',
     '/10013.png'
   ]
-  
+
   const disciplineImages: { [key: string]: string[] } = {
     'Mathématiques': ['/10001.png'],
     'Français': ['/01.png', '/02.png'],
@@ -83,7 +83,7 @@ const getBookImageUrl = (work: WorkWithDiscipline, title: string, discipline?: s
     'Géographie': ['/communication-book.jpg'],
     'Anglais': ['/french-textbook-coffret-ce2.jpg']
   }
-  
+
   if (discipline) {
     const disciplineImageList = disciplineImages[discipline]
     if (disciplineImageList && disciplineImageList.length > 0) {
@@ -91,7 +91,7 @@ const getBookImageUrl = (work: WorkWithDiscipline, title: string, discipline?: s
       return disciplineImageList[randomIndex]
     }
   }
-  
+
   const randomIndex = Math.floor(Math.random() * availableImages.length)
   return availableImages[randomIndex]
 }
@@ -114,31 +114,31 @@ export default function ClientCataloguePage() {
           apiClient.getWorks(),
           apiClient.getDisciplines()
         ])
-        
+
         // L'API retourne un objet avec works, pagination, stats
         // ou directement un tableau selon le contexte
-        const worksArray = Array.isArray(worksData) ? worksData : (worksData.works || [])
-        
+        const worksArray = Array.isArray(worksData) ? worksData : ((worksData as any).works || [])
+
         // Filtrer uniquement les livres PUBLISHED (sécurité supplémentaire)
         const publishedWorks = worksArray.filter((work: any) => work.status === 'PUBLISHED')
-        
+
         // Charger les remises pour chaque livre
         setLoadingDiscounts(true)
         const worksWithDiscounts = await Promise.all(
           publishedWorks.map(async (work: any) => {
             try {
               // Déterminer le type de client (CLIENT par défaut)
-              const clientType = user?.role === 'PARTENAIRE' ? 'Partenaire' : 
-                                user?.role === 'REPRESENTANT' ? 'Représentant' : 'Client'
-              
+              const clientType = user?.role === 'PARTENAIRE' ? 'Partenaire' :
+                user?.role === 'REPRESENTANT' ? 'Représentant' : 'Client'
+
               const discountResponse = await fetch(
-                `/api/discounts/applicable?workId=${work.id}&workTitle=${encodeURIComponent(work.title)}&clientType=${clientType}&quantity=1`
+                `/api/discounts/applicable/public?workId=${work.id}&workTitle=${encodeURIComponent(work.title)}&clientType=${clientType}&quantity=1`
               )
-              
+
               if (discountResponse.ok) {
                 const discountData = await discountResponse.json()
                 const discount = discountData.applicable
-                
+
                 // Calculer le prix final avec remise
                 let finalPrice = work.price || 0
                 if (discount && work.price) {
@@ -148,14 +148,14 @@ export default function ClientCataloguePage() {
                     finalPrice = Math.max(0, work.price - discount.reduction)
                   }
                 }
-                
+
                 return {
                   ...work,
                   discount: discount,
                   finalPrice: finalPrice
                 }
               }
-              
+
               return {
                 ...work,
                 discount: null,
@@ -171,7 +171,7 @@ export default function ClientCataloguePage() {
             }
           })
         )
-        
+
         setWorks(worksWithDiscounts)
         setDisciplines(disciplinesData)
         setLoadingDiscounts(false)
@@ -205,7 +205,7 @@ export default function ClientCataloguePage() {
 
   if (userLoading || isLoading) {
     return (
-      <DynamicDashboardLayout>
+      <DynamicDashboardLayout title="Catalogue">
         <div className="flex items-center justify-center h-96">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
@@ -215,7 +215,7 @@ export default function ClientCataloguePage() {
 
   if (!user) {
     return (
-      <DynamicDashboardLayout>
+      <DynamicDashboardLayout title="Catalogue">
         <div className="text-center py-12">
           <p className="text-muted-foreground">Vous devez être connecté pour accéder au catalogue.</p>
         </div>
@@ -224,7 +224,7 @@ export default function ClientCataloguePage() {
   }
 
   return (
-    <DynamicDashboardLayout>
+    <DynamicDashboardLayout title="Catalogue">
       <div className="space-y-8">
         {/* En-tête */}
         <div className="flex flex-col space-y-4">
@@ -271,7 +271,7 @@ export default function ClientCataloguePage() {
             <Book className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">Aucun livre trouvé</h3>
             <p className="text-muted-foreground">
-              {searchTerm || selectedDiscipline !== "all" 
+              {searchTerm || selectedDiscipline !== "all"
                 ? "Essayez de modifier vos critères de recherche"
                 : "Le catalogue est actuellement vide"
               }
@@ -281,7 +281,7 @@ export default function ClientCataloguePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredWorks.map((work) => {
               const discipline = disciplines.find(d => d.id === work.disciplineId)
-              
+
               return (
                 <Card key={work.id} className="flex flex-col h-full overflow-hidden">
                   {/* Image de couverture */}
@@ -308,14 +308,14 @@ export default function ClientCataloguePage() {
                     {work.discount && (
                       <div className="absolute top-2 left-2">
                         <Badge className="bg-red-500 text-white">
-                          -{work.discount.type === 'Pourcentage' 
-                            ? `${work.discount.reduction}%` 
+                          -{work.discount.type === 'Pourcentage'
+                            ? `${work.discount.reduction}%`
                             : `${work.discount.reduction} F CFA`}
                         </Badge>
                       </div>
                     )}
                   </div>
-                  
+
                   <CardHeader>
                     <CardTitle className="text-lg line-clamp-2">
                       {work.title}
@@ -324,7 +324,7 @@ export default function ClientCataloguePage() {
                       ISBN: {work.isbn}
                     </CardDescription>
                   </CardHeader>
-                  
+
                   <CardContent className="flex-1">
                     <div className="space-y-2">
                       <p className="text-sm text-muted-foreground">
@@ -341,7 +341,7 @@ export default function ClientCataloguePage() {
                       </p>
                     </div>
                   </CardContent>
-                  
+
                   <CardFooter className="pt-4 border-t">
                     <div className="flex flex-col space-y-3 w-full">
                       {/* Prix */}
@@ -362,14 +362,14 @@ export default function ClientCataloguePage() {
                         )}
                         {work.discount && (
                           <div className="text-xs text-green-600 font-medium mt-1">
-                            Remise : {work.discount.type === 'Pourcentage' 
-                              ? `${work.discount.reduction}%` 
-                              : `${work.discount.reduction} F CFA`} 
+                            Remise : {work.discount.type === 'Pourcentage'
+                              ? `${work.discount.reduction}%`
+                              : `${work.discount.reduction} F CFA`}
                             {work.discount.quantiteMin > 1 && ` (min. ${work.discount.quantiteMin} exemplaires)`}
                           </div>
                         )}
                       </div>
-                      
+
                       {/* Bouton Commander */}
                       <Button
                         onClick={() => handleSelectBook(work.id)}

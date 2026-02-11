@@ -88,7 +88,7 @@ export default function OeuvresPage() {
             const clientType = 'Représentant'
 
             const discountResponse = await fetch(
-              `/api/discounts/applicable?workId=${work.id}&workTitle=${encodeURIComponent(work.title)}&clientType=${clientType}&quantity=1`
+              `/api/discounts/applicable/public?workId=${work.id}&workTitle=${encodeURIComponent(work.title)}&clientType=${clientType}&quantity=1`
             )
 
             if (discountResponse.ok) {
