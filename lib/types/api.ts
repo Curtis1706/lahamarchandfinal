@@ -18,30 +18,6 @@ export interface User {
     createdAt?: string
     updatedAt?: string
     lastLoginAt?: string
-
-    // Nouveaux champs de profil
-    image?: string | null
-    address?: string | null
-    bio?: string | null
-    website?: string | null
-    linkedin?: string | null
-    twitter?: string | null
-
-    // Champs institutionnels
-    ifu?: string | null
-    establishment?: string | null
-    director?: string | null
-    department?: string | null
-    founded?: string | null
-
-    // Champs bancaires
-    bankName?: string | null
-    accountNumber?: string | null
-    accountName?: string | null
-    iban?: string | null
-    swiftCode?: string | null
-    mobileMoneyProvider?: string | null
-    mobileMoneyNumber?: string | null
 }
 
 export interface UsersResponse {
@@ -67,30 +43,6 @@ export interface UpdateUserRequest {
     role?: string
     disciplineId?: string | null
     status?: string
-
-    // Nouveaux champs de profil
-    image?: string | null
-    address?: string | null
-    bio?: string | null
-    website?: string | null
-    linkedin?: string | null
-    twitter?: string | null
-
-    // Champs institutionnels
-    ifu?: string | null
-    establishment?: string | null
-    director?: string | null
-    department?: string | null
-    founded?: string | null
-
-    // Champs bancaires
-    bankName?: string | null
-    accountNumber?: string | null
-    accountName?: string | null
-    iban?: string | null
-    swiftCode?: string | null
-    mobileMoneyProvider?: string | null
-    mobileMoneyNumber?: string | null
 }
 
 // ============================================
