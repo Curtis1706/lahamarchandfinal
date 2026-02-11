@@ -29,6 +29,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { DateRange } from "react-day-picker";
+import { useRouter } from "next/navigation";
 
 interface DeliveryNote {
   id: string;
@@ -206,27 +207,30 @@ export default function BonSortiePage() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-      PENDING: { label: "En attente", variant: "secondary" },
-      VALIDATED: { label: "Validé", variant: "default" },
-      CONTROLLED: { label: "Contrôlé", variant: "default" },
-      COMPLETED: { label: "Complété", variant: "default" },
-      CANCELLED: { label: "Annulé", variant: "destructive" },
-    };
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "-"
+    try {
+      return format(new Date(dateString), "dd/MM/yyyy", { locale: fr })
+    } catch {
+      return dateString
+    }
+  }
 
-    const statusInfo = statusMap[status] || { label: status, variant: "secondary" };
-    return (
-      <Badge variant={statusInfo.variant} className={
-        status === "VALIDATED" || status === "CONTROLLED" || status === "COMPLETED"
-          ? "bg-green-100 text-green-800"
-          : status === "CANCELLED"
-          ? "bg-red-100 text-red-800"
-          : "bg-gray-100 text-gray-800"
-      }>
-        {statusInfo.label}
-      </Badge>
-    );
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'PENDING':
+        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">En attente</Badge>
+      case 'VALIDATED':
+        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Validé</Badge>
+      case 'CONTROLLED':
+        return <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100">Contrôlé</Badge>
+      case 'COMPLETED':
+        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Complété</Badge>
+      case 'CANCELLED':
+        return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Annulé</Badge>
+      default:
+        return <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">{status}</Badge>
+    }
   };
 
   const handleRefresh = () => {
@@ -387,29 +391,78 @@ export default function BonSortiePage() {
             <table className="w-full min-w-[1200px]">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="text-left p-4 font-medium text-gray-700">Référence</th>
-                  <th className="text-left p-4 font-medium text-gray-700">Commande</th>
-                  <th className="text-left p-4 font-medium text-gray-700">Généré par</th>
-                  <th className="text-left p-4 font-medium text-gray-700">Client</th>
-                  <th className="text-left p-4 font-medium text-gray-700">Validé par</th>
-                  <th className="text-left p-4 font-medium text-gray-700">Validé le</th>
-                  <th className="text-left p-4 font-medium text-gray-700">Contrôlé par</th>
-                  <th className="text-left p-4 font-medium text-gray-700">Contrôlé le</th>
-                  <th className="text-left p-4 font-medium text-gray-700">Statut</th>
-                  <th className="text-left p-4 font-medium text-gray-700">Créé le</th>
-                  <th className="text-left p-4 font-medium text-gray-700">Actions</th>
+                  <th className="text-left p-4 font-semibold text-gray-700">
+                    <div className="flex items-center">
+                      <span className="mr-1">♦</span>
+                      Référence
+                    </div>
+                  </th>
+                  <th className="text-left p-4 font-semibold text-gray-700">
+                    <div className="flex items-center">
+                      <span className="mr-1">♦</span>
+                      Commande
+                    </div>
+                  </th>
+                  <th className="text-left p-4 font-semibold text-gray-700">
+                    <div className="flex items-center">
+                      <span className="mr-1">♦</span>
+                      Client
+                    </div>
+                  </th>
+                  <th className="text-left p-4 font-semibold text-gray-700">
+                    <div className="flex items-center">
+                      <span className="mr-1">♦</span>
+                      Validé par
+                    </div>
+                  </th>
+                  <th className="text-left p-4 font-semibold text-gray-700">
+                    <div className="flex items-center">
+                      <span className="mr-1">♦</span>
+                      Validé le
+                    </div>
+                  </th>
+                  <th className="text-left p-4 font-semibold text-gray-700">
+                    <div className="flex items-center">
+                      <span className="mr-1">♦</span>
+                      Contrôlé par
+                    </div>
+                  </th>
+                  <th className="text-left p-4 font-semibold text-gray-700">
+                    <div className="flex items-center">
+                      <span className="mr-1">♦</span>
+                      Contrôlé le
+                    </div>
+                  </th>
+                  <th className="text-left p-4 font-semibold text-gray-700">
+                    <div className="flex items-center">
+                      <span className="mr-1">♦</span>
+                      Statut
+                    </div>
+                  </th>
+                  <th className="text-left p-4 font-semibold text-gray-700">
+                    <div className="flex items-center">
+                      <span className="mr-1">♦</span>
+                      Date
+                    </div>
+                  </th>
+                  <th className="text-left p-4 font-semibold text-gray-700">
+                    <div className="flex items-center">
+                      <span className="mr-1">♦</span>
+                      Actions
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td colSpan={11} className="p-8 text-center text-gray-500">
+                    <td colSpan={10} className="p-8 text-center text-gray-500">
                       Chargement...
                     </td>
                   </tr>
                 ) : deliveryNotes.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="p-8 text-center text-gray-500">
+                    <td colSpan={10} className="p-8 text-center text-gray-500">
                       Aucune donnée disponible dans le tableau
                     </td>
                   </tr>
@@ -418,63 +471,26 @@ export default function BonSortiePage() {
                     <tr key={note.id} className="border-b hover:bg-gray-50">
                       <td className="p-4 font-medium">{note.reference}</td>
                       <td className="p-4">{note.order.reference}</td>
-                      <td className="p-4">{note.generatedBy}</td>
                       <td className="p-4">{note.order.client}</td>
                       <td className="p-4">{note.validatedBy || "-"}</td>
-                      <td className="p-4">{note.validatedAt || "-"}</td>
-                      <td className="p-4">{note.controlledBy || "-"}</td>
-                      <td className="p-4">{note.controlledAt || "-"}</td>
+                      <td className="p-4">{formatDate(note.validatedAt)}</td>
+                      <td className="p-4">-</td>
+                      <td className="p-4">-</td>
                       <td className="p-4">{getStatusBadge(note.status)}</td>
-                      <td className="p-4">{note.createdAt}</td>
+                      <td className="p-4">{formatDate(note.createdAt)}</td>
                       <td className="p-4">
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedNote(note);
-                              setShowViewModal(true);
-                            }}
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                          {note.status === "PENDING" && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleAction(note.id, "validate")}
-                            >
-                              <CheckCircle className="w-4 h-4 text-green-600" />
-                            </Button>
-                          )}
-                          {note.status === "VALIDATED" && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleAction(note.id, "control")}
-                            >
-                              <CheckCircle className="w-4 h-4 text-blue-600" />
-                            </Button>
-                          )}
-                          {note.status === "CONTROLLED" && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleAction(note.id, "complete")}
-                            >
-                              <CheckCircle className="w-4 h-4 text-green-600" />
-                            </Button>
-                          )}
-                          {note.status !== "COMPLETED" && note.status !== "CANCELLED" && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleAction(note.id, "cancel")}
-                            >
-                              <XCircle className="w-4 h-4 text-red-600" />
-                            </Button>
-                          )}
-                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          title="Voir les détails"
+                          onClick={() => {
+                            setSelectedNote(note);
+                            setShowViewModal(true);
+                          }}
+                        >
+                          <Eye className="h-4 w-4 text-gray-600" />
+                        </Button>
                       </td>
                     </tr>
                   ))
