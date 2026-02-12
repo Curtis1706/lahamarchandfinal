@@ -128,6 +128,7 @@ export async function POST(request: NextRequest) {
       expectedDeliverables,
       requiredResources,
       timeline,
+      files,
       status = "DRAFT"
     } = body;
 
@@ -227,6 +228,7 @@ export async function POST(request: NextRequest) {
         expectedDeliverables: expectedDeliverables?.trim() || null,
         requiredResources: requiredResources?.trim() || null,
         timeline: timeline?.trim() || null,
+        files: files ? (typeof files === 'string' ? files : JSON.stringify(files)) : null,
         discipline: {
           connect: { id: discipline.id }
         },
@@ -256,8 +258,8 @@ export async function POST(request: NextRequest) {
 
     logger.debug("✅ Projet créé, ajout des logs et notifications...");
 
-    // Si le statut est SUBMITTED, créer automatiquement une œuvre en attente de validation
-    if (status === "SUBMITTED") {
+    // Si le statut est SUBMITTED, créer automatiquement une œuvre en attente de validation (sauf si c'est le PDG)
+    if (status === "SUBMITTED" && session.user.role !== "PDG") {
       try {
         // Générer un ISBN unique pour l'œuvre
         const isbn = `978-${Date.now().toString().slice(-9)}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
