@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
             {
               folder: `laha/${cloudinaryFolder}`,
               public_id: uniqueFilename.split('.')[0],
-              resource_type: fileType === 'images' ? 'image' : 'raw',
+              resource_type: 'auto',
               access_mode: 'public', // Force l'accès public
               type: 'upload' // type standard (public par défaut)
             },
