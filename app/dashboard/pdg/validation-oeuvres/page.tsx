@@ -249,13 +249,18 @@ export default function ValidationOeuvresPage() {
   };
 
   const getDownloadUrl = (url: string) => {
-    if (!url) return '#';
-    // Si c'est une URL Cloudinary, ajouter le flag fl_attachment
-    if (url.includes('cloudinary.com')) {
-      // Insérer fl_attachment après /upload/
-      return url.replace('/upload/', '/upload/fl_attachment/');
+    if (!url) {
+      console.warn("🔗 [Download] Provided URL is empty");
+      return '#';
     }
-    return url;
+
+    // Si c'est déjà une URL de notre API, ne pas la modifier
+    if (url.startsWith('/api/download-document')) return url;
+
+    console.log("🔗 [Download] Original URL:", url);
+    const apiUrl = `/api/download-document?url=${encodeURIComponent(url)}`;
+    console.log("🔗 [Download] Proxy URL:", apiUrl);
+    return apiUrl;
   };
 
   const handleUpdateWorkStatus = async (workId: string, action: string, reason?: string, authorId?: string) => {
