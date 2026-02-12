@@ -11,7 +11,7 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { error: "Non authentifié" },
@@ -122,7 +122,7 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { error: "Non authentifié" },
@@ -173,6 +173,9 @@ export async function PATCH(
     if (data.title !== undefined) updateData.title = data.title;
     if (data.description !== undefined) updateData.description = data.description;
     if (data.disciplineId !== undefined) updateData.disciplineId = data.disciplineId;
+    if (data.files !== undefined) {
+      updateData.files = typeof data.files === 'string' ? data.files : JSON.stringify(data.files);
+    }
 
     const updatedProject = await prisma.project.update({
       where: { id: projectId },
@@ -209,7 +212,7 @@ export async function PUT(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { error: "Non authentifié" },
@@ -262,7 +265,7 @@ export async function PUT(
           { status: 403 }
         );
       }
-      
+
       // Utiliser le helper pour vérifier si le projet peut être modifié
       const { canEditProject } = await import("@/lib/project-status");
       if (!canEditProject(existingProject.status)) {
@@ -275,7 +278,7 @@ export async function PUT(
 
     // Préparer les données de mise à jour
     const updateData: any = {};
-    
+
     if (data.title) updateData.title = data.title;
     if (data.description) updateData.description = data.description;
     if (data.objectives) updateData.objectives = data.objectives;
@@ -397,7 +400,7 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { error: "Non authentifié" },

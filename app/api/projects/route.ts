@@ -134,25 +134,41 @@ export async function POST(request: NextRequest) {
     logger.debug("🔍 Données extraites:", { title, disciplineId, concepteurId, description, status });
 
     // Validation des champs obligatoires
-    if (!title || !disciplineId || !concepteurId) {
+    // Pour le PDG, le concepteur est optionnel (on l'assigne à lui-même par défaut s'il n'est pas spécifié)
+    if (!title || !disciplineId) {
       return NextResponse.json(
-        { error: "Le titre, la discipline et le concepteur sont obligatoires" },
+        { error: "Le titre et la discipline sont obligatoires" },
         { status: 400 }
       );
     }
 
+    if (session.user.role !== "PDG" && !concepteurId) {
+      return NextResponse.json(
+        { error: "Le concepteur est obligatoire" },
+        { status: 400 }
+      );
+    }
+
+    // Déterminer l'ID du concepteur final
+    let finalConcepteurId = concepteurId;
+
+    // Si pas de concepteur spécifié et que c'est un PDG, on l'assigne à lui-même
+    if (!finalConcepteurId && session.user.role === "PDG") {
+      finalConcepteurId = session.user.id;
+    }
+
     // Vérifier que l'utilisateur est un concepteur ou un PDG
     // Si c'est un concepteur, vérifier que concepteurId correspond à l'utilisateur connecté
-    if (session.user.role !== "PDG" && session.user.id !== concepteurId) {
+    if (session.user.role !== "PDG" && session.user.id !== finalConcepteurId) {
       return NextResponse.json(
         { error: "Vous ne pouvez créer un projet que pour vous-même" },
         { status: 403 }
       );
     }
 
-    // Vérifier que le concepteur existe et est bien un concepteur
+    // Vérifier que le concepteur existe
     const concepteur = await prisma.user.findUnique({
-      where: { id: concepteurId }
+      where: { id: finalConcepteurId }
     });
 
     if (!concepteur) {
@@ -162,7 +178,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (concepteur.role !== "CONCEPTEUR") {
+    // Si c'est un PDG qui s'assigne, on ne vérifie pas le rôle CONCEPTEUR
+    if (concepteur.role !== "CONCEPTEUR" && session.user.role !== "PDG") {
       return NextResponse.json(
         { error: "L'utilisateur sélectionné n'est pas un concepteur" },
         { status: 400 }
@@ -216,7 +233,8 @@ export async function POST(request: NextRequest) {
         concepteur: {
           connect: { id: concepteurId }
         },
-        status: status
+        status: status,
+        submittedAt: status === "SUBMITTED" ? new Date() : null
       },
       include: {
         concepteur: {

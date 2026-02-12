@@ -34,7 +34,9 @@ import {
   MessageSquare,
   History,
   Plus,
-  RefreshCw
+  RefreshCw,
+  Upload,
+  Download
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -149,14 +151,58 @@ export default function GestionProjetsPage() {
     setIsDetailsDialogOpen(true);
   };
 
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+
+  // ... (existing code)
+
   const handleCreateProject = async () => {
-    if (!newProject.title || !newProject.disciplineId || !newProject.concepteurId) {
+    if (!newProject.title || !newProject.disciplineId) {
       toast.error("Veuillez remplir tous les champs obligatoires");
       return;
     }
 
     try {
       setIsSubmitting(true);
+
+      // 1. Upload des fichiers
+      const uploadedFilesList = [];
+      if (attachedFiles.length > 0) {
+        toast.info("Envoi des fichiers en cours...");
+        for (const file of attachedFiles) {
+          try {
+            const formDataUpload = new FormData();
+            formDataUpload.append('files', file);
+            formDataUpload.append('type', 'project');
+            // On n'a pas encore l'ID du projet, on met null ou on gère côté serveur
+            // Ici l'API upload attend entityId mais c'est optionnel ou on peut mettre 'new'
+            formDataUpload.append('entityId', 'new');
+
+            const response = await fetch('/api/upload', {
+              method: 'POST',
+              body: formDataUpload
+            });
+
+            if (!response.ok) throw new Error(`Erreur upload ${file.name}`);
+
+            const result = await response.json();
+            const uploadedFile = result.files && result.files.length > 0 ? result.files[0] : null;
+
+            if (uploadedFile && uploadedFile.path) {
+              uploadedFilesList.push({
+                name: file.name,
+                url: uploadedFile.path,
+                type: file.type,
+                size: file.size
+              });
+            }
+          } catch (uploadError) {
+            console.error(`Erreur upload ${file.name}:`, uploadError);
+            toast.error(`Erreur lors de l'envoi de ${file.name}`);
+          }
+        }
+      }
+
+      // 2. Création du projet
       const response = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -169,7 +215,9 @@ export default function GestionProjetsPage() {
           timeline: newProject.timeline || '',
           disciplineId: newProject.disciplineId,
           concepteurId: newProject.concepteurId,
-          status: 'DRAFT'
+          status: 'SUBMITTED',
+          submittedAt: new Date().toISOString(),
+          files: uploadedFilesList.length > 0 ? JSON.stringify(uploadedFilesList) : null
         })
       });
 
@@ -188,6 +236,7 @@ export default function GestionProjetsPage() {
           disciplineId: "",
           concepteurId: ""
         });
+        setAttachedFiles([]); // Reset files
         fetchData();
       } else {
         toast.error(data.error || "Erreur lors de la création du projet");
@@ -199,6 +248,20 @@ export default function GestionProjetsPage() {
       setIsSubmitting(false);
     }
   };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files) {
+      const newFiles = Array.from(files);
+      setAttachedFiles(prev => [...prev, ...newFiles]);
+      toast.success(`${newFiles.length} fichier(s) ajouté(s)`);
+    }
+  };
+
+  const removeNewFile = (index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
 
   const handleDeleteProject = async () => {
     if (!projectToDelete) return;
@@ -734,8 +797,8 @@ export default function GestionProjetsPage() {
                                 size="sm"
                                 asChild
                               >
-                                <a href={file.url} target="_blank" rel="noopener noreferrer" title="Télécharger">
-                                  <Eye className="h-4 w-4" />
+                                <a href={file.url} download target="_blank" rel="noopener noreferrer" title="Télécharger">
+                                  <Download className="h-4 w-4" />
                                 </a>
                               </Button>
                             </div>
@@ -900,6 +963,44 @@ export default function GestionProjetsPage() {
               />
             </div>
 
+            <div className="space-y-2">
+              <Label>Pièces jointes</Label>
+              <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 text-center cursor-pointer hover:border-indigo-300 hover:bg-indigo-50 transition-colors">
+                <input
+                  type="file"
+                  id="pdg-file-upload"
+                  multiple
+                  accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+                <Label htmlFor="pdg-file-upload" className="cursor-pointer">
+                  <Upload className="h-8 w-8 mx-auto mb-2 text-slate-400" />
+                  <p className="text-sm text-slate-600 font-medium">
+                    Cliquez pour ajouter des fichiers
+                  </p>
+                </Label>
+              </div>
+
+              {attachedFiles.length > 0 && (
+                <div className="space-y-2 mt-2">
+                  {attachedFiles.map((file, index) => (
+                    <div key={`new-${index}`} className="flex items-center justify-between p-2 bg-indigo-50 rounded border border-indigo-100">
+                      <span className="text-sm truncate font-medium text-indigo-700">{file.name}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeNewFile(index)}
+                        className="h-6 w-6 p-0 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-100"
+                      >
+                        <XCircle className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="project-discipline">Discipline *</Label>
@@ -918,7 +1019,7 @@ export default function GestionProjetsPage() {
               </div>
 
               <div>
-                <Label htmlFor="project-concepteur">Concepteur *</Label>
+                <Label htmlFor="project-concepteur">Concepteur (optionnel)</Label>
                 <Select value={newProject.concepteurId} onValueChange={(value) => setNewProject({ ...newProject, concepteurId: value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner un concepteur" />
