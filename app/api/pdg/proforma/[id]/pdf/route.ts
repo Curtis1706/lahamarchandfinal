@@ -80,7 +80,7 @@ export async function GET(
     };
 
     const recipientTypeLabel =
-      clientTypeLabels[proforma.clientType] || proforma.clientType;
+      clientTypeLabels[proforma.clientType as keyof typeof clientTypeLabels] || proforma.clientType;
 
     // Récupérer les informations du client (snapshot ou relation)
     const clientSnapshot = proforma.clientSnapshot;
@@ -131,9 +131,9 @@ export async function GET(
     const pdfItems = proforma.items.map((item) => ({
       ref: item.reference || null,
       isbn: item.isbn || null,
-      title: item.title,
+      title: item.title || "Article sans titre",
       quantity: item.quantity,
-      unitPriceHT: item.unitPriceHT,
+      unitPriceHT: item.unitPriceHT || 0,
       discountRate: item.discountRate || 0,
       tvaRate: item.tvaRate || 0.18,
       totalTTC: item.totalTTC,
@@ -143,9 +143,9 @@ export async function GET(
     const companyInfo = {
       name: "LAHA ÉDITIONS GABON",
       country: "GABON",
-      address: "6ᵉ Arrondissement (c.194.ZL), 142 Av. Jean Léon MEGUIRE ME MBA, Nouvelle Cité NZENG AGNON, LIBREVILLE (GABON)",
+      address: "6ᵉ Arrondissement (c.194.ZL)\n142 Av. Jean Léon MEGUIRE ME MBA\nNouvelle Cité NZENG AGNON\nLIBREVILLE (GABON)",
       email: "contact@lahamarchand.com",
-      phone: "+241 ...",
+      phone: "",
       rccm: "GA-LBV-01-2022-A10-00255",
     };
 
@@ -158,7 +158,7 @@ export async function GET(
         validUntil,
         company: companyInfo,
         recipient: {
-          typeLabel: recipientTypeLabel,
+          typeLabel: recipientTypeLabel || "Client",
           ...clientInfo,
         },
         items: pdfItems,
@@ -172,12 +172,12 @@ export async function GET(
         },
         createdBy: proforma.createdBy?.name || "PDG",
         notes: proforma.notes || undefined,
-      })
+      }) as any
     );
 
     const filename = proforma.proformaNumber || `proforma-${proforma.id}.pdf`;
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(pdfBuffer as any, {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${filename}"`,
