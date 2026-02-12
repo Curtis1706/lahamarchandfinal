@@ -34,10 +34,13 @@ export async function GET(request: NextRequest) {
 
         // Assurer que le flag fl_attachment est présent
         let downloadUrl = fileUrl
-        if (fileUrl.includes('cloudinary.com') && !fileUrl.includes('fl_attachment')) {
-            downloadUrl = fileUrl.replace('/upload/', '/upload/fl_attachment/')
-            console.log('🔄 [Download Proxy] Added fl_attachment flag:', downloadUrl)
-        }
+        // NOTE: On ne force plus fl_attachment car cela peut causer des erreurs 401 sur les fichiers raw
+        // Le proxy gère déjà le header Content-Disposition pour le client
+
+        // if (fileUrl.includes('cloudinary.com') && !fileUrl.includes('fl_attachment')) {
+        //     downloadUrl = fileUrl.replace('/upload/', '/upload/fl_attachment/')
+        //     console.log('🔄 [Download Proxy] Added fl_attachment flag:', downloadUrl)
+        // }
 
         // Télécharger avec timeout
         const controller = new AbortController()
