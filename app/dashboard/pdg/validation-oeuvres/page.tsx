@@ -161,9 +161,9 @@ export default function ValidationOeuvresPage() {
       const response = await fetch(`/api/works?${params}`);
       const data = await response.json();
 
-            
+
       if (response.ok) {
-                        setWorks(data.works || []);
+        setWorks(data.works || []);
         setTotalPages(data.pagination?.pages || 1);
 
         // Calculer les statistiques
@@ -173,7 +173,7 @@ export default function ValidationOeuvresPage() {
         const published = data.stats?.published || 0;
         const suspended = data.stats?.suspended || 0;
 
-                setWorkStats({ total, pending, validated, published, suspended });
+        setWorkStats({ total, pending, validated, published, suspended });
       } else {
         console.error("❌ Erreur API:", data.error);
         toast.error(data.error || "Erreur lors du chargement des œuvres");
@@ -246,6 +246,16 @@ export default function ValidationOeuvresPage() {
   const parseKeywords = (keywordsString?: string) => {
     if (!keywordsString) return [];
     return keywordsString.split(',').map(k => k.trim()).filter(k => k);
+  };
+
+  const getDownloadUrl = (url: string) => {
+    if (!url) return '#';
+    // Si c'est une URL Cloudinary, ajouter le flag fl_attachment
+    if (url.includes('cloudinary.com')) {
+      // Insérer fl_attachment après /upload/
+      return url.replace('/upload/', '/upload/fl_attachment/');
+    }
+    return url;
   };
 
   const handleUpdateWorkStatus = async (workId: string, action: string, reason?: string, authorId?: string) => {
@@ -908,7 +918,7 @@ export default function ValidationOeuvresPage() {
                             className="mt-2"
                             asChild
                           >
-                            <a href={filesData.coverImage} target="_blank" rel="noopener noreferrer">
+                            <a href={getDownloadUrl(filesData.coverImage)} download target="_blank" rel="noopener noreferrer">
                               <Download className="h-4 w-4 mr-2" />
                               Télécharger l'image
                             </a>
@@ -928,7 +938,7 @@ export default function ValidationOeuvresPage() {
                                 <p className="text-xs text-muted-foreground">{file.type || file.mimeType}</p>
                               </div>
                               <Button variant="ghost" size="sm" asChild>
-                                <a href={file.filepath || file.path || file.url} target="_blank" rel="noopener noreferrer">
+                                <a href={getDownloadUrl(file.filepath || file.path || file.url)} download target="_blank" rel="noopener noreferrer">
                                   <Download className="h-4 w-4" />
                                 </a>
                               </Button>
