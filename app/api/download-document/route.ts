@@ -7,14 +7,22 @@ const TIMEOUT_MS = 30000 // 30 secondes
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url)
-        const fileUrl = searchParams.get('url')
+        let fileUrl = searchParams.get('url')
+        const preferredName = searchParams.get('name')
 
-        console.log('📥 [Download Proxy] Client requested:', fileUrl)
+        console.log('📥 [Download Proxy] Client requested:', fileUrl, 'Preferred Name:', preferredName)
 
         // Validation de l'URL
         if (!fileUrl) {
             console.error('❌ [Download Proxy] Missing URL')
             return NextResponse.json({ error: 'URL manquante' }, { status: 400 })
+        }
+
+        // ✅ CORRECTION AUTOMATIQUE : image -> raw pour les documents
+        const isDocumentUrl = fileUrl.match(/\.(pdf|docx?|txt)(\?|$)/i)
+        if (isDocumentUrl && fileUrl.includes('/image/upload/')) {
+            fileUrl = fileUrl.replace('/image/upload/', '/raw/upload/')
+            console.log('🔧 [Download Proxy] Converted image URL to raw:', fileUrl)
         }
 
         // Sécurité : vérifier que l'URL provient de Cloudinary
@@ -24,12 +32,15 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'URL non autorisée' }, { status: 403 })
         }
 
-        // Assurer que le flag fl_attachment est présent pour forcer le téléchargement direct depuis Cloudinary
+        // Assurer que le flag fl_attachment est présent
         let downloadUrl = fileUrl
-        if (fileUrl.includes('cloudinary.com') && !fileUrl.includes('fl_attachment')) {
-            downloadUrl = fileUrl.replace('/upload/', '/upload/fl_attachment/')
-            console.log('🔄 [Download Proxy] Added fl_attachment flag:', downloadUrl)
-        }
+        // NOTE: On ne force plus fl_attachment car cela peut causer des erreurs 401 sur les fichiers raw
+        // Le proxy gère déjà le header Content-Disposition pour le client
+
+        // if (fileUrl.includes('cloudinary.com') && !fileUrl.includes('fl_attachment')) {
+        //     downloadUrl = fileUrl.replace('/upload/', '/upload/fl_attachment/')
+        //     console.log('🔄 [Download Proxy] Added fl_attachment flag:', downloadUrl)
+        // }
 
         // Télécharger avec timeout
         const controller = new AbortController()
@@ -68,24 +79,35 @@ export async function GET(request: NextRequest) {
             const blob = await response.blob()
             const buffer = Buffer.from(await blob.arrayBuffer())
 
-            // Extraire et nettoyer le nom du fichier
-            const urlParts = fileUrl.split('/')
-            const rawFileName = urlParts[urlParts.length - 1] || 'document.pdf'
-            // Retirer les query params si présents et décoder
-            const cleanFileName = decodeURIComponent(rawFileName.split('?')[0])
-
-            console.log('📝 [Download Proxy] Serving file:', cleanFileName, 'size:', buffer.length)
-
             // Déterminer le Content-Type
-            const contentType = response.headers.get('content-type') ||
-                (cleanFileName.endsWith('.pdf') ? 'application/pdf' :
-                    cleanFileName.endsWith('.docx') ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' :
-                        'application/octet-stream')
+            const contentType = response.headers.get('content-type') || 'application/octet-stream'
+
+            // Extraire et nettoyer le nom du fichier depuis l'URL
+            const urlParts = fileUrl.split('/')
+            const rawFileNameFromUrl = urlParts[urlParts.length - 1] || 'document'
+            const cleanFileNameFromUrl = decodeURIComponent(rawFileNameFromUrl.split('?')[0])
+
+            // Utiliser le nom préféré si fourni, sinon le nom de l'URL
+            let finalFileName = preferredName || cleanFileNameFromUrl
+
+            // S'assurer qu'il y a une extension si on peut la déterminer
+            if (!finalFileName.includes('.')) {
+                if (cleanFileNameFromUrl.includes('.')) {
+                    finalFileName += '.' + cleanFileNameFromUrl.split('.').pop()
+                } else if (contentType === 'application/pdf' || fileUrl.includes('/raw/upload/')) {
+                    // Si c'est en raw upload et sans extension, c'est très probablement un PDF dans ce projet
+                    if (!finalFileName.toLowerCase().endsWith('.pdf')) {
+                        finalFileName += '.pdf'
+                    }
+                }
+            }
+
+            console.log('📝 [Download Proxy] Serving file:', finalFileName, 'size:', buffer.length, 'type:', contentType)
 
             return new NextResponse(buffer, {
                 headers: {
                     'Content-Type': contentType,
-                    'Content-Disposition': `attachment; filename="${cleanFileName}"`,
+                    'Content-Disposition': `attachment; filename="${encodeURIComponent(finalFileName)}"`,
                     'Content-Length': buffer.length.toString(),
                     'Cache-Control': 'no-cache, no-store, must-revalidate',
                 },

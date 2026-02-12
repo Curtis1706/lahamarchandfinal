@@ -248,7 +248,7 @@ export default function ValidationOeuvresPage() {
     return keywordsString.split(',').map(k => k.trim()).filter(k => k);
   };
 
-  const getDownloadUrl = (url: string) => {
+  const getDownloadUrl = (url: string, name?: string) => {
     if (!url) {
       console.warn("🔗 [Download] Provided URL is empty");
       return '#';
@@ -257,8 +257,11 @@ export default function ValidationOeuvresPage() {
     // Si c'est déjà une URL de notre API, ne pas la modifier
     if (url.startsWith('/api/download-document')) return url;
 
-    console.log("🔗 [Download] Original URL:", url);
-    const apiUrl = `/api/download-document?url=${encodeURIComponent(url)}`;
+    console.log("🔗 [Download] Original URL:", url, "Name:", name);
+    let apiUrl = `/api/download-document?url=${encodeURIComponent(url)}`;
+    if (name) {
+      apiUrl += `&name=${encodeURIComponent(name)}`;
+    }
     console.log("🔗 [Download] Proxy URL:", apiUrl);
     return apiUrl;
   };
@@ -923,7 +926,7 @@ export default function ValidationOeuvresPage() {
                             className="mt-2"
                             asChild
                           >
-                            <a href={getDownloadUrl(filesData.coverImage)} download target="_blank" rel="noopener noreferrer">
+                            <a href={getDownloadUrl(filesData.coverImage, "Couverture")} download target="_blank" rel="noopener noreferrer">
                               <Download className="h-4 w-4 mr-2" />
                               Télécharger l'image
                             </a>
@@ -943,7 +946,7 @@ export default function ValidationOeuvresPage() {
                                 <p className="text-xs text-muted-foreground">{file.type || file.mimeType}</p>
                               </div>
                               <Button variant="ghost" size="sm" asChild>
-                                <a href={getDownloadUrl(file.filepath || file.path || file.url)} download target="_blank" rel="noopener noreferrer">
+                                <a href={getDownloadUrl(file.filepath || file.path || file.url, file.originalName || file.filename || file.name)} download target="_blank" rel="noopener noreferrer">
                                   <Download className="h-4 w-4" />
                                 </a>
                               </Button>
