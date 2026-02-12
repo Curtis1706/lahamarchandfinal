@@ -1,12 +1,17 @@
 import { v2 as cloudinary } from 'cloudinary';
 
-console.log("[Cloudinary Config] Cloud Name:", process.env.CLOUDINARY_CLOUD_NAME ? "DEFNI" : "MANQUANT");
-console.log("[Cloudinary Config] API Key:", process.env.CLOUDINARY_API_KEY ? "DEFNI" : "MANQUANT");
+const cloudName = process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+const apiKey = process.env.CLOUDINARY_API_KEY || process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY;
+const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+console.log("[Cloudinary Config] Cloud Name:", cloudName || "MANQUANT");
+console.log("[Cloudinary Config] API Key:", apiKey ? "DÉFINI" : "MANQUANT");
+console.log("[Cloudinary Config] API Secret:", apiSecret ? "DÉFINI" : "MANQUANT");
 
 cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
+    cloud_name: cloudName,
+    api_key: apiKey,
+    api_secret: apiSecret,
     secure: true
 });
 
