@@ -97,12 +97,18 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Vérifier l'extension
+        // Déterminer le type de fichier et le resource_type Cloudinary
         const extension = getFileExtension(file.name);
-        if (!ALL_ALLOWED_EXTENSIONS.includes(extension)) {
-          errors.push(`${file.name}: Type de fichier non autorisé (.${extension})`);
-          continue;
+        let fileType = 'other';
+        for (const [type, extensions] of Object.entries(ALLOWED_FILE_TYPES)) {
+          if (extensions.includes(extension)) {
+            fileType = type;
+            break;
+          }
         }
+
+        const isDocument = ['documents', 'archives', 'presentations', 'spreadsheets'].includes(fileType);
+        const resourceType = isDocument ? 'raw' : 'image';
 
         // Générer un nom unique
         const uniqueFilename = generateUniqueFilename(file.name, session.user.id);
@@ -120,7 +126,7 @@ export async function POST(request: NextRequest) {
             {
               folder: `laha/${cloudinaryFolder}`,
               public_id: uniqueFilename.split('.')[0],
-              resource_type: 'auto',
+              resource_type: resourceType,
               access_mode: 'public', // Force l'accès public
               type: 'upload' // type standard (public par défaut)
             },
@@ -139,14 +145,6 @@ export async function POST(request: NextRequest) {
           format: result.format
         });
 
-        // Déterminer le type de fichier
-        let fileType = 'other';
-        for (const [type, extensions] of Object.entries(ALLOWED_FILE_TYPES)) {
-          if (extensions.includes(extension)) {
-            fileType = type;
-            break;
-          }
-        }
 
         const uploadedFile = {
           originalName: file.name,

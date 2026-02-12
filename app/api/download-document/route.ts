@@ -7,7 +7,7 @@ const TIMEOUT_MS = 30000 // 30 secondes
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url)
-        const fileUrl = searchParams.get('url')
+        let fileUrl = searchParams.get('url')
 
         console.log('📥 [Download Proxy] Client requested:', fileUrl)
 
@@ -15,6 +15,14 @@ export async function GET(request: NextRequest) {
         if (!fileUrl) {
             console.error('❌ [Download Proxy] Missing URL')
             return NextResponse.json({ error: 'URL manquante' }, { status: 400 })
+        }
+
+        // ✅ CORRECTION AUTOMATIQUE : image -> raw pour les documents
+        // Si c'est un document (pdf, doc, docx, txt) et que l'URL contient /image/upload/
+        const isDocumentUrl = fileUrl.match(/\.(pdf|docx?|txt)(\?|$)/i)
+        if (isDocumentUrl && fileUrl.includes('/image/upload/')) {
+            fileUrl = fileUrl.replace('/image/upload/', '/raw/upload/')
+            console.log('🔧 [Download Proxy] Converted image URL to raw:', fileUrl)
         }
 
         // Sécurité : vérifier que l'URL provient de Cloudinary
