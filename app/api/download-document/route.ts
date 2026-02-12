@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import cloudinary from "@/lib/cloudinary";
 
 const ALLOWED_DOMAINS = ['res.cloudinary.com', 'cloudinary.com']
 const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
@@ -48,16 +49,75 @@ export async function GET(request: NextRequest) {
 
         try {
             console.log('⏳ [Download Proxy] Fetching from Cloudinary...')
-            const response = await fetch(downloadUrl, {
+            let response = await fetch(downloadUrl, {
                 signal: controller.signal,
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
                 }
             })
 
+
+            // Retry logic with Signed URL if 401/403/404
+            console.log('📊 [Download Proxy] Cloudinary Initial Status:', response.status)
+
+            if (!response.ok && [401, 403, 404].includes(response.status)) {
+                console.warn(`⚠️ [Download Proxy] Request failed with ${response.status}. Attempting with Signed URL...`);
+
+                try {
+                    // Extract Public ID and Resource Type
+                    const urlParts = fileUrl.split('/upload/');
+                    if (urlParts.length === 2) {
+                        const prefix = urlParts[0]; // .../resource_type
+                        let suffix = urlParts[1]; // vVersion/public_id or public_id
+
+                        // Determine resource type from prefix
+                        const resourceType = prefix.includes('/raw') ? 'raw' :
+                            prefix.includes('/video') ? 'video' : 'image';
+
+                        // Clean version
+                        const versionMatch = suffix.match(/^v\d+\/(.+)$/);
+                        let publicId = suffix;
+
+                        if (versionMatch) {
+                            publicId = versionMatch[1];
+                        }
+
+                        // Decode URI components in publicId
+                        publicId = decodeURIComponent(publicId);
+
+                        console.log(`🔧 [Download Proxy] Extracted for signing - ID: ${publicId}, Type: ${resourceType}`);
+
+                        const signedUrl = cloudinary.url(publicId, {
+                            resource_type: resourceType,
+                            type: 'upload',
+                            sign_url: true,
+                            secure: true
+                        });
+
+                        console.log('🔐 [Download Proxy] Generated Signed URL:', signedUrl);
+
+                        const retryResponse = await fetch(signedUrl, {
+                            signal: controller.signal,
+                            headers: {
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                            }
+                        });
+
+                        if (retryResponse.ok) {
+                            response = retryResponse;
+                            console.log('✅ [Download Proxy] Retry with signed URL succeeded');
+                        } else {
+                            console.error('❌ [Download Proxy] Retry failed with:', retryResponse.status);
+                        }
+                    }
+                } catch (retryError) {
+                    console.error('❌ [Download Proxy] Error generating signed URL:', retryError);
+                }
+            }
+
             clearTimeout(timeoutId)
 
-            console.log('📊 [Download Proxy] Cloudinary status:', response.status)
+            console.log('📊 [Download Proxy] Cloudinary Final Status:', response.status)
 
             if (!response.ok) {
                 console.error('❌ [Download Proxy] Cloudinary error status:', response.status)
