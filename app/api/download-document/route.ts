@@ -8,8 +8,9 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url)
         let fileUrl = searchParams.get('url')
+        const preferredName = searchParams.get('name')
 
-        console.log('📥 [Download Proxy] Client requested:', fileUrl)
+        console.log('📥 [Download Proxy] Client requested:', fileUrl, 'Preferred Name:', preferredName)
 
         // Validation de l'URL
         if (!fileUrl) {
@@ -18,7 +19,6 @@ export async function GET(request: NextRequest) {
         }
 
         // ✅ CORRECTION AUTOMATIQUE : image -> raw pour les documents
-        // Si c'est un document (pdf, doc, docx, txt) et que l'URL contient /image/upload/
         const isDocumentUrl = fileUrl.match(/\.(pdf|docx?|txt)(\?|$)/i)
         if (isDocumentUrl && fileUrl.includes('/image/upload/')) {
             fileUrl = fileUrl.replace('/image/upload/', '/raw/upload/')
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'URL non autorisée' }, { status: 403 })
         }
 
-        // Assurer que le flag fl_attachment est présent pour forcer le téléchargement direct depuis Cloudinary
+        // Assurer que le flag fl_attachment est présent
         let downloadUrl = fileUrl
         if (fileUrl.includes('cloudinary.com') && !fileUrl.includes('fl_attachment')) {
             downloadUrl = fileUrl.replace('/upload/', '/upload/fl_attachment/')
@@ -76,24 +76,35 @@ export async function GET(request: NextRequest) {
             const blob = await response.blob()
             const buffer = Buffer.from(await blob.arrayBuffer())
 
-            // Extraire et nettoyer le nom du fichier
-            const urlParts = fileUrl.split('/')
-            const rawFileName = urlParts[urlParts.length - 1] || 'document.pdf'
-            // Retirer les query params si présents et décoder
-            const cleanFileName = decodeURIComponent(rawFileName.split('?')[0])
-
-            console.log('📝 [Download Proxy] Serving file:', cleanFileName, 'size:', buffer.length)
-
             // Déterminer le Content-Type
-            const contentType = response.headers.get('content-type') ||
-                (cleanFileName.endsWith('.pdf') ? 'application/pdf' :
-                    cleanFileName.endsWith('.docx') ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' :
-                        'application/octet-stream')
+            const contentType = response.headers.get('content-type') || 'application/octet-stream'
+
+            // Extraire et nettoyer le nom du fichier depuis l'URL
+            const urlParts = fileUrl.split('/')
+            const rawFileNameFromUrl = urlParts[urlParts.length - 1] || 'document'
+            const cleanFileNameFromUrl = decodeURIComponent(rawFileNameFromUrl.split('?')[0])
+
+            // Utiliser le nom préféré si fourni, sinon le nom de l'URL
+            let finalFileName = preferredName || cleanFileNameFromUrl
+
+            // S'assurer qu'il y a une extension si on peut la déterminer
+            if (!finalFileName.includes('.')) {
+                if (cleanFileNameFromUrl.includes('.')) {
+                    finalFileName += '.' + cleanFileNameFromUrl.split('.').pop()
+                } else if (contentType === 'application/pdf' || fileUrl.includes('/raw/upload/')) {
+                    // Si c'est en raw upload et sans extension, c'est très probablement un PDF dans ce projet
+                    if (!finalFileName.toLowerCase().endsWith('.pdf')) {
+                        finalFileName += '.pdf'
+                    }
+                }
+            }
+
+            console.log('📝 [Download Proxy] Serving file:', finalFileName, 'size:', buffer.length, 'type:', contentType)
 
             return new NextResponse(buffer, {
                 headers: {
                     'Content-Type': contentType,
-                    'Content-Disposition': `attachment; filename="${cleanFileName}"`,
+                    'Content-Disposition': `attachment; filename="${encodeURIComponent(finalFileName)}"`,
                     'Content-Length': buffer.length.toString(),
                     'Cache-Control': 'no-cache, no-store, must-revalidate',
                 },

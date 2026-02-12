@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
           const uploadStream = cloudinary.uploader.upload_stream(
             {
               folder: `laha/${cloudinaryFolder}`,
-              public_id: uniqueFilename.split('.')[0],
+              public_id: resourceType === 'raw' ? uniqueFilename : uniqueFilename.split('.')[0],
               resource_type: resourceType,
               access_mode: 'public', // Force l'accès public
               type: 'upload' // type standard (public par défaut)
