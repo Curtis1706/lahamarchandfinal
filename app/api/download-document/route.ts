@@ -119,6 +119,68 @@ export async function GET(request: NextRequest) {
                     }
                 });
             }
+
+            // --- DEBUG ADMIN API ---
+            // Si tout a échoué, on demande à l'API Admin ce qu'il en est vraiment
+            try {
+                console.log('🕵️ [Download Proxy] All strategies failed. Querying Admin API for details...');
+
+                // Essayer de trouver la ressource avec et sans extension
+                let resourceInfo = null;
+                try {
+                    resourceInfo = await cloudinary.api.resource(rawPublicId, { resource_type: resourceType });
+                } catch (e) {
+                    // Try without extension if failed
+                    if (rawPublicId.includes('.')) {
+                        try {
+                            const idNoExt = rawPublicId.replace(/\.[^/.]+$/, "");
+                            resourceInfo = await cloudinary.api.resource(idNoExt, { resource_type: resourceType });
+                        } catch (e2) { }
+                    }
+                }
+
+                if (resourceInfo) {
+                    console.log('🕵️ [Download Proxy] Resource FOUND in Admin API:', {
+                        public_id: resourceInfo.public_id,
+                        format: resourceInfo.format,
+                        resource_type: resourceInfo.resource_type,
+                        type: resourceInfo.type,
+                        access_mode: resourceInfo.access_mode,
+                        access_control: resourceInfo.access_control
+                    });
+
+                    // Tentative de génération d'URL avec les infos exactes
+                    const exactSignedUrl = cloudinary.url(resourceInfo.public_id, {
+                        resource_type: resourceInfo.resource_type,
+                        type: resourceInfo.type,
+                        sign_url: true,
+                        secure: true,
+                        format: resourceInfo.format
+                    });
+
+                    console.log('🕵️ [Download Proxy] Trying exact URL from Admin info:', exactSignedUrl);
+
+                    const exactResponse = await fetch(exactSignedUrl);
+                    if (exactResponse.ok) {
+                        const contentType = exactResponse.headers.get('content-type') || 'application/octet-stream';
+                        let finalName = preferredName || resourceInfo.public_id.split('/').pop() + '.' + resourceInfo.format;
+                        const blob = await exactResponse.blob();
+                        const buffer = Buffer.from(await blob.arrayBuffer());
+
+                        return new NextResponse(buffer, {
+                            headers: {
+                                'Content-Type': contentType,
+                                'Content-Disposition': `attachment; filename="${encodeURIComponent(finalName)}"`,
+                                'Content-Length': buffer.length.toString()
+                            }
+                        });
+                    }
+                } else {
+                    console.warn('🕵️ [Download Proxy] Resource NOT FOUND via Admin API either.');
+                }
+            } catch (adminError) {
+                console.error('🕵️ [Download Proxy] Admin API Error:', adminError);
+            }
         }
 
         return NextResponse.json({ error: 'Impossible de récupérer le fichier (404/401)' }, { status: 404 })
