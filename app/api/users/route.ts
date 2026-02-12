@@ -224,8 +224,14 @@ export async function GET(request: NextRequest) {
       where.role = role;
     }
 
+    // Par défaut, ne pas retourner les utilisateurs supprimés (INACTIVE + email anonymisé)
+    // Sauf si on filtre explicitement par statut
     if (status) {
       where.status = status;
+    } else {
+      // Si aucun filtre de statut n'est fourni, on exclut les INACTIVE par défaut
+      // Car ce sont des utilisateurs "supprimés"
+      where.status = { not: 'INACTIVE' };
     }
 
     if (search) {
@@ -257,11 +263,17 @@ export async function GET(request: NextRequest) {
       return userWithoutPassword;
     });
 
+    // Ajouter les headers anti-cache
+    const headers = {
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+    };
 
     return NextResponse.json({
       users: usersWithoutPasswords,
       total: usersWithoutPasswords.length
-    });
+    }, { headers });
 
   } catch (error: any) {
     console.error("❌ Erreur récupération utilisateurs:", error);
