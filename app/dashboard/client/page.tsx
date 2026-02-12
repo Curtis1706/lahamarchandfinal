@@ -399,21 +399,14 @@ export default function ClientDashboard() {
                   <div className="px-3 py-1 bg-indigo-600 text-white rounded-lg font-semibold text-xs">
                     {work.price ? `${work.price.toFixed(0)} F CFA` : "Prix non défini"}
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      if (isInCart(work.id)) {
-                        toast.info("Ce livre est déjà dans votre panier")
-                      } else {
-                        addToCart(work)
-                        toast.success(`"${work.title}" ajouté au panier`)
-                      }
-                    }}
-                    className="text-xs"
-                  >
-                    {isInCart(work.id) ? "Dans le panier" : "Ajouter"}
-                  </Button>
+                  <Link href={`/dashboard/client/commande/nouvelle?workId=${work.id}`}>
+                    <Button
+                      size="sm"
+                      className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+                    >
+                      Commander
+                    </Button>
+                  </Link>
                 </div>
               </div>
             ))}

@@ -121,6 +121,8 @@ export async function POST(request: NextRequest) {
               folder: `laha/${cloudinaryFolder}`,
               public_id: uniqueFilename.split('.')[0],
               resource_type: 'auto',
+              access_mode: 'public', // Force l'accès public
+              type: 'upload' // type standard (public par défaut)
             },
             (error: any, result: any) => {
               if (error) reject(error);
@@ -130,7 +132,12 @@ export async function POST(request: NextRequest) {
           uploadStream.end(buffer);
         });
 
-        console.log(`[API Upload] Cloudinary Success: ${result.secure_url}`);
+        console.log(`[API Upload] Cloudinary Success:`, {
+          url: result.secure_url,
+          public_id: result.public_id,
+          resource_type: result.resource_type,
+          format: result.format
+        });
 
         // Déterminer le type de fichier
         let fileType = 'other';

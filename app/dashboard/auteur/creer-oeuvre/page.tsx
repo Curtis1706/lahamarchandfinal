@@ -54,11 +54,11 @@ interface Project {
   id: string;
   title: string;
   description?: string;
-  discipline: {
+  discipline?: {
     id: string;
     name: string;
   };
-  concepteur: {
+  concepteur?: {
     id: string;
     name: string;
     email: string;
@@ -71,7 +71,7 @@ export default function CreerOeuvrePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialProjectId = searchParams.get('projectId');
-  
+
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [step4Ready, setStep4Ready] = useState(false); // Track if step 4 is ready for submission
@@ -79,9 +79,9 @@ export default function CreerOeuvrePage() {
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [keywordInput, setKeywordInput] = useState("");
-  
-  const { disciplines, isLoading: disciplinesLoading } = useDisciplines();
-  
+
+  const { disciplines, loading: disciplinesLoading } = useDisciplines();
+
   const [formData, setFormData] = useState<WorkFormData>({
     title: "",
     description: "",
@@ -114,13 +114,13 @@ export default function CreerOeuvrePage() {
   // Charger les projets validés, catégories et collections quand l'utilisateur est disponible
   useEffect(() => {
     if (user && user.role === "AUTEUR" && !userLoading) {
-                  fetchValidatedProjects();
+      fetchValidatedProjects();
       loadCategories();
       loadCollections();
-      
+
       // Auto-sélection de la discipline si l'utilisateur en a une
       if (user.disciplineId && !formData.disciplineId) {
-        setFormData(prev => ({ ...prev, disciplineId: user.disciplineId }));
+        setFormData(prev => ({ ...prev, disciplineId: user.disciplineId || "" }));
       }
     }
   }, [user, userLoading, router, formData.disciplineId]);
@@ -167,7 +167,7 @@ export default function CreerOeuvrePage() {
         toast.error("Veuillez sélectionner un fichier image");
         return;
       }
-      
+
       // Vérifier la taille (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         toast.error("L'image ne doit pas dépasser 5MB");
@@ -175,7 +175,7 @@ export default function CreerOeuvrePage() {
       }
 
       setCoverImage(file);
-      
+
       // Créer une preview
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -193,18 +193,18 @@ export default function CreerOeuvrePage() {
   const fetchValidatedProjects = useCallback(async () => {
     try {
       setIsLoadingProjects(true);
-                  
+
       // Récupérer uniquement les projets validés (disponibles pour les auteurs)
       const validatedProjectsOnly = await apiClient.getValidatedProjects();
-      
-                        
+
+
       setValidatedProjects(validatedProjectsOnly || []);
-      
+
       if (validatedProjectsOnly && validatedProjectsOnly.length > 0) {
-                validatedProjectsOnly.forEach((project, index) => {
-                  });
+        validatedProjectsOnly.forEach((project, index) => {
+        });
       } else {
-                      }
+      }
     } catch (error: any) {
       console.error("❌ Erreur lors du chargement des projets validés:", error);
       console.error("❌ Détails de l'erreur:", {
@@ -212,7 +212,7 @@ export default function CreerOeuvrePage() {
         status: error.status,
         response: error.response
       });
-      
+
       if (error.message?.includes("Non authentifié")) {
         toast.error("Session expirée. Veuillez vous reconnecter.");
         router.push("/auth/login");
@@ -221,7 +221,7 @@ export default function CreerOeuvrePage() {
       }
     } finally {
       setIsLoadingProjects(false);
-          }
+    }
   }, [user, router]);
 
   const handleInputChange = (field: keyof WorkFormData, value: string | string[]) => {
@@ -323,25 +323,26 @@ export default function CreerOeuvrePage() {
         const formDataUpload = new FormData();
         formDataUpload.append('files', coverImage);
         formDataUpload.append('type', 'work');
-        
+
         const uploadResponse = await fetch('/api/upload', {
           method: 'POST',
           body: formDataUpload
         });
-        
+
         if (uploadResponse.ok) {
           const uploadData = await uploadResponse.json();
           if (uploadData.files && uploadData.files.length > 0) {
             coverImageUrl = uploadData.files[0].path;
           }
         } else {
-                  }
+        }
       }
 
-      // 2. Upload des autres fichiers d'abord (en mode temporaire)
+      // 2. Upload des autres fichiers avec le type "work"
       let uploadedFiles = [];
       if (attachedFiles.length > 0) {
-        const uploadResult = await apiClient.uploadFiles(attachedFiles, "temp");
+        // Utiliser le type 'work' pour que les fichiers aillent dans le dossier laha/works
+        const uploadResult = await apiClient.uploadFiles(attachedFiles, "work");
         uploadedFiles = uploadResult.files || [];
         toast.success("Fichiers uploadés avec succès !");
       }
@@ -365,7 +366,7 @@ export default function CreerOeuvrePage() {
         status: "PENDING" // En attente de validation PDG
       };
 
-            
+
       const createdWork = await apiClient.createWork(workData);
 
       toast.success("Œuvre soumise avec succès pour validation !");
@@ -395,19 +396,19 @@ export default function CreerOeuvrePage() {
       <div className="mb-6">
         <Link href="/dashboard/auteur" className="flex items-center text-blue-600 hover:text-blue-800 mb-4">
           <ArrowLeft className="h-4 w-4 mr-2" />
-            Retour
+          Retour
         </Link>
         <h1 className="text-3xl font-bold">Créer une nouvelle œuvre</h1>
         <p className="text-gray-600 mt-2">Soumettez votre création pour validation</p>
       </div>
 
       <Card>
-          <CardHeader>
-            <CardTitle>Informations de l'œuvre</CardTitle>
+        <CardHeader>
+          <CardTitle>Informations de l'œuvre</CardTitle>
           <CardDescription>
             En tant qu'auteur, vous pouvez créer des œuvres et les rattacher à des projets validés.
           </CardDescription>
-          </CardHeader>
+        </CardHeader>
         <CardContent>
           {/* Indicateur de progression */}
           <div className="mb-6">
@@ -419,15 +420,15 @@ export default function CreerOeuvrePage() {
                 </Badge>
               </div>
             </div>
-            
+
             {/* Barre de progression */}
             <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
-              <div 
+              <div
                 className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                 style={{ width: `${(currentStep / 4) * 100}%` }}
               ></div>
             </div>
-            
+
             {/* Étapes */}
             <div className="flex justify-between text-xs text-gray-600">
               <div className={`text-center ${currentStep >= 1 ? 'text-blue-600 font-medium' : ''}`}>
@@ -477,27 +478,27 @@ export default function CreerOeuvrePage() {
                   <p className="text-sm text-gray-600">Commencez par définir le titre et la description de votre œuvre</p>
                 </div>
                 <div>
-                <Label htmlFor="title">Titre de l'œuvre *</Label>
-                <Input
-                  id="title"
+                  <Label htmlFor="title">Titre de l'œuvre *</Label>
+                  <Input
+                    id="title"
                     placeholder="Ex: Manuel de Mathématiques CM2"
                     value={formData.title}
                     onChange={(e) => handleInputChange("title", e.target.value)}
-                  required
-                />
-              </div>
+                    required
+                  />
+                </div>
                 <div>
                   <Label htmlFor="description">Description détaillée *</Label>
-                <Textarea
-                  id="description"
+                  <Textarea
+                    id="description"
                     placeholder="Décrivez le contenu, les objectifs et le public cible de votre œuvre..."
                     value={formData.description}
                     onChange={(e) => handleInputChange("description", e.target.value)}
                     rows={6}
-                  required
-                />
+                    required
+                  />
+                </div>
               </div>
-            </div>
             )}
 
             {/* Step 2: Classification et Projet */}
@@ -508,25 +509,25 @@ export default function CreerOeuvrePage() {
                   <p className="text-sm text-gray-600">Définissez la discipline et rattachez votre œuvre à un projet validé</p>
                 </div>
                 <div>
-                <Label htmlFor="discipline">Discipline *</Label>
+                  <Label htmlFor="discipline">Discipline *</Label>
                   <Select
                     value={formData.disciplineId}
                     onValueChange={(value) => handleInputChange("disciplineId", value)}
                     required
                   >
-                  <SelectTrigger>
+                    <SelectTrigger>
                       <SelectValue placeholder="Sélectionner une discipline" />
-                  </SelectTrigger>
-                  <SelectContent>
+                    </SelectTrigger>
+                    <SelectContent>
                       {disciplines.map((discipline) => (
-                      <SelectItem key={discipline.id} value={discipline.id}>
-                        {discipline.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-                
+                        <SelectItem key={discipline.id} value={discipline.id}>
+                          {discipline.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="border border-blue-200 p-4 rounded-lg bg-blue-50">
                   <Label htmlFor="projectId" className="flex items-center gap-2 text-blue-800 font-medium">
                     <FolderOpen className="h-4 w-4" />
@@ -545,8 +546,8 @@ export default function CreerOeuvrePage() {
                   >
                     <SelectTrigger>
                       <SelectValue placeholder={
-                        isLoadingProjects 
-                          ? "Chargement des projets..." 
+                        isLoadingProjects
+                          ? "Chargement des projets..."
                           : "Choisir un projet validé"
                       } />
                     </SelectTrigger>
@@ -570,7 +571,7 @@ export default function CreerOeuvrePage() {
                               {project.title}
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              {project.discipline.name} • par {project.concepteur.name}
+                              {project.discipline?.name} • par {project.concepteur?.name}
                             </div>
                           </div>
                         </SelectItem>
@@ -662,37 +663,37 @@ export default function CreerOeuvrePage() {
                   <h3 className="text-xl font-semibold text-gray-800 mb-2">Détails et Prix</h3>
                   <p className="text-sm text-gray-600">Ajoutez les détails complémentaires et définissez le prix de votre œuvre</p>
                 </div>
-                
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="estimatedPrice">Prix suggéré (F CFA)</Label>
-                <Input
+                    <Input
                       id="estimatedPrice"
-                  type="number"
-                  placeholder="0"
+                      type="number"
+                      placeholder="0"
                       value={formData.estimatedPrice}
                       onChange={(e) => handleInputChange("estimatedPrice", e.target.value)}
-                />
-              </div>
+                    />
+                  </div>
                   <div>
                     <Label htmlFor="targetAudience">Public cible</Label>
-                <Input
+                    <Input
                       id="targetAudience"
                       placeholder="Étudiants, Professionnels, Grand public..."
                       value={formData.targetAudience}
                       onChange={(e) => handleInputChange("targetAudience", e.target.value)}
-                />
-              </div>
+                    />
+                  </div>
                   <div>
                     <Label htmlFor="internalCode">Code interne (optionnel)</Label>
-                <Input
+                    <Input
                       id="internalCode"
                       placeholder="Code interne de référence"
                       value={formData.internalCode}
                       onChange={(e) => handleInputChange("internalCode", e.target.value)}
-                />
-              </div>
-            </div>
+                    />
+                  </div>
+                </div>
 
                 <div>
                   <Label htmlFor="educationalObjectives">Objectifs pédagogiques</Label>
@@ -702,13 +703,13 @@ export default function CreerOeuvrePage() {
                     value={formData.educationalObjectives}
                     onChange={(e) => handleInputChange("educationalObjectives", e.target.value)}
                     rows={4}
-                />
-              </div>
+                  />
+                </div>
 
                 <div>
                   <Label htmlFor="keywords">Mots-clés</Label>
-              <div className="space-y-2">
-                <Input
+                  <div className="space-y-2">
+                    <Input
                       placeholder="Tapez un mot-clé et appuyez sur Entrée"
                       value={keywordInput}
                       onChange={(e) => setKeywordInput(e.target.value)}
@@ -731,8 +732,8 @@ export default function CreerOeuvrePage() {
                         ))}
                       </div>
                     )}
-              </div>
-            </div>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -743,21 +744,21 @@ export default function CreerOeuvrePage() {
                   <h3 className="text-xl font-semibold text-gray-800 mb-2">Fichiers et Soumission</h3>
                   <p className="text-sm text-gray-600">Ajoutez les fichiers nécessaires et soumettez votre œuvre pour validation</p>
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
+                  <div className="space-y-2">
                     <Label>Image de couverture</Label>
                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
                       {coverImagePreview ? (
                         <div className="space-y-2">
-                          <img 
-                            src={coverImagePreview} 
-                            alt="Aperçu de couverture" 
+                          <img
+                            src={coverImagePreview}
+                            alt="Aperçu de couverture"
                             className="w-full h-32 object-cover rounded"
                           />
-                          <Button 
-                            type="button" 
-                            variant="outline" 
+                          <Button
+                            type="button"
+                            variant="outline"
                             size="sm"
                             onClick={handleRemoveCoverImage}
                           >
@@ -785,66 +786,66 @@ export default function CreerOeuvrePage() {
                           />
                         </>
                       )}
-              </div>
-            </div>
+                    </div>
+                  </div>
 
-            <div className="space-y-2">
-              <Label>Contenu principal</Label>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                <FileText className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-                <label htmlFor="mainContentInput">
-                  <Button type="button" variant="outline" size="sm" asChild>
-                    <span>
-                      <Upload className="h-4 w-4 mr-2" />
-                      Choisir un fichier
-                    </span>
-                  </Button>
-                </label>
-                <input
-                  id="mainContentInput"
-                  type="file"
-                  accept=".pdf,.doc,.docx,.ppt,.pptx,.zip,.rar,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                  multiple
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-                <p className="mt-2 text-xs text-gray-500">
-                  Formats acceptés : PDF, Word, PowerPoint, ZIP (plusieurs fichiers possibles)
-                </p>
-              </div>
-            </div>
+                  <div className="space-y-2">
+                    <Label>Contenu principal</Label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                      <FileText className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                      <label htmlFor="mainContentInput">
+                        <Button type="button" variant="outline" size="sm" asChild>
+                          <span>
+                            <Upload className="h-4 w-4 mr-2" />
+                            Choisir un fichier
+                          </span>
+                        </Button>
+                      </label>
+                      <input
+                        id="mainContentInput"
+                        type="file"
+                        accept=".pdf,.doc,.docx,.ppt,.pptx,.zip,.rar,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        multiple
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                      <p className="mt-2 text-xs text-gray-500">
+                        Formats acceptés : PDF, Word, PowerPoint, ZIP (plusieurs fichiers possibles)
+                      </p>
+                    </div>
+                  </div>
 
-            <div className="space-y-2">
-              <Label>Aperçu/Extrait</Label>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                <FileText className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-                <label htmlFor="previewInput">
-                  <Button type="button" variant="outline" size="sm" asChild>
-                    <span>
-                      <Upload className="h-4 w-4 mr-2" />
-                      Choisir un aperçu
-                    </span>
-                  </Button>
-                </label>
-                <input
-                  id="previewInput"
-                  type="file"
-                  accept=".pdf,.doc,.docx,.ppt,.pptx,image/*"
-                  multiple={false}
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-                <p className="mt-2 text-xs text-gray-500">
-                  Un court extrait ou quelques pages pour que le PDG puisse prévisualiser l&apos;œuvre.
-                </p>
-              </div>
-            </div>
-              </div>
+                  <div className="space-y-2">
+                    <Label>Aperçu/Extrait</Label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                      <FileText className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                      <label htmlFor="previewInput">
+                        <Button type="button" variant="outline" size="sm" asChild>
+                          <span>
+                            <Upload className="h-4 w-4 mr-2" />
+                            Choisir un aperçu
+                          </span>
+                        </Button>
+                      </label>
+                      <input
+                        id="previewInput"
+                        type="file"
+                        accept=".pdf,.doc,.docx,.ppt,.pptx,image/*"
+                        multiple={false}
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                      <p className="mt-2 text-xs text-gray-500">
+                        Un court extrait ou quelques pages pour que le PDG puisse prévisualiser l&apos;œuvre.
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
                 {attachedFiles.length > 0 && (
                   <div className="space-y-2">
                     <Label>Fichiers attachés</Label>
-              <div className="space-y-2">
+                    <div className="space-y-2">
                       {attachedFiles.map((file, index) => (
                         <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                           <div className="flex items-center space-x-2">
@@ -854,18 +855,18 @@ export default function CreerOeuvrePage() {
                               ({(file.size / 1024).toFixed(1)} KB)
                             </span>
                           </div>
-                  <Button
+                          <Button
                             type="button"
                             variant="ghost"
                             size="sm"
                             onClick={() => handleRemoveFile(index)}
                           >
                             <Trash2 className="h-4 w-4 text-red-500" />
-                  </Button>
+                          </Button>
                         </div>
                       ))}
-                </div>
-              </div>
+                    </div>
+                  </div>
                 )}
 
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -882,15 +883,15 @@ export default function CreerOeuvrePage() {
                     <div className="flex items-center space-x-2">
                       <AlertTriangle className="h-4 w-4 text-yellow-500" />
                       <span>3. Validation par le PDG</span>
-              </div>
+                    </div>
                     <div className="flex items-center space-x-2">
                       <CheckCircle className="h-4 w-4 text-green-500" />
                       <span>4. Publication si approuvée</span>
                     </div>
                   </div>
-                  </div>
                 </div>
-              )}
+              </div>
+            )}
 
             {/* Navigation et Actions */}
             <div className="flex items-center justify-between pt-6 border-t">
@@ -899,7 +900,7 @@ export default function CreerOeuvrePage() {
                   <Button type="button" variant="outline" onClick={handlePreviousStep}>
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Précédent
-                </Button>
+                  </Button>
                 )}
               </div>
 
@@ -911,14 +912,14 @@ export default function CreerOeuvrePage() {
                   </Button>
                 ) : currentStep === 4 ? (
                   step4Ready ? (
-                    <Button 
+                    <Button
                       type="button"
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
                         handleSubmit(e);
                       }}
-                      disabled={isSubmitting || !formData.title.trim() || !formData.description.trim() || !formData.disciplineId || !formData.category} 
+                      disabled={isSubmitting || !formData.title.trim() || !formData.description.trim() || !formData.disciplineId || !formData.category}
                       className="bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isSubmitting ? (
@@ -934,8 +935,8 @@ export default function CreerOeuvrePage() {
                       )}
                     </Button>
                   ) : (
-                    <Button 
-                      type="button" 
+                    <Button
+                      type="button"
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -945,7 +946,7 @@ export default function CreerOeuvrePage() {
                           return;
                         }
                         setStep4Ready(true);
-                      }} 
+                      }}
                       className="bg-blue-600 hover:bg-blue-700"
                     >
                       Finaliser
@@ -956,8 +957,8 @@ export default function CreerOeuvrePage() {
               </div>
             </div>
           </form>
-            </CardContent>
-          </Card>
+        </CardContent>
+      </Card>
     </div>
   );
 }

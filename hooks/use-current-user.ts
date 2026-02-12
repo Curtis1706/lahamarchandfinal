@@ -10,6 +10,7 @@ export interface CurrentUser {
   image?: string | null
   status?: string
   createdAt?: string
+  disciplineId?: string
 }
 
 export function useCurrentUser() {
