@@ -81,7 +81,12 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
         {
           href: `${basePath}/gestion-utilisateurs`,
           icon: Users,
-          label: "Utilisateurs"
+          label: "Utilisateurs",
+          children: [
+            { href: `${basePath}/gestion-utilisateurs`, label: "Tous les Utilisateurs" },
+            { href: `${basePath}/gestion-utilisateurs/gestion-partenaires`, label: "Partenaires" },
+            { href: `${basePath}/gestion-utilisateurs/gestion-ecoles`, label: "Écoles" }
+          ]
         },
         {
           href: `${basePath}/gestion-disciplines`,
@@ -98,7 +103,7 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           icon: FileText,
           label: "Projets"
         },
-        {
+       /*  {
           href: `${basePath}/gestion-partenaires`,
           icon: Building2,
           label: "Partenaires"
@@ -107,21 +112,21 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           href: `${basePath}/gestion-ecoles`,
           icon: GraduationCap,
           label: "Écoles"
-        },
+        }, */
         {
           href: `${basePath}/gestion-commandes`,
           icon: ShoppingCart,
           label: "Commandes"
         },
-        {
+         {
           href: `${basePath}/gestion-stock`,
-          icon: Package,
-          label: "Stock"
-        },
-        {
-          href: `${basePath}/gestion-stock/operations`,
+          label: "Gestion Stock",
           icon: ArrowRightLeft,
-          label: "Opérations de stock"
+          children: [
+            { href: `${basePath}/gestion-stock/operations`, label: "Opérations de stock" },
+            { href: `${basePath}/gestion-stock/stock`, label: "Stock" }
+          ]
+          
         },
         {
           href: `${basePath}/bon-sortie`,
