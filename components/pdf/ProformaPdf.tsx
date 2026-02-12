@@ -193,16 +193,18 @@ export function ProformaPdf(props: ProformaPdfProps) {
         <View style={[styles.row, styles.header, { justifyContent: "space-between" }]}>
           <View style={styles.col}>
             <Image
-              src="/images/laha-logo.png"
-              style={{ width: 60, height: 60, marginBottom: 8 }}
+              src={`${process.cwd()}/public/images/laha-logo.png`}
+              style={{ width: 50, height: 50, marginBottom: 6 }}
             />
             <Text style={styles.brand}>{props.company.name}</Text>
-            <Text style={styles.muted}>{props.company.address}</Text>
-            <Text style={styles.muted}>
-              {props.company.email} • {props.company.phone}
-            </Text>
+            {props.company.address.split('\n').map((line, idx) => (
+              <Text key={idx} style={styles.muted}>{line}</Text>
+            ))}
+            {props.company.email && (
+              <Text style={styles.muted}>{props.company.email}</Text>
+            )}
             {props.company.rccm && (
-              <Text style={styles.muted}>RCCM: {props.company.rccm}</Text>
+              <Text style={styles.muted}>Nº RCCM : {props.company.rccm}</Text>
             )}
           </View>
 
