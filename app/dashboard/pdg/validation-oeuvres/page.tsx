@@ -266,6 +266,36 @@ export default function ValidationOeuvresPage() {
     return apiUrl;
   };
 
+  const handleDownload = async (url: string, filename: string) => {
+    if (!url) return;
+
+    try {
+      toast.loading("Téléchargement en cours...", { id: "download-toast" });
+
+      const targetUrl = getDownloadUrl(url, filename);
+      const response = await fetch(targetUrl);
+
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+
+      toast.success("Téléchargement terminé", { id: "download-toast" });
+    } catch (error) {
+      console.error("Download error:", error);
+      toast.error("Erreur lors du téléchargement", { id: "download-toast" });
+    }
+  };
+
   const handleUpdateWorkStatus = async (workId: string, action: string, reason?: string, authorId?: string) => {
     const actionKey = `${workId}-${action}`;
     setLoadingActions(prev => ({ ...prev, [actionKey]: true }));
@@ -924,12 +954,10 @@ export default function ValidationOeuvresPage() {
                             variant="ghost"
                             size="sm"
                             className="mt-2"
-                            asChild
+                            onClick={() => handleDownload(filesData.coverImage, "Couverture")}
                           >
-                            <a href={getDownloadUrl(filesData.coverImage, "Couverture")} download target="_blank" rel="noopener noreferrer">
-                              <Download className="h-4 w-4 mr-2" />
-                              Télécharger l'image
-                            </a>
+                            <Download className="h-4 w-4 mr-2" />
+                            Télécharger l'image
                           </Button>
                         </div>
                       </div>
@@ -945,10 +973,12 @@ export default function ValidationOeuvresPage() {
                                 <p className="text-sm font-medium truncate">{file.originalName || file.filename || file.name}</p>
                                 <p className="text-xs text-muted-foreground">{file.type || file.mimeType}</p>
                               </div>
-                              <Button variant="ghost" size="sm" asChild>
-                                <a href={getDownloadUrl(file.filepath || file.path || file.url, file.originalName || file.filename || file.name)} download target="_blank" rel="noopener noreferrer">
-                                  <Download className="h-4 w-4" />
-                                </a>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDownload(file.filepath || file.path || file.url, file.originalName || file.filename || file.name)}
+                              >
+                                <Download className="h-4 w-4" />
                               </Button>
                             </div>
                           ))}
