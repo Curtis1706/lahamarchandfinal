@@ -5,6 +5,7 @@ import {
   Text,
   View,
   StyleSheet,
+  Image,
 } from "@react-pdf/renderer";
 
 const styles = StyleSheet.create({
@@ -151,7 +152,11 @@ type ProformaPdfProps = {
 };
 
 function formatMoney(n: number) {
-  return new Intl.NumberFormat("fr-FR").format(Math.round(n));
+  // Utiliser un formatage manuel pour éviter les problèmes avec react-pdf
+  const rounded = Math.round(n);
+  const str = rounded.toString();
+  // Ajouter des espaces tous les 3 chiffres en partant de la droite
+  return str.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 }
 
 function getStatusLabel(status: ProformaPdfProps["status"]) {
@@ -187,17 +192,17 @@ export function ProformaPdf(props: ProformaPdfProps) {
         {/* HEADER */}
         <View style={[styles.row, styles.header, { justifyContent: "space-between" }]}>
           <View style={styles.col}>
+            <Image
+              src="/images/laha-logo.png"
+              style={{ width: 60, height: 60, marginBottom: 8 }}
+            />
             <Text style={styles.brand}>{props.company.name}</Text>
-            <Text style={styles.muted}>{props.company.country}</Text>
             <Text style={styles.muted}>{props.company.address}</Text>
             <Text style={styles.muted}>
               {props.company.email} • {props.company.phone}
             </Text>
-            {(props.company.rccm || props.company.ifu) && (
-              <Text style={styles.muted}>
-                {props.company.rccm ? `RCCM: ${props.company.rccm}` : ""}{" "}
-                {props.company.ifu ? `IFU: ${props.company.ifu}` : ""}
-              </Text>
+            {props.company.rccm && (
+              <Text style={styles.muted}>RCCM: {props.company.rccm}</Text>
             )}
           </View>
 
@@ -209,9 +214,6 @@ export function ProformaPdf(props: ProformaPdfProps) {
             </View>
             <Text style={[styles.muted, { marginTop: 4 }]}>
               Date : {props.issuedAt}
-            </Text>
-            <Text style={styles.muted}>
-              Valable jusqu'au : {props.validUntil}
             </Text>
           </View>
         </View>
@@ -241,9 +243,6 @@ export function ProformaPdf(props: ProformaPdfProps) {
             <Text style={styles.boxTitle}>INFORMATIONS</Text>
             <Text style={styles.muted}>
               Date d'émission : {props.issuedAt}
-            </Text>
-            <Text style={styles.muted}>
-              Valable jusqu'au : {props.validUntil}
             </Text>
             <Text style={styles.muted}>Créé par : {props.createdBy}</Text>
           </View>

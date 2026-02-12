@@ -86,31 +86,31 @@ export async function GET(
     const clientSnapshot = proforma.clientSnapshot;
     const clientInfo = clientSnapshot
       ? {
-          name: clientSnapshot.name,
-          email: clientSnapshot.email || undefined,
-          phone: clientSnapshot.phone || undefined,
-          address: clientSnapshot.address || undefined,
-        }
+        name: clientSnapshot.name,
+        email: clientSnapshot.email || undefined,
+        phone: clientSnapshot.phone || undefined,
+        address: clientSnapshot.address || undefined,
+      }
       : proforma.partner
         ? {
-            name: proforma.partner.name,
-            email: proforma.partner.email || undefined,
-            phone: proforma.partner.phone || undefined,
-            address: proforma.partner.address || undefined,
-          }
+          name: proforma.partner.name,
+          email: proforma.partner.email || undefined,
+          phone: proforma.partner.phone || undefined,
+          address: proforma.partner.address || undefined,
+        }
         : proforma.user
           ? {
-              name: proforma.user.name,
-              email: proforma.user.email || undefined,
-              phone: proforma.user.phone || undefined,
-              address: undefined,
-            }
+            name: proforma.user.name,
+            email: proforma.user.email || undefined,
+            phone: proforma.user.phone || undefined,
+            address: undefined,
+          }
           : {
-              name: "Client inconnu",
-              email: undefined,
-              phone: undefined,
-              address: undefined,
-            };
+            name: "Client inconnu",
+            email: undefined,
+            phone: undefined,
+            address: undefined,
+          };
 
     // Formater les dates
     const issuedAt = new Intl.DateTimeFormat("fr-FR", {
@@ -121,10 +121,10 @@ export async function GET(
 
     const validUntil = proforma.validUntil
       ? new Intl.DateTimeFormat("fr-FR", {
-          day: "2-digit",
-          month: "long",
-          year: "numeric",
-        }).format(new Date(proforma.validUntil))
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      }).format(new Date(proforma.validUntil))
       : "Non définie";
 
     // Préparer les items pour le PDF
@@ -139,15 +139,14 @@ export async function GET(
       totalTTC: item.totalTTC,
     }));
 
-    // Informations de l'entreprise (à configurer dans les paramètres)
+    // Informations de l'entreprise
     const companyInfo = {
-      name: "LAHA ÉDITIONS",
-      country: proforma.country || "Gabon",
-      address: "Libreville, Gabon", // TODO: récupérer depuis les paramètres
-      email: "contact@lahamarchand.com", // TODO: récupérer depuis les paramètres
-      phone: "+241 ...", // TODO: récupérer depuis les paramètres
-      rccm: "GA-...", // TODO: récupérer depuis les paramètres
-      ifu: "...", // TODO: récupérer depuis les paramètres
+      name: "LAHA ÉDITIONS GABON",
+      country: "GABON",
+      address: "6ᵉ Arrondissement (c.194.ZL), 142 Av. Jean Léon MEGUIRE ME MBA, Nouvelle Cité NZENG AGNON, LIBREVILLE (GABON)",
+      email: "contact@lahamarchand.com",
+      phone: "+241 ...",
+      rccm: "GA-LBV-01-2022-A10-00255",
     };
 
     // Générer le PDF
@@ -177,7 +176,7 @@ export async function GET(
     );
 
     const filename = proforma.proformaNumber || `proforma-${proforma.id}.pdf`;
-    
+
     return new NextResponse(pdfBuffer, {
       headers: {
         "Content-Type": "application/pdf",
