@@ -231,7 +231,7 @@ export async function POST(request: NextRequest) {
           connect: { id: discipline.id }
         },
         concepteur: {
-          connect: { id: concepteurId }
+          connect: { id: finalConcepteurId }
         },
         status: status,
         submittedAt: status === "SUBMITTED" ? new Date() : null
@@ -272,13 +272,13 @@ export async function POST(request: NextRequest) {
             maxStock: null,
             status: "PENDING", // En attente de validation par le PDG
             author: {
-              connect: { id: concepteurId }
+              connect: { id: finalConcepteurId }
             },
             discipline: {
               connect: { id: discipline.id }
             },
             concepteur: {
-              connect: { id: concepteurId }
+              connect: { id: finalConcepteurId }
             },
             project: {
               connect: { id: project.id }
@@ -320,7 +320,7 @@ export async function POST(request: NextRequest) {
                 data: JSON.stringify({
                   workId: work.id,
                   workTitle: work.title,
-                  concepteurId: concepteurId,
+                  concepteurId: finalConcepteurId,
                   concepteurName: project.concepteur.name,
                   discipline: discipline.name,
                   isbn: work.isbn
@@ -337,7 +337,7 @@ export async function POST(request: NextRequest) {
         try {
           await prisma.notification.create({
             data: {
-              userId: concepteurId,
+              userId: finalConcepteurId,
               title: "Projet soumis avec succès",
               message: `Votre projet "${project.title}" a été soumis pour validation et sera examiné par l'équipe éditoriale.`,
               type: "PROJECT_SUBMITTED",
@@ -380,7 +380,7 @@ export async function POST(request: NextRequest) {
 
       await prisma.notification.create({
         data: {
-          userId: concepteurId,
+          userId: finalConcepteurId,
           title: notificationTitle,
           message: notificationMessage,
           type: notificationType,
