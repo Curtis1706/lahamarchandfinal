@@ -33,85 +33,88 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'URL non autorisée' }, { status: 403 })
         }
 
-        // Assurer que le flag fl_attachment est présent
-        let downloadUrl = fileUrl
-        // NOTE: On ne force plus fl_attachment car cela peut causer des erreurs 401 sur les fichiers raw
-        // Le proxy gère déjà le header Content-Disposition pour le client
-
-        // if (fileUrl.includes('cloudinary.com') && !fileUrl.includes('fl_attachment')) {
-        //     downloadUrl = fileUrl.replace('/upload/', '/upload/fl_attachment/')
-        //     console.log('🔄 [Download Proxy] Added fl_attachment flag:', downloadUrl)
-        // }
-
         // Télécharger avec timeout
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
         try {
             console.log('⏳ [Download Proxy] Fetching from Cloudinary...')
-            let response = await fetch(downloadUrl, {
+            let response = await fetch(fileUrl, {
                 signal: controller.signal,
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
                 }
             })
 
-
-            // Retry logic with Signed URL if 401/403/404
             console.log('📊 [Download Proxy] Cloudinary Initial Status:', response.status)
 
+            // Retry logic with Signed URL if 401/403/404
             if (!response.ok && [401, 403, 404].includes(response.status)) {
                 console.warn(`⚠️ [Download Proxy] Request failed with ${response.status}. Attempting with Signed URL...`);
 
                 try {
-                    // Extract Public ID and Resource Type
-                    const urlParts = fileUrl.split('/upload/');
-                    if (urlParts.length === 2) {
-                        const prefix = urlParts[0]; // .../resource_type
-                        let suffix = urlParts[1]; // vVersion/public_id or public_id
+                    // Extract Public ID from Cloudinary URL
+                    // Format: https://res.cloudinary.com/{cloud}/raw/upload/v{version}/{public_id}.pdf
+                    const urlMatch = fileUrl.match(/\/(?:raw|image|video)\/upload\/(?:v\d+\/)?(.+?)(?:\?.*)?$/)
 
-                        // Determine resource type from prefix
-                        const resourceType = prefix.includes('/raw') ? 'raw' :
-                            prefix.includes('/video') ? 'video' : 'image';
+                    if (!urlMatch) {
+                        throw new Error('Cannot extract public_id from URL')
+                    }
 
-                        // Clean version
-                        const versionMatch = suffix.match(/^v\d+\/(.+)$/);
-                        let publicId = suffix;
+                    let publicId = decodeURIComponent(urlMatch[1])
 
-                        if (versionMatch) {
-                            publicId = versionMatch[1];
-                        }
+                    // ⚠️ IMPORTANT: Cloudinary public_id should NOT include the extension for raw files
+                    // Remove the extension from publicId
+                    publicId = publicId.replace(/\.(pdf|docx?|txt|xlsx?|pptx?|zip|rar)$/i, '')
 
-                        // Decode URI components in publicId
-                        publicId = decodeURIComponent(publicId);
+                    // Determine resource type from URL
+                    const resourceType = fileUrl.includes('/raw/') ? 'raw' :
+                        fileUrl.includes('/video/') ? 'video' : 'image'
 
-                        console.log(`🔧 [Download Proxy] Extracted for signing - ID: ${publicId}, Type: ${resourceType}`);
+                    console.log(`🔧 [Download Proxy] Extracted for signing - ID: "${publicId}", Type: ${resourceType}`)
 
-                        const signedUrl = cloudinary.url(publicId, {
-                            resource_type: resourceType,
-                            type: 'upload',
-                            sign_url: true,
-                            secure: true
-                        });
+                    // Generate signed URL
+                    // Note: format hardcoded to pdf for raw types in the user provided snippet? 
+                    // Let's improve this slightly to use the actual extension if possible, or stick to user code.
+                    // User code: ...(resourceType === 'raw' && { format: 'pdf' })
+                    // I will verify extension first. 
 
-                        console.log('🔐 [Download Proxy] Generated Signed URL:', signedUrl);
-
-                        const retryResponse = await fetch(signedUrl, {
-                            signal: controller.signal,
-                            headers: {
-                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                            }
-                        });
-
-                        if (retryResponse.ok) {
-                            response = retryResponse;
-                            console.log('✅ [Download Proxy] Retry with signed URL succeeded');
+                    let format = undefined;
+                    if (resourceType === 'raw') {
+                        const extMatch = fileUrl.match(/\.(pdf|docx?|txt|xlsx?|pptx?|zip|rar)(?:\?|$)/i);
+                        if (extMatch) {
+                            format = extMatch[1].toLowerCase();
                         } else {
-                            console.error('❌ [Download Proxy] Retry failed with:', retryResponse.status);
+                            format = 'pdf'; // Default fallback from user code
                         }
                     }
-                } catch (retryError) {
-                    console.error('❌ [Download Proxy] Error generating signed URL:', retryError);
+
+                    const signedUrl = cloudinary.url(publicId, {
+                        resource_type: resourceType,
+                        type: 'upload',
+                        sign_url: true,
+                        secure: true,
+                        ...(resourceType === 'raw' && { format: format })
+                    })
+
+                    console.log('🔐 [Download Proxy] Generated Signed URL:', signedUrl)
+
+                    const retryResponse = await fetch(signedUrl, {
+                        signal: controller.signal,
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                        }
+                    })
+
+                    if (retryResponse.ok) {
+                        response = retryResponse
+                        console.log('✅ [Download Proxy] Retry with signed URL succeeded')
+                    } else {
+                        const errorText = await retryResponse.text()
+                        console.error('❌ [Download Proxy] Retry failed with:', retryResponse.status, errorText)
+                    }
+                } catch (retryError: any) {
+                    console.error('❌ [Download Proxy] Error generating signed URL:', retryError.message)
                 }
             }
 
@@ -155,7 +158,6 @@ export async function GET(request: NextRequest) {
                 if (cleanFileNameFromUrl.includes('.')) {
                     finalFileName += '.' + cleanFileNameFromUrl.split('.').pop()
                 } else if (contentType === 'application/pdf' || fileUrl.includes('/raw/upload/')) {
-                    // Si c'est en raw upload et sans extension, c'est très probablement un PDF dans ce projet
                     if (!finalFileName.toLowerCase().endsWith('.pdf')) {
                         finalFileName += '.pdf'
                     }
