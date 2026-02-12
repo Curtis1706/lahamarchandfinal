@@ -54,64 +54,76 @@ export async function GET(request: NextRequest) {
 
                 try {
                     // Extract Public ID from Cloudinary URL
-                    // Format: https://res.cloudinary.com/{cloud}/raw/upload/v{version}/{public_id}.pdf
                     const urlMatch = fileUrl.match(/\/(?:raw|image|video)\/upload\/(?:v\d+\/)?(.+?)(?:\?.*)?$/)
 
                     if (!urlMatch) {
                         throw new Error('Cannot extract public_id from URL')
                     }
 
-                    let publicId = decodeURIComponent(urlMatch[1])
-
-                    // ⚠️ IMPORTANT: Cloudinary public_id should NOT include the extension for raw files
-                    // Remove the extension from publicId
-                    publicId = publicId.replace(/\.(pdf|docx?|txt|xlsx?|pptx?|zip|rar)$/i, '')
+                    let rawPublicId = decodeURIComponent(urlMatch[1])
 
                     // Determine resource type from URL
                     const resourceType = fileUrl.includes('/raw/') ? 'raw' :
                         fileUrl.includes('/video/') ? 'video' : 'image'
 
-                    console.log(`🔧 [Download Proxy] Extracted for signing - ID: "${publicId}", Type: ${resourceType}`)
+                    console.log(`🔧 [Download Proxy] Raw public_id: "${rawPublicId}", Type: ${resourceType}`)
 
-                    // Generate signed URL
-                    // Note: format hardcoded to pdf for raw types in the user provided snippet? 
-                    // Let's improve this slightly to use the actual extension if possible, or stick to user code.
-                    // User code: ...(resourceType === 'raw' && { format: 'pdf' })
-                    // I will verify extension first. 
+                    // Try BOTH methods - with and without extension
+                    const attempts = []
 
-                    let format = undefined;
-                    if (resourceType === 'raw') {
-                        const extMatch = fileUrl.match(/\.(pdf|docx?|txt|xlsx?|pptx?|zip|rar)(?:\?|$)/i);
-                        if (extMatch) {
-                            format = extMatch[1].toLowerCase();
+                    // Method 1: With full extension (for files uploaded with extension in public_id)
+                    attempts.push({
+                        publicId: rawPublicId,
+                        method: 'with_extension'
+                    })
+
+                    // Method 2: Without extension (for files uploaded without extension in public_id)
+                    const withoutExt = rawPublicId.replace(/\.(pdf|docx?|txt|xlsx?|pptx?|zip|rar)$/i, '')
+                    if (withoutExt !== rawPublicId) {
+                        const ext = rawPublicId.match(/\.(pdf|docx?|txt|xlsx?|pptx?|zip|rar)$/i)?.[1]
+                        attempts.push({
+                            publicId: withoutExt,
+                            method: 'without_extension',
+                            format: ext?.toLowerCase()
+                        })
+                    }
+
+                    // Try each method
+                    for (const attempt of attempts) {
+                        console.log(`🔄 [Download Proxy] Trying ${attempt.method}: "${attempt.publicId}"`)
+
+                        const urlOptions: any = {
+                            resource_type: resourceType,
+                            type: 'upload',
+                            sign_url: true,
+                            secure: true
+                        }
+
+                        if (attempt.format) {
+                            urlOptions.format = attempt.format
+                        }
+
+                        const signedUrl = cloudinary.url(attempt.publicId, urlOptions)
+                        console.log(`🔐 [Download Proxy] Signed URL (${attempt.method}):`, signedUrl)
+
+                        const retryResponse = await fetch(signedUrl, {
+                            signal: controller.signal,
+                            headers: {
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                            }
+                        })
+
+                        if (retryResponse.ok) {
+                            response = retryResponse
+                            console.log(`✅ [Download Proxy] Success with ${attempt.method}!`)
+                            break
                         } else {
-                            format = 'pdf'; // Default fallback from user code
+                            console.log(`❌ [Download Proxy] Failed with ${attempt.method}: ${retryResponse.status}`)
                         }
                     }
 
-                    const signedUrl = cloudinary.url(publicId, {
-                        resource_type: resourceType,
-                        type: 'upload',
-                        sign_url: true,
-                        secure: true,
-                        ...(resourceType === 'raw' && { format: format })
-                    })
-
-                    console.log('🔐 [Download Proxy] Generated Signed URL:', signedUrl)
-
-                    const retryResponse = await fetch(signedUrl, {
-                        signal: controller.signal,
-                        headers: {
-                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                        }
-                    })
-
-                    if (retryResponse.ok) {
-                        response = retryResponse
-                        console.log('✅ [Download Proxy] Retry with signed URL succeeded')
-                    } else {
-                        const errorText = await retryResponse.text()
-                        console.error('❌ [Download Proxy] Retry failed with:', retryResponse.status, errorText)
+                    if (!response.ok) {
+                        console.error('❌ [Download Proxy] All retry methods failed')
                     }
                 } catch (retryError: any) {
                     console.error('❌ [Download Proxy] Error generating signed URL:', retryError.message)
