@@ -1042,9 +1042,8 @@ function EditUserForm({ user, disciplines, onSubmit, onCancel }: {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="active">Actif</SelectItem>
-            <SelectItem value="inactive">Inactif</SelectItem>
-            <SelectItem value="suspended">Suspendu</SelectItem>
+            <SelectItem value="ACTIVE">Actif</SelectItem>
+            <SelectItem value="SUSPENDED">Suspendu</SelectItem>
           </SelectContent>
         </Select>
       </div>
