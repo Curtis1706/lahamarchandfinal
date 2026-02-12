@@ -193,7 +193,7 @@ export function ProformaPdf(props: ProformaPdfProps) {
         <View style={[styles.row, styles.header, { justifyContent: "space-between" }]}>
           <View style={styles.col}>
             <Image
-              src={`${process.cwd()}/public/images/laha-logo.png`}
+              src="https://www.lahagabon.com/images/laha-logo.png"
               style={{ width: 50, height: 50, marginBottom: 6 }}
             />
             <Text style={styles.brand}>{props.company.name}</Text>
