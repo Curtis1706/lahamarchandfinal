@@ -249,8 +249,18 @@ export default function ValidationOeuvresPage() {
   };
 
   const getDownloadUrl = (url: string) => {
-    if (!url) return '#';
-    return `/api/download-document?url=${encodeURIComponent(url)}`;
+    if (!url) {
+      console.warn("🔗 [Download] Provided URL is empty");
+      return '#';
+    }
+
+    // Si c'est déjà une URL de notre API, ne pas la modifier
+    if (url.startsWith('/api/download-document')) return url;
+
+    console.log("🔗 [Download] Original URL:", url);
+    const apiUrl = `/api/download-document?url=${encodeURIComponent(url)}`;
+    console.log("🔗 [Download] Proxy URL:", apiUrl);
+    return apiUrl;
   };
 
   const handleUpdateWorkStatus = async (workId: string, action: string, reason?: string, authorId?: string) => {
