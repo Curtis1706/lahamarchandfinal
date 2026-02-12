@@ -250,12 +250,7 @@ export default function ValidationOeuvresPage() {
 
   const getDownloadUrl = (url: string) => {
     if (!url) return '#';
-    // Si c'est une URL Cloudinary, ajouter le flag fl_attachment
-    if (url.includes('cloudinary.com')) {
-      // Insérer fl_attachment après /upload/
-      return url.replace('/upload/', '/upload/fl_attachment/');
-    }
-    return url;
+    return `/api/download-document?url=${encodeURIComponent(url)}`;
   };
 
   const handleUpdateWorkStatus = async (workId: string, action: string, reason?: string, authorId?: string) => {
