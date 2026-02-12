@@ -326,6 +326,19 @@ export async function PUT(request: NextRequest) {
       updateData.password = await bcrypt.hash(updateData.password, 12);
     }
 
+    // Nettoyer disciplineId si vide ou si le rôle ne nécessite pas de discipline
+    if (updateData.disciplineId !== undefined) {
+      // Si disciplineId est une chaîne vide, le convertir en null
+      if (updateData.disciplineId === "" || updateData.disciplineId === null) {
+        updateData.disciplineId = null;
+      }
+      // Si le rôle ne nécessite pas de discipline, forcer à null
+      const rolesWithDiscipline = ["AUTEUR", "CONCEPTEUR", "REPRESENTANT"];
+      if (updateData.role && !rolesWithDiscipline.includes(updateData.role)) {
+        updateData.disciplineId = null;
+      }
+    }
+
     // Mettre à jour l'utilisateur
     const updatedUser = await prisma.user.update({
       where: { id },
