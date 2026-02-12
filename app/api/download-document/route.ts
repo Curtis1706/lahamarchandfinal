@@ -17,6 +17,27 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'URL manquante' }, { status: 400 })
         }
 
+        // Vercel Blob direct download
+        if (fileUrl.includes('blob.vercel-storage.com')) {
+            console.log('📦 [Download Proxy] Vercel Blob URL detected, fetching directly...');
+            const response = await fetch(fileUrl);
+            if (!response.ok) {
+                console.error('❌ [Download Proxy] Vercel Blob fetch failed:', response.status);
+                return NextResponse.json({ error: 'Erreur lors du téléchargement Vercel Blob' }, { status: response.status });
+            }
+
+            const contentType = response.headers.get('content-type') || 'application/octet-stream';
+            const buffer = await response.arrayBuffer();
+            const fileName = preferredName || fileUrl.split('/').pop() || 'document.pdf';
+
+            return new NextResponse(buffer, {
+                headers: {
+                    'Content-Type': contentType,
+                    'Content-Disposition': `attachment; filename="${encodeURIComponent(fileName)}"`,
+                }
+            });
+        }
+
         // 1. Correction URL pour documents (image -> raw)
         const isDocumentUrl = fileUrl.match(/\.(pdf|docx?|txt|xlsx?|pptx?|zip|rar)(\?|$)/i)
         if (isDocumentUrl && fileUrl.includes('/image/upload/')) {
@@ -111,6 +132,107 @@ export async function GET(request: NextRequest) {
                 clearTimeout(timeoutId);
             }
 
+            // 3. Admin API Fallback - Query Cloudinary for resource details
+            if (!workingResponse) {
+                try {
+                    console.log('🔍 [Download Proxy] All signed URLs failed. Querying Admin API for resource details...');
+                    console.log('🔍 [Download Proxy] Raw Public ID:', rawPublicId, 'Resource Type:', resourceType);
+
+                    // IMPORTANT: For 'raw' resources, the public_id INCLUDES the extension
+                    // This matches how files are uploaded (see upload/route.ts line 128)
+                    // For other resource types, we would strip the extension
+                    const publicIdForAdmin = rawPublicId; // Keep extension for raw files
+
+                    const adminResource = await cloudinary.api.resource(publicIdForAdmin, {
+                        resource_type: resourceType,
+                        type: 'upload', // Try 'upload' first as it's most common
+                    });
+
+                    console.log('✅ [Download Proxy] Admin API success!');
+                    console.log('🔍 [Download Proxy] Resource details:', {
+                        access_mode: adminResource.access_mode,
+                        type: adminResource.type,
+                        format: adminResource.format,
+                        public_id: adminResource.public_id
+                    });
+
+
+                    // Direct download via Admin API content endpoint
+                    // Bypass all URL generation since every URL approach returns 401/404
+                    // Use authenticated fetch directly to Cloudinary's Admin API
+                    console.log('🔄 [Download Proxy] Downloading via Admin API content endpoint...');
+
+                    const cloudName = process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+                    const apiKey = process.env.CLOUDINARY_API_KEY || process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY;
+                    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+                    // Build Admin API content URL
+                    // Format: https://api.cloudinary.com/v1_1/:cloud_name/resources/:resource_type/:type/:public_id
+                    const publicIdEncoded = encodeURIComponent(adminResource.public_id);
+                    const adminContentUrl = `https://api.cloudinary.com/v1_1/${cloudName}/resources/${resourceType}/${adminResource.type}/${publicIdEncoded}`;
+
+                    console.log('🔗 [Download Proxy] Admin content URL constructed');
+                    console.log('🔄 [Download Proxy] Fetching with API credentials...');
+
+                    // Use Basic Auth with API key and secret
+                    const auth = Buffer.from(`${apiKey}:${apiSecret}`).toString('base64');
+                    const adminResponse = await fetch(adminContentUrl, {
+                        headers: {
+                            'Authorization': `Basic ${auth}`,
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+                        }
+                    });
+
+                    if (adminResponse.ok) {
+                        const resourceData = await adminResponse.json();
+                        console.log('✅ [Download Proxy] Got resource data from Admin API');
+
+                        // Try to fetch the secure_url from the Admin response
+                        if (resourceData.secure_url) {
+                            console.log('🔄 [Download Proxy] Fetching secure_url from Admin response...');
+                            const fileResponse = await fetch(resourceData.secure_url);
+
+                            if (fileResponse.ok) {
+                                console.log('✅ [Download Proxy] Admin API secure_url fetch success!');
+                                workingResponse = fileResponse;
+                            } else {
+                                console.error('❌ [Download Proxy] secure_url fetch failed:', fileResponse.status);
+                            }
+                        }
+                    } else {
+                        console.error('❌ [Download Proxy] Admin content endpoint failed:', adminResponse.status);
+                        const errorText = await adminResponse.text();
+                        console.error('💡 [Download Proxy] Error response:', errorText);
+                    }
+                } catch (adminError: any) {
+                    console.error('🕵️ [Download Proxy] Admin API Error:', adminError.message || adminError);
+
+                    // Try alternative delivery type if first attempt failed
+                    if (adminError.error?.http_code === 404) {
+                        try {
+                            console.log('🔄 [Download Proxy] Retrying with type: authenticated...');
+                            // Keep the extension for raw files
+                            const publicIdForAdmin = rawPublicId;
+
+                            const adminResource = await cloudinary.api.resource(publicIdForAdmin, {
+                                resource_type: resourceType,
+                                type: 'authenticated',
+                            });
+
+                            if (adminResource.secure_url) {
+                                const adminResponse = await fetch(adminResource.secure_url);
+                                if (adminResponse.ok) {
+                                    console.log('✅ [Download Proxy] Admin API authenticated fetch success!');
+                                    workingResponse = adminResponse;
+                                }
+                            }
+                        } catch (retryError) {
+                            console.error('🕵️ [Download Proxy] Admin API retry also failed:', retryError);
+                        }
+                    }
+                }
+            }
+
             if (workingResponse) {
                 // Préparer la réponse proxy
                 const contentType = workingResponse.headers.get('content-type') || 'application/octet-stream';
@@ -135,74 +257,6 @@ export async function GET(request: NextRequest) {
                         'Content-Length': buffer.length.toString()
                     }
                 });
-            }
-
-            // --- DEBUG ADMIN API ---
-            // Si tout a échoué, on demande à l'API Admin ce qu'il en est vraiment
-            try {
-                console.log('🕵️ [Download Proxy] All strategies failed. Querying Admin API for details...');
-
-                // Essayer de trouver la ressource avec et sans extension
-                let resourceInfo = null;
-                try {
-                    resourceInfo = await cloudinary.api.resource(rawPublicId, { resource_type: resourceType });
-                } catch (e) {
-                    // Try without extension if failed
-                    if (rawPublicId.includes('.')) {
-                        try {
-                            const idNoExt = rawPublicId.replace(/\.[^/.]+$/, "");
-                            resourceInfo = await cloudinary.api.resource(idNoExt, { resource_type: resourceType });
-                        } catch (e2) { }
-                    }
-                }
-
-                if (resourceInfo) {
-                    console.log('🕵️ [Download Proxy] Resource FOUND in Admin API:', {
-                        public_id: resourceInfo.public_id,
-                        access_mode: resourceInfo.access_mode
-                    });
-
-                    // Si public, on génère une URL non signée (plus sûr pour raw public)
-                    // Si authenticated, on DOIT signer
-                    const shouldSign = resourceInfo.access_mode === 'authenticated';
-
-                    const exactUrl = cloudinary.url(resourceInfo.public_id, {
-                        resource_type: resourceInfo.resource_type,
-                        type: resourceInfo.type,
-                        sign_url: shouldSign,
-                        secure: true,
-                        format: resourceInfo.format
-                    });
-
-                    console.log(`🕵️ [Download Proxy] Trying exact URL (Signed: ${shouldSign}):`, exactUrl);
-
-                    const exactResponse = await fetch(exactUrl);
-                    if (exactResponse.ok) {
-                        const contentType = exactResponse.headers.get('content-type') || 'application/octet-stream';
-                        let finalName = preferredName || resourceInfo.public_id.split('/').pop();
-                        if (resourceInfo.format && !finalName.endsWith('.' + resourceInfo.format)) {
-                            // Attention si format est undefined, ne pas ajouter '.'
-                            finalName += '.' + resourceInfo.format;
-                        }
-
-                        const blob = await exactResponse.blob();
-                        const buffer = Buffer.from(await blob.arrayBuffer());
-
-                        return new NextResponse(buffer, {
-                            headers: {
-                                'Content-Type': contentType,
-                                'Content-Disposition': `attachment; filename="${encodeURIComponent(finalName)}"`,
-                                'Content-Length': buffer.length.toString()
-                            }
-                        });
-                    } else {
-                        console.error('🕵️ [Download Proxy] Final attempt failed:', exactResponse.status, await exactResponse.text());
-                    }
-                } else {
-                    console.warn('🕵️ [Download Proxy] Resource NOT FOUND via Admin API either.');
-                }
-            } catch (adminError) {
-                console.error('🕵️ [Download Proxy] Admin API Error:', adminError);
             }
         }
 

@@ -152,6 +152,11 @@ export interface CreateProjectRequest {
     concepteurId: string
     description?: string
     status?: string
+    objectives?: string
+    expectedDeliverables?: string
+    requiredResources?: string
+    timeline?: string
+    files?: string // JSON string array
 }
 
 export interface UpdateProjectRequest {

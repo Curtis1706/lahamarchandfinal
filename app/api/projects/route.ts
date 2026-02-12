@@ -206,6 +206,10 @@ export async function POST(request: NextRequest) {
       data: {
         title: title.trim(),
         description: description?.trim() || "",
+        objectives: objectives?.trim() || null,
+        expectedDeliverables: expectedDeliverables?.trim() || null,
+        requiredResources: requiredResources?.trim() || null,
+        timeline: timeline?.trim() || null,
         discipline: {
           connect: { id: discipline.id }
         },

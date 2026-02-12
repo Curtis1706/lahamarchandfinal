@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
       expectedDeliverables,
       requiredResources,
       timeline,
+      files, // Reçoit un tableau d'objets ou string JSON
       status = "DRAFT"
     } = body;
 
@@ -37,6 +38,7 @@ export async function POST(request: NextRequest) {
       expectedDeliverables,
       requiredResources,
       timeline,
+      filesCount: Array.isArray(files) ? files.length : (files ? 1 : 0),
       status
     });
 
@@ -81,8 +83,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Seul un utilisateur avec le rôle CONCEPTEUR peut créer des projets" }, { status: 403 });
     }
 
+    // Formater les fichiers pour le stockage (JSON string)
+    let filesJson = null;
+    if (files) {
+      filesJson = typeof files === 'string' ? files : JSON.stringify(files);
+    }
+
     // Créer le projet
-    const project = await prisma.project.create({
+    // Cast to any to avoid TypeScript errors with relation properties and files field
+    const project: any = await prisma.project.create({
       data: {
         title: title.trim(),
         description: description?.trim() || "",
@@ -90,6 +99,7 @@ export async function POST(request: NextRequest) {
         expectedDeliverables: expectedDeliverables?.trim() || null,
         requiredResources: requiredResources?.trim() || null,
         timeline: timeline?.trim() || null,
+        files: filesJson,
         status: status,
         discipline: {
           connect: { id: disciplineId }

@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import path from "path";
 import cloudinary from "@/lib/cloudinary";
+import { put } from '@vercel/blob';
 
 // Configuration des types de fichiers autorisés
 const ALLOWED_FILE_TYPES = {
@@ -108,48 +109,91 @@ export async function POST(request: NextRequest) {
         }
 
         const isDocument = ['documents', 'archives', 'presentations', 'spreadsheets'].includes(fileType);
-        const resourceType = isDocument ? 'raw' : 'image';
+        const isImage = file.type.startsWith('image/');
 
         // Générer un nom unique
         const uniqueFilename = generateUniqueFilename(file.name, session.user.id);
-
-        // Déterminer le dossier de destination dans Cloudinary
-        const cloudinaryFolder = uploadType === 'temp' ? 'temp' : uploadType + 's';
 
         // Convertir le fichier en buffer
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
 
-        // Upload vers Cloudinary
-        const result: any = await new Promise((resolve, reject) => {
-          const uploadStream = cloudinary.uploader.upload_stream(
-            {
-              folder: `laha/${cloudinaryFolder}`,
-              public_id: resourceType === 'raw' ? uniqueFilename : uniqueFilename.split('.')[0],
-              resource_type: resourceType,
-              access_mode: 'public', // Force l'accès public
-              type: 'upload' // type standard (public par défaut)
-            },
-            (error: any, result: any) => {
-              if (error) reject(error);
-              else resolve(result);
-            }
-          );
-          uploadStream.end(buffer);
-        });
+        let uploadResult: {
+          url: string;
+          public_id?: string;
+          resource_type?: string;
+          format?: string;
+        };
 
-        console.log(`[API Upload] Cloudinary Success:`, {
-          url: result.secure_url,
-          public_id: result.public_id,
-          resource_type: result.resource_type,
-          format: result.format
-        });
+        // Decide storage based on file type
+        if (isDocument) {
+          // Use Vercel Blob for documents (PDFs, Word, etc.)
+          console.log(`[API Upload] Using Vercel Blob for document: ${file.name}`);
+
+          const cloudinaryFolder = uploadType === 'temp' ? 'temp' : uploadType + 's';
+          const blobPath = `laha/${cloudinaryFolder}/${uniqueFilename}`;
+
+          const blob = await put(blobPath, buffer, {
+            access: 'public',
+            contentType: file.type || 'application/octet-stream',
+          });
+
+          uploadResult = {
+            url: blob.url,
+            public_id: uniqueFilename,
+            resource_type: 'raw',
+            format: extension
+          };
+
+          console.log(`[API Upload] Vercel Blob Success:`, {
+            url: blob.url,
+            pathname: blob.pathname
+          });
+
+        } else {
+          // Use Cloudinary for images and other media
+          console.log(`[API Upload] Using Cloudinary for image: ${file.name}`);
+
+          const cloudinaryFolder = uploadType === 'temp' ? 'temp' : uploadType + 's';
+          const resourceType = isImage ? 'image' : 'raw';
+
+          const result: any = await new Promise((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream(
+              {
+                folder: `laha/${cloudinaryFolder}`,
+                public_id: resourceType === 'raw' ? uniqueFilename : uniqueFilename.split('.')[0],
+                resource_type: resourceType,
+                access_mode: 'public',
+                type: 'upload',
+              },
+              (error: any, result: any) => {
+                if (error) reject(error);
+                else resolve(result);
+              }
+            );
+            uploadStream.end(buffer);
+          });
+
+          uploadResult = {
+            url: result.secure_url,
+            public_id: result.public_id,
+            resource_type: result.resource_type,
+            format: result.format
+          };
+
+          console.log(`[API Upload] Cloudinary Success:`, {
+            url: result.secure_url,
+            public_id: result.public_id,
+            resource_type: result.resource_type,
+            format: result.format
+          });
+        }
 
 
         const uploadedFile = {
           originalName: file.name,
           filename: uniqueFilename,
-          path: result.secure_url, // Sauvegarder l'URL Cloudinary au lieu du chemin local
+          path: uploadResult.url, // URL from either Vercel Blob or Cloudinary
           size: file.size,
           type: fileType,
           extension: extension,
@@ -158,7 +202,7 @@ export async function POST(request: NextRequest) {
           uploadedAt: new Date().toISOString(),
           entityId: entityId || null,
           entityType: uploadType,
-          cloudinaryId: result.public_id
+          cloudinaryId: uploadResult.public_id
         };
 
         uploadedFiles.push(uploadedFile);

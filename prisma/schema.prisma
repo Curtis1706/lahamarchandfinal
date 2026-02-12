@@ -132,6 +132,7 @@ model Project {
   expectedDeliverables String?
   requiredResources    String?
   timeline             String?
+  files                String?       // JSON string of file URLs
   rejectionReason      String?
   disciplineId         String
   status               ProjectStatus @default(DRAFT)

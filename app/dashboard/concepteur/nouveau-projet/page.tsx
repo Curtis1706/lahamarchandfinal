@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  FileText, 
+import {
+  FileText,
   Upload,
   Send,
   ArrowLeft,
@@ -35,9 +35,9 @@ interface ProjectFormData {
 
 export default function NouveauProjetPage() {
   const { user } = useCurrentUser();
-  const { disciplines, isLoading: disciplinesLoading } = useDisciplines();
+  const { disciplines, loading: disciplinesLoading } = useDisciplines();
   const router = useRouter();
-  
+
   const [formData, setFormData] = useState<ProjectFormData>({
     title: "",
     description: "",
@@ -47,7 +47,7 @@ export default function NouveauProjetPage() {
     requiredResources: "",
     timeline: ""
   });
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
 
@@ -86,8 +86,51 @@ export default function NouveauProjetPage() {
 
     try {
       setIsSubmitting(true);
-      
-      const projectData = {
+
+      // Upload des fichiers s'il y en a
+      const uploadedFilesList = [];
+      if (attachedFiles.length > 0) {
+        toast.info("Envoi des fichiers en cours...");
+
+        // Upload un par un pour mieux gérer les erreurs
+        for (const file of attachedFiles) {
+          try {
+            const formDataUpload = new FormData();
+            formDataUpload.append('files', file);
+            formDataUpload.append('type', 'project');
+
+            // Appel direct à l'API d'upload (qui gère Vercel Blob / Cloudinary)
+            const response = await fetch('/api/upload', {
+              method: 'POST',
+              body: formDataUpload
+            });
+
+            if (!response.ok) {
+              throw new Error(`Erreur upload ${file.name}`);
+            }
+
+            const result = await response.json();
+
+            // L'API retourne { files: [...] }
+            const uploadedFile = result.files && result.files.length > 0 ? result.files[0] : null;
+
+            if (uploadedFile && uploadedFile.path) {
+              uploadedFilesList.push({
+                name: file.name,
+                url: uploadedFile.path,
+                type: file.type,
+                size: file.size
+              });
+            }
+          } catch (uploadError) {
+            console.error(`Erreur upload ${file.name}:`, uploadError);
+            toast.error(`Erreur lors de l'envoi de ${file.name}`);
+            // On continue avec les autres fichiers
+          }
+        }
+      }
+
+      const projectData: any = { // Using any to bypass strict type check for now
         title: formData.title.trim(),
         description: formData.description.trim(),
         disciplineId: formData.disciplineId,
@@ -96,14 +139,15 @@ export default function NouveauProjetPage() {
         expectedDeliverables: formData.expectedDeliverables.trim(),
         requiredResources: formData.requiredResources.trim(),
         timeline: formData.timeline.trim(),
+        files: uploadedFilesList.length > 0 ? JSON.stringify(uploadedFilesList) : null,
         status: "DRAFT"
       };
 
       const result = await apiClient.createConcepteurProject(projectData);
-      
+
       toast.success("Projet créé avec succès !");
       router.push("/dashboard/concepteur/mes-projets");
-      
+
     } catch (error: any) {
       console.error("Erreur création projet:", error);
       toast.error(error.message || "Erreur lors de la création du projet");
@@ -370,7 +414,7 @@ export default function NouveauProjetPage() {
                   )}
                   Créer le projet
                 </Button>
-                
+
                 <p className="text-xs text-muted-foreground text-center">
                   Le projet sera créé en brouillon et pourra être modifié avant soumission au PDG.
                 </p>
