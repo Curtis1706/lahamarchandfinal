@@ -231,11 +231,25 @@ export default function GestionUtilisateursPage() {
   }
 
   const handleSuspendUser = async (userId: string) => {
-    await handleUpdateUser(userId, { status: 'SUSPENDED' })
+    // Mise à jour optimiste et appel API
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: 'SUSPENDED' } : u))
+    try {
+      await handleUpdateUser(userId, { status: 'SUSPENDED' })
+    } catch (e) {
+       // Revert en cas d'erreur (optionnel, mais propre)
+       setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: 'ACTIVE' } : u))
+    }
   }
 
   const handleActivateUser = async (userId: string) => {
-    await handleUpdateUser(userId, { status: 'ACTIVE' })
+    // Mise à jour optimiste et appel API
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: 'ACTIVE' } : u))
+    try {
+      await handleUpdateUser(userId, { status: 'ACTIVE' })
+    } catch (e) {
+      // Revert en cas d'erreur
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: 'SUSPENDED' } : u))
+    }
   }
 
   const toggleUserExpansion = (userId: string) => {
@@ -483,7 +497,6 @@ export default function GestionUtilisateursPage() {
             <SelectContent>
               <SelectItem value="all">Statut</SelectItem>
               <SelectItem value="ACTIVE">Actif</SelectItem>
-              <SelectItem value="INACTIVE">Inactif</SelectItem>
               <SelectItem value="SUSPENDED">Suspendu</SelectItem>
             </SelectContent>
           </Select>
