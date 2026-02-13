@@ -103,22 +103,22 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           icon: FileText,
           label: "Projets"
         },
-       /*  {
-          href: `${basePath}/gestion-partenaires`,
-          icon: Building2,
-          label: "Partenaires"
-        },
-        {
-          href: `${basePath}/gestion-ecoles`,
-          icon: GraduationCap,
-          label: "Écoles"
-        }, */
+        /*  {
+           href: `${basePath}/gestion-partenaires`,
+           icon: Building2,
+           label: "Partenaires"
+         },
+         {
+           href: `${basePath}/gestion-ecoles`,
+           icon: GraduationCap,
+           label: "Écoles"
+         }, */
         {
           href: `${basePath}/gestion-commandes`,
           icon: ShoppingCart,
           label: "Commandes"
         },
-         {
+        {
           href: `${basePath}/gestion-stock`,
           label: "Gestion Stock",
           icon: ArrowRightLeft,
@@ -126,7 +126,7 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
             { href: `${basePath}/gestion-stock/operations`, label: "Opérations de stock" },
             { href: `${basePath}/gestion-stock/stock`, label: "Stock" }
           ]
-          
+
         },
         {
           href: `${basePath}/bon-sortie`,
