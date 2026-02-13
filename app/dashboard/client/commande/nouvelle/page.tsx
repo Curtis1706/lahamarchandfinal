@@ -62,7 +62,7 @@ function NouvelleCommandePageContent() {
   const [isBookComboboxOpen, setIsBookComboboxOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  
+
   const [newOrderData, setNewOrderData] = useState({
     selectedCategory: '',
     selectedDiscipline: '',
@@ -78,6 +78,9 @@ function NouvelleCommandePageContent() {
     paymentMethod: '',
   })
 
+  const [appliedPromo, setAppliedPromo] = useState<{ code: string; discountAmount: number; libelle: string } | null>(null)
+  const [isValidatingPromo, setIsValidatingPromo] = useState(false)
+
   // Récupérer workId depuis les paramètres de requête et pré-sélectionner le livre
   useEffect(() => {
     const workId = searchParams.get('workId')
@@ -91,8 +94,8 @@ function NouvelleCommandePageContent() {
           const matchingCategory = categories.find(cat => {
             const catName = cat.nom || cat.name || ''
             return catName.toLowerCase() === work.category.toLowerCase() ||
-                   work.category.toLowerCase().includes(catName.toLowerCase()) ||
-                   catName.toLowerCase().includes(work.category.toLowerCase())
+              work.category.toLowerCase().includes(catName.toLowerCase()) ||
+              catName.toLowerCase().includes(work.category.toLowerCase())
           })
           if (matchingCategory) {
             categoryValue = matchingCategory.nom || matchingCategory.name || matchingCategory.id
@@ -101,7 +104,7 @@ function NouvelleCommandePageContent() {
             categoryValue = work.category
           }
         }
-        
+
         // Trouver la classe depuis targetAudience si disponible
         let classValue = ''
         if (work.targetAudience && classes.length > 0) {
@@ -109,14 +112,14 @@ function NouvelleCommandePageContent() {
           const matchingClass = classes.find(classe => {
             const className = classe.classe || classe.name || ''
             return className.toLowerCase() === work.targetAudience.toLowerCase() ||
-                   work.targetAudience.toLowerCase().includes(className.toLowerCase()) ||
-                   className.toLowerCase().includes(work.targetAudience.toLowerCase())
+              work.targetAudience.toLowerCase().includes(className.toLowerCase()) ||
+              className.toLowerCase().includes(work.targetAudience.toLowerCase())
           })
           if (matchingClass) {
             classValue = matchingClass.classe || matchingClass.name || matchingClass.id
           }
         }
-        
+
         // Pré-sélectionner la catégorie, discipline, classe et livre
         setNewOrderData(prev => ({
           ...prev,
@@ -159,18 +162,18 @@ function NouvelleCommandePageContent() {
             return []
           })
         ])
-        
+
         // S'assurer que worksData est un tableau
-        const worksArray = Array.isArray(worksData) ? worksData : (worksData?.works || [])
+        const worksArray = Array.isArray(worksData) ? worksData : ((worksData as any)?.works || [])
         // Filtrer uniquement les livres PUBLISHED (sécurité supplémentaire)
         const publishedWorks = worksArray.filter((work: any) => work.status === 'PUBLISHED' || !work.status)
-        
+
         // Traiter les catégories
         const categoriesArray = Array.isArray(categoriesResponse) ? categoriesResponse : (categoriesResponse?.error ? [] : categoriesResponse || [])
-        
+
         // Traiter les classes
         const classesArray = Array.isArray(classesResponse) ? classesResponse : (classesResponse?.error ? [] : classesResponse || [])
-        
+
         setWorks(publishedWorks)
         setCategories(categoriesArray)
         setDisciplines(disciplinesData || [])
@@ -198,9 +201,9 @@ function NouvelleCommandePageContent() {
     if (!newOrderData.selectedCategory) {
       return []
     }
-    
+
     let filtered = getWorks()
-    
+
     // Filtrer par catégorie (obligatoire)
     const selectedCategoryName = categories.find(cat => (cat.nom || cat.name) === newOrderData.selectedCategory)?.nom || newOrderData.selectedCategory
     filtered = filtered.filter(work => {
@@ -208,31 +211,31 @@ function NouvelleCommandePageContent() {
       if (!workCategory) {
         return false
       }
-      const matches = workCategory.toLowerCase() === selectedCategoryName.toLowerCase() || 
-             workCategory.toLowerCase().includes(selectedCategoryName.toLowerCase())
+      const matches = workCategory.toLowerCase() === selectedCategoryName.toLowerCase() ||
+        workCategory.toLowerCase().includes(selectedCategoryName.toLowerCase())
       return matches
     })
-    
+
     // Filtrer par matière (discipline) - optionnel
     if (newOrderData.selectedDiscipline) {
       filtered = filtered.filter(work => work.disciplineId === newOrderData.selectedDiscipline)
     }
-    
+
     // Filtrer par terme de recherche (titre du livre ou ISBN) - optionnel
     if (bookSearchTerm.trim()) {
       const searchLower = bookSearchTerm.toLowerCase().trim()
-      filtered = filtered.filter(work => 
+      filtered = filtered.filter(work =>
         work.title?.toLowerCase().includes(searchLower) ||
         work.isbn?.toLowerCase().includes(searchLower)
       )
     }
-    
+
     // Filtrer les livres sans stock (stock <= 0)
     filtered = filtered.filter(work => {
       const stock = work.stock ?? 0
       return stock > 0
     })
-    
+
     return filtered
   }
 
@@ -269,8 +272,8 @@ function NouvelleCommandePageContent() {
         toast.error(`Stock insuffisant pour ${work.title}. Stock disponible: ${stock}, Quantité demandée: ${totalQuantity}`)
         return
       }
-      
-      setCartItems(prev => prev.map(item => 
+
+      setCartItems(prev => prev.map(item =>
         item.workId === newOrderData.selectedWork
           ? { ...item, quantity: item.quantity + quantity }
           : item
@@ -305,7 +308,63 @@ function NouvelleCommandePageContent() {
   }
 
   const calculateTotal = () => {
-    return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0)
+    const subtotal = cartItems.reduce((total, item) => total + (item.price * item.quantity), 0)
+    if (appliedPromo) {
+      return Math.max(0, subtotal - appliedPromo.discountAmount)
+    }
+    return subtotal
+  }
+
+  const handleValidatePromo = async () => {
+    if (!newOrderData.promoCode.trim()) {
+      toast.error("Veuillez saisir un code promo")
+      return
+    }
+
+    setIsValidatingPromo(true)
+
+    try {
+      const response = await fetch('/api/promo/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // L'API attend { code, items: [{ price, quantity }] }
+        // On mappe cartItems pour correspondre
+        body: JSON.stringify({
+          code: newOrderData.promoCode.trim(),
+          items: cartItems.map(item => ({
+            id: item.workId,
+            quantity: item.quantity,
+            price: item.price
+          }))
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.valid && data.promotion) {
+        setAppliedPromo({
+          code: data.promotion.code,
+          discountAmount: data.promotion.discountAmount,
+          libelle: data.promotion.libelle
+        })
+        toast.success(`Code promo "${data.promotion.code}" appliqué !`)
+      } else {
+        setAppliedPromo(null)
+        toast.error(data.error || "Code promo invalide")
+      }
+    } catch (error: any) {
+      console.error("Erreur lors de la validation:", error)
+      toast.error("Erreur lors de la validation")
+      setAppliedPromo(null)
+    } finally {
+      setIsValidatingPromo(false)
+    }
+  }
+
+  const handleRemovePromo = () => {
+    setAppliedPromo(null)
+    setNewOrderData(prev => ({ ...prev, promoCode: "" }))
+    toast.info("Code promo retiré")
   }
 
   const handleCreateOrder = async () => {
@@ -350,7 +409,8 @@ function NouvelleCommandePageContent() {
       const orderData: any = {
         userId: user.id,
         items: itemsWithPrice,
-        promoCode: newOrderData.promoCode || undefined
+        promoCode: appliedPromo ? appliedPromo.code : undefined,
+        discountAmount: appliedPromo ? appliedPromo.discountAmount : 0
       }
 
       // Ajouter les coordonnées de livraison
@@ -364,24 +424,24 @@ function NouvelleCommandePageContent() {
         orderData.deliveryTimeFrom = newOrderData.deliveryTimeFrom
         orderData.deliveryTimeTo = newOrderData.deliveryTimeTo
       }
-      
+
       // Ajouter le mode de paiement
       if (newOrderData.paymentMethod) {
         orderData.paymentMethod = newOrderData.paymentMethod
       }
-      
+
       // Ajouter le type de commande
       if (newOrderData.orderType) {
         orderData.orderType = newOrderData.orderType
       }
 
       await apiClient.createOrder(orderData)
-      
+
       // Rafraîchir les commandes
       await refreshOrders()
-      
+
       toast.success("Commande créée avec succès")
-      
+
       // Rediriger vers la liste des commandes
       router.push("/dashboard/client/commandes")
     } catch (error: any) {
@@ -394,7 +454,7 @@ function NouvelleCommandePageContent() {
 
   if (userLoading || isLoading) {
     return (
-      <DynamicDashboardLayout>
+      <DynamicDashboardLayout title="Nouvelle Commande">
         <div className="flex items-center justify-center h-96">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
@@ -404,7 +464,7 @@ function NouvelleCommandePageContent() {
 
   if (!user) {
     return (
-      <DynamicDashboardLayout>
+      <DynamicDashboardLayout title="Nouvelle Commande">
         <div className="text-center py-12">
           <p className="text-muted-foreground">Vous devez être connecté pour créer une commande.</p>
           <Link href="/auth/login">
@@ -416,7 +476,7 @@ function NouvelleCommandePageContent() {
   }
 
   return (
-    <DynamicDashboardLayout>
+    <DynamicDashboardLayout title="Nouvelle Commande">
       <div className="space-y-6">
         {/* En-tête */}
         <div className="flex items-center justify-between">
@@ -451,13 +511,13 @@ function NouvelleCommandePageContent() {
             {/* Section de sélection des articles */}
             <div className="space-y-4">
               <h2 className="text-xl font-semibold">Sélection des articles</h2>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Choix de la catégorie */}
                 <div className="space-y-2">
                   <Label>Choix de la catégorie *</Label>
-                  <Select 
-                    value={newOrderData.selectedCategory} 
+                  <Select
+                    value={newOrderData.selectedCategory}
                     onValueChange={(value) => {
                       setNewOrderData(prev => ({ ...prev, selectedCategory: value, selectedWork: '' }))
                       setBookSearchTerm("")
@@ -483,8 +543,8 @@ function NouvelleCommandePageContent() {
                 {/* Choix de la matière */}
                 <div className="space-y-2">
                   <Label>Choix de la Matière</Label>
-                  <Select 
-                    value={newOrderData.selectedDiscipline} 
+                  <Select
+                    value={newOrderData.selectedDiscipline}
                     onValueChange={(value) => {
                       setNewOrderData(prev => ({ ...prev, selectedDiscipline: value, selectedWork: '' }))
                       setBookSearchTerm("")
@@ -506,8 +566,8 @@ function NouvelleCommandePageContent() {
                 {/* Choix de la classe */}
                 <div className="space-y-2">
                   <Label>Choix de la classe</Label>
-                  <Select 
-                    value={newOrderData.selectedClass} 
+                  <Select
+                    value={newOrderData.selectedClass}
                     onValueChange={(value) => setNewOrderData(prev => ({ ...prev, selectedClass: value }))}
                   >
                     <SelectTrigger>
@@ -532,8 +592,8 @@ function NouvelleCommandePageContent() {
                 {/* Choix du livre */}
                 <div className="space-y-2 md:col-span-2">
                   <Label>Choix du livre *</Label>
-                  <Popover 
-                    open={isBookComboboxOpen} 
+                  <Popover
+                    open={isBookComboboxOpen}
                     onOpenChange={(open) => {
                       setIsBookComboboxOpen(open)
                       if (!open) {
@@ -557,16 +617,16 @@ function NouvelleCommandePageContent() {
                     </PopoverTrigger>
                     <PopoverContent className="w-[400px] p-0" align="start">
                       <Command shouldFilter={false} className="rounded-lg border-none">
-                        <CommandInput 
-                          placeholder="Rechercher un livre..." 
+                        <CommandInput
+                          placeholder="Rechercher un livre..."
                           value={bookSearchTerm}
                           onValueChange={(value) => setBookSearchTerm(value)}
                           className="h-9"
                         />
                         <CommandList className="max-h-[300px]">
                           <CommandEmpty>
-                            {bookSearchTerm.trim() 
-                              ? `Aucun livre trouvé pour "${bookSearchTerm}"` 
+                            {bookSearchTerm.trim()
+                              ? `Aucun livre trouvé pour "${bookSearchTerm}"`
                               : newOrderData.selectedCategory
                                 ? "Aucun livre disponible"
                                 : "Sélectionnez d'abord une catégorie"}
@@ -629,7 +689,7 @@ function NouvelleCommandePageContent() {
 
                 {/* Bouton Ajouter */}
                 <div className="flex items-end">
-                  <Button 
+                  <Button
                     onClick={handleAddToCart}
                     className="bg-indigo-600 hover:bg-indigo-700 w-full"
                     disabled={!newOrderData.selectedWork || !newOrderData.quantity || newOrderData.quantity <= 0}
@@ -699,29 +759,54 @@ function NouvelleCommandePageContent() {
             {/* Section détails de la commande */}
             <div className="space-y-4 border-t pt-4">
               <h2 className="text-xl font-semibold">Détails de la commande</h2>
-              
+
               {/* Code promo */}
-              <div className="flex gap-2">
-                <div className="flex-1 space-y-2">
-                  <Label>Code promo</Label>
-                  <Input
-                    placeholder="CODE PROMO"
-                    value={newOrderData.promoCode}
-                    onChange={(e) => setNewOrderData(prev => ({ ...prev, promoCode: e.target.value }))}
-                  />
+              <div className="space-y-2">
+                <Label>Code promo</Label>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Input
+                      placeholder="CODE PROMO"
+                      value={newOrderData.promoCode}
+                      onChange={(e) => setNewOrderData(prev => ({ ...prev, promoCode: e.target.value.toUpperCase() }))}
+                      disabled={!!appliedPromo || isValidatingPromo}
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    {appliedPromo ? (
+                      <Button
+                        variant="destructive"
+                        onClick={handleRemovePromo}
+                        type="button"
+                      >
+                        Retirer
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                        onClick={handleValidatePromo}
+                        disabled={isValidatingPromo || !newOrderData.promoCode.trim()}
+                        type="button"
+                      >
+                        {isValidatingPromo ? <Loader2 className="h-4 w-4 animate-spin" /> : "Appliquer"}
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-end">
-                  <Button variant="outline" className="bg-indigo-600 hover:bg-indigo-700 text-white">
-                    Appliquer
-                  </Button>
-                </div>
+                {appliedPromo && (
+                  <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-700 flex justify-between items-center">
+                    <span>{appliedPromo.libelle} ({appliedPromo.code})</span>
+                    <span className="font-bold">-{appliedPromo.discountAmount.toLocaleString("fr-FR")} XOF</span>
+                  </div>
+                )}
               </div>
 
               {/* Type de commande */}
               <div className="space-y-2">
                 <Label>Type de commande</Label>
-                <Select 
-                  value={newOrderData.orderType} 
+                <Select
+                  value={newOrderData.orderType}
                   onValueChange={(value) => setNewOrderData(prev => ({ ...prev, orderType: value }))}
                 >
                   <SelectTrigger>
@@ -740,7 +825,7 @@ function NouvelleCommandePageContent() {
                 <div className="bg-black text-white px-4 py-2 rounded">
                   <Label className="text-white font-semibold">Coordonnées de Livraison *</Label>
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Date de livraison */}
                   <div className="space-y-2">
@@ -822,8 +907,8 @@ function NouvelleCommandePageContent() {
               {/* Mode de paiement */}
               <div className="space-y-2">
                 <Label>Mode de paiement</Label>
-                <Select 
-                  value={newOrderData.paymentMethod} 
+                <Select
+                  value={newOrderData.paymentMethod}
                   onValueChange={(value) => setNewOrderData(prev => ({ ...prev, paymentMethod: value }))}
                 >
                   <SelectTrigger>
@@ -847,7 +932,7 @@ function NouvelleCommandePageContent() {
                   Annuler
                 </Button>
               </Link>
-              <Button 
+              <Button
                 onClick={handleCreateOrder}
                 className="bg-indigo-600 hover:bg-indigo-700"
                 disabled={isSubmitting || cartItems.length === 0}
