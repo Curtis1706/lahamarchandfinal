@@ -36,6 +36,7 @@ const COMMON_ALLOWED = [
   "/api/pdg/categories", // Pour les catégories (accessible aux PDG, CLIENT et AUTEUR - vérifie les permissions dans la route)
   "/api/pdg/collections", // Pour les collections (accessible aux PDG et AUTEUR - vérifie les permissions dans la route)
   "/api/pdg/classes", // Pour les classes (accessible aux PDG et CLIENT - vérifie les permissions dans la route)
+  "/api/promo/validate", // Pour la validation des codes promo (accessible à tous les rôles authentifiés)
 ];
 
 export async function middleware(req: NextRequest) {

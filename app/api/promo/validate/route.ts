@@ -83,23 +83,30 @@ export async function POST(request: NextRequest) {
     const cleanValue = rawTaux.replace(/[^0-9.,]/g, '').replace(',', '.')
     const numericValue = parseFloat(cleanValue) || 0
 
+    logger.info(`Promo validation - Code: ${code}, Taux: ${rawTaux}, Type: ${isPercentage ? 'PERCENTAGE' : 'FIXED'}, Value: ${numericValue}`)
+
     if (items && Array.isArray(items) && items.length > 0) {
       const totalPrice = items.reduce((sum: number, item: any) => {
         return sum + ((item.price || 0) * (item.quantity || 1))
       }, 0)
 
+      logger.info(`Promo validation - Total Price: ${totalPrice}, Items count: ${items.length}`)
+
       if (isPercentage) {
         // Pourcentage : (Total * Valeur) / 100
         discountAmount = (totalPrice * numericValue) / 100
+        logger.info(`Promo validation - Calculation (Percentage): ${discountAmount}`)
       } else {
         // Montant fixe : Valeur brute (plafonnée au total)
         discountAmount = Math.min(numericValue, totalPrice)
+        logger.info(`Promo validation - Calculation (Fixed): ${discountAmount}`)
       }
     } else {
       // Cas sans items (estimation)
       if (isFixedAmount) {
         discountAmount = numericValue
       }
+      logger.info(`Promo validation - No items provided, returning base value: ${discountAmount}`)
     }
 
     return NextResponse.json({
