@@ -163,12 +163,11 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
         {
           href: `${basePath}/ventes-retours`,
           icon: Camera,
-          label: "Ventes & retours"
-        },
-        {
-          href: `${basePath}/gestion-financiere`,
-          icon: DollarSign,
-          label: " Gestion Financière"
+          label: "Ventes & retours",
+          children: [
+            { href: `${basePath}/ventes-retours`, label: "Ventes & retours" },
+            { href: `${basePath}/gestion-financiere`, label: "Gestion Financière" }
+          ]
         },
         /* {
           href: `${basePath}/retraits-auteurs`,
