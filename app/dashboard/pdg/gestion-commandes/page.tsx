@@ -270,7 +270,7 @@ export default function GestionCommandesPage() {
     setLoadingActions(prev => ({ ...prev, [actionKey]: true }));
 
     try {
-      await apiClient.updateOrder(orderId, { status: newStatus })
+      const updatedOrder = await apiClient.updateOrder(orderId, { status: newStatus })
 
       // Mettre à jour la liste locale
       setOrders(prev => prev.map(order =>
@@ -286,7 +286,13 @@ export default function GestionCommandesPage() {
         'DELIVERED': 'Commande livrée avec succès',
         'CANCELLED': 'Commande annulée avec succès'
       }
-      toast.success(statusMessages[newStatus as keyof typeof statusMessages] || `Commande ${newStatus.toLowerCase()}e avec succès`)
+
+      // Message spécifique pour la validation avec bon de sortie
+      if (newStatus === 'VALIDATED' && (updatedOrder as any).deliveryNoteReference) {
+        toast.success(`Commande validée et Bon de sortie ${(updatedOrder as any).deliveryNoteReference} généré avec succès`)
+      } else {
+        toast.success(statusMessages[newStatus as keyof typeof statusMessages] || `Commande ${newStatus.toLowerCase()}e avec succès`)
+      }
     } catch (error: any) {
       toast.error(error.message || "Erreur lors de la mise à jour")
     } finally {

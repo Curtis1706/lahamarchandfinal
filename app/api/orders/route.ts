@@ -378,6 +378,9 @@ export async function PUT(request: NextRequest) {
       }
     })
 
+    // Variable pour stocker la référence du bon de sortie
+    let createdReference: string | null = null
+
     // 🔹 Créer automatiquement un Bon de Sortie et réduire le stock si la commande est validée
     if (status === "VALIDATED") {
       try {
@@ -385,6 +388,10 @@ export async function PUT(request: NextRequest) {
         const existingDeliveryNote = await prisma.deliveryNote.findUnique({
           where: { orderId: id }
         })
+
+        if (existingDeliveryNote) {
+          createdReference = existingDeliveryNote.reference
+        }
 
         if (!existingDeliveryNote) {
           // Récupérer l'ID de l'utilisateur (PDG ou utilisateur de la session)
@@ -424,6 +431,9 @@ export async function PUT(request: NextRequest) {
                 status: 'PENDING'
               }
             })
+
+            // Sauvegarder la référence pour la réponse API
+            createdReference = reference
 
             // 3. Réduire le stock pour chaque item et créer des mouvements de stock
             for (const item of updatedOrder.items) {
@@ -559,7 +569,13 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    return NextResponse.json(updatedOrder)
+    // Retourner la commande mise à jour avec la référence du bon de sortie (si créé)
+    const result = {
+      ...updatedOrder,
+      deliveryNoteReference: createdReference
+    }
+
+    return NextResponse.json(result)
   } catch (error) {
     logger.error("Error updating order:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
