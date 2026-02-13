@@ -71,6 +71,15 @@ export default function BonSortiePage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const [showValidationModal, setShowValidationModal] = useState(false);
+  const [validationData, setValidationData] = useState({
+    motif: "",
+    destination: "",
+    etatLivres: "",
+    transport: "",
+    datePrevue: "",
+    notes: ""
+  });
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -95,18 +104,10 @@ export default function BonSortiePage() {
         limit: itemsPerPage.toString(),
       });
 
-      if (statusFilter !== "tous") {
-        params.append("status", statusFilter);
-      }
-      if (orderTypeFilter !== "toutes") {
-        params.append("orderType", orderTypeFilter);
-      }
-      if (periodFilter !== "toutes") {
-        params.append("period", periodFilter);
-      }
-      if (searchTerm) {
-        params.append("search", searchTerm);
-      }
+      if (statusFilter !== "tous") params.append("status", statusFilter);
+      if (orderTypeFilter !== "toutes") params.append("orderType", orderTypeFilter);
+      if (periodFilter !== "toutes") params.append("period", periodFilter);
+      if (searchTerm) params.append("search", searchTerm);
 
       const response = await fetch(`/api/pdg/bon-sortie?${params}`);
       if (!response.ok) throw new Error("Erreur lors du chargement");
@@ -130,8 +131,8 @@ export default function BonSortiePage() {
         const data = await response.json();
         setOrders(data.orders?.map((o: any) => ({
           id: o.id,
-          reference: `CMD-${o.id.slice(-8)}`,
-          client: o.user?.name || "N/A",
+          reference: o.reference,
+          client: o.user?.name || o.clientEmail || "Client",
           total: o.total || 0
         })) || []);
       }
@@ -188,26 +189,6 @@ export default function BonSortiePage() {
     }
   };
 
-  const handleAction = async (id: string, action: "validate" | "control" | "complete" | "cancel") => {
-    try {
-      const response = await fetch("/api/pdg/bon-sortie", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, action }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Erreur lors de l'action");
-      }
-
-      toast.success("Action effectuée avec succès");
-      loadDeliveryNotes();
-    } catch (error: any) {
-      toast.error(error.message || "Erreur lors de l'action");
-    }
-  };
-
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "-"
     try {
@@ -246,249 +227,194 @@ export default function BonSortiePage() {
     }
   };
 
-  const startIndex = (currentPage - 1) * itemsPerPage + 1;
-  const endIndex = Math.min(currentPage * itemsPerPage, totalItems);
+  const handleAction = async (id: string, action: "validate" | "control" | "complete" | "cancel") => {
+    if (action === "validate") {
+      const note = deliveryNotes.find(n => n.id === id);
+      if (note) {
+        setSelectedNote(note);
+        // Reset validation data
+        setValidationData({
+          motif: "",
+          destination: "",
+          etatLivres: "",
+          transport: "",
+          datePrevue: "",
+          notes: ""
+        });
+        setShowValidationModal(true);
+      }
+      return;
+    }
+
+    if (action === "cancel" && !confirm("Êtes-vous sûr de vouloir annuler ce bon de sortie ? Les articles seront remis en stock.")) {
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/pdg/bon-sortie", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Erreur lors de l'action");
+      }
+
+      toast.success(action === 'cancel' ? "Bon annulé et stock restauré avec succès" : "Action effectuée avec succès");
+      loadDeliveryNotes();
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de l'action");
+    }
+  };
+
+  const handleConfirmValidation = async () => {
+    if (!selectedNote) return;
+
+    try {
+      const response = await fetch("/api/pdg/bon-sortie", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedNote.id,
+          action: "validate",
+          ...validationData
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Erreur lors de la validation");
+      }
+
+      toast.success("Bon de sortie validé avec succès");
+      setShowValidationModal(false);
+      loadDeliveryNotes();
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de la validation");
+    }
+  };
+
+  // ... (keep rest of existing functions code until return)
 
   return (
     <>
-      {/* En-tête */}
-      <div className="bg-slate-700 text-white px-4 lg:px-6 py-4">
-        <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-6 p-6">
+        <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-xl font-semibold">Bon de sortie</h2>
+            <h1 className="text-3xl font-bold tracking-tight">Bons de Sortie</h1>
+            <p className="text-gray-500">Gérez les bons de sortie et validez les expéditions</p>
           </div>
-          <div className="flex items-center space-x-4">
-            <Button
-              onClick={() => setShowCreateModal(true)}
-              className="bg-indigo-600 hover:bg-indigo-700"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Créer un bon
-            </Button>
+          <div className="flex gap-2">
             <Button variant="outline" onClick={handleRefresh}>
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Actualiser
+              <RefreshCw className="mr-2 h-4 w-4" /> Actualiser
             </Button>
-            <span className="text-sm text-slate-300">
-              Tableau de bord - Bon de sortie
-            </span>
+            <Button variant="outline" onClick={handleFullscreen}>
+              <Maximize2 className="mr-2 h-4 w-4" />
+            </Button>
+            <Button onClick={() => setShowCreateModal(true)}>
+              <Plus className="mr-2 h-4 w-4" /> Nouveau Bon de Sortie
+            </Button>
           </div>
         </div>
-      </div>
 
-      <div className="p-4 lg:p-6">
-        <div className="bg-white rounded-lg shadow-sm">
-          <div className="p-6 border-b">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
-                    <Calendar className="w-4 h-4 mr-2" />
-                    {dateRange?.from ? (
-                      dateRange.to ? (
-                        <>
-                          {format(dateRange.from, "dd MMM yyyy", { locale: fr })} -{" "}
-                          {format(dateRange.to, "dd MMM yyyy", { locale: fr })}
-                        </>
-                      ) : (
-                        format(dateRange.from, "dd MMM yyyy", { locale: fr })
-                      )
-                    ) : (
-                      <span>Période</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
-                    initialFocus
-                    mode="range"
-                    defaultMonth={dateRange?.from}
-                    selected={dateRange}
-                    onSelect={setDateRange}
-                    numberOfMonths={2}
-                    locale={fr}
-                  />
-                </PopoverContent>
-              </Popover>
-
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Tous les statuts" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tous">Tous les statuts</SelectItem>
-                  <SelectItem value="PENDING">En attente</SelectItem>
-                  <SelectItem value="VALIDATED">Validé</SelectItem>
-                  <SelectItem value="CONTROLLED">Contrôlé</SelectItem>
-                  <SelectItem value="COMPLETED">Complété</SelectItem>
-                  <SelectItem value="CANCELLED">Annulé</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={orderTypeFilter} onValueChange={setOrderTypeFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Toutes les commandes" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="toutes">Toutes les commandes</SelectItem>
-                  <SelectItem value="commande">Commande</SelectItem>
-                  <SelectItem value="precommande">Précommande</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Select value={periodFilter} onValueChange={setPeriodFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Toutes les périodes" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="toutes">Toutes les périodes</SelectItem>
-                  <SelectItem value="cours-vacances">Cours de vacances</SelectItem>
-                  <SelectItem value="rentree-scolaire">Rentrée scolaire</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <div className="flex justify-end">
-                <Button className="bg-indigo-600 hover:bg-indigo-700" onClick={loadDeliveryNotes}>
-                  <Filter className="w-4 h-4 mr-2" />
-                  Appliquer
-                </Button>
-              </div>
-            </div>
+        <div className="flex flex-col gap-4 md:flex-row md:items-end bg-white p-4 rounded-lg border shadow-sm">
+          <div className="grid gap-2 flex-1">
+            <Label>Recherche</Label>
+            <Input
+              placeholder="Référence, client..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full"
+            />
           </div>
-
-          {/* Table Controls */}
-          <div className="p-6 border-b">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-600">Afficher</span>
-                <Select value={itemsPerPage.toString()} onValueChange={(v) => { setItemsPerPage(parseInt(v)); setCurrentPage(1); }}>
-                  <SelectTrigger className="w-20">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="25">25</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                  </SelectContent>
-                </Select>
-                <span className="text-sm text-gray-600">éléments</span>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-600">Rechercher:</span>
-                <Input
-                  placeholder="Référence, commande..."
-                  className="w-full sm:w-64"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-            </div>
+          <div className="grid gap-2 w-full md:w-[200px]">
+            <Label>Statut</Label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Tous les statuts" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tous">Tous les statuts</SelectItem>
+                <SelectItem value="PENDING">En attente</SelectItem>
+                <SelectItem value="VALIDATED">Validés</SelectItem>
+                <SelectItem value="CONTROLLED">Contrôlés</SelectItem>
+                <SelectItem value="COMPLETED">Complétés</SelectItem>
+                <SelectItem value="CANCELLED">Annulés</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+          <div className="grid gap-2 w-full md:w-[200px]">
+            <Label>Période</Label>
+            <Select value={periodFilter} onValueChange={setPeriodFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Toutes les périodes" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="toutes">Toutes les périodes</SelectItem>
+                <SelectItem value="cours-vacances">Cours de vacances</SelectItem>
+                <SelectItem value="rentree-scolaire">Rentrée scolaire</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
+        <div className="rounded-md border bg-white shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1200px]">
-              <thead className="bg-gray-50">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-gray-50 text-gray-700 uppercase">
                 <tr>
-                  <th className="text-left p-4 font-semibold text-gray-700">
-                    <div className="flex items-center">
-                      <span className="mr-1">♦</span>
-                      Référence
-                    </div>
-                  </th>
-                  <th className="text-left p-4 font-semibold text-gray-700">
-                    <div className="flex items-center">
-                      <span className="mr-1">♦</span>
-                      Commande
-                    </div>
-                  </th>
-                  <th className="text-left p-4 font-semibold text-gray-700">
-                    <div className="flex items-center">
-                      <span className="mr-1">♦</span>
-                      Client
-                    </div>
-                  </th>
-                  <th className="text-left p-4 font-semibold text-gray-700">
-                    <div className="flex items-center">
-                      <span className="mr-1">♦</span>
-                      Validé par
-                    </div>
-                  </th>
-                  <th className="text-left p-4 font-semibold text-gray-700">
-                    <div className="flex items-center">
-                      <span className="mr-1">♦</span>
-                      Validé le
-                    </div>
-                  </th>
-                  <th className="text-left p-4 font-semibold text-gray-700">
-                    <div className="flex items-center">
-                      <span className="mr-1">♦</span>
-                      Contrôlé par
-                    </div>
-                  </th>
-                  <th className="text-left p-4 font-semibold text-gray-700">
-                    <div className="flex items-center">
-                      <span className="mr-1">♦</span>
-                      Contrôlé le
-                    </div>
-                  </th>
-                  <th className="text-left p-4 font-semibold text-gray-700">
-                    <div className="flex items-center">
-                      <span className="mr-1">♦</span>
-                      Statut
-                    </div>
-                  </th>
-                  <th className="text-left p-4 font-semibold text-gray-700">
-                    <div className="flex items-center">
-                      <span className="mr-1">♦</span>
-                      Date
-                    </div>
-                  </th>
-                  <th className="text-left p-4 font-semibold text-gray-700">
-                    <div className="flex items-center">
-                      <span className="mr-1">♦</span>
-                      Actions
-                    </div>
-                  </th>
+                  <th className="px-4 py-3">Référence</th>
+                  <th className="px-4 py-3">Commande</th>
+                  <th className="px-4 py-3">Client</th>
+                  <th className="px-4 py-3">Généré par</th>
+                  <th className="px-4 py-3">Validé par</th>
+                  <th className="px-4 py-3">Statut</th>
+                  <th className="px-4 py-3">Date</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-200">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={10} className="p-8 text-center text-gray-500">
-                      Chargement...
+                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                      Chargement en cours...
                     </td>
                   </tr>
                 ) : deliveryNotes.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="p-8 text-center text-gray-500">
-                      Aucune donnée disponible dans le tableau
+                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                      Aucun bon de sortie trouvé.
                     </td>
                   </tr>
                 ) : (
                   deliveryNotes.map((note) => (
-                    <tr key={note.id} className="border-b hover:bg-gray-50">
-                      <td className="p-4 font-medium">{note.reference}</td>
-                      <td className="p-4">{note.order.reference}</td>
-                      <td className="p-4">{note.order.client}</td>
-                      <td className="p-4">{note.validatedBy || "-"}</td>
-                      <td className="p-4">{formatDate(note.validatedAt)}</td>
-                      <td className="p-4">-</td>
-                      <td className="p-4">-</td>
-                      <td className="p-4">{getStatusBadge(note.status)}</td>
-                      <td className="p-4">{formatDate(note.createdAt)}</td>
-                      <td className="p-4">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          title="Voir les détails"
-                          onClick={() => router.push(`/dashboard/pdg/bon-sortie/${note.id}`)}
-                        >
-                          <Eye className="h-4 w-4 text-gray-600" />
-                        </Button>
+                    <tr key={note.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-medium">{note.reference}</td>
+                      <td className="px-4 py-3">{note.order.reference}</td>
+                      <td className="px-4 py-3">
+                        <div>{note.order.client}</div>
+                        <div className="text-xs text-gray-500">{note.order.partner || "-"}</div>
+                      </td>
+                      <td className="px-4 py-3">{note.generatedBy}</td>
+                      <td className="px-4 py-3">
+                        <div>{note.validatedBy || "-"}</div>
+                        {note.validatedAt && <div className="text-xs text-gray-500">{formatDate(note.validatedAt)}</div>}
+                      </td>
+                      <td className="px-4 py-3">{getStatusBadge(note.status)}</td>
+                      <td className="px-4 py-3">{formatDate(note.createdAt)}</td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => router.push(`/dashboard/pdg/bon-sortie/${note.id}`)}
+                          >
+                            <Eye className="h-4 w-4 text-gray-600" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -497,67 +423,33 @@ export default function BonSortiePage() {
             </table>
           </div>
 
-          {/* Pagination */}
-          <div className="p-6 border-t">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <p className="text-sm text-gray-600">
-                Affichage de {startIndex} à {endIndex} sur {totalItems} éléments
-              </p>
-
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(1)}
-                  disabled={currentPage === 1}
-                >
-                  Premier
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                >
-                  Précédent
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Suivant
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={currentPage === totalPages}
-                >
-                  Dernier
-                </Button>
-              </div>
+          {/* Pagination du pauvre (simple next/prev) */}
+          <div className="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
+            <div className="text-sm text-gray-500">
+              Page {currentPage} sur {totalPages} ({totalItems} résultats)
             </div>
-          </div>
-
-          <div className="p-6 border-t bg-gray-50">
-            <div className="flex justify-end space-x-2">
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                PDF
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              >
+                Précédent
               </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                EXCEL
-              </Button>
-              <Button variant="outline">
-                <Printer className="w-4 h-4" />
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              >
+                Suivant
               </Button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Modal de création */}
       <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
         <DialogContent>
           <DialogHeader>
@@ -607,7 +499,7 @@ export default function BonSortiePage() {
             <Button variant="outline" onClick={() => setShowCreateModal(false)}>
               Annuler
             </Button>
-            <Button onClick={handleCreate}>Créer</Button>
+            <Button onClick={handleCreate}>Créer le bon</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -698,4 +590,24 @@ export default function BonSortiePage() {
       </Dialog>
     </>
   );
+}
+
+function MinusCircleIcon(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M8 12h8" />
+    </svg>
+  )
 }

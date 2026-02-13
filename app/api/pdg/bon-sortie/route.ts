@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
       logger.error('Database error in bon-sortie GET:', dbError)
       logger.error('Error message:', dbError.message)
       logger.error('Error code:', dbError.code)
-      
+
       // Pour toute erreur de base de données, retourner un tableau vide
       return NextResponse.json({
         deliveryNotes: [],
@@ -158,7 +158,7 @@ export async function GET(request: NextRequest) {
         // Calculer le total de la commande si nécessaire
         let orderTotal = 0
         let orderData: any = null
-        
+
         if (note.order) {
           try {
             if (note.order.total && note.order.total > 0) {
@@ -170,7 +170,7 @@ export async function GET(request: NextRequest) {
                 return sum + (price * quantity)
               }, 0)
             }
-            
+
             orderData = {
               id: note.order.id || '',
               reference: note.order.id ? `CMD-${note.order.id.slice(-8)}` : 'N/A',
@@ -271,7 +271,7 @@ export async function GET(request: NextRequest) {
     logger.error('Error fetching delivery notes:', error)
     logger.error('Error details:', error.message, error.stack)
     return NextResponse.json(
-      { 
+      {
         error: 'Erreur lors de la récupération des bons de sortie',
         message: process.env.NODE_ENV === 'development' ? error.message : undefined
       },
@@ -380,7 +380,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT /api/pdg/bon-sortie - Mettre à jour un bon de sortie (validation, contrôle)
+// PUT /api/pdg/bon-sortie - Mettre à jour un bon de sortie (validation, contrôle, annulation)
 export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -389,81 +389,155 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { id, action, notes } = body // action: 'validate' | 'control' | 'complete'
+    const {
+      id,
+      action,
+      notes,
+      // Nouveaux champs pour la validation
+      motif,
+      destination,
+      etatLivres,
+      transport,
+      datePrevue
+    } = body // action: 'validate' | 'control' | 'complete' | 'cancel'
 
     if (!id || !action) {
       return NextResponse.json({ error: 'ID et action requis' }, { status: 400 })
     }
 
     const deliveryNote = await prisma.deliveryNote.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        order: {
+          include: {
+            items: true
+          }
+        }
+      }
     })
 
     if (!deliveryNote) {
       return NextResponse.json({ error: 'Bon de sortie introuvable' }, { status: 404 })
     }
 
-    let updateData: any = {}
+    let result
 
     if (action === 'validate') {
-      updateData = {
+      const updateData: any = {
         validatedById: session.user.id,
         validatedAt: new Date(),
-        status: 'VALIDATED'
+        status: 'VALIDATED',
+        motif,
+        destination,
+        etatLivres,
+        transport,
+        datePrevue: datePrevue ? new Date(datePrevue) : undefined
       }
+
+      if (notes) updateData.notes = notes
+
+      result = await prisma.deliveryNote.update({
+        where: { id },
+        data: updateData,
+        include: {
+          validatedBy: { select: { id: true, name: true } },
+          controlledBy: { select: { id: true, name: true } }
+        }
+      })
+
     } else if (action === 'control') {
       if (deliveryNote.status !== 'VALIDATED') {
         return NextResponse.json({ error: 'Le bon doit être validé avant d\'être contrôlé' }, { status: 400 })
       }
-      updateData = {
-        controlledById: session.user.id,
-        controlledAt: new Date(),
-        status: 'CONTROLLED'
-      }
+      result = await prisma.deliveryNote.update({
+        where: { id },
+        data: {
+          controlledById: session.user.id,
+          controlledAt: new Date(),
+          status: 'CONTROLLED',
+          notes: notes || undefined
+        },
+        include: {
+          validatedBy: { select: { id: true, name: true } },
+          controlledBy: { select: { id: true, name: true } }
+        }
+      })
+
     } else if (action === 'complete') {
       if (deliveryNote.status !== 'CONTROLLED') {
         return NextResponse.json({ error: 'Le bon doit être contrôlé avant d\'être complété' }, { status: 400 })
       }
-      updateData = {
-        status: 'COMPLETED'
-      }
+      result = await prisma.deliveryNote.update({
+        where: { id },
+        data: {
+          status: 'COMPLETED',
+          notes: notes || undefined
+        }
+      })
+
     } else if (action === 'cancel') {
-      updateData = {
-        status: 'CANCELLED'
-      }
-    }
-
-    if (notes) {
-      updateData.notes = notes
-    }
-
-    const updated = await prisma.deliveryNote.update({
-      where: { id },
-      data: updateData,
-      include: {
-        validatedBy: {
-          select: {
-            id: true,
-            name: true
+      // Annulation avec ré-incrémentation du stock
+      result = await prisma.$transaction(async (tx) => {
+        // 1. Mettre à jour le bon de sortie
+        const updatedNote = await tx.deliveryNote.update({
+          where: { id },
+          data: {
+            status: 'CANCELLED',
+            notes: notes || undefined
+          },
+          include: {
+            validatedBy: { select: { id: true, name: true } },
+            controlledBy: { select: { id: true, name: true } }
           }
-        },
-        controlledBy: {
-          select: {
-            id: true,
-            name: true
+        })
+
+        // 2. Ré-incrémenter le stock pour chaque article
+        // Uniquement si le bon n'était pas déjà annulé pour éviter les doublons
+        if (deliveryNote.status !== 'CANCELLED') {
+          for (const item of deliveryNote.order.items) {
+            // Remettre en stock
+            await tx.work.update({
+              where: { id: item.workId },
+              data: {
+                stock: { increment: item.quantity },
+                physicalStock: { increment: item.quantity }
+              }
+            })
+
+            // Créer un mouvement de stock inverse (CORRECTION ou INBOUND)
+            await tx.stockMovement.create({
+              data: {
+                workId: item.workId,
+                type: 'CORRECTION', // Utiliser CORRECTION pour indiquer un retour suite à annulation
+                quantity: item.quantity,
+                reason: `Annulation Bon de Sortie ${deliveryNote.reference}`,
+                reference: deliveryNote.reference,
+                performedBy: session.user.id,
+                isCorrection: true,
+                correctionReason: 'Annulation Bon de Sortie'
+              }
+            })
           }
         }
-      }
-    })
+
+        return updatedNote
+      })
+    } else {
+      return NextResponse.json({ error: 'Action non reconnue' }, { status: 400 })
+    }
+
+    if (!result) {
+      return NextResponse.json({ error: 'Erreur inattendue lors de la mise à jour' }, { status: 500 })
+    }
 
     return NextResponse.json({
       message: 'Bon de sortie mis à jour avec succès',
       deliveryNote: {
-        id: updated.id,
-        reference: updated.reference,
-        status: updated.status,
-        validatedBy: updated.validatedBy?.name,
-        controlledBy: updated.controlledBy?.name
+        id: result.id,
+        reference: result.reference,
+        status: result.status,
+        validatedBy: (result as any).validatedBy?.name,
+        controlledBy: (result as any).controlledBy?.name
       }
     })
   } catch (error: any) {

@@ -402,6 +402,11 @@ model DeliveryNote {
   status         DeliveryNoteStatus @default(PENDING)
   period         String?
   notes          String?
+  motif          String?
+  destination    String?
+  etatLivres     String?
+  transport      String?
+  datePrevue     DateTime?
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
   controlledBy   User?              @relation("ControlledDeliveryNotes", fields: [controlledById], references: [id])

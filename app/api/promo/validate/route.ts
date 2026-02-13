@@ -15,9 +15,9 @@ export async function POST(request: NextRequest) {
     const { code, items } = await request.json()
 
     if (!code) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: "Code promo requis",
-        valid: false 
+        valid: false
       }, { status: 400 })
     }
 
@@ -27,75 +27,78 @@ export async function POST(request: NextRequest) {
     })
 
     if (!promotion) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: "Code promo invalide",
-        valid: false 
+        valid: false
       }, { status: 404 })
     }
 
     // Vérifier le statut
     if (promotion.statut !== 'ACTIF') {
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: "Ce code promo n'est plus actif",
-        valid: false 
+        valid: false
       }, { status: 400 })
     }
 
     // Vérifier les dates de validité
     const now = new Date()
     if (promotion.startDate && new Date(promotion.startDate) > now) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: "Ce code promo n'est pas encore valide",
-        valid: false 
+        valid: false
       }, { status: 400 })
     }
 
     if (promotion.endDate && new Date(promotion.endDate) < now) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: "Ce code promo a expiré",
-        valid: false 
+        valid: false
       }, { status: 400 })
     }
 
     // Vérifier la quantité minimale si des items sont fournis
     if (items && Array.isArray(items) && items.length > 0) {
       const totalQuantity = items.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0)
-      
+
       if (totalQuantity < promotion.quantiteMinimale) {
-        return NextResponse.json({ 
+        return NextResponse.json({
           error: `Quantité minimale requise: ${promotion.quantiteMinimale} article(s)`,
-          valid: false 
+          valid: false
         }, { status: 400 })
       }
     }
 
     // Calculer la réduction
     let discountAmount = 0
-    const taux = promotion.taux
-    
-    // Vérifier si c'est un montant fixe ou un pourcentage
-    // Si le taux contient "F CFA" ou est un nombre, c'est un montant fixe
-    // Sinon, c'est un pourcentage
-    const isFixedAmount = taux.includes('F CFA') || taux.includes('CFA') || !isNaN(parseFloat(taux))
-    
+    const rawTaux = promotion.taux ? promotion.taux.toString().trim() : "0"
+
+    // Déterminer le type de réduction de manière robuste
+    // Si la chaîne contient "%", c'est un pourcentage
+    const isPercentage = rawTaux.includes('%')
+    const isFixedAmount = !isPercentage
+
+    // Extraire la valeur numérique propre
+    // Remplace les virgules par des points et ne garde que les chiffres/points
+    const cleanValue = rawTaux.replace(/[^0-9.,]/g, '').replace(',', '.')
+    const numericValue = parseFloat(cleanValue) || 0
+
     if (items && Array.isArray(items) && items.length > 0) {
       const totalPrice = items.reduce((sum: number, item: any) => {
         return sum + ((item.price || 0) * (item.quantity || 1))
       }, 0)
 
-      if (isFixedAmount) {
-        // Montant fixe
-        const fixedAmount = parseFloat(taux.replace(/[^0-9.]/g, '')) || 0
-        discountAmount = Math.min(fixedAmount, totalPrice) // Ne pas dépasser le total
+      if (isPercentage) {
+        // Pourcentage : (Total * Valeur) / 100
+        discountAmount = (totalPrice * numericValue) / 100
       } else {
-        // Pourcentage
-        const percentage = parseFloat(taux.replace(/[^0-9.]/g, '')) || 0
-        discountAmount = (totalPrice * percentage) / 100
+        // Montant fixe : Valeur brute (plafonnée au total)
+        discountAmount = Math.min(numericValue, totalPrice)
       }
     } else {
-      // Si pas d'items, retourner juste les infos du code
+      // Cas sans items (estimation)
       if (isFixedAmount) {
-        discountAmount = parseFloat(taux.replace(/[^0-9.]/g, '')) || 0
+        discountAmount = numericValue
       }
     }
 
@@ -106,16 +109,16 @@ export async function POST(request: NextRequest) {
         code: promotion.code,
         libelle: promotion.libelle,
         taux: promotion.taux,
-        discountAmount: discountAmount,
+        discountAmount: Math.round(discountAmount), // Arrondir proprement
         isFixedAmount: isFixedAmount
       }
     })
 
   } catch (error: any) {
     logger.error("Error validating promo code:", error)
-    return NextResponse.json({ 
+    return NextResponse.json({
       error: "Erreur lors de la validation du code promo: " + error.message,
-      valid: false 
+      valid: false
     }, { status: 500 })
   }
 }

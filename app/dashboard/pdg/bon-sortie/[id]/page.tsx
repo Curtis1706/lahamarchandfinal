@@ -4,10 +4,20 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Printer } from "lucide-react";
+import { ArrowLeft, Printer, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 interface DeliveryNoteDetails {
     id: string;
@@ -24,6 +34,7 @@ interface DeliveryNoteDetails {
             requestedQuantity: number;
             deliveredQuantity: number;
             price: number;
+            quantity: number; // Added for compatibility if API returns this
         }>;
     };
     generatedBy: string;
@@ -42,6 +53,15 @@ export default function BonSortieDetailsPage() {
     const [deliveryNote, setDeliveryNote] = useState<DeliveryNoteDetails | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [showValidationModal, setShowValidationModal] = useState(false);
+    const [validationData, setValidationData] = useState({
+        motif: "",
+        destination: "",
+        etatLivres: "",
+        transport: "",
+        datePrevue: "",
+        notes: ""
+    });
 
     useEffect(() => {
         if (params.id) {
@@ -104,6 +124,23 @@ export default function BonSortieDetailsPage() {
     const handleAction = async (action: "validate" | "cancel") => {
         if (!deliveryNote) return;
 
+        if (action === "validate") {
+            setValidationData({
+                motif: "",
+                destination: "",
+                etatLivres: "",
+                transport: "",
+                datePrevue: "",
+                notes: ""
+            });
+            setShowValidationModal(true);
+            return;
+        }
+
+        if (action === "cancel" && !confirm("Êtes-vous sûr de vouloir annuler ce bon de sortie ? Les articles seront remis en stock.")) {
+            return;
+        }
+
         try {
             setIsProcessing(true);
             const response = await fetch("/api/pdg/bon-sortie", {
@@ -117,14 +154,42 @@ export default function BonSortieDetailsPage() {
                 throw new Error(error.error || "Erreur lors de l'action");
             }
 
-            toast.success(
-                action === "validate" ? "Bon de sortie validé" : "Bon de sortie refusé"
-            );
+            toast.success("Bon annulé et stock restauré");
 
             // Recharger les données
             await loadDeliveryNote(deliveryNote.id);
         } catch (error: any) {
             toast.error(error.message || "Erreur lors de l'action");
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleConfirmValidation = async () => {
+        if (!deliveryNote) return;
+
+        try {
+            setIsProcessing(true);
+            const response = await fetch("/api/pdg/bon-sortie", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    id: deliveryNote.id,
+                    action: "validate",
+                    ...validationData
+                }),
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || "Erreur lors de la validation");
+            }
+
+            toast.success("Bon de sortie validé avec succès");
+            setShowValidationModal(false);
+            await loadDeliveryNote(deliveryNote.id);
+        } catch (error: any) {
+            toast.error(error.message || "Erreur lors de la validation");
         } finally {
             setIsProcessing(false);
         }
@@ -268,8 +333,8 @@ export default function BonSortieDetailsPage() {
                                 {deliveryNote.order.items.map((item, index) => (
                                     <tr key={index} className="border-b hover:bg-gray-50">
                                         <td className="p-4">{item.work}</td>
-                                        <td className="p-4">{item.requestedQuantity || item.deliveredQuantity}</td>
-                                        <td className="p-4">{item.deliveredQuantity || item.requestedQuantity}</td>
+                                        <td className="p-4">{item.requestedQuantity || item.deliveredQuantity || item.quantity}</td>
+                                        <td className="p-4">{item.deliveredQuantity || item.requestedQuantity || item.quantity}</td>
                                         <td className="p-4">
                                             {getItemStatusBadge(
                                                 item.requestedQuantity || item.deliveredQuantity,
@@ -337,6 +402,142 @@ export default function BonSortieDetailsPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Modal de validation */}
+            <Dialog open={showValidationModal} onOpenChange={setShowValidationModal}>
+                <DialogContent className="max-w-4xl">
+                    <DialogHeader>
+                        <DialogTitle>Validation du bon de sortie</DialogTitle>
+                    </DialogHeader>
+
+                    {deliveryNote && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
+                            {/* Colonne gauche : Infos lecture seule */}
+                            <div className="space-y-4">
+                                <div>
+                                    <Label className="text-gray-500">Demandé par</Label>
+                                    <div className="p-2 bg-gray-100 rounded border">
+                                        {deliveryNote.generatedBy}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <Label className="text-gray-500">Date de la demande</Label>
+                                    <div className="p-2 bg-gray-100 rounded border">
+                                        {formatDate(deliveryNote.createdAt)}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <Label>Motif de la sortie</Label>
+                                    <Input
+                                        placeholder="distribution, réapprovisionnement, don, etc."
+                                        value={validationData.motif}
+                                        onChange={(e) => setValidationData({ ...validationData, motif: e.target.value })}
+                                    />
+                                </div>
+
+                                <div>
+                                    <Label>Destination finale</Label>
+                                    <Input
+                                        placeholder="point de vente, partenaire, dépôt, etc."
+                                        value={validationData.destination}
+                                        onChange={(e) => setValidationData({ ...validationData, destination: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Colonne droite : Champs de saisie */}
+                            <div className="space-y-4">
+                                <div>
+                                    <Label className="text-gray-500">Référence du bon de sortie</Label>
+                                    <div className="p-2 bg-gray-100 rounded border">
+                                        {deliveryNote.reference}
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <Label className="text-gray-500">Total des livres à sortir</Label>
+                                        <div className="p-2 bg-gray-100 rounded border text-center font-bold">
+                                            {/* Assuming total quantity logic based on API return */}
+                                            {deliveryNote.order.items.reduce((acc, item) => acc + (item.quantity || item.requestedQuantity || 0), 0)}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <Label>Date prévue de sortie</Label>
+                                        <Input
+                                            type="date"
+                                            value={validationData.datePrevue}
+                                            onChange={(e) => setValidationData({ ...validationData, datePrevue: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <Label>État des livres</Label>
+                                    <Input
+                                        placeholder="neufs, à recycler, etc."
+                                        value={validationData.etatLivres}
+                                        onChange={(e) => setValidationData({ ...validationData, etatLivres: e.target.value })}
+                                    />
+                                </div>
+
+                                <div>
+                                    <Label>Mode de transport ou de livraison prévu</Label>
+                                    <Input
+                                        value={validationData.transport}
+                                        onChange={(e) => setValidationData({ ...validationData, transport: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Zone pleine largeur pour les observations */}
+                            <div className="col-span-1 md:col-span-2">
+                                <Label>Observations ou commentaires éventuels</Label>
+                                <Textarea
+                                    className="mt-1 h-24"
+                                    value={validationData.notes}
+                                    onChange={(e) => setValidationData({ ...validationData, notes: e.target.value })}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowValidationModal(false)} className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800">
+                            Annuler
+                        </Button>
+                        <Button
+                            className="bg-green-600 hover:bg-green-700"
+                            onClick={handleConfirmValidation}
+                            disabled={isProcessing}
+                        >
+                            Confirmer la validation <CheckCircle className="ml-2 h-4 w-4" />
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     );
+}
+
+function MinusCircleIcon(props: any) {
+    return (
+        <svg
+            {...props}
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <circle cx="12" cy="12" r="10" />
+            <path d="M8 12h8" />
+        </svg>
+    )
 }
