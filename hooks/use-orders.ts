@@ -34,6 +34,7 @@ export interface Order {
   estimatedDelivery?: string
   receivedAt?: string
   notes?: string
+  paymentReference?: string | null
 }
 
 export interface UseOrdersResult {
@@ -124,6 +125,7 @@ export const useOrders = (): UseOrdersResult => {
           paymentStatus: order.paymentStatus || 'UNPAID',
           deliveryAddress: deliveryAddress || 'Adresse non spécifiée',
           receivedAt: order.receivedAt,
+          paymentReference: order.paymentReference,
           items: (order.items || []).map((item: any) => ({
             id: item.workId || item.work?.id || item.id,
             title: item.work?.title || item.title,

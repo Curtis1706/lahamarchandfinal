@@ -128,36 +128,61 @@ export default function CheckoutPage() {
                 </CardContent>
 
                 <CardFooter className="flex flex-col gap-4 pt-6">
-                    {order.status === 'VALIDATED' || order.status === 'PROCESSING' ? (
-                        order.paymentStatus === 'PAID' ? (
-                            <div className="w-full p-4 bg-green-50 text-green-700 rounded-lg text-center font-medium border border-green-200">
-                                Commande déjà payée
-                            </div>
-                        ) : (
-                            <Button
-                                onClick={handlePayment}
-                                disabled={loading}
-                                className="w-full h-12 text-lg font-medium shadow-md transition-all hover:scale-[1.02]"
-                                size="lg"
-                            >
-                                {loading ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                                        Redirection Moneroo...
-                                    </>
-                                ) : (
-                                    <>
-                                        <CreditCard className="mr-2 h-5 w-5" />
-                                        Payer avec Moneroo
-                                    </>
-                                )}
+                    {(() => {
+                        // Vérifier si c'est Airtel Money avec preuve déjà soumise
+                        let isAirtelWithProof = false;
+                        if (order.paymentMethod && (order.paymentMethod.toLowerCase().includes('airtel') || order.paymentMethod.toLowerCase().includes('mobile'))) {
+                            try {
+                                const ref = order.paymentReference ? JSON.parse(order.paymentReference) : {};
+                                if (ref.transactionId) isAirtelWithProof = true;
+                            } catch (e) { }
+                        }
+
+                        if (isAirtelWithProof && order.paymentStatus !== 'PAID') {
+                            return (
+                                <div className="w-full p-4 bg-yellow-50 text-yellow-700 rounded-lg text-center font-medium border border-yellow-200">
+                                    Paiement Airtel Money en cours de vérification
+                                </div>
+                            );
+                        }
+
+                        if (order.paymentStatus === 'PAID') {
+                            return (
+                                <div className="w-full p-4 bg-green-50 text-green-700 rounded-lg text-center font-medium border border-green-200">
+                                    Commande déjà payée
+                                </div>
+                            );
+                        }
+
+                        if (order.status === 'VALIDATED' || order.status === 'PROCESSING') {
+                            return (
+                                <Button
+                                    onClick={handlePayment}
+                                    disabled={loading}
+                                    className="w-full h-12 text-lg font-medium shadow-md transition-all hover:scale-[1.02]"
+                                    size="lg"
+                                >
+                                    {loading ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                                            Redirection Moneroo...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CreditCard className="mr-2 h-5 w-5" />
+                                            Payer avec Moneroo
+                                        </>
+                                    )}
+                                </Button>
+                            );
+                        }
+
+                        return (
+                            <Button disabled className="w-full h-12 text-lg font-medium bg-gray-100 text-gray-400 cursor-not-allowed border-2 border-gray-200">
+                                Paiement indisponible pour le moment
                             </Button>
-                        )
-                    ) : (
-                        <Button disabled className="w-full h-12 text-lg font-medium bg-gray-100 text-gray-400 cursor-not-allowed border-2 border-gray-200">
-                            Paiement indisponible pour le moment
-                        </Button>
-                    )}
+                        );
+                    })()}
 
                     <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
                         <Lock className="h-3 w-3" />

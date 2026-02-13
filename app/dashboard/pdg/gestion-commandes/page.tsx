@@ -58,7 +58,8 @@ import {
   Save,
   X,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Upload
 } from "lucide-react"
 import { toast } from "sonner"
 import { format, parseISO } from "date-fns"
@@ -174,6 +175,11 @@ export default function GestionCommandesPage() {
     paymentMethod: '',
     items: [] as Array<{ workId: string; quantity: number; price: number }>
   })
+
+  // États pour Airtel Money (Création Admin)
+  const [transactionId, setTransactionId] = useState("")
+  const [paymentProofUrl, setPaymentProofUrl] = useState("")
+  const [isUploadingProof, setIsUploadingProof] = useState(false)
 
   // Fonction utilitaire pour vérifier si works est un tableau valide
   const getWorks = () => works && Array.isArray(works) ? works : []
@@ -328,6 +334,39 @@ export default function GestionCommandesPage() {
       setLoadingActions(prev => ({ ...prev, [actionKey]: false }));
     }
   }, [orders])
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsUploadingProof(true)
+    const formData = new FormData()
+    formData.append('files', file)
+    formData.append('type', 'payment_proof')
+    formData.append('entityId', user?.id || 'admin')
+
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error('Erreur lors de l\'upload')
+      }
+
+      const data = await response.json()
+      if (data.files && data.files.length > 0) {
+        setPaymentProofUrl(data.files[0].path)
+        toast.success("Preuve de paiement téléchargée")
+      }
+    } catch (error) {
+      console.error("Erreur upload:", error)
+      toast.error("Erreur lors de l'upload")
+    } finally {
+      setIsUploadingProof(false)
+    }
+  }
 
   const handleVerifyPayment = async (orderId: string) => {
     setVerifyingOrder(orderId);
@@ -546,6 +585,17 @@ export default function GestionCommandesPage() {
       // Ajouter le mode de paiement
       if (newOrderData.paymentMethod) {
         orderData.paymentMethod = newOrderData.paymentMethod
+
+        // Airtel Money logic
+        if (newOrderData.paymentMethod === 'airtel-money-gabon') {
+          if (!transactionId) {
+            toast.error("Veuillez saisir l'ID de transaction")
+            setIsCreatingOrder(false)
+            return
+          }
+          orderData.transactionId = transactionId
+          orderData.paymentProof = paymentProofUrl
+        }
       }
 
       // Ajouter le type de commande
@@ -575,6 +625,8 @@ export default function GestionCommandesPage() {
         paymentMethod: '',
         items: []
       })
+      setTransactionId("")
+      setPaymentProofUrl("")
       setCartItems([])
       setBookSearchTerm("")
       setIsCreateOrderOpen(false)
@@ -1456,6 +1508,44 @@ export default function GestionCommandesPage() {
                   </div>
                 </div>
 
+                {/* Détails Airtel Money ou autres infos de paiement stockées dans paymentReference */}
+                {selectedOrder.paymentReference && (() => {
+                  try {
+                    const paymentRef = JSON.parse(selectedOrder.paymentReference)
+                    if (paymentRef.transactionId || paymentRef.paymentProof) {
+                      return (
+                        <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                          <h4 className="text-sm font-semibold mb-2 text-gray-700">Détails du paiement (Airtel Money)</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {paymentRef.transactionId && (
+                              <div>
+                                <p className="text-xs text-gray-500">ID Transaction</p>
+                                <p className="font-mono font-medium text-sm">{paymentRef.transactionId}</p>
+                              </div>
+                            )}
+                            {paymentRef.paymentProof && (
+                              <div>
+                                <p className="text-xs text-gray-500">Preuve de paiement</p>
+                                <a
+                                  href={paymentRef.paymentProof}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:underline text-sm flex items-center gap-1 mt-1"
+                                >
+                                  <FileText className="h-4 w-4" />
+                                  Voir le reçu
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    }
+                  } catch (e) {
+                    return null
+                  }
+                })()}
+
                 {selectedOrder.paymentType === 'DEPOSIT' && (
                   <div className="mt-4 p-4 bg-blue-50 rounded-lg">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -2068,22 +2158,71 @@ export default function GestionCommandesPage() {
               </div>
 
               {/* Mode de paiement */}
-              <div className="space-y-2">
-                <Label>Sélectionnez Mode de paiement</Label>
-                <Select
-                  value={newOrderData.paymentMethod}
-                  onValueChange={(value) => setNewOrderData(prev => ({ ...prev, paymentMethod: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionnez mode de règlement" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="especes">Espèces</SelectItem>
-                    <SelectItem value="mobile-money">Mobile Money</SelectItem>
-                    <SelectItem value="virement">Virement bancaire</SelectItem>
-                    <SelectItem value="carte">Carte bancaire</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Sélectionnez Mode de paiement</Label>
+                  <Select
+                    value={newOrderData.paymentMethod}
+                    onValueChange={(value) => {
+                      setNewOrderData(prev => ({ ...prev, paymentMethod: value }))
+                      if (value !== 'airtel-money-gabon') {
+                        setTransactionId("")
+                        setPaymentProofUrl("")
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionnez mode de règlement" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="airtel-money-gabon">Airtel Money Gabon</SelectItem>
+                      <SelectItem value="virement">Virement bancaire</SelectItem>
+                      <SelectItem value="carte">Carte bancaire</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Section Airtel Money */}
+                {newOrderData.paymentMethod === 'airtel-money-gabon' && (
+                  <div className="bg-red-50 border border-red-100 rounded-lg p-4 space-y-4">
+                    <div className="flex items-center gap-2 text-red-700 font-medium text-sm">
+                      <div className="bg-red-600 text-white px-1 rounded">AM</div>
+                      <span>Instructions de paiement Airtel Money</span>
+                    </div>
+
+                    <div className="text-[10px] text-gray-700 space-y-1 ml-1 pl-4 border-l-2 border-red-200">
+                      <p>1. Ouvrez l'app <span className="font-bold">My Airtel</span> ou composez <span className="font-bold">*150#</span></p>
+                      <p>2. Sélectionnez <span className="font-bold">2 - Envoyer de l'argent</span> &gt; <span className="font-bold">1 - Vers un autre compte Airtel Money</span></p>
+                      <p>3. Entrez le numéro <span className="font-bold text-red-700">074019185</span></p>
+                      <p>4. Nom du destinataire : <span className="font-bold text-red-700">LALEYE ABDEL HAKIM</span></p>
+                      <p>5. Montant : <span className="font-bold">{totalAmount.toLocaleString()} XOF</span></p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">ID de Transaction *</Label>
+                        <Input
+                          placeholder="Ex: 8XF34..."
+                          value={transactionId}
+                          onChange={(e) => setTransactionId(e.target.value)}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-xs">Preuve (Screenshot)</Label>
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileUpload}
+                          disabled={isUploadingProof}
+                          className="h-8 text-xs cursor-pointer"
+                        />
+                        {paymentProofUrl && <p className="text-[10px] text-green-600 font-medium">✓ Téléchargé</p>}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

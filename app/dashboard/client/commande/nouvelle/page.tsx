@@ -44,6 +44,7 @@ import {
   Check,
   ArrowLeft,
   Loader2,
+  Upload,
 } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
@@ -80,6 +81,11 @@ function NouvelleCommandePageContent() {
 
   const [appliedPromo, setAppliedPromo] = useState<{ code: string; discountAmount: number; libelle: string } | null>(null)
   const [isValidatingPromo, setIsValidatingPromo] = useState(false)
+
+  // États pour Airtel Money
+  const [transactionId, setTransactionId] = useState("")
+  const [paymentProofUrl, setPaymentProofUrl] = useState("")
+  const [isUploadingProof, setIsUploadingProof] = useState(false)
 
   // Récupérer workId depuis les paramètres de requête et pré-sélectionner le livre
   useEffect(() => {
@@ -367,6 +373,39 @@ function NouvelleCommandePageContent() {
     toast.info("Code promo retiré")
   }
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsUploadingProof(true)
+    const formData = new FormData()
+    formData.append('files', file)
+    formData.append('type', 'payment_proof')
+    formData.append('entityId', user?.id || 'temp')
+
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error('Erreur lors de l\'upload')
+      }
+
+      const data = await response.json()
+      if (data.files && data.files.length > 0) {
+        setPaymentProofUrl(data.files[0].path)
+        toast.success("Preuve de paiement téléchargée avec succès")
+      }
+    } catch (error) {
+      console.error("Erreur upload:", error)
+      toast.error("Erreur lors du téléchargement de la preuve")
+    } finally {
+      setIsUploadingProof(false)
+    }
+  }
+
   const handleCreateOrder = async () => {
     if (!user) {
       toast.error("Vous devez être connecté pour passer une commande")
@@ -428,6 +467,24 @@ function NouvelleCommandePageContent() {
       // Ajouter le mode de paiement
       if (newOrderData.paymentMethod) {
         orderData.paymentMethod = newOrderData.paymentMethod
+
+        // Champs spécifiques Airtel Money
+        if (newOrderData.paymentMethod === 'airtel-money-gabon') {
+          if (!transactionId) {
+            toast.error("Veuillez saisir l'ID de transaction")
+            setIsSubmitting(false)
+            return
+          }
+          /*
+          if (!paymentProofUrl) {
+            toast.error("Veuillez télécharger la preuve de paiement")
+            setIsSubmitting(false)
+            return
+          }
+          */
+          orderData.transactionId = transactionId
+          orderData.paymentProof = paymentProofUrl
+        }
       }
 
       // Ajouter le type de commande
@@ -477,276 +534,29 @@ function NouvelleCommandePageContent() {
 
   return (
     <DynamicDashboardLayout title="Nouvelle Commande">
-      <div className="space-y-6">
-        {/* En-tête */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Nouvelle Commande</h1>
-            <p className="text-muted-foreground">
-              Créez une nouvelle commande de livres scolaires
-            </p>
-          </div>
-          <Link href="/dashboard/client/commandes">
-            <Button variant="outline">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Retour aux commandes
-            </Button>
-          </Link>
-        </div>
-
-        {/* Formulaire de création */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Création de nouvelle commande</CardTitle>
-              <div className="text-right">
-                <span className="text-sm font-medium text-muted-foreground">Total: </span>
-                <span className="text-lg font-bold text-indigo-600">
-                  {calculateTotal().toLocaleString("fr-FR")} XOF
-                </span>
-              </div>
+      <div className="container mx-auto py-6 space-y-6">
+        <div className="space-y-6">
+          {/* En-tête */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold">Nouvelle Commande</h1>
+              <p className="text-muted-foreground">
+                Créez une nouvelle commande de livres scolaires
+              </p>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Section de sélection des articles */}
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold">Sélection des articles</h2>
+            <Link href="/dashboard/client/commandes">
+              <Button variant="outline">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Retour aux commandes
+              </Button>
+            </Link>
+          </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Choix de la catégorie */}
-                <div className="space-y-2">
-                  <Label>Choix de la catégorie *</Label>
-                  <Select
-                    value={newOrderData.selectedCategory}
-                    onValueChange={(value) => {
-                      setNewOrderData(prev => ({ ...prev, selectedCategory: value, selectedWork: '' }))
-                      setBookSearchTerm("")
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionnez une catégorie" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.length > 0 ? (
-                        categories.map((category) => (
-                          <SelectItem key={category.id} value={category.nom || category.name || category.id}>
-                            {category.nom || category.name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <div className="p-2 text-sm text-gray-500 text-center">Aucune catégorie disponible</div>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Choix de la matière */}
-                <div className="space-y-2">
-                  <Label>Choix de la Matière</Label>
-                  <Select
-                    value={newOrderData.selectedDiscipline}
-                    onValueChange={(value) => {
-                      setNewOrderData(prev => ({ ...prev, selectedDiscipline: value, selectedWork: '' }))
-                      setBookSearchTerm("")
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionnez une matière" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {disciplines.map((discipline) => (
-                        <SelectItem key={discipline.id} value={discipline.id}>
-                          {discipline.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Choix de la classe */}
-                <div className="space-y-2">
-                  <Label>Choix de la classe</Label>
-                  <Select
-                    value={newOrderData.selectedClass}
-                    onValueChange={(value) => setNewOrderData(prev => ({ ...prev, selectedClass: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionnez la classe" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {classes.length > 0 ? (
-                        classes.map((classe) => (
-                          <SelectItem key={classe.id} value={classe.classe || classe.name || classe.id}>
-                            {classe.classe || classe.name} ({classe.section})
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <div className="p-2 text-sm text-gray-500 text-center">Aucune classe disponible</div>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {/* Choix du livre */}
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Choix du livre *</Label>
-                  <Popover
-                    open={isBookComboboxOpen}
-                    onOpenChange={(open) => {
-                      setIsBookComboboxOpen(open)
-                      if (!open) {
-                        setBookSearchTerm("")
-                      }
-                    }}
-                  >
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={isBookComboboxOpen}
-                        className="w-full justify-between"
-                        disabled={!newOrderData.selectedCategory}
-                      >
-                        {newOrderData.selectedWork
-                          ? getWorks().find((work) => work.id === newOrderData.selectedWork)?.title || "Sélectionnez un livre"
-                          : "Sélectionnez un livre..."}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[400px] p-0" align="start">
-                      <Command shouldFilter={false} className="rounded-lg border-none">
-                        <CommandInput
-                          placeholder="Rechercher un livre..."
-                          value={bookSearchTerm}
-                          onValueChange={(value) => setBookSearchTerm(value)}
-                          className="h-9"
-                        />
-                        <CommandList className="max-h-[300px]">
-                          <CommandEmpty>
-                            {bookSearchTerm.trim()
-                              ? `Aucun livre trouvé pour "${bookSearchTerm}"`
-                              : newOrderData.selectedCategory
-                                ? "Aucun livre disponible"
-                                : "Sélectionnez d'abord une catégorie"}
-                          </CommandEmpty>
-                          <CommandGroup>
-                            {getFilteredWorks().map((work) => (
-                              <CommandItem
-                                key={work.id}
-                                value={`${work.title} ${work.isbn || ''}`}
-                                onSelect={() => {
-                                  setNewOrderData(prev => ({ ...prev, selectedWork: work.id }))
-                                  setBookSearchTerm("")
-                                  setIsBookComboboxOpen(false)
-                                }}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    newOrderData.selectedWork === work.id ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                <div className="flex-1">
-                                  <div className="font-medium">{work.title}</div>
-                                  <div className="text-xs text-gray-500">
-                                    {(work.price || 0).toLocaleString("fr-FR")} XOF
-                                    {work.isbn && ` • ISBN: ${work.isbn}`}
-                                    {work.stock !== undefined && (
-                                      <span className={cn(
-                                        "ml-2",
-                                        (work.stock ?? 0) > 0 ? "text-green-600" : "text-red-600"
-                                      )}>
-                                        • Stock: {work.stock ?? 0}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                {/* Quantité */}
-                <div className="space-y-2">
-                  <Label>Quantité *</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={newOrderData.quantity || ''}
-                    onChange={(e) => {
-                      const value = parseInt(e.target.value) || 0
-                      setNewOrderData(prev => ({ ...prev, quantity: value }))
-                    }}
-                    placeholder="1"
-                  />
-                </div>
-
-                {/* Bouton Ajouter */}
-                <div className="flex items-end">
-                  <Button
-                    onClick={handleAddToCart}
-                    className="bg-indigo-600 hover:bg-indigo-700 w-full"
-                    disabled={!newOrderData.selectedWork || !newOrderData.quantity || newOrderData.quantity <= 0}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Ajouter
-                  </Button>
-                </div>
-              </div>
-
-              {/* Tableau récapitulatif */}
-              <div className="border rounded-lg overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-gray-50">
-                      <TableHead>Livre</TableHead>
-                      <TableHead className="text-right">Prix</TableHead>
-                      <TableHead className="text-right">Quantité</TableHead>
-                      <TableHead className="text-right">Montant</TableHead>
-                      <TableHead className="text-right">Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {cartItems.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center text-gray-500 py-8">
-                          Aucun article dans le panier
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      cartItems.map((item) => (
-                        <TableRow key={item.workId}>
-                          <TableCell className="font-medium">{item.title}</TableCell>
-                          <TableCell className="text-right">{item.price.toLocaleString("fr-FR")} XOF</TableCell>
-                          <TableCell className="text-right">{item.quantity}</TableCell>
-                          <TableCell className="text-right font-medium">
-                            {(item.price * item.quantity).toLocaleString("fr-FR")} XOF
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleRemoveFromCart(item.workId)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Total */}
-              <div className="flex justify-end">
+          {/* Formulaire de création */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Création de nouvelle commande</CardTitle>
                 <div className="text-right">
                   <span className="text-sm font-medium text-muted-foreground">Total: </span>
                   <span className="text-lg font-bold text-indigo-600">
@@ -754,204 +564,505 @@ function NouvelleCommandePageContent() {
                   </span>
                 </div>
               </div>
-            </div>
-
-            {/* Section détails de la commande */}
-            <div className="space-y-4 border-t pt-4">
-              <h2 className="text-xl font-semibold">Détails de la commande</h2>
-
-              {/* Code promo */}
-              <div className="space-y-2">
-                <Label>Code promo</Label>
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <Input
-                      placeholder="CODE PROMO"
-                      value={newOrderData.promoCode}
-                      onChange={(e) => setNewOrderData(prev => ({ ...prev, promoCode: e.target.value.toUpperCase() }))}
-                      disabled={!!appliedPromo || isValidatingPromo}
-                    />
-                  </div>
-                  <div className="flex items-end">
-                    {appliedPromo ? (
-                      <Button
-                        variant="destructive"
-                        onClick={handleRemovePromo}
-                        type="button"
-                      >
-                        Retirer
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                        onClick={handleValidatePromo}
-                        disabled={isValidatingPromo || !newOrderData.promoCode.trim()}
-                        type="button"
-                      >
-                        {isValidatingPromo ? <Loader2 className="h-4 w-4 animate-spin" /> : "Appliquer"}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-                {appliedPromo && (
-                  <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-700 flex justify-between items-center">
-                    <span>{appliedPromo.libelle} ({appliedPromo.code})</span>
-                    <span className="font-bold">-{appliedPromo.discountAmount.toLocaleString("fr-FR")} XOF</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Type de commande */}
-              <div className="space-y-2">
-                <Label>Type de commande</Label>
-                <Select
-                  value={newOrderData.orderType}
-                  onValueChange={(value) => setNewOrderData(prev => ({ ...prev, orderType: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionnez le type de commande" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="rentree-scolaire">Commande pour la rentrée scolaire</SelectItem>
-                    <SelectItem value="cours-vacances">Cours de vacances</SelectItem>
-                    <SelectItem value="periode-cours">Période de cours</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Coordonnées de Livraison */}
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Section de sélection des articles */}
               <div className="space-y-4">
-                <div className="bg-black text-white px-4 py-2 rounded">
-                  <Label className="text-white font-semibold">Coordonnées de Livraison *</Label>
+                <h2 className="text-xl font-semibold">Sélection des articles</h2>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Choix de la catégorie */}
+                  <div className="space-y-2">
+                    <Label>Choix de la catégorie *</Label>
+                    <Select
+                      value={newOrderData.selectedCategory}
+                      onValueChange={(value) => {
+                        setNewOrderData(prev => ({ ...prev, selectedCategory: value, selectedWork: '' }))
+                        setBookSearchTerm("")
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionnez une catégorie" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.length > 0 ? (
+                          categories.map((category) => (
+                            <SelectItem key={category.id} value={category.nom || category.name || category.id}>
+                              {category.nom || category.name}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <div className="p-2 text-sm text-gray-500 text-center">Aucune catégorie disponible</div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Choix de la matière */}
+                  <div className="space-y-2">
+                    <Label>Choix de la Matière</Label>
+                    <Select
+                      value={newOrderData.selectedDiscipline}
+                      onValueChange={(value) => {
+                        setNewOrderData(prev => ({ ...prev, selectedDiscipline: value, selectedWork: '' }))
+                        setBookSearchTerm("")
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionnez une matière" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {disciplines.map((discipline) => (
+                          <SelectItem key={discipline.id} value={discipline.id}>
+                            {discipline.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Choix de la classe */}
+                  <div className="space-y-2">
+                    <Label>Choix de la classe</Label>
+                    <Select
+                      value={newOrderData.selectedClass}
+                      onValueChange={(value) => setNewOrderData(prev => ({ ...prev, selectedClass: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionnez la classe" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {classes.length > 0 ? (
+                          classes.map((classe) => (
+                            <SelectItem key={classe.id} value={classe.classe || classe.name || classe.id}>
+                              {classe.classe || classe.name} ({classe.section})
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <div className="p-2 text-sm text-gray-500 text-center">Aucune classe disponible</div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Date de livraison */}
-                  <div className="space-y-2">
-                    <Label>Date de livraison *</Label>
-                    <Popover>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  {/* Choix du livre */}
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Choix du livre *</Label>
+                    <Popover
+                      open={isBookComboboxOpen}
+                      onOpenChange={(open) => {
+                        setIsBookComboboxOpen(open)
+                        if (!open) {
+                          setBookSearchTerm("")
+                        }
+                      }}
+                    >
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !newOrderData.deliveryDate && "text-muted-foreground"
-                          )}
+                          role="combobox"
+                          aria-expanded={isBookComboboxOpen}
+                          className="w-full justify-between"
+                          disabled={!newOrderData.selectedCategory}
                         >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {newOrderData.deliveryDate ? (
-                            format(newOrderData.deliveryDate, "dd/MM/yyyy", { locale: fr })
-                          ) : (
-                            <span className="text-muted-foreground">Sélectionnez une date</span>
-                          )}
+                          {newOrderData.selectedWork
+                            ? getWorks().find((work) => work.id === newOrderData.selectedWork)?.title || "Sélectionnez un livre"
+                            : "Sélectionnez un livre..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={newOrderData.deliveryDate}
-                          onSelect={(date) => setNewOrderData(prev => ({ ...prev, deliveryDate: date }))}
-                          disabled={(date) => date < new Date()}
-                          initialFocus
-                        />
+                      <PopoverContent className="w-[400px] p-0" align="start">
+                        <Command shouldFilter={false} className="rounded-lg border-none">
+                          <CommandInput
+                            placeholder="Rechercher un livre..."
+                            value={bookSearchTerm}
+                            onValueChange={(value) => setBookSearchTerm(value)}
+                            className="h-9"
+                          />
+                          <CommandList className="max-h-[300px]">
+                            <CommandEmpty>
+                              {bookSearchTerm.trim()
+                                ? `Aucun livre trouvé pour "${bookSearchTerm}"`
+                                : newOrderData.selectedCategory
+                                  ? "Aucun livre disponible"
+                                  : "Sélectionnez d'abord une catégorie"}
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {getFilteredWorks().map((work) => (
+                                <CommandItem
+                                  key={work.id}
+                                  value={`${work.title} ${work.isbn || ''}`}
+                                  onSelect={() => {
+                                    setNewOrderData(prev => ({ ...prev, selectedWork: work.id }))
+                                    setBookSearchTerm("")
+                                    setIsBookComboboxOpen(false)
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      newOrderData.selectedWork === work.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  <div className="flex-1">
+                                    <div className="font-medium">{work.title}</div>
+                                    <div className="text-xs text-gray-500">
+                                      {(work.price || 0).toLocaleString("fr-FR")} XOF
+                                      {work.isbn && ` • ISBN: ${work.isbn}`}
+                                      {work.stock !== undefined && (
+                                        <span className={cn(
+                                          "ml-2",
+                                          (work.stock ?? 0) > 0 ? "text-green-600" : "text-red-600"
+                                        )}>
+                                          • Stock: {work.stock ?? 0}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
                       </PopoverContent>
                     </Popover>
                   </div>
 
-                  {/* Plage horaire */}
+                  {/* Quantité */}
                   <div className="space-y-2">
-                    <Label>Plage horaire</Label>
-                    <div className="flex gap-2">
-                      <div className="flex-1">
-                        <Label className="text-xs text-gray-600">De</Label>
-                        <div className="relative">
-                          <Input
-                            type="time"
-                            value={newOrderData.deliveryTimeFrom}
-                            onChange={(e) => setNewOrderData(prev => ({ ...prev, deliveryTimeFrom: e.target.value }))}
-                            className="pr-8"
+                    <Label>Quantité *</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={newOrderData.quantity || ''}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value) || 0
+                        setNewOrderData(prev => ({ ...prev, quantity: value }))
+                      }}
+                      placeholder="1"
+                    />
+                  </div>
+
+                  {/* Bouton Ajouter */}
+                  <div className="flex items-end">
+                    <Button
+                      onClick={handleAddToCart}
+                      className="bg-indigo-600 hover:bg-indigo-700 w-full"
+                      disabled={!newOrderData.selectedWork || !newOrderData.quantity || newOrderData.quantity <= 0}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Ajouter
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Tableau récapitulatif */}
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-gray-50">
+                        <TableHead>Livre</TableHead>
+                        <TableHead className="text-right">Prix</TableHead>
+                        <TableHead className="text-right">Quantité</TableHead>
+                        <TableHead className="text-right">Montant</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {cartItems.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center text-gray-500 py-8">
+                            Aucun article dans le panier
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        cartItems.map((item) => (
+                          <TableRow key={item.workId}>
+                            <TableCell className="font-medium">{item.title}</TableCell>
+                            <TableCell className="text-right">{item.price.toLocaleString("fr-FR")} XOF</TableCell>
+                            <TableCell className="text-right">{item.quantity}</TableCell>
+                            <TableCell className="text-right font-medium">
+                              {(item.price * item.quantity).toLocaleString("fr-FR")} XOF
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveFromCart(item.workId)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Total */}
+                <div className="flex justify-end">
+                  <div className="text-right">
+                    <span className="text-sm font-medium text-muted-foreground">Total: </span>
+                    <span className="text-lg font-bold text-indigo-600">
+                      {calculateTotal().toLocaleString("fr-FR")} XOF
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section détails de la commande */}
+              <div className="space-y-4 border-t pt-4">
+                <h2 className="text-xl font-semibold">Détails de la commande</h2>
+
+                {/* Code promo */}
+                <div className="space-y-2">
+                  <Label>Code promo</Label>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Input
+                        placeholder="CODE PROMO"
+                        value={newOrderData.promoCode}
+                        onChange={(e) => setNewOrderData(prev => ({ ...prev, promoCode: e.target.value.toUpperCase() }))}
+                        disabled={!!appliedPromo || isValidatingPromo}
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      {appliedPromo ? (
+                        <Button
+                          variant="destructive"
+                          onClick={handleRemovePromo}
+                          type="button"
+                        >
+                          Retirer
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                          onClick={handleValidatePromo}
+                          disabled={isValidatingPromo || !newOrderData.promoCode.trim()}
+                          type="button"
+                        >
+                          {isValidatingPromo ? <Loader2 className="h-4 w-4 animate-spin" /> : "Appliquer"}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  {appliedPromo && (
+                    <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-700 flex justify-between items-center">
+                      <span>{appliedPromo.libelle} ({appliedPromo.code})</span>
+                      <span className="font-bold">-{appliedPromo.discountAmount.toLocaleString("fr-FR")} XOF</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Type de commande */}
+                <div className="space-y-2">
+                  <Label>Type de commande</Label>
+                  <Select
+                    value={newOrderData.orderType}
+                    onValueChange={(value) => setNewOrderData(prev => ({ ...prev, orderType: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionnez le type de commande" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="rentree-scolaire">Commande pour la rentrée scolaire</SelectItem>
+                      <SelectItem value="cours-vacances">Cours de vacances</SelectItem>
+                      <SelectItem value="periode-cours">Période de cours</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Coordonnées de Livraison */}
+                <div className="space-y-4">
+                  <div className="bg-black text-white px-4 py-2 rounded">
+                    <Label className="text-white font-semibold">Coordonnées de Livraison *</Label>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Date de livraison */}
+                    <div className="space-y-2">
+                      <Label>Date de livraison *</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !newOrderData.deliveryDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {newOrderData.deliveryDate ? (
+                              format(newOrderData.deliveryDate, "dd/MM/yyyy", { locale: fr })
+                            ) : (
+                              <span className="text-muted-foreground">Sélectionnez une date</span>
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={newOrderData.deliveryDate}
+                            onSelect={(date) => setNewOrderData(prev => ({ ...prev, deliveryDate: date }))}
+                            disabled={(date) => date < new Date()}
+                            initialFocus
                           />
-                          <Clock className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    {/* Plage horaire */}
+                    <div className="space-y-2">
+                      <Label>Plage horaire</Label>
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <Label className="text-xs text-gray-600">De</Label>
+                          <div className="relative">
+                            <Input
+                              type="time"
+                              value={newOrderData.deliveryTimeFrom}
+                              onChange={(e) => setNewOrderData(prev => ({ ...prev, deliveryTimeFrom: e.target.value }))}
+                              className="pr-8"
+                            />
+                            <Clock className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex-1">
-                        <Label className="text-xs text-gray-600">à</Label>
-                        <div className="relative">
-                          <Input
-                            type="time"
-                            value={newOrderData.deliveryTimeTo}
-                            onChange={(e) => setNewOrderData(prev => ({ ...prev, deliveryTimeTo: e.target.value }))}
-                            className="pr-8"
-                          />
-                          <Clock className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <div className="flex-1">
+                          <Label className="text-xs text-gray-600">à</Label>
+                          <div className="relative">
+                            <Input
+                              type="time"
+                              value={newOrderData.deliveryTimeTo}
+                              onChange={(e) => setNewOrderData(prev => ({ ...prev, deliveryTimeTo: e.target.value }))}
+                              className="pr-8"
+                            />
+                            <Clock className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
+
+                  {/* Adresse de livraison */}
+                  <div className="space-y-2">
+                    <Label>Adresse de livraison *</Label>
+                    <Textarea
+                      placeholder="Adresse complète de livraison"
+                      value={newOrderData.deliveryAddress}
+                      onChange={(e) => setNewOrderData(prev => ({ ...prev, deliveryAddress: e.target.value }))}
+                      rows={3}
+                      className="resize-none"
+                    />
+                  </div>
                 </div>
 
-                {/* Adresse de livraison */}
-                <div className="space-y-2">
-                  <Label>Adresse de livraison *</Label>
-                  <Textarea
-                    placeholder="Adresse complète de livraison"
-                    value={newOrderData.deliveryAddress}
-                    onChange={(e) => setNewOrderData(prev => ({ ...prev, deliveryAddress: e.target.value }))}
-                    rows={3}
-                    className="resize-none"
-                  />
+                {/* Mode de paiement */}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Mode de paiement</Label>
+                    <Select
+                      value={newOrderData.paymentMethod}
+                      onValueChange={(value) => {
+                        setNewOrderData(prev => ({ ...prev, paymentMethod: value }))
+                        // Réinitialiser les champs Airtel Money si on change de méthode
+                        if (value !== 'airtel-money-gabon') {
+                          setTransactionId("")
+                          setPaymentProofUrl("")
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionnez mode de règlement" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="airtel-money-gabon">Airtel Money Gabon</SelectItem>
+                        <SelectItem value="virement">Virement bancaire</SelectItem>
+                        <SelectItem value="carte">Carte bancaire</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Section Airtel Money */}
+                  {newOrderData.paymentMethod === 'airtel-money-gabon' && (
+                    <div className="bg-red-50 border border-red-100 rounded-lg p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
+                      <div className="flex items-center gap-2 text-red-700 font-medium">
+                        <div className="bg-red-600 text-white p-1 rounded">AM</div>
+                        <span>Instructions de paiement Airtel Money</span>
+                      </div>
+
+                      <div className="text-sm text-gray-700 space-y-2 ml-1 pl-4 border-l-2 border-red-200">
+                        <p>1. Ouvrez l'app <span className="font-bold">My Airtel</span> ou composez <span className="font-bold">*150#</span></p>
+                        <p>2. Sélectionnez <span className="font-bold">2 - Envoyer de l'argent</span> &gt; <span className="font-bold">1 - Vers un autre compte Airtel Money</span></p>
+                        <p>3. Entrez le numéro <span className="font-bold text-red-700">074019185</span></p>
+                        <p>4. Nom du destinataire : <span className="font-bold text-red-700">LALEYE ABDEL HAKIM</span></p>
+                        <p>5. Entrez le montant à payer : <span className="font-bold">{calculateTotal().toLocaleString("fr-FR")} XOF</span></p>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                        <div className="space-y-2">
+                          <Label>Référence ou ID contenu dans le SMS reçu</Label>
+                          <Input
+                            placeholder="Référence ou ID contenu dans le SMS reçu"
+                            value={transactionId}
+                            onChange={(e) => setTransactionId(e.target.value)}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Preuve de paiement (Capture d'écran du SMS reçu)</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleFileUpload}
+                              disabled={isUploadingProof}
+                              className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
+                            />
+                          </div>
+                          {isUploadingProof && <p className="text-xs text-muted-foreground animate-pulse">Téléchargement...</p>}
+                          {paymentProofUrl && <p className="text-xs text-green-600 font-medium">✓ Preuve téléchargée</p>}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Mode de paiement */}
-              <div className="space-y-2">
-                <Label>Mode de paiement</Label>
-                <Select
-                  value={newOrderData.paymentMethod}
-                  onValueChange={(value) => setNewOrderData(prev => ({ ...prev, paymentMethod: value }))}
+              {/* Actions */}
+              <div className="flex justify-end gap-4 pt-4 border-t">
+                <Link href="/dashboard/client/commandes">
+                  <Button variant="outline">
+                    <X className="h-4 w-4 mr-2" />
+                    Annuler
+                  </Button>
+                </Link>
+                <Button
+                  onClick={handleCreateOrder}
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                  disabled={isSubmitting || cartItems.length === 0}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionnez mode de règlement" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="especes">Espèces</SelectItem>
-                    <SelectItem value="mobile-money">Mobile Money</SelectItem>
-                    <SelectItem value="virement">Virement bancaire</SelectItem>
-                    <SelectItem value="carte">Carte bancaire</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex justify-end gap-4 pt-4 border-t">
-              <Link href="/dashboard/client/commandes">
-                <Button variant="outline">
-                  <X className="h-4 w-4 mr-2" />
-                  Annuler
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Création...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Créer la commande
+                    </>
+                  )}
                 </Button>
-              </Link>
-              <Button
-                onClick={handleCreateOrder}
-                className="bg-indigo-600 hover:bg-indigo-700"
-                disabled={isSubmitting || cartItems.length === 0}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Création...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" />
-                    Créer la commande
-                  </>
-                )}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </DynamicDashboardLayout>
   )

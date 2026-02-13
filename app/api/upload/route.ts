@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Vérifier que l'utilisateur a le droit d'upload
-    const allowedRoles = ["CONCEPTEUR", "AUTEUR", "PDG"];
+    const allowedRoles = ["CONCEPTEUR", "AUTEUR", "PDG", "CLIENT"];
     if (!allowedRoles.includes(session.user.role || "")) {
       return NextResponse.json(
         { error: "Rôle non autorisé pour l'upload" },
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const files = formData.getAll('files') as File[];
-    const uploadType = formData.get('type') as string; // 'project', 'work', 'temp'
+    const uploadType = formData.get('type') as string; // 'project', 'work', 'temp', 'payment_proof'
     const entityId = formData.get('entityId') as string; // ID du projet ou de l'œuvre
 
     console.log(`[API Upload] Received ${files.length} files. Type: ${uploadType}, EntityId: ${entityId}`);
@@ -72,9 +72,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!uploadType || !['project', 'work', 'temp'].includes(uploadType)) {
+    if (!uploadType || !['project', 'work', 'temp', 'payment_proof'].includes(uploadType)) {
       return NextResponse.json(
-        { error: "Type d'upload invalide (project, work, temp)" },
+        { error: "Type d'upload invalide (project, work, temp, payment_proof)" },
         { status: 400 }
       );
     }

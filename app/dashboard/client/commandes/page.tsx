@@ -54,7 +54,9 @@ import {
   Calendar as CalendarIcon,
   Check,
   ChevronsUpDown,
-  RefreshCw
+  RefreshCw,
+  FileText,
+  Upload
 } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
@@ -114,6 +116,11 @@ function ClientCommandePageContent() {
     deliveryAddress: '',
     paymentMethod: '',
   })
+
+  // États pour Airtel Money (Création)
+  const [transactionId, setTransactionId] = useState("")
+  const [paymentProofUrl, setPaymentProofUrl] = useState("")
+  const [isUploadingProof, setIsUploadingProof] = useState(false)
 
 
 
@@ -317,6 +324,39 @@ function ClientCommandePageContent() {
     }
   }
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsUploadingProof(true)
+    const formData = new FormData()
+    formData.append('files', file)
+    formData.append('type', 'payment_proof')
+    formData.append('entityId', user?.id || 'temp')
+
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error('Erreur lors de l\'upload')
+      }
+
+      const data = await response.json()
+      if (data.files && data.files.length > 0) {
+        setPaymentProofUrl(data.files[0].path)
+        toast.success("Preuve de paiement téléchargée")
+      }
+    } catch (error) {
+      console.error("Erreur upload:", error)
+      toast.error("Erreur lors du téléchargement")
+    } finally {
+      setIsUploadingProof(false)
+    }
+  }
+
   // Fonctions pour le modal de création de commande
   const getWorks = () => works && Array.isArray(works) ? works : []
 
@@ -506,7 +546,16 @@ function ClientCommandePageContent() {
 
       // Ajouter le mode de paiement
       if (newOrderData.paymentMethod) {
-        orderData.paymentMethod = newOrderData.paymentMethod
+        orderData.paymentMethod = newOrderData.paymentMethod === 'mobile-money' ? 'airtel-money-gabon' : newOrderData.paymentMethod
+
+        if (newOrderData.paymentMethod === 'mobile-money') {
+          if (!transactionId) {
+            toast.error("Veuillez saisir l'ID de transaction")
+            return
+          }
+          orderData.transactionId = transactionId
+          orderData.paymentProof = paymentProofUrl
+        }
       }
 
       // Ajouter le type de commande
@@ -516,7 +565,6 @@ function ClientCommandePageContent() {
 
       await apiClient.createOrder(orderData)
 
-      // Réinitialiser le formulaire
       setNewOrderData({
         selectedCategory: '',
         selectedDiscipline: '',
@@ -531,6 +579,8 @@ function ClientCommandePageContent() {
         deliveryAddress: '',
         paymentMethod: '',
       })
+      setTransactionId("")
+      setPaymentProofUrl("")
       setCartItems([])
       setBookSearchTerm("")
       setIsCreateOrderOpen(false)
@@ -790,6 +840,40 @@ function ClientCommandePageContent() {
                                     Reçu le {new Date(order.receivedAt).toLocaleDateString('fr-FR')}
                                   </p>
                                 )}
+
+                                {/* Airtel Money Details */}
+                                {order.paymentReference && (
+                                  <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-lg">
+                                    <h5 className="text-xs font-bold text-red-800 uppercase mb-2">Détails Airtel Money</h5>
+                                    {(() => {
+                                      try {
+                                        const ref = JSON.parse(order.paymentReference)
+                                        return (
+                                          <div className="space-y-1 text-xs">
+                                            {ref.transactionId && (
+                                              <p><span className="font-semibold">ID Transaction:</span> {ref.transactionId}</p>
+                                            )}
+                                            {ref.paymentProof && (
+                                              <div className="pt-1">
+                                                <a
+                                                  href={ref.paymentProof}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="text-red-600 hover:underline flex items-center gap-1 font-medium"
+                                                >
+                                                  <FileText className="h-3 w-3" />
+                                                  Voir la preuve de paiement
+                                                </a>
+                                              </div>
+                                            )}
+                                          </div>
+                                        )
+                                      } catch (e) {
+                                        return <p className="text-xs">{order.paymentReference}</p>
+                                      }
+                                    })()}
+                                  </div>
+                                )}
                               </div>
                             </div>
                             <div>
@@ -879,19 +963,48 @@ function ClientCommandePageContent() {
                           </div>
 
                           {/* Bouton de Paiement si Validée et Non Payée */}
-                          {(order.status === 'confirmed' && order.paymentStatus !== 'PAID') && (
-                            <div className="mt-6">
-                              <Link href={`/orders/${order.id}/checkout`}>
-                                <Button className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 text-lg">
-                                  <CreditCard className="mr-2 h-5 w-5" />
-                                  Procéder au paiement
-                                </Button>
-                              </Link>
-                              <p className="text-xs text-center text-muted-foreground mt-2">
-                                Votre commande a été validée. Vous pouvez maintenant procéder au paiement sécurisé.
-                              </p>
-                            </div>
-                          )}
+                          {(order.status === 'confirmed' && order.paymentStatus !== 'PAID') && (() => {
+                            // Vérifier si c'est Airtel Money avec une preuve déjà soumise
+                            let isAirtelWithProof = false
+                            if (order.paymentMethod &&
+                              (order.paymentMethod.toLowerCase().includes('airtel') ||
+                                order.paymentMethod.toLowerCase().includes('mobile'))) {
+                              try {
+                                const ref = order.paymentReference ? JSON.parse(order.paymentReference) : {}
+                                if (ref.transactionId) {
+                                  isAirtelWithProof = true
+                                }
+                              } catch (e) { }
+                            }
+
+                            if (isAirtelWithProof) {
+                              return (
+                                <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
+                                  <Clock className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
+                                  <p className="text-sm font-medium text-yellow-800">
+                                    Paiement en cours de vérification par l'administration
+                                  </p>
+                                  <p className="text-xs text-yellow-600 mt-1">
+                                    Votre ID de transaction a bien été reçu. Votre commande sera validée après confirmation du transfert.
+                                  </p>
+                                </div>
+                              )
+                            }
+
+                            return (
+                              <div className="mt-6">
+                                <Link href={`/orders/${order.id}/checkout`}>
+                                  <Button className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 text-lg">
+                                    <CreditCard className="mr-2 h-5 w-5" />
+                                    Procéder au paiement
+                                  </Button>
+                                </Link>
+                                <p className="text-xs text-center text-muted-foreground mt-2">
+                                  Votre commande a été validée. Vous pouvez maintenant procéder au paiement sécurisé.
+                                </p>
+                              </div>
+                            )
+                          })()}
                         </div>
                       </DialogContent>
                     </Dialog>
@@ -1332,12 +1445,51 @@ function ClientCommandePageContent() {
                       <SelectValue placeholder="Sélectionnez mode de règlement" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="especes">Espèces</SelectItem>
-                      <SelectItem value="mobile-money">Mobile Money</SelectItem>
+                      <SelectItem value="mobile-money">Airtel Money Gabon</SelectItem>
                       <SelectItem value="virement">Virement bancaire</SelectItem>
                       <SelectItem value="carte">Carte bancaire</SelectItem>
                     </SelectContent>
                   </Select>
+
+                  {newOrderData.paymentMethod === 'mobile-money' && (
+                    <div className="mt-4 bg-red-50 border border-red-100 rounded-lg p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
+                      <div className="flex items-center gap-2 text-red-700 font-medium text-sm">
+                        <div className="bg-red-600 text-white px-1 rounded">AM</div>
+                        <span>Instructions Airtel Money</span>
+                      </div>
+
+                      <div className="text-[10px] text-gray-700 space-y-1 border-l-2 border-red-200 pl-4">
+                        <p>1. Ouvrez l'app <span className="font-bold">My Airtel</span> ou composez <span className="font-bold">*150#</span></p>
+                        <p>2. Sélectionnez <span className="font-bold">2 - Envoyer de l'argent</span> &gt; <span className="font-bold">1 - Vers un autre compte Airtel Money</span></p>
+                        <p>3. Entrez le numéro <span className="font-bold text-red-700">074019185</span></p>
+                        <p>4. Destinataire : <span className="font-bold text-red-700">LALEYE ABDEL HAKIM</span></p>
+                        <p>5. Montant : <span className="font-bold">{calculateTotal().toLocaleString()} XOF</span></p>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <Label className="text-xs">ID de Transaction *</Label>
+                          <Input
+                            placeholder="Ex: 8XF34..."
+                            value={transactionId}
+                            onChange={(e) => setTransactionId(e.target.value)}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Preuve (Optionnel)</Label>
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFileUpload}
+                            disabled={isUploadingProof}
+                            className="h-8 text-xs cursor-pointer"
+                          />
+                          {paymentProofUrl && <p className="text-[10px] text-green-600 font-medium">✓ Téléchargée</p>}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

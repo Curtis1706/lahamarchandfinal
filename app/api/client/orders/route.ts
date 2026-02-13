@@ -77,6 +77,7 @@ export async function GET(request: NextRequest) {
         deliveryStatus: order.deliveryStatus,
         receivedAt: order.receivedAt,
         receivedBy: order.receivedBy,
+        paymentReference: order.paymentReference,
         items: order.items.map(item => {
           let coverImage = null
           if (item.work.files) {
@@ -204,6 +205,7 @@ export async function PATCH(request: NextRequest) {
         deliveryAddress: deliveryAddress || null,
         receivedAt: updatedOrder.receivedAt,
         receivedBy: updatedOrder.receivedBy,
+        paymentReference: updatedOrder.paymentReference,
         items: updatedOrder.items.map(item => {
           let coverImage = null
           if (item.work.files) {
@@ -303,7 +305,8 @@ export async function PATCH(request: NextRequest) {
             image: coverImage,
             workId: item.workId
           }
-        })
+        }),
+        paymentReference: updatedOrder.paymentReference
       }
 
       return NextResponse.json(formattedOrder)
@@ -385,7 +388,8 @@ export async function PATCH(request: NextRequest) {
             image: coverImage,
             workId: item.workId
           }
-        })
+        }),
+        paymentReference: updatedOrder.paymentReference
       })
     }
 

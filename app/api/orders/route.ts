@@ -126,7 +126,9 @@ export async function POST(request: NextRequest) {
       deliveryTimeFrom,
       deliveryTimeTo,
       paymentMethod,
-      orderType
+      orderType,
+      transactionId,
+      paymentProof
     } = body
 
     // Utiliser l'ID de la session si userId n'est pas fourni
@@ -245,12 +247,14 @@ export async function POST(request: NextRequest) {
         // Stocker les informations de livraison supplémentaires dans paymentReference temporairement
         // ou créer un champ notes si disponible
         // Pour l'instant, on stocke l'adresse et les heures dans paymentReference (à améliorer avec un modèle dédié)
-        paymentReference: deliveryAddress ? JSON.stringify({
-          address: deliveryAddress,
+        paymentReference: JSON.stringify({
+          address: deliveryAddress || '',
           timeFrom: deliveryTimeFrom,
           timeTo: deliveryTimeTo,
-          orderType: orderType
-        }) : null,
+          orderType: orderType,
+          transactionId: transactionId || null,
+          paymentProof: paymentProof || null
+        }),
         items: {
           create: items.map((item: any) => {
             const work = works.find(w => w.id === item.workId)!
@@ -332,6 +336,29 @@ export async function PUT(request: NextRequest) {
 
     if (!id) {
       return NextResponse.json({ error: "Order ID is required" }, { status: 400 })
+    }
+
+    // 🔹 Logique spécifique Airtel Money Gabon : Si validation, marquer comme payé si preuve fournie
+    if (status === "VALIDATED") {
+      const currentOrder = await prisma.order.findUnique({ where: { id } })
+      if (currentOrder && (
+        currentOrder.paymentMethod === 'airtel-money-gabon' ||
+        currentOrder.paymentMethod === 'mobile_money' ||
+        currentOrder.paymentMethod === 'mobile-money'
+      )) {
+        try {
+          const paymentRef = currentOrder.paymentReference ? JSON.parse(currentOrder.paymentReference) : {}
+          if (paymentRef.transactionId) {
+            updateData.paymentStatus = 'PAID'
+            updateData.amountPaid = currentOrder.total
+            updateData.remainingAmount = 0
+            updateData.fullPaymentDate = new Date()
+            logger.info(`💰 Auto-marking Airtel Money order ${id} as PAID upon validation`)
+          }
+        } catch (e) {
+          logger.error(`Error parsing paymentReference for auto-pay:`, e)
+        }
+      }
     }
 
     const updatedOrder = await prisma.order.update({

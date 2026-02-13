@@ -14,19 +14,22 @@ import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { 
-  ShoppingCart, 
-  Loader2, 
-  Plus, 
-  Minus, 
-  Trash2, 
+import {
+  ShoppingCart,
+  Loader2,
+  Plus,
+  Minus,
+  Trash2,
   ArrowLeft,
   CreditCard,
   MapPin,
   User,
   Phone,
   Mail,
-  Package
+  Package,
+  Ticket,
+  FileText,
+  Upload
 } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
@@ -47,10 +50,10 @@ export default function CheckoutPage() {
   const { user, isLoading: userLoading } = useCurrentUser()
   const { cart, clearCart } = useCart()
   const router = useRouter()
-  
+
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
-  
+
   // Informations de livraison
   const [deliveryInfo, setDeliveryInfo] = useState({
     fullName: "",
@@ -61,10 +64,10 @@ export default function CheckoutPage() {
     postalCode: "",
     notes: ""
   })
-  
+
   // Méthode de paiement
   const [paymentMethod, setPaymentMethod] = useState("")
-  
+
   // Code promo
   const [promoCode, setPromoCode] = useState("")
   const [appliedPromo, setAppliedPromo] = useState<{
@@ -73,13 +76,18 @@ export default function CheckoutPage() {
     libelle: string
   } | null>(null)
   const [isValidatingPromo, setIsValidatingPromo] = useState(false)
-  
+
+  // États pour Airtel Money
+  const [transactionId, setTransactionId] = useState("")
+  const [paymentProofUrl, setPaymentProofUrl] = useState("")
+  const [isUploadingProof, setIsUploadingProof] = useState(false)
+
   // Charger les items du panier avec quantités initiales
   useEffect(() => {
     if (cart.length > 0) {
       // Grouper les items par ID et initialiser les quantités à 1
       const itemsMap = new Map<string, CartItem>()
-      
+
       cart.forEach((item) => {
         if (itemsMap.has(item.id)) {
           // Si l'item existe déjà, incrémenter la quantité
@@ -99,14 +107,14 @@ export default function CheckoutPage() {
           })
         }
       })
-      
+
       setCartItems(Array.from(itemsMap.values()))
     } else {
       // Si le panier est vide, rediriger vers le catalogue
       router.push("/dashboard/client/catalogue")
     }
   }, [cart, router])
-  
+
   // Pré-remplir les informations utilisateur
   useEffect(() => {
     if (user) {
@@ -118,12 +126,12 @@ export default function CheckoutPage() {
       }))
     }
   }, [user])
-  
+
   // Fonctions pour gérer les quantités
   const updateQuantity = (itemId: string, newQuantity: number) => {
     if (newQuantity < 1) return
-    
-    setCartItems(prev => 
+
+    setCartItems(prev =>
       prev.map(item => {
         if (item.id === itemId) {
           // Vérifier le stock disponible
@@ -137,47 +145,47 @@ export default function CheckoutPage() {
       })
     )
   }
-  
+
   const removeItem = (itemId: string) => {
     setCartItems(prev => prev.filter(item => item.id !== itemId))
     toast.success("Article retiré du panier")
   }
-  
+
   // Calculs
   const getSubtotal = () => {
     return cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
   }
-  
+
   const getTotalTVA = () => {
     return cartItems.reduce((sum, item) => {
       const itemSubtotal = item.price * item.quantity
       return sum + (itemSubtotal * item.tva)
     }, 0)
   }
-  
+
   const getDiscount = () => {
     if (appliedPromo) {
       return appliedPromo.discountAmount
     }
     return 0
   }
-  
+
   const getTotal = () => {
     const subtotal = getSubtotal()
     const tva = getTotalTVA()
     const discount = getDiscount()
     return Math.max(0, subtotal + tva - discount)
   }
-  
+
   // Valider le code promo
   const handleValidatePromo = async () => {
     if (!promoCode.trim()) {
       toast.error("Veuillez saisir un code promo")
       return
     }
-    
+
     setIsValidatingPromo(true)
-    
+
     try {
       const response = await fetch('/api/promo/validate', {
         method: 'POST',
@@ -193,9 +201,9 @@ export default function CheckoutPage() {
           }))
         })
       })
-      
+
       const data = await response.json()
-      
+
       if (data.valid && data.promotion) {
         setAppliedPromo({
           code: data.promotion.code,
@@ -215,55 +223,95 @@ export default function CheckoutPage() {
       setIsValidatingPromo(false)
     }
   }
-  
+
   // Retirer le code promo
   const handleRemovePromo = () => {
     setAppliedPromo(null)
     setPromoCode("")
     toast.success("Code promo retiré")
   }
-  
+
   const getTotalItems = () => {
     return cartItems.reduce((sum, item) => sum + item.quantity, 0)
   }
-  
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsUploadingProof(true)
+    const formData = new FormData()
+    formData.append('files', file)
+    formData.append('type', 'payment_proof')
+    formData.append('entityId', user?.id || 'temp')
+
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error('Erreur lors de l\'upload')
+      }
+
+      const data = await response.json()
+      if (data.files && data.files.length > 0) {
+        setPaymentProofUrl(data.files[0].path)
+        toast.success("Preuve de paiement téléchargée")
+      }
+    } catch (error) {
+      console.error("Erreur upload:", error)
+      toast.error("Erreur lors du téléchargement")
+    } finally {
+      setIsUploadingProof(false)
+    }
+  }
+
   // Validation du formulaire
   const validateForm = () => {
     if (cartItems.length === 0) {
       toast.error("Votre panier est vide")
       return false
     }
-    
+
     if (!deliveryInfo.fullName.trim()) {
       toast.error("Veuillez saisir votre nom complet")
       return false
     }
-    
+
     if (!deliveryInfo.email.trim() || !deliveryInfo.email.includes("@")) {
       toast.error("Veuillez saisir une adresse email valide")
       return false
     }
-    
+
     if (!deliveryInfo.phone.trim()) {
       toast.error("Veuillez saisir votre numéro de téléphone")
       return false
     }
-    
+
     if (!deliveryInfo.address.trim()) {
       toast.error("Veuillez saisir votre adresse de livraison")
       return false
     }
-    
+
     if (!deliveryInfo.city.trim()) {
       toast.error("Veuillez saisir votre ville")
       return false
     }
-    
+
     if (!paymentMethod) {
       toast.error("Veuillez sélectionner une méthode de paiement")
       return false
     }
-    
+
+    if (paymentMethod === 'mobile_money') {
+      if (!transactionId) {
+        toast.error("Veuillez saisir l'ID de transaction")
+        return false
+      }
+    }
+
     // Vérifier le stock pour tous les items
     for (const item of cartItems) {
       if (item.quantity > item.stock) {
@@ -271,23 +319,23 @@ export default function CheckoutPage() {
         return false
       }
     }
-    
+
     return true
   }
-  
+
   // Créer la commande
   const handlePlaceOrder = async () => {
     if (!user) {
       toast.error("Vous devez être connecté pour passer une commande")
       return
     }
-    
+
     if (!validateForm()) {
       return
     }
-    
+
     setIsProcessing(true)
-    
+
     try {
       // Préparer les items pour l'API
       const orderItems = cartItems.map(item => ({
@@ -295,23 +343,26 @@ export default function CheckoutPage() {
         quantity: item.quantity,
         price: item.price
       }))
-      
+
       // Créer la commande avec le code promo si appliqué
       const order = await apiClient.createOrder({
         userId: user.id,
         items: orderItems,
         promoCode: appliedPromo?.code || null,
-        discountAmount: appliedPromo?.discountAmount || 0
+        discountAmount: appliedPromo?.discountAmount || 0,
+        paymentMethod: paymentMethod === 'mobile_money' ? 'airtel-money-gabon' : paymentMethod,
+        transactionId: paymentMethod === 'mobile_money' ? transactionId : undefined,
+        paymentProof: paymentMethod === 'mobile_money' ? paymentProofUrl : undefined
       })
-      
+
       // Vider le panier
       clearCart(false)
-      
+
       toast.success("Commande créée avec succès !")
-      
+
       // Rediriger vers la page des commandes
       router.push(`/dashboard/client/commandes?newOrder=${order.id}`)
-      
+
     } catch (error: any) {
       console.error("Erreur lors de la création de la commande:", error)
       toast.error(error.message || "Erreur lors de la création de la commande")
@@ -319,20 +370,20 @@ export default function CheckoutPage() {
       setIsProcessing(false)
     }
   }
-  
+
   if (userLoading) {
     return (
-      <DynamicDashboardLayout>
+      <DynamicDashboardLayout title="Checkout">
         <div className="flex items-center justify-center h-96">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
       </DynamicDashboardLayout>
     )
   }
-  
+
   if (!user) {
     return (
-      <DynamicDashboardLayout>
+      <DynamicDashboardLayout title="Checkout">
         <div className="flex flex-col items-center justify-center h-96">
           <p className="text-muted-foreground mb-4">Vous devez être connecté pour accéder au checkout</p>
           <Link href="/auth/signin">
@@ -342,10 +393,10 @@ export default function CheckoutPage() {
       </DynamicDashboardLayout>
     )
   }
-  
+
   if (cartItems.length === 0) {
     return (
-      <DynamicDashboardLayout>
+      <DynamicDashboardLayout title="Checkout">
         <div className="flex flex-col items-center justify-center h-96">
           <Package className="h-16 w-16 text-muted-foreground mb-4" />
           <p className="text-muted-foreground mb-4">Votre panier est vide</p>
@@ -359,9 +410,9 @@ export default function CheckoutPage() {
       </DynamicDashboardLayout>
     )
   }
-  
+
   return (
-    <DynamicDashboardLayout>
+    <DynamicDashboardLayout title="Checkout">
       <div className="container mx-auto py-6 space-y-6">
         {/* En-tête */}
         <div className="flex items-center justify-between">
@@ -376,7 +427,7 @@ export default function CheckoutPage() {
             </Button>
           </Link>
         </div>
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Colonne principale - Formulaire */}
           <div className="lg:col-span-2 space-y-6">
@@ -401,7 +452,7 @@ export default function CheckoutPage() {
                         sizes="80px"
                       />
                     </div>
-                    
+
                     {/* Détails */}
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-lg mb-1">{item.title}</h3>
@@ -409,7 +460,7 @@ export default function CheckoutPage() {
                       <p className="text-lg font-bold text-primary mb-3">
                         {item.price.toLocaleString()} F CFA
                       </p>
-                      
+
                       {/* Contrôles de quantité */}
                       <div className="flex items-center gap-3">
                         <Label className="text-sm">Quantité:</Label>
@@ -438,13 +489,13 @@ export default function CheckoutPage() {
                           Stock: {item.stock}
                         </Badge>
                       </div>
-                      
+
                       {/* Sous-total pour cet item */}
                       <p className="text-sm text-muted-foreground mt-2">
                         Sous-total: {(item.price * item.quantity).toLocaleString()} F CFA
                       </p>
                     </div>
-                    
+
                     {/* Bouton supprimer */}
                     <Button
                       variant="ghost"
@@ -458,7 +509,7 @@ export default function CheckoutPage() {
                 ))}
               </CardContent>
             </Card>
-            
+
             {/* Informations de livraison */}
             <Card>
               <CardHeader>
@@ -484,7 +535,7 @@ export default function CheckoutPage() {
                       placeholder="Votre nom complet"
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="email">
                       <Mail className="h-4 w-4 inline mr-2" />
@@ -498,7 +549,7 @@ export default function CheckoutPage() {
                       placeholder="votre@email.com"
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="phone">
                       <Phone className="h-4 w-4 inline mr-2" />
@@ -511,7 +562,7 @@ export default function CheckoutPage() {
                       placeholder="+241 XX XX XX XX"
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="city">Ville *</Label>
                     <Input
@@ -522,7 +573,7 @@ export default function CheckoutPage() {
                     />
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="address">Adresse complète *</Label>
                   <Textarea
@@ -533,7 +584,7 @@ export default function CheckoutPage() {
                     rows={3}
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="postalCode">Code postal</Label>
@@ -545,7 +596,7 @@ export default function CheckoutPage() {
                     />
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="notes">Notes de livraison (optionnel)</Label>
                   <Textarea
@@ -558,7 +609,7 @@ export default function CheckoutPage() {
                 </div>
               </CardContent>
             </Card>
-            
+
             {/* Méthode de paiement */}
             <Card>
               <CardHeader>
@@ -576,15 +627,52 @@ export default function CheckoutPage() {
                     <SelectValue placeholder="Sélectionnez une méthode de paiement" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="cash">Espèces à la livraison</SelectItem>
-                    <SelectItem value="card">Carte bancaire</SelectItem>
-                    <SelectItem value="mobile_money">Mobile Money</SelectItem>
+                    <SelectItem value="mobile_money">Airtel Money Gabon</SelectItem>
                     <SelectItem value="bank_transfer">Virement bancaire</SelectItem>
+                    <SelectItem value="card">Carte bancaire</SelectItem>
                   </SelectContent>
                 </Select>
+
+                {paymentMethod === 'mobile_money' && (
+                  <div className="mt-4 bg-red-50 border border-red-100 rounded-lg p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
+                    <div className="flex items-center gap-2 text-red-700 font-medium">
+                      <div className="bg-red-600 text-white p-1 rounded">AM</div>
+                      <span>Instructions Airtel Money</span>
+                    </div>
+
+                    <div className="text-sm text-gray-700 space-y-2 border-l-2 border-red-200 pl-4">
+                      <p>1. Ouvrez l'app <span className="font-bold">My Airtel</span> ou composez <span className="font-bold">*150#</span></p>
+                      <p>2. Sélectionnez <span className="font-bold">2 - Envoyer de l'argent</span> &gt; <span className="font-bold">1 - Vers un autre compte Airtel Money</span></p>
+                      <p>3. Entrez le numéro <span className="font-bold text-red-700">074019185</span></p>
+                      <p>4. Nom du destinataire : <span className="font-bold text-red-700">LALEYE ABDEL HAKIM</span></p>
+                      <p>5. Entrez le montant à payer : <span className="font-bold">{getTotal().toLocaleString()} F CFA</span></p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Référence ou ID de contenu dans le SMS reçu *</Label>
+                        <Input
+                          placeholder="Référence/ID transaction du paiement"
+                          value={transactionId}
+                          onChange={(e) => setTransactionId(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Preuve du paiement (capture d'écran du SMS reçu)</Label>
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileUpload}
+                          disabled={isUploadingProof}
+                        />
+                        {paymentProofUrl && <p className="text-xs text-green-600 font-medium flex items-center gap-1"><FileText className="h-3 w-3" /> ✓ Preuve prête</p>}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
-            
+
             {/* Code promo */}
             <Card>
               <CardHeader>
@@ -648,7 +736,7 @@ export default function CheckoutPage() {
               </CardContent>
             </Card>
           </div>
-          
+
           {/* Colonne latérale - Récapitulatif */}
           <div className="lg:col-span-1">
             <Card className="sticky top-6">
@@ -678,9 +766,9 @@ export default function CheckoutPage() {
                     <span className="text-primary">{getTotal().toLocaleString()} F CFA</span>
                   </div>
                 </div>
-                
+
                 <Separator />
-                
+
                 {/* Informations de commande */}
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
@@ -692,9 +780,9 @@ export default function CheckoutPage() {
                     <span className="font-medium">À calculer</span>
                   </div>
                 </div>
-                
+
                 <Separator />
-                
+
                 {/* Bouton de commande */}
                 <Button
                   className="w-full"
@@ -714,7 +802,7 @@ export default function CheckoutPage() {
                     </>
                   )}
                 </Button>
-                
+
                 <p className="text-xs text-center text-muted-foreground">
                   En passant cette commande, vous acceptez nos conditions générales de vente
                 </p>

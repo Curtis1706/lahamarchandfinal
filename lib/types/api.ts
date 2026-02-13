@@ -83,6 +83,9 @@ export interface CreateOrderRequest {
     items: Array<{ workId: string; quantity: number; price: number }>
     promoCode?: string | null
     discountAmount?: number
+    paymentMethod?: string
+    transactionId?: string
+    paymentProof?: string
 }
 
 export interface UpdateOrderRequest {
