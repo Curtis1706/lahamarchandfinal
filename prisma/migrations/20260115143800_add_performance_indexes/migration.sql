@@ -1,8 +1,4 @@
--- CreateIndex
-CREATE INDEX IF NOT EXISTS "Client_createdAt_idx" ON "public"."Client"("createdAt");
-
--- CreateIndex
-CREATE INDEX IF NOT EXISTS "Client_representantId_statut_idx" ON "public"."Client"("representantId", "statut");
+-- Client indexes removed as table does not exist
 
 -- CreateIndex
 CREATE INDEX IF NOT EXISTS "Order_userId_idx" ON "public"."Order"("userId");
@@ -20,7 +16,7 @@ CREATE INDEX IF NOT EXISTS "OrderItem_orderId_idx" ON "public"."OrderItem"("orde
 CREATE INDEX IF NOT EXISTS "OrderItem_workId_idx" ON "public"."OrderItem"("workId");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "PartnerRebate_workId_idx" ON "public"."PartnerRebate"("workId");
+-- PartnerRebate index removed as table does not exist
 
 -- CreateIndex
 CREATE INDEX IF NOT EXISTS "PartnerStock_createdAt_idx" ON "public"."PartnerStock"("createdAt");

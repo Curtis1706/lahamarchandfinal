@@ -201,6 +201,7 @@ model Work {
   workSales             WorkSale[]
   versions              WorkVersion[]
   workViews             WorkView[]
+  promotions            Promotion[]        @relation("WorkPromotions")
 
   @@index([status, disciplineId])
   @@index([authorId, status])
@@ -961,8 +962,20 @@ model Promotion {
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
+  // Nouveaux champs pour la V2
+  rateType         RateType        @default(PERCENTAGE)
+  rateValue        Float?
+  timeZone         String          @default("UTC")
+  works            Work[]          @relation("WorkPromotions")
+  applyToAll       Boolean         @default(false)
+  
   @@index([code])
   @@index([statut])
+}
+
+enum RateType {
+  PERCENTAGE
+  AMOUNT
 }
 
 model Category {

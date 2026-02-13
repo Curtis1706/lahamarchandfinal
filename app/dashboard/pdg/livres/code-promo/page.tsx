@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Edit, Power, X, Save, Calendar as CalendarIcon } from "lucide-react"
+import { Edit, Power, X, Save, Calendar as CalendarIcon, Check, Trash2 } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
 import {
   Dialog,
   DialogContent,
@@ -19,6 +20,8 @@ import { useToast } from "@/hooks/use-toast"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { cn } from "@/lib/utils"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command"
+import { apiClient } from "@/lib/api-client"
 
 interface Promotion {
   id: string
@@ -31,12 +34,24 @@ interface Promotion {
   quantiteMinimale: number
   creeLe: string
   creePar: string
+  // Nouveaux champs
+  rateType?: "PERCENTAGE" | "AMOUNT"
+  rateValue?: number
+  timeZone?: string
+  applyToAll?: boolean
+  works?: Work[]
+}
+
+interface Work {
+  id: string
+  title: string
 }
 
 export default function CodePromoPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [promotions, setPromotions] = useState<Promotion[]>([])
+  const [works, setWorks] = useState<Work[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [newPromotion, setNewPromotion] = useState({
     libelle: "",
@@ -45,18 +60,25 @@ export default function CodePromoPage() {
     livre: "",
     statut: "Actif",
     taux: "",
-    quantiteMinimale: 1
+    quantiteMinimale: 1,
+    // Nouveaux champs
+    rateType: "PERCENTAGE",
+    rateValue: "",
+    timeZone: "UTC",
+    applyToAll: false,
+    selectedWorks: [] as string[]
   })
-  const [dateRange, setDateRange] = useState<{from: Date | undefined, to: Date | undefined}>({
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined, to: Date | undefined }>({
     from: undefined,
     to: undefined
   })
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
   const { toast } = useToast()
 
-  // Charger les promotions depuis l'API
+  // Charger les promotions et les livres depuis l'API
   useEffect(() => {
     loadPromotions()
+    loadWorks()
   }, [])
 
   const loadPromotions = async () => {
@@ -85,6 +107,18 @@ export default function CodePromoPage() {
     }
   }
 
+  const loadWorks = async () => {
+    try {
+      // On suppose qu'il y a une API pour récupérer les livres
+      const worksData = await apiClient.getWorks()
+      if (Array.isArray(worksData)) {
+        setWorks(worksData)
+      }
+    } catch (error) {
+      console.error("Error loading works:", error)
+    }
+  }
+
   const handleCreatePromotion = async () => {
     try {
       // Préparer les données avec les dates formatées
@@ -92,17 +126,27 @@ export default function CodePromoPage() {
         ...newPromotion,
         dateDebut: dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : null,
         dateFin: dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : null,
-        periode: dateRange.from && dateRange.to 
+        periode: dateRange.from && dateRange.to
           ? `${format(dateRange.from, "dd/MM/yyyy", { locale: fr })} - ${format(dateRange.to, "dd/MM/yyyy", { locale: fr })}`
-          : newPromotion.periode
+          : newPromotion.periode,
+        // Conversion de rateValue en nombre pour l'API si nécessaire, mais l'API le fait aussi
+        rateValue: parseFloat(newPromotion.rateValue)
       }
-      
-      const response = await fetch('/api/pdg/code-promo', {
-        method: 'POST',
+
+      const url = editingId ? '/api/pdg/code-promo' : '/api/pdg/code-promo'
+      const method = editingId ? 'PUT' : 'POST'
+
+      const payload: any = { ...promotionData }
+      if (editingId) {
+        payload.id = editingId
+      }
+
+      const response = await fetch(url, {
+        method: method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(promotionData),
+        body: JSON.stringify(payload),
       })
 
       if (response.ok) {
@@ -117,7 +161,12 @@ export default function CodePromoPage() {
           livre: "",
           statut: "Actif",
           taux: "",
-          quantiteMinimale: 1
+          quantiteMinimale: 1,
+          rateType: "PERCENTAGE",
+          rateValue: "",
+          timeZone: "UTC",
+          applyToAll: false,
+          selectedWorks: []
         })
         setDateRange({ from: undefined, to: undefined })
         setIsModalOpen(false)
@@ -216,6 +265,53 @@ export default function CodePromoPage() {
     }
   }
 
+  const [editingId, setEditingId] = useState<string | null>(null)
+
+  const handleEditClick = (promo: Promotion) => {
+    setEditingId(promo.id)
+    setNewPromotion({
+      libelle: promo.libelle,
+      code: promo.code,
+      periode: promo.periode,
+      livre: "", // On reset car géré par works/applyToAll
+      statut: promo.statut === 'Actif' ? 'Actif' : 'Inactif',
+      taux: "", // Sera géré par rateValue
+      quantiteMinimale: promo.quantiteMinimale,
+      rateType: promo.rateType || "PERCENTAGE",
+      rateValue: promo.rateValue?.toString() || "",
+      timeZone: promo.timeZone || "UTC",
+      applyToAll: promo.applyToAll || false,
+      selectedWorks: promo.works?.map(w => w.id) || []
+    })
+
+    // Parsing de la période pour extraire les dates si possible (format "dd/MM/yyyy - dd/MM/yyyy")
+    if (promo.periode && promo.periode.includes(" - ")) {
+      const [startStr, endStr] = promo.periode.split(" - ")
+      const parseDate = (str: string) => {
+        const [day, month, year] = str.split("/")
+        return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+      }
+      setDateRange({
+        from: parseDate(startStr),
+        to: parseDate(endStr)
+      })
+    } else {
+      setDateRange({ from: undefined, to: undefined })
+    }
+
+    setIsModalOpen(true)
+  }
+
+  const toggleWorkSelection = (workId: string) => {
+    setNewPromotion(prev => {
+      const currentSelection = prev.selectedWorks || []
+      const newSelection = currentSelection.includes(workId)
+        ? currentSelection.filter(id => id !== workId)
+        : [...currentSelection, workId]
+      return { ...prev, selectedWorks: newSelection }
+    })
+  }
+
   const filteredPromotions = promotions.filter(
     (promo) =>
       promo.libelle.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -280,8 +376,8 @@ export default function CodePromoPage() {
             </div>
 
             {/* --- MODALE --- */}
-            <Dialog 
-              open={isModalOpen} 
+            <Dialog
+              open={isModalOpen}
               onOpenChange={(open) => {
                 setIsModalOpen(open)
                 if (!open) {
@@ -293,138 +389,273 @@ export default function CodePromoPage() {
                     livre: "",
                     statut: "Actif",
                     taux: "",
-                    quantiteMinimale: 1
+                    quantiteMinimale: 1,
+                    rateType: "PERCENTAGE",
+                    rateValue: "",
+                    timeZone: "UTC",
+                    applyToAll: false,
+                    selectedWorks: []
                   })
                   setDateRange({ from: undefined, to: undefined })
+                  setEditingId(null)
                 }
               }}
             >
-              <DialogContent className="max-w-lg">
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="text-xl font-semibold">
-                    Ajouter un code promo
+                    Enregistrement du code promo
                   </DialogTitle>
                 </DialogHeader>
 
-                <div className="space-y-4 mt-2">
+                <div className="space-y-6 mt-4">
+                  {/* Ligne 1: Libellé */}
                   <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Libellé :
+                    <label className="block text-sm font-medium mb-1 text-gray-700">
+                      Libellé du code promo
                     </label>
-                    <Input 
-                      placeholder="Nom de la promotion" 
+                    <Input
+                      placeholder="Nom du code promo"
                       value={newPromotion.libelle}
                       onChange={(e) => setNewPromotion({ ...newPromotion, libelle: e.target.value })}
+                      className="bg-slate-50 border-slate-200"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Code :
-                    </label>
-                    <Input 
-                      placeholder="Code promo" 
-                      value={newPromotion.code}
-                      onChange={(e) => setNewPromotion({ ...newPromotion, code: e.target.value })}
-                    />
+
+                  {/* Ligne 2: Code & Statut */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-700">
+                        Code promo
+                      </label>
+                      <Input
+                        placeholder="CODE PROMO"
+                        value={newPromotion.code}
+                        onChange={(e) => setNewPromotion({ ...newPromotion, code: e.target.value.toUpperCase() })}
+                        className="bg-slate-50 border-slate-200 uppercase"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-700">
+                        Statut
+                      </label>
+                      <Select
+                        value={newPromotion.statut}
+                        onValueChange={(value) => setNewPromotion({ ...newPromotion, statut: value })}
+                      >
+                        <SelectTrigger className="bg-slate-50 border-slate-200">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Actif">Actif</SelectItem>
+                          <SelectItem value="Inactif">Inactif</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Période de validité :
-                    </label>
-                    <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !dateRange.from && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {dateRange.from ? (
-                            dateRange.to ? (
-                              <>
-                                {format(dateRange.from, "dd MMM yyyy", { locale: fr })} -{" "}
-                                {format(dateRange.to, "dd MMM yyyy", { locale: fr })}
-                              </>
-                            ) : (
-                              format(dateRange.from, "dd MMM yyyy", { locale: fr })
-                            )
-                          ) : (
-                            <span>Sélectionner une période</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          initialFocus
-                          mode="range"
-                          defaultMonth={dateRange.from}
-                          selected={{ from: dateRange.from, to: dateRange.to }}
-                          onSelect={(range) => {
-                            setDateRange({ from: range?.from, to: range?.to })
-                            if (range?.from && range?.to) {
-                              const periodeStr = `${format(range.from, "dd/MM/yyyy", { locale: fr })} - ${format(range.to, "dd/MM/yyyy", { locale: fr })}`
-                              setNewPromotion({ ...newPromotion, periode: periodeStr })
-                            }
-                          }}
-                          numberOfMonths={2}
+
+                  {/* Ligne 3: Type taux, Taux, Quantité min */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-700">
+                        Type de taux
+                      </label>
+                      <Select
+                        value={newPromotion.rateType}
+                        onValueChange={(value) => setNewPromotion({ ...newPromotion, rateType: value as any })}
+                      >
+                        <SelectTrigger className="bg-slate-50 border-slate-200">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="PERCENTAGE">Pourcentage</SelectItem>
+                          <SelectItem value="AMOUNT">Valeur monétaire</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-700">
+                        Taux de réduction
+                      </label>
+                      <div className="relative">
+                        <Input
+                          placeholder="Taux de réduction"
+                          value={newPromotion.rateValue}
+                          type="number"
+                          onChange={(e) => setNewPromotion({ ...newPromotion, rateValue: e.target.value })}
+                          className="bg-slate-50 border-slate-200 pr-12"
                         />
-                      </PopoverContent>
-                    </Popover>
+                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-500 bg-gray-100 border-l px-2 rounded-r h-9 my-auto top-0.5 bottom-0.5">
+                          {newPromotion.rateType === 'PERCENTAGE' ? '%' : 'F CFA'}
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-700">
+                        Quantité minimale
+                      </label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={newPromotion.quantiteMinimale}
+                        onChange={(e) => setNewPromotion({ ...newPromotion, quantiteMinimale: parseInt(e.target.value) || 1 })}
+                        className="bg-slate-50 border-slate-200"
+                      />
+                    </div>
                   </div>
+
+                  {/* Ligne 4: Lié à un livre */}
                   <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Livre :
+                    <label className="block text-sm font-medium mb-1 text-gray-700">
+                      Lié à un livre
                     </label>
-                    <Input 
-                      placeholder="Livre concerné" 
-                      value={newPromotion.livre}
-                      onChange={(e) => setNewPromotion({ ...newPromotion, livre: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Taux :
-                    </label>
-                    <Input 
-                      placeholder="Montant de la réduction" 
-                      value={newPromotion.taux}
-                      onChange={(e) => setNewPromotion({ ...newPromotion, taux: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Statut :
-                    </label>
-                    <Select 
-                      value={newPromotion.statut}
-                      onValueChange={(value) => setNewPromotion({ ...newPromotion, statut: value })}
+                    <Select
+                      value={newPromotion.applyToAll ? "all" : (newPromotion.selectedWorks.length > 0 ? "partial" : "")}
+                      onValueChange={(value) => {
+                        if (value === "all") {
+                          setNewPromotion({ ...newPromotion, applyToAll: true, selectedWorks: [] })
+                        } else {
+                          setNewPromotion({ ...newPromotion, applyToAll: false })
+                        }
+                      }}
                     >
-                      <SelectTrigger>
-                        <SelectValue />
+                      <SelectTrigger className="bg-slate-50 border-slate-200 w-full">
+                        <SelectValue placeholder="Sélectionner les livres" >
+                          {newPromotion.applyToAll
+                            ? "Tous les livres"
+                            : (newPromotion.selectedWorks.length > 0
+                              ? `${newPromotion.selectedWorks.length} livre(s) sélectionné(s)`
+                              : "Sélectionner les livres")}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Actif">Actif</SelectItem>
-                        <SelectItem value="Inactif">Inactif</SelectItem>
+                        <SelectItem value="all">Tous les livres</SelectItem>
+                        <SelectItem value="partial">Sélectionner des livres...</SelectItem>
+
+                        <div className="p-2 border-t max-h-60 overflow-y-auto">
+                          <p className="text-xs text-muted-foreground mb-2 px-2">Ou cochez individuellement :</p>
+                          {works.map((work) => (
+                            <div
+                              key={work.id}
+                              className="flex items-center space-x-2 p-2 hover:bg-slate-100 rounded cursor-pointer"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                setNewPromotion(prev => ({ ...prev, applyToAll: false }))
+                                toggleWorkSelection(work.id)
+                              }}
+                            >
+                              <div className={cn(
+                                "w-4 h-4 border rounded flex items-center justify-center",
+                                newPromotion.selectedWorks.includes(work.id) ? "bg-indigo-600 border-indigo-600" : "border-gray-300"
+                              )}>
+                                {newPromotion.selectedWorks.includes(work.id) && <Check className="h-3 w-3 text-white" />}
+                              </div>
+                              <span className="text-sm truncate">{work.title}</span>
+                            </div>
+                          ))}
+                        </div>
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* Ligne 5: Fuseau horaire, dates */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-700">
+                        Fuseau horaire
+                      </label>
+                      <Select
+                        value={newPromotion.timeZone}
+                        onValueChange={(value) => setNewPromotion({ ...newPromotion, timeZone: value })}
+                      >
+                        <SelectTrigger className="bg-slate-50 border-slate-200">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="UTC">UTC (Temps Universel)</SelectItem>
+                          <SelectItem value="GMT">GMT (Greenwich)</SelectItem>
+                          <SelectItem value="Europe/Paris">Europe/Paris (UTC+1/+2)</SelectItem>
+                          <SelectItem value="Africa/Abidjan">Africa/Abidjan (GMT)</SelectItem>
+                          <SelectItem value="Africa/Dakar">Africa/Dakar (GMT)</SelectItem>
+                          <SelectItem value="Africa/Douala">Africa/Douala (UTC+1)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">(GMT +1:00)</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-700">
+                        Date d'activation
+                      </label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal bg-slate-50 border-slate-200",
+                              !dateRange.from && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {dateRange.from ? format(dateRange.from, "dd/MM/yyyy", { locale: fr }) : "jj/mm/aaaa"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={dateRange.from}
+                            onSelect={(date) => setDateRange(prev => ({ ...prev, from: date }))}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-700">
+                        Date d'expiration
+                      </label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal bg-slate-50 border-slate-200",
+                              !dateRange.to && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {dateRange.to ? format(dateRange.to, "dd/MM/yyyy", { locale: fr }) : "jj/mm/aaaa"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={dateRange.to}
+                            onSelect={(date) => setDateRange(prev => ({ ...prev, to: date }))}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
                 </div>
 
-                <DialogFooter className="flex justify-end gap-2 mt-6">
+                <DialogFooter className="flex justify-end gap-2 mt-8 pt-4 border-t">
                   <Button
-                    variant="outline"
-                    onClick={() => setIsModalOpen(false)}
-                  >
-                    Fermer
-                  </Button>
-                  <Button 
-                    className="bg-indigo-600 hover:bg-indigo-700"
+                    className="bg-indigo-600 hover:bg-indigo-700 w-32"
                     onClick={handleCreatePromotion}
                     disabled={!newPromotion.libelle.trim() || !newPromotion.code.trim()}
                   >
-                    Enregistrer
+                    Enregistrer <Save className="ml-2 h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsModalOpen(false)}
+                    className="text-red-500 hover:text-red-600 hover:bg-red-50 border-red-200"
+                  >
+                    Fermer <X className="ml-2 h-4 w-4" />
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -434,17 +665,17 @@ export default function CodePromoPage() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1000px]">
                 <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-2">LIBELLÉ</th>
-                    <th className="text-left py-3 px-2">CODE</th>
-                    <th className="text-left py-3 px-2">PÉRIODE</th>
-                    <th className="text-left py-3 px-2">LIVRE</th>
-                    <th className="text-left py-3 px-2">STATUT</th>
-                    <th className="text-left py-3 px-2">TAUX</th>
-                    <th className="text-left py-3 px-2">QUANTITÉ MINIMALE</th>
-                    <th className="text-left py-3 px-2">CRÉÉ LE</th>
-                    <th className="text-left py-3 px-2">CRÉÉ PAR</th>
-                    <th className="text-left py-3 px-2">ACTIONS</th>
+                  <tr className="border-b bg-gray-50/50">
+                    <th className="text-left py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">LIBELLÉ</th>
+                    <th className="text-left py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">CODE</th>
+                    <th className="text-left py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">PÉRIODE</th>
+                    <th className="text-left py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">LIVRE</th>
+                    <th className="text-left py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">STATUT</th>
+                    <th className="text-left py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">TAUX</th>
+                    <th className="text-left py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">QUANTITÉ MINIMALE</th>
+                    <th className="text-left py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">CRÉÉ LE</th>
+                    <th className="text-left py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">CRÉÉ PAR</th>
+                    <th className="text-left py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -462,45 +693,53 @@ export default function CodePromoPage() {
                     </tr>
                   ) : (
                     filteredPromotions.map((promo) => (
-                      <tr key={promo.id} className="border-b hover:bg-gray-50">
-                        <td className="py-3 px-2 font-medium">{promo.libelle}</td>
+                      <tr key={promo.id} className="border-b hover:bg-gray-50 transition-colors">
+                        <td className="py-3 px-2 font-medium text-gray-900">{promo.libelle}</td>
                         <td className="py-3 px-2">
-                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                          <span className="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-700 border border-blue-100">
                             {promo.code}
                           </span>
                         </td>
                         <td className="py-3 px-2 text-sm text-gray-600 whitespace-pre-line">
                           {promo.periode}
                         </td>
-                        <td className="py-3 px-2 text-sm text-gray-600">{promo.livre}</td>
+                        <td className="py-3 px-2 text-sm text-gray-600 max-w-[150px] truncate" title={promo.livre}>
+                          {promo.livre}
+                        </td>
                         <td className="py-3 px-2">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            promo.statut === "Actif"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-red-100 text-red-800"
-                          }`}>
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${promo.statut === "Actif"
+                            ? "bg-green-50 text-green-700 border-green-200"
+                            : "bg-red-50 text-red-700 border-red-200"
+                            }`}>
                             {promo.statut}
                           </span>
                         </td>
-                        <td className="py-3 px-2 text-sm text-gray-600">{promo.taux}</td>
-                        <td className="py-3 px-2 text-sm text-gray-600">{promo.quantiteMinimale}</td>
-                        <td className="py-3 px-2 text-sm text-gray-600">{promo.creeLe}</td>
-                        <td className="py-3 px-2 text-sm text-gray-600">{promo.creePar}</td>
+                        <td className="py-3 px-2 text-sm font-medium text-gray-900">{promo.taux}</td>
+                        <td className="py-3 px-2 text-center text-sm text-gray-600">{promo.quantiteMinimale}</td>
+                        <td className="py-3 px-2 text-sm text-gray-500">{promo.creeLe}</td>
+                        <td className="py-3 px-2 text-sm text-gray-500">{promo.creePar}</td>
                         <td className="py-3 px-2">
                           <div className="flex items-center gap-2">
-                            <button 
-                              className="p-1 hover:bg-gray-100 rounded"
-                              onClick={() => handleToggleStatus(promo)}
-                              title={promo.statut === "Actif" ? "Désactiver" : "Activer"}
+                            <div className="flex items-center gap-2 mr-2" title={promo.statut === "Actif" ? "Désactiver" : "Activer"}>
+                              <Switch
+                                checked={promo.statut === "Actif"}
+                                onCheckedChange={() => handleToggleStatus(promo)}
+                                className={`${promo.statut === "Actif" ? "data-[state=checked]:bg-green-600" : "data-[state=unchecked]:bg-gray-200"}`}
+                              />
+                            </div>
+                            <button
+                              className="p-1.5 hover:bg-blue-50 text-blue-600 rounded-md transition-colors"
+                              onClick={() => handleEditClick(promo)}
+                              title="Modifier"
                             >
-                              <Power className={`w-4 h-4 ${promo.statut === "Actif" ? "text-green-500" : "text-gray-400"}`} />
+                              <Edit className="w-4 h-4" />
                             </button>
-                            <button 
-                              className="p-1 hover:bg-gray-100 rounded"
+                            <button
+                              className="p-1.5 hover:bg-red-50 text-red-500 rounded-md transition-colors"
                               onClick={() => handleDeletePromotion(promo)}
                               title="Supprimer"
                             >
-                              <X className="w-4 h-4 text-red-500" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </td>
@@ -518,23 +757,23 @@ export default function CodePromoPage() {
               </p>
 
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" disabled>
                   Premier
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" disabled>
                   Précédent
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="bg-indigo-600 text-white"
+                  className="bg-indigo-600 text-white hover:bg-indigo-700 hover:text-white"
                 >
                   1
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" disabled>
                   Suivant
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" disabled>
                   Dernier
                 </Button>
               </div>
