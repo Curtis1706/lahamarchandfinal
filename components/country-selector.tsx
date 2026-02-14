@@ -17,18 +17,6 @@ interface Country {
 
 const countries: Country[] = [
   {
-    code: "GA",
-    name: "Gabon",
-    dialCode: "+241",
-    flag: (
-      <div className="w-4 h-3 relative">
-        <div className="w-full h-1 bg-green-500"></div>
-        <div className="w-full h-1 bg-yellow-400"></div>
-        <div className="w-full h-1 bg-blue-600"></div>
-      </div>
-    ),
-  },
-  {
     code: "BJ",
     name: "Bénin",
     dialCode: "+229",
@@ -43,111 +31,14 @@ const countries: Country[] = [
     ),
   },
   {
-    code: "BF",
-    name: "Burkina Faso",
-    dialCode: "+226",
-    flag: (
-      <div className="w-4 h-3 relative">
-        <div className="w-full h-1/2 bg-red-500"></div>
-        <div className="w-full h-1/2 bg-green-500"></div>
-      </div>
-    ),
-  },
-  {
-    code: "CI",
-    name: "Côte d'Ivoire",
-    dialCode: "+225",
-    flag: (
-      <div className="w-4 h-3 relative flex">
-        <div className="w-1/3 h-full bg-orange-500"></div>
-        <div className="w-1/3 h-full bg-white border-x border-gray-200"></div>
-        <div className="w-1/3 h-full bg-green-500"></div>
-      </div>
-    ),
-  },
-  {
-    code: "CG",
-    name: "Congo",
-    dialCode: "+242",
+    code: "GA",
+    name: "Gabon",
+    dialCode: "+241",
     flag: (
       <div className="w-4 h-3 relative">
         <div className="w-full h-1 bg-green-500"></div>
         <div className="w-full h-1 bg-yellow-400"></div>
-        <div className="w-full h-1 bg-red-500"></div>
-      </div>
-    ),
-  },
-  {
-    code: "CM",
-    name: "Cameroun",
-    dialCode: "+237",
-    flag: (
-      <div className="w-4 h-3 relative flex">
-        <div className="w-1/3 h-full bg-green-500"></div>
-        <div className="w-1/3 h-full bg-red-500"></div>
-        <div className="w-1/3 h-full bg-yellow-400"></div>
-      </div>
-    ),
-  },
-  {
-    code: "GN",
-    name: "Guinée",
-    dialCode: "+224",
-    flag: (
-      <div className="w-4 h-3 relative flex">
-        <div className="w-1/3 h-full bg-red-500"></div>
-        <div className="w-1/3 h-full bg-yellow-400"></div>
-        <div className="w-1/3 h-full bg-green-500"></div>
-      </div>
-    ),
-  },
-  {
-    code: "ML",
-    name: "Mali",
-    dialCode: "+223",
-    flag: (
-      <div className="w-4 h-3 relative flex">
-        <div className="w-1/3 h-full bg-green-500"></div>
-        <div className="w-1/3 h-full bg-yellow-400"></div>
-        <div className="w-1/3 h-full bg-red-500"></div>
-      </div>
-    ),
-  },
-  {
-    code: "NE",
-    name: "Niger",
-    dialCode: "+227",
-    flag: (
-      <div className="w-4 h-3 relative">
-        <div className="w-full h-1 bg-orange-500"></div>
-        <div className="w-full h-1 bg-white border-y border-gray-200"></div>
-        <div className="w-full h-1 bg-green-500"></div>
-      </div>
-    ),
-  },
-  {
-    code: "SN",
-    name: "Sénégal",
-    dialCode: "+221",
-    flag: (
-      <div className="w-4 h-3 relative flex">
-        <div className="w-1/3 h-full bg-green-500"></div>
-        <div className="w-1/3 h-full bg-yellow-400"></div>
-        <div className="w-1/3 h-full bg-red-500"></div>
-      </div>
-    ),
-  },
-  {
-    code: "TG",
-    name: "Togo",
-    dialCode: "+228",
-    flag: (
-      <div className="w-4 h-3 relative">
-        <div className="w-full h-1 bg-green-500"></div>
-        <div className="w-full h-1 bg-yellow-400"></div>
-        <div className="w-full h-1 bg-green-500"></div>
-        <div className="w-full h-1 bg-yellow-400"></div>
-        <div className="w-full h-1 bg-green-500"></div>
+        <div className="w-full h-1 bg-blue-600"></div>
       </div>
     ),
   },

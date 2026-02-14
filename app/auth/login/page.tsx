@@ -27,10 +27,12 @@ export default function LoginPage() {
 
     try {
       // ÉTAPE 1: Vérifier le statut du compte AVANT la connexion
+      const identifier = loginMethod === "email" ? emailValue : phoneValue
+
       const checkResponse = await fetch('/api/auth/check-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: emailValue })
+        body: JSON.stringify({ email: identifier }) // On garde la clé 'email' pour la compatibilité API
       })
 
       if (checkResponse.ok) {
@@ -57,7 +59,7 @@ export default function LoginPage() {
       const callbackUrl = searchParams.get("callbackUrl") || null
 
       const result = await signIn("credentials", {
-        email: emailValue,
+        email: identifier,
         password: password,
         redirect: false,
       })

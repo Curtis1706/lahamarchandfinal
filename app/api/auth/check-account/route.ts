@@ -18,9 +18,14 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        // Rechercher l'utilisateur
-        const user = await prisma.user.findUnique({
-            where: { email },
+        // Rechercher l'utilisateur par email ou par téléphone
+        const user = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { email },
+                    { phone: email } // 'email' peut contenir un numéro de téléphone
+                ]
+            },
             select: {
                 id: true,
                 status: true,

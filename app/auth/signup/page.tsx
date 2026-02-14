@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { User, Eye, EyeOff, Lock, Mail, BookOpen, Users, Briefcase, Phone, ArrowLeft, Timer, CheckCircle2 } from "lucide-react"
+import { CountrySelector } from "@/components/country-selector"
+import { SuspensionModal } from "@/components/suspension-modal"
 import Link from "next/link"
 import { toast } from "sonner"
 import { apiClient } from "@/lib/api-client"
@@ -62,10 +64,9 @@ export default function SignupPage() {
       return false
     }
 
-    // Validation téléphone
-    const phoneRegex = /^(\+229|229)?[\s\-]?[0-9]{2}[\s\-]?[0-9]{2}[\s\-]?[0-9]{2}[\s\-]?[0-9]{2}$/
-    if (!phoneRegex.test(formData.phone.replace(/\s/g, ''))) {
-      toast.error("Veuillez entrer un numéro de téléphone valide (format: +229 40 76 76 76)")
+    // Validation téléphone (simple check si non vide, le sélecteur aide au format)
+    if (!formData.phone || formData.phone.length < 4) {
+      toast.error("Veuillez entrer un numéro de téléphone valide")
       return false
     }
 
@@ -268,17 +269,10 @@ export default function SignupPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Numéro de téléphone *</label>
                 <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <Input
-                    type="tel"
-                    placeholder="+229 40 76 76 76"
-                    className="pl-10 h-12 bg-gray-50 border-0 rounded-xl"
-                    value={formData.phone}
-                    onChange={(e) => handleInputChange("phone", e.target.value)}
-                    pattern="[+]?[0-9\s\-\(\)]+"
-                    title="Format: +229 40 76 76 76 ou 22940767676"
-                    autoComplete="tel"
-                    required
+                  <CountrySelector 
+                    value={formData.phone} 
+                    onChange={(val) => handleInputChange("phone", val)} 
+                    placeholder="06 03 12 34" 
                   />
                 </div>
               </div>

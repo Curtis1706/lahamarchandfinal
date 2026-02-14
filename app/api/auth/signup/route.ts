@@ -16,9 +16,9 @@ export async function POST(request: NextRequest) {
     logger.info("Nouvelle inscription", { role })
 
     // Validation des champs obligatoires
-    if (!name || !email || !password || !role) {
+    if (!name || !email || !password || !role || !phone) {
       return NextResponse.json({
-        error: "Les champs nom, email, mot de passe et rôle sont obligatoires"
+        error: "Les champs nom, email, téléphone, mot de passe et rôle sont obligatoires"
       }, { status: 400 })
     }
 
@@ -52,14 +52,25 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Vérifier si l'utilisateur existe déjà
-    const existingUser = await prisma.user.findUnique({
+    // Vérifier si l'utilisateur existe déjà par email
+    const existingUserEmail = await prisma.user.findUnique({
       where: { email }
     })
 
-    if (existingUser) {
+    if (existingUserEmail) {
       return NextResponse.json({
         error: "Un utilisateur avec cet email existe déjà"
+      }, { status: 400 })
+    }
+
+    // Vérifier si l'utilisateur existe déjà par téléphone (Vérification manuelle)
+    const existingUserPhone = await prisma.user.findFirst({
+      where: { phone: phone.trim() }
+    })
+
+    if (existingUserPhone) {
+      return NextResponse.json({
+        error: "Un utilisateur avec ce numéro de téléphone existe déjà"
       }, { status: 400 })
     }
 

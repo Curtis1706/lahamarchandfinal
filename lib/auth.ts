@@ -52,9 +52,12 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          const user = await prisma.user.findUnique({
+          const user = await prisma.user.findFirst({
             where: {
-              email: credentials.email
+              OR: [
+                { email: credentials.email },
+                { phone: credentials.email } // credentials.email contient l'identifiant (email ou tel)
+              ]
             }
           })
 
