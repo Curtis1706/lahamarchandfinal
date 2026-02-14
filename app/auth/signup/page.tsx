@@ -62,10 +62,7 @@ export default function SignupPage() {
       return false
     }
 
-    if (formData.role === 'CONCEPTEUR' && !formData.disciplineId) {
-      toast.error("Veuillez sélectionner votre discipline de spécialisation")
-      return false
-    }
+    // La discipline est désormais optionnelle à l'inscription et sera attribuée plus tard par l'admin
 
     if (formData.password !== formData.confirmPassword) {
       toast.error("Les mots de passe ne correspondent pas")

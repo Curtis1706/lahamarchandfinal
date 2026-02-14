@@ -25,16 +25,19 @@ interface Department {
 
 export default function DepartementsPage() {
   const [departments, setDepartments] = useState<Department[]>([])
+  const [users, setUsers] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
-  const [showAddModal, setShowAddModal] = useState(false)
+  const [showModal, setShowModal] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [currentId, setCurrentId] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState("Tous les statuts")
   const [itemsPerPage, setItemsPerPage] = useState("20")
   const { toast } = useToast()
 
   const [formData, setFormData] = useState({
     nom: "",
-    responsable: "",
+    responsable: "none",
     chef: "",
     statut: "Actif",
     description: "",
@@ -42,6 +45,7 @@ export default function DepartementsPage() {
 
   useEffect(() => {
     loadDepartments()
+    loadUsers()
   }, [])
 
   const loadDepartments = async () => {
@@ -60,13 +64,25 @@ export default function DepartementsPage() {
       }
     } catch (error) {
       console.error("Error loading departments:", error)
-      toast({
-        title: "Erreur",
-        description: "Erreur lors du chargement des départements",
-        variant: "destructive"
-      })
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const loadUsers = async () => {
+    try {
+      const response = await fetch('/api/users/list')
+      if (response.ok) {
+        const data = await response.json()
+        // L'API renvoie { users: [], usersByRole: {}, total: 0 }
+        if (data && Array.isArray(data.users)) {
+          setUsers(data.users)
+        } else if (Array.isArray(data)) {
+          setUsers(data)
+        }
+      }
+    } catch (error) {
+      console.error("Error loading users:", error)
     }
   }
 
@@ -83,7 +99,9 @@ export default function DepartementsPage() {
   }
 
   const filteredDepartments = departments.filter((dept) => {
-    const matchesSearch = dept.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const isAllResponsibles = searchTerm === "all" || searchTerm === ""
+    const matchesSearch = isAllResponsibles || 
+                          dept.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           dept.responsable.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === "Tous les statuts" || dept.statut === statusFilter
     return matchesSearch && matchesStatus
@@ -91,54 +109,66 @@ export default function DepartementsPage() {
 
   const handleSubmit = async () => {
     try {
-      const response = await fetch('/api/pdg/departements', {
-        method: 'POST',
+      const url = '/api/pdg/departements'
+      const method = isEditing ? 'PUT' : 'POST'
+      const body = isEditing ? { id: currentId, ...formData } : formData
+
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(body),
       })
 
       if (response.ok) {
         toast({
           title: "Succès",
-          description: "Département créé avec succès"
+          description: isEditing ? "Département modifié avec succès" : "Département créé avec succès"
         })
-        setShowAddModal(false)
-        setFormData({
-          nom: "",
-          responsable: "",
-          chef: "",
-          statut: "Actif",
-          description: "",
-        })
+        setShowModal(false)
+        resetForm()
         loadDepartments()
       } else {
         toast({
           title: "Erreur",
-          description: "Impossible de créer le département",
+          description: "Une erreur est survenue",
           variant: "destructive"
         })
       }
     } catch (error) {
-      console.error("Error creating department:", error)
-      toast({
-        title: "Erreur",
-        description: "Erreur lors de la création du département",
-        variant: "destructive"
-      })
+      console.error("Error submitting department:", error)
     }
   }
 
-  const handleClose = () => {
-    setShowAddModal(false)
+  const resetForm = () => {
     setFormData({
       nom: "",
-      responsable: "",
+      responsable: "none",
       chef: "",
       statut: "Actif",
       description: "",
     })
+    setIsEditing(false)
+    setCurrentId(null)
+  }
+
+  const handleEdit = (dept: Department) => {
+    setFormData({
+      nom: dept.nom,
+      responsable: dept.responsable === "-" ? "none" : dept.responsable,
+      chef: dept.chef,
+      statut: dept.statut,
+      description: dept.description,
+    })
+    setIsEditing(true)
+    setCurrentId(dept.id)
+    setShowModal(true)
+  }
+
+  const handleClose = () => {
+    setShowModal(false)
+    resetForm()
   }
 
   const handleDelete = async (id: string) => {
@@ -210,19 +240,37 @@ export default function DepartementsPage() {
             {/* Header Actions */}
             <div className="flex justify-end mb-6">
               <Button
-                className="bg-indigo-600 hover:bg-indigo-700"
-                onClick={() => setShowAddModal(true)}
+                className="bg-indigo-600 hover:bg-indigo-700 h-10 px-6 rounded-lg flex items-center gap-2"
+                onClick={() => {
+                  resetForm()
+                  setShowModal(true)
+                }}
               >
-                Ajouter +
+                Département <span className="text-xl">+</span>
               </Button>
             </div>
 
             {/* Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div>
-                <Label>Statut</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Responsable :</Label>
+                <Select value={searchTerm} onValueChange={setSearchTerm}>
+                  <SelectTrigger className="h-11 bg-white border-gray-200">
+                    <SelectValue placeholder="Tous les responsables" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les responsables</SelectItem>
+                    {Array.isArray(users) && users.map(user => (
+                      <SelectItem key={user.id} value={user.name}>{user.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Statut :</Label>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-11 bg-white border-gray-200">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -233,21 +281,24 @@ export default function DepartementsPage() {
                 </Select>
               </div>
 
-              <div>
-                <Label>Rechercher</Label>
-                <Input
-                  placeholder="Rechercher un département..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Rechercher :</Label>
+                <div className="relative">
+                  <Input
+                    placeholder="Filtrer..."
+                    className="h-11 bg-white border-gray-200 pl-4"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
 
             {/* Table Controls */}
-            <div className="flex items-center gap-2 mb-6">
-              <span className="text-sm text-gray-600">Afficher</span>
+            <div className="flex items-center gap-2 mb-6 text-sm text-gray-500">
+              <span>Afficher</span>
               <Select value={itemsPerPage} onValueChange={setItemsPerPage}>
-                <SelectTrigger className="w-20">
+                <SelectTrigger className="w-20 h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -256,72 +307,83 @@ export default function DepartementsPage() {
                   <SelectItem value="50">50</SelectItem>
                 </SelectContent>
               </Select>
-              <span className="text-sm text-gray-600">éléments</span>
+              <span>éléments</span>
             </div>
 
             {/* Table */}
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1000px]">
+              <table className="w-full min-w-full text-sm">
                 <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-2">NOM</th>
-                    <th className="text-left py-3 px-2">RESPONSABLE</th>
-                    <th className="text-left py-3 px-2">CHEF</th>
-                    <th className="text-left py-3 px-2">RÉSIDENTS</th>
-                    <th className="text-left py-3 px-2">DESCRIPTION</th>
-                    <th className="text-left py-3 px-2">STATUT</th>
-                    <th className="text-left py-3 px-2">CRÉÉ LE</th>
-                    <th className="text-left py-3 px-2">MODIFIÉ LE</th>
-                    <th className="text-left py-3 px-2">ACTIONS</th>
+                  <tr className="border-b border-gray-100 text-gray-400 font-medium">
+                    <th className="text-left py-4 px-2 uppercase tracking-wider">NOM</th>
+                    <th className="text-left py-4 px-2 uppercase tracking-wider">RESPONSABLE</th>
+                    <th className="text-left py-4 px-2 uppercase tracking-wider">CHEF</th>
+                    <th className="text-left py-4 px-2 uppercase tracking-wider">STATUT</th>
+                    <th className="text-left py-4 px-2 uppercase tracking-wider">DESCRIPTION</th>
+                    <th className="text-left py-4 px-2 uppercase tracking-wider">CRÉÉ LE</th>
+                    <th className="text-left py-4 px-2 uppercase tracking-wider">CRÉÉ PAR</th>
+                    <th className="text-left py-4 px-2 uppercase tracking-wider">MODIFIÉ LE</th>
+                    <th className="text-left py-4 px-2 uppercase tracking-wider">RÉSIDENTS</th>
+                    <th className="text-left py-4 px-2 uppercase tracking-wider">ACTIONS</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-gray-50">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={9} className="py-8 text-center text-gray-500">
+                      <td colSpan={10} className="py-12 text-center text-gray-400">
                         Chargement des départements...
                       </td>
                     </tr>
                   ) : filteredDepartments.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="py-8 text-center text-gray-500">
+                      <td colSpan={10} className="py-12 text-center text-gray-400">
                         Aucun département trouvé
                       </td>
                     </tr>
                   ) : (
                     filteredDepartments.map((dept) => (
-                      <tr key={dept.id} className="border-b hover:bg-gray-50">
-                        <td className="py-3 px-2 font-medium">{dept.nom}</td>
-                        <td className="py-3 px-2 text-sm">{dept.responsable || "-"}</td>
-                        <td className="py-3 px-2 text-sm">{dept.chef || "-"}</td>
-                        <td className="py-3 px-2 text-sm">{dept.residents}</td>
-                        <td className="py-3 px-2 text-sm max-w-xs truncate">
-                          {dept.description || "-"}
+                      <tr key={dept.id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="py-4 px-2 font-medium text-gray-700">{dept.nom}</td>
+                        <td className="py-4 px-2 text-gray-600">
+                          {dept.responsable !== "-" ? (
+                            <div className="flex flex-col">
+                              <span>{dept.responsable}</span>
+                              <span className="text-xs text-gray-400 italic">Identifié</span>
+                            </div>
+                          ) : "-"}
                         </td>
-                        <td className="py-3 px-2">
+                        <td className="py-4 px-2 text-gray-600">{dept.chef || "-"}</td>
+                        <td className="py-4 px-2">
                           <Badge
-                            variant={dept.statut === "Actif" ? "default" : "secondary"}
                             className={
                               dept.statut === "Actif"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-red-100 text-red-800"
+                                ? "bg-green-100 text-green-700 hover:bg-green-100 shadow-none font-normal"
+                                : "bg-red-100 text-red-700 hover:bg-red-100 shadow-none font-normal"
                             }
                           >
                             {dept.statut}
                           </Badge>
                         </td>
-                        <td className="py-3 px-2 text-sm text-gray-600">{dept.creeLe}</td>
-                        <td className="py-3 px-2 text-sm text-gray-600">{dept.modifieLe}</td>
-                        <td className="py-3 px-2">
-                          <div className="flex items-center gap-2">
-                            <button className="p-1 hover:bg-gray-100 rounded">
-                              <Edit className="w-4 h-4 text-orange-500" />
+                        <td className="py-4 px-2 text-gray-500 max-w-xs truncate">
+                          {dept.description || "-"}
+                        </td>
+                        <td className="py-4 px-2 text-gray-500">{dept.creeLe}</td>
+                        <td className="py-4 px-2 text-gray-500">{dept.creePar || "-"}</td>
+                        <td className="py-4 px-2 text-gray-500">{dept.modifieLe}</td>
+                        <td className="py-4 px-2 text-gray-500">{dept.residents}</td>
+                        <td className="py-4 px-2">
+                          <div className="flex items-center gap-3">
+                            <button 
+                              onClick={() => handleEdit(dept)}
+                              className="p-1.5 hover:bg-orange-50 rounded-lg transition-colors group"
+                            >
+                              <Edit className="w-4 h-4 text-orange-400 group-hover:text-orange-500" />
                             </button>
                             <button 
-                              className="p-1 hover:bg-gray-100 rounded"
+                              className="p-1.5 hover:bg-red-50 rounded-lg transition-colors group"
                               onClick={() => handleDelete(dept.id)}
                             >
-                              <Trash2 className="w-4 h-4 text-red-500" />
+                              <Trash2 className="w-4 h-4 text-red-400 group-hover:text-red-500" />
                             </button>
                           </div>
                         </td>
@@ -333,91 +395,103 @@ export default function DepartementsPage() {
             </div>
 
             {/* Pagination */}
-            <div className="flex justify-between items-center mt-6">
-              <p className="text-sm text-gray-600">
+            <div className="flex flex-col sm:flex-row justify-between items-center mt-8 gap-4">
+              <p className="text-sm text-gray-500">
                 Affichage de 1 à {filteredDepartments.length} sur {departments.length} éléments
               </p>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm">Premier</Button>
-                <Button variant="outline" size="sm">Précédent</Button>
-                <Button variant="outline" size="sm" className="bg-indigo-600 text-white">1</Button>
-                <Button variant="outline" size="sm">Suivant</Button>
-                <Button variant="outline" size="sm">Dernier</Button>
+              <div className="flex items-center gap-1.5">
+                <Button variant="ghost" className="text-gray-400" size="sm">Premier</Button>
+                <Button variant="ghost" className="text-gray-400" size="sm">Précédent</Button>
+                <Button variant="outline" size="sm" className="bg-white border-gray-200 text-gray-700 min-w-[32px]">1</Button>
+                <Button variant="ghost" className="text-gray-400" size="sm">Suivant</Button>
+                <Button variant="ghost" className="text-gray-400" size="sm">Dernier</Button>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Modal Ajouter */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-semibold mb-4">Ajouter un département</h3>
+      {/* Modal Département Refondue */}
+      {showModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden border border-gray-100">
+            <div className="p-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold text-gray-700">Nom du département :</Label>
+                  <Input
+                    placeholder="Ex: ZOU"
+                    className="h-12 bg-white border-gray-200 focus:ring-indigo-500 text-base"
+                    value={formData.nom}
+                    onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+                  />
+                </div>
 
-            <div className="space-y-4">
-              <div>
-                <Label>Nom du département</Label>
-                <Input
-                  placeholder="Ex: ATLANTIQUE"
-                  value={formData.nom}
-                  onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
-                />
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold text-gray-700">Responsable :</Label>
+                  <Select 
+                    value={formData.responsable} 
+                    onValueChange={(value) => setFormData({ ...formData, responsable: value })}
+                  >
+                    <SelectTrigger className="h-12 bg-white border-gray-200 text-base">
+                      <SelectValue placeholder="Aucun" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Aucun</SelectItem>
+                      {Array.isArray(users) && users.map(user => (
+                        <SelectItem key={user.id} value={user.name}>{user.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold text-gray-700">Statut :</Label>
+                  <Select 
+                    value={formData.statut} 
+                    onValueChange={(value) => setFormData({ ...formData, statut: value as any })}
+                  >
+                    <SelectTrigger className="h-12 bg-white border-gray-200 text-base">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Actif">Actif</SelectItem>
+                      <SelectItem value="Inactif">Inactif</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-              <div>
-                <Label>Responsable</Label>
-                <Input
-                  placeholder="Nom du responsable"
-                  value={formData.responsable}
-                  onChange={(e) => setFormData({ ...formData, responsable: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <Label>Chef de département</Label>
-                <Input
-                  placeholder="Nom du chef"
-                  value={formData.chef}
-                  onChange={(e) => setFormData({ ...formData, chef: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <Label>Description</Label>
+              <div className="space-y-2 mb-8">
+                <Label className="text-sm font-semibold text-gray-700">Description :</Label>
                 <Textarea
-                  placeholder="Description du département"
-                  rows={3}
+                  placeholder="Notes ou détails supplémentaires..."
+                  className="min-h-[140px] bg-white border-gray-200 focus:ring-indigo-500 text-base p-4"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 />
               </div>
 
-              <div>
-                <Label>Statut</Label>
-                <Select value={formData.statut} onValueChange={(value) => setFormData({ ...formData, statut: value })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Actif">Actif</SelectItem>
-                    <SelectItem value="Inactif">Inactif</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="flex justify-center gap-4 pt-4">
+                <Button 
+                  className="h-12 px-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center gap-2 font-medium"
+                  onClick={handleSubmit}
+                  disabled={!formData.nom}
+                >
+                  <span className="bg-white/20 p-1 rounded">
+                    <Edit className="w-4 h-4" />
+                  </span>
+                  Enregistrer
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="h-12 px-10 border-red-500 text-red-500 hover:bg-red-50 rounded-lg flex items-center gap-2 font-medium"
+                  onClick={handleClose}
+                >
+                  Fermer
+                  <span className="text-lg">×</span>
+                </Button>
               </div>
-            </div>
-
-            <div className="flex justify-end gap-2 mt-6">
-              <Button variant="outline" onClick={handleClose}>
-                Annuler
-              </Button>
-              <Button 
-                className="bg-indigo-600 hover:bg-indigo-700"
-                onClick={handleSubmit}
-                disabled={!formData.nom}
-              >
-                Enregistrer
-              </Button>
             </div>
           </div>
         </div>
