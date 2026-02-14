@@ -18,6 +18,7 @@ model User {
   role                             Role
   status                           UserStatus               @default(PENDING)
   disciplineId                     String?
+  departmentId                     String?
   createdAt                        DateTime                 @default(now())
   updatedAt                        DateTime                 @updatedAt
   lastLoginAt                      DateTime?
@@ -57,6 +58,7 @@ model User {
   approvedStockRequests            StockRequest[]           @relation("ApprovedStockRequests")
   stockRequests                    StockRequest[]           @relation("StockRequests")
   discipline                       Discipline?              @relation(fields: [disciplineId], references: [id])
+  department                       Department?              @relation(fields: [departmentId], references: [id])
   representant                     User?                    @relation("RepresentantAuthors", fields: [representantId], references: [id])
   managedAuthors                   User[]                   @relation("RepresentantAuthors")
   authorWithdrawals                Withdrawal[]             @relation("AuthorWithdrawals")
@@ -68,11 +70,13 @@ model User {
   workSales                        WorkSale[]
   createdWorkVersions              WorkVersion[]
   workViews                        WorkView[]
+  clients                          Client[]                 @relation("UserDepartments")
 
   @@index([role])
   @@index([status])
   @@index([representantId])
   @@index([disciplineId])
+  @@index([departmentId])
 }
 
 model Account {
@@ -254,6 +258,17 @@ model Discipline {
   projects    Project[]
   users       User[]
   works       Work[]
+}
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  users       User[]
+  clients     Client[] @relation("DepartmentClients")
 }
 
 model Sale {
@@ -1034,7 +1049,7 @@ model Client {
   telephone      String?
   email          String?
   type           String
-  departement    String?
+  departmentId   String?
   address        String?
   city           String?
   contact        String?
@@ -1048,6 +1063,8 @@ model Client {
   createdBy      String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+  department     Department?  @relation("DepartmentClients", fields: [departmentId], references: [id])
+  user           User[]       @relation("UserDepartments")
 
   @@index([statut])
   @@index([type])
@@ -1055,6 +1072,7 @@ model Client {
   @@index([email])
   @@index([createdAt])
   @@index([representantId, statut])
+  @@index([departmentId])
 }
 
 model Communication {

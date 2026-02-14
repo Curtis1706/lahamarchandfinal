@@ -113,7 +113,10 @@ export async function POST(request: NextRequest) {
         discipline: disciplineId ? {
           connect: { id: disciplineId }
         } : undefined,
-      },
+        department: (body as any).departmentId ? {
+          connect: { id: (body as any).departmentId }
+        } : undefined,
+      } as any,
       include: {
         discipline: {
           select: {
@@ -143,7 +146,7 @@ export async function POST(request: NextRequest) {
               userName: user.name,
               userEmail: user.email,
               userRole: user.role,
-              discipline: user.discipline?.name
+              discipline: (user as any).discipline?.name
             })
           }
         });

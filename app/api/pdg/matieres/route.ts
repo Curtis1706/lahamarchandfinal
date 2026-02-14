@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
     }
 
     const disciplines = await prisma.discipline.findMany({
+      where: { isActive: true },
       orderBy: { name: 'asc' }
     })
 
@@ -101,15 +102,15 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     logger.error("Error creating matiere:", error)
-    
+
     // Gérer l'erreur de contrainte unique (P2002)
     if (error.code === 'P2002') {
-      return NextResponse.json({ 
-        error: "Cette matière existe déjà dans le système" 
+      return NextResponse.json({
+        error: "Cette matière existe déjà dans le système"
       }, { status: 409 })
     }
-    
-    return NextResponse.json({ 
+
+    return NextResponse.json({
       error: "Erreur lors de la création de la matière",
       details: error instanceof Error ? error.message : "Unknown error"
     }, { status: 500 })

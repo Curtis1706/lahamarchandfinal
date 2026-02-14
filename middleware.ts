@@ -22,6 +22,7 @@ const COMMON_ALLOWED = [
   "/api/users", // Pour la gestion des utilisateurs (vérifie le rôle PDG dans la route)
   "/api/notifications", // Pour les notifications (vérification d'auth dans la route)
   "/api/disciplines", // Pour les disciplines (accessible à tous les rôles authentifiés)
+  "/api/departments", // Pour les départements (accessible à tous les rôles authentifiés)
   "/api/works", // Pour les œuvres (vérifie les permissions dans la route)
   "/api/projects", // Pour les projets (vérifie les permissions dans la route)
   "/api/authors/works", // Pour les œuvres d'un auteur (vérifie les permissions dans la route)

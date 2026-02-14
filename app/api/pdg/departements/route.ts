@@ -16,239 +16,30 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden - PDG role required" }, { status: 403 })
     }
 
-    // Départements du Bénin avec quelques données par défaut
-    const defaultDepartments = [
-      {
-        id: "dept-1",
-        nom: "ATLANTIQUE",
-        responsable: "",
-        chef: "",
-        statut: "Actif" as const,
-        description: "Département de l'Atlantique",
-        creeLe: new Date().toLocaleDateString('fr-FR', {
-          weekday: 'short',
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        creePar: "PDG Administrateur",
-        modifieLe: "-",
-        residents: 160
-      },
-      {
-        id: "dept-2",
-        nom: "LITTORAL",
-        responsable: "",
-        chef: "",
-        statut: "Actif" as const,
-        description: "Département du Littoral (Cotonou)",
-        creeLe: new Date().toLocaleDateString('fr-FR', {
-          weekday: 'short',
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        creePar: "PDG Administrateur",
-        modifieLe: "-",
-        residents: 0
-      },
-      {
-        id: "dept-3",
-        nom: "OUEME",
-        responsable: "",
-        chef: "",
-        statut: "Actif" as const,
-        description: "Département de l'Ouémé",
-        creeLe: new Date().toLocaleDateString('fr-FR', {
-          weekday: 'short',
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        creePar: "PDG Administrateur",
-        modifieLe: "-",
-        residents: 0
-      },
-      {
-        id: "dept-4",
-        nom: "ZOU",
-        responsable: "",
-        chef: "",
-        statut: "Actif" as const,
-        description: "Département du Zou",
-        creeLe: new Date().toLocaleDateString('fr-FR', {
-          weekday: 'short',
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        creePar: "PDG Administrateur",
-        modifieLe: "-",
-        residents: 160
-      },
-      {
-        id: "dept-5",
-        nom: "MONO",
-        responsable: "",
-        chef: "",
-        statut: "Actif" as const,
-        description: "Département du Mono",
-        creeLe: new Date().toLocaleDateString('fr-FR', {
-          weekday: 'short',
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        creePar: "PDG Administrateur",
-        modifieLe: "-",
-        residents: 0
-      },
-      {
-        id: "dept-6",
-        nom: "COUFFO",
-        responsable: "",
-        chef: "",
-        statut: "Actif" as const,
-        description: "Département du Couffo",
-        creeLe: new Date().toLocaleDateString('fr-FR', {
-          weekday: 'short',
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        creePar: "PDG Administrateur",
-        modifieLe: "-",
-        residents: 0
-      },
-      {
-        id: "dept-7",
-        nom: "COLLINES",
-        responsable: "",
-        chef: "",
-        statut: "Actif" as const,
-        description: "Département des Collines",
-        creeLe: new Date().toLocaleDateString('fr-FR', {
-          weekday: 'short',
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        creePar: "PDG Administrateur",
-        modifieLe: "-",
-        residents: 0
-      },
-      {
-        id: "dept-8",
-        nom: "BORGOU",
-        responsable: "",
-        chef: "",
-        statut: "Actif" as const,
-        description: "Département du Borgou",
-        creeLe: new Date().toLocaleDateString('fr-FR', {
-          weekday: 'short',
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        creePar: "PDG Administrateur",
-        modifieLe: "-",
-        residents: 0
-      },
-      {
-        id: "dept-9",
-        nom: "ALIBORI",
-        responsable: "",
-        chef: "",
-        statut: "Actif" as const,
-        description: "Département de l'Alibori",
-        creeLe: new Date().toLocaleDateString('fr-FR', {
-          weekday: 'short',
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        creePar: "PDG Administrateur",
-        modifieLe: "-",
-        residents: 0
-      },
-      {
-        id: "dept-10",
-        nom: "ATACORA",
-        responsable: "",
-        chef: "",
-        statut: "Actif" as const,
-        description: "Département de l'Atacora",
-        creeLe: new Date().toLocaleDateString('fr-FR', {
-          weekday: 'short',
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        creePar: "PDG Administrateur",
-        modifieLe: "-",
-        residents: 0
-      },
-      {
-        id: "dept-11",
-        nom: "DONGA",
-        responsable: "",
-        chef: "",
-        statut: "Actif" as const,
-        description: "Département de la Donga",
-        creeLe: new Date().toLocaleDateString('fr-FR', {
-          weekday: 'short',
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        creePar: "PDG Administrateur",
-        modifieLe: "-",
-        residents: 0
-      },
-      {
-        id: "dept-12",
-        nom: "PLATEAU",
-        responsable: "",
-        chef: "",
-        statut: "Actif" as const,
-        description: "Département du Plateau",
-        creeLe: new Date().toLocaleDateString('fr-FR', {
-          weekday: 'short',
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        creePar: "PDG Administrateur",
-        modifieLe: "-",
-        residents: 0
+    // Récupérer les départements depuis la base de données
+    const departments = await (prisma as any).department.findMany({
+      orderBy: { name: 'asc' },
+      include: {
+        _count: {
+          select: { users: true }
+        }
       }
-    ]
+    })
 
-    return NextResponse.json(defaultDepartments)
+    // Mapper vers le format attendu par le frontend
+    const formattedDepartments = departments.map((dept: any) => ({
+      id: dept.id,
+      nom: dept.name,
+      responsable: "-",
+      chef: "-",
+      statut: dept.isActive ? "Actif" : "Inactif",
+      description: dept.description || "",
+      creeLe: dept.createdAt.toLocaleDateString('fr-FR'),
+      modifieLe: dept.updatedAt.toLocaleDateString('fr-FR'),
+      residents: (dept as any)._count?.users || 0
+    }))
+
+    return NextResponse.json(formattedDepartments)
 
   } catch (error) {
     logger.error("Error fetching departments:", error)
@@ -268,29 +59,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden - PDG role required" }, { status: 403 })
     }
 
-    const { nom, responsable, chef, statut, description } = await request.json()
+    const { nom, description, statut } = await request.json()
 
-    const newDepartment = {
-      id: `dept-${Date.now()}`,
-      nom,
-      responsable: responsable || "",
-      chef: chef || "",
-      statut: statut || "Actif",
-      description: description || "",
-      creeLe: new Date().toLocaleDateString('fr-FR', {
-        weekday: 'short',
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      }),
-      creePar: session.user.name || "PDG Administrateur",
-      modifieLe: "-",
+    const newDepartment = await (prisma as any).department.create({
+      data: {
+        name: nom,
+        description: description || "",
+        isActive: statut === "Actif"
+      }
+    })
+
+    return NextResponse.json({
+      id: newDepartment.id,
+      nom: newDepartment.name,
+      responsable: "-",
+      chef: "-",
+      statut: newDepartment.isActive ? "Actif" : "Inactif",
+      description: newDepartment.description || "",
+      creeLe: newDepartment.createdAt.toLocaleDateString('fr-FR'),
+      modifieLe: newDepartment.updatedAt.toLocaleDateString('fr-FR'),
       residents: 0
-    }
-
-    return NextResponse.json(newDepartment, { status: 201 })
+    }, { status: 201 })
 
   } catch (error) {
     logger.error("Error creating department:", error)
@@ -310,27 +99,33 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden - PDG role required" }, { status: 403 })
     }
 
-    const { id, nom, responsable, chef, statut, description, residents } = await request.json()
+    const { id, nom, description, statut } = await request.json()
 
-    const updatedDepartment = {
-      id,
-      nom,
-      responsable: responsable || "",
-      chef: chef || "",
-      statut,
-      description: description || "",
-      residents: residents || 0,
-      modifieLe: new Date().toLocaleDateString('fr-FR', {
-        weekday: 'short',
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-    }
+    const updatedDepartment = await (prisma as any).department.update({
+      where: { id },
+      data: {
+        name: nom,
+        description: description || "",
+        isActive: statut === "Actif"
+      },
+      include: {
+        _count: {
+          select: { users: true }
+        }
+      }
+    })
 
-    return NextResponse.json(updatedDepartment)
+    return NextResponse.json({
+      id: updatedDepartment.id,
+      nom: updatedDepartment.name,
+      responsable: "-",
+      chef: "-",
+      statut: updatedDepartment.isActive ? "Actif" : "Inactif",
+      description: updatedDepartment.description || "",
+      creeLe: updatedDepartment.createdAt.toLocaleDateString('fr-FR'),
+      modifieLe: updatedDepartment.updatedAt.toLocaleDateString('fr-FR'),
+      residents: (updatedDepartment as any)._count?.users || 0
+    })
 
   } catch (error) {
     logger.error("Error updating department:", error)
@@ -356,6 +151,10 @@ export async function DELETE(request: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: "ID required" }, { status: 400 })
     }
+
+    await (prisma as any).department.delete({
+      where: { id }
+    })
 
     return NextResponse.json({ success: true, message: "Département supprimé" })
 

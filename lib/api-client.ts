@@ -474,6 +474,15 @@ export class ApiClient {
     return this.request<Discipline[]>(`/disciplines${queryString ? `?${queryString}` : ''}`)
   }
 
+  async getDepartments(params?: { search?: string; includeInactive?: boolean }): Promise<any[]> {
+    const queryParams = new URLSearchParams()
+    if (params?.search) queryParams.append('search', params.search)
+    if (params?.includeInactive) queryParams.append('includeInactive', 'true')
+
+    const queryString = queryParams.toString()
+    return this.request<any[]>(`/departments${queryString ? `?${queryString}` : ''}`)
+  }
+
   async createDiscipline(data: Partial<Discipline>): Promise<Discipline> {
     return this.request<Discipline>('/disciplines', {
       method: 'POST',

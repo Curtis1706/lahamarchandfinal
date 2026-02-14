@@ -24,10 +24,23 @@ export async function sendCredentialsSMS(phone: string, password: string, role: 
         return { status: false, message: "Configuration manquante" };
     }
 
-    // Nettoyer le numéro de téléphone (enlever les espaces)
-    const cleanPhone = phone.replace(/\s+/g, '');
+    // Nettoyer le numéro de téléphone (enlever les espaces et caractères non numériques sauf +)
+    let cleanPhone = phone.replace(/[^\d+]/g, '');
 
-    const text = `Bienvenue ! Vous avez été ajouté en tant que ${role.toLowerCase()} sur LAHA Marchand Gabon.\n\nVos identifiants :\nNuméro : ${phone}\nMot de passe : ${password}`;
+    // Sécurité: si le numéro ne commence pas par +, on suppose un numéro local 
+    // ou un numéro où l'indicatif a été mal saisi (cas rare avec le nouveau sélecteur)
+    if (!cleanPhone.startsWith('+')) {
+        // Optionnel: On pourrait injecter l'indicatif par défaut ici si besoin
+        // Mais avec le sélecteur corrigé, cleanPhone devrait déjà être "+229XXX"
+        console.warn(`⚠️ Numéro de téléphone sans indicatif (+) détecté : ${cleanPhone}`);
+    }
+
+    const text = `Bienvenue ! Vous avez été ajouté en tant que ${role.toLowerCase()} sur LAHA Marchand Gabon.\n\nVos identifiants :\nNuméro : ${cleanPhone}\nMot de passe : ${password}`;
+
+    if (process.env.NODE_ENV === 'development') {
+        const anonymizedPhone = cleanPhone.replace(/(\d{3})\d+(\d{2})/, "$1****$2");
+        console.log(`📡 Tentative d'envoi SMS à ${anonymizedPhone} via Fastermessage...`);
+    }
 
     try {
         const response = await fetch("https://api.fastermessage.com/v1/sms/send", {

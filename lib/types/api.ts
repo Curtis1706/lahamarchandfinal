@@ -177,6 +177,7 @@ export interface Discipline {
     id: string
     name: string
     description?: string
+    isActive?: boolean
     createdAt?: string
 }
 

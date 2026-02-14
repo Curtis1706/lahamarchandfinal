@@ -12,12 +12,14 @@ import Link from "next/link"
 import { toast } from "sonner"
 import { apiClient } from "@/lib/api-client"
 import { useDisciplines } from "@/hooks/use-disciplines"
+import { useDepartments } from "@/hooks/use-departments"
 import { OTPInput } from "@/components/otp-input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function SignupPage() {
   const router = useRouter()
   const { disciplines } = useDisciplines()
+  const { departments } = useDepartments()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -36,7 +38,8 @@ export default function SignupPage() {
     password: "",
     confirmPassword: "",
     role: "",
-    disciplineId: ""
+    disciplineId: "",
+    departmentId: ""
   })
 
   const handleInputChange = (field: string, value: string) => {
@@ -54,8 +57,13 @@ export default function SignupPage() {
   }, [otpCountdown])
 
   const validateForm = () => {
-    if (!formData.name || !formData.email || !formData.phone || !formData.password || !formData.role) {
-      toast.error("Veuillez remplir tous les champs obligatoires")
+    if (!formData.name || !formData.email || !formData.phone || !formData.password || !formData.role || !formData.departmentId) {
+      toast.error("Veuillez remplir tous les champs obligatoires (y compris votre département)")
+      return false
+    }
+
+    if (formData.role === 'CONCEPTEUR' && !formData.disciplineId) {
+      toast.error("Veuillez sélectionner votre discipline de spécialisation")
       return false
     }
 
@@ -325,24 +333,24 @@ export default function SignupPage() {
                 </p>
               </div>
 
-              {/* Discipline (pour concepteurs) */}
-              {formData.role === "CONCEPTEUR" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Discipline de spécialisation</label>
-                  <Select onValueChange={(value) => handleInputChange("disciplineId", value)} value={formData.disciplineId}>
-                    <SelectTrigger className="h-12 bg-gray-50 border-0 rounded-xl">
-                      <SelectValue placeholder="Choisissez votre discipline" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {disciplines.map((discipline) => (
-                        <SelectItem key={discipline.id} value={discipline.id}>
-                          {discipline.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+              {/* Département / Commune (Géographique) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Votre Département *</label>
+                <Select onValueChange={(value) => handleInputChange("departmentId", value)} value={formData.departmentId} required>
+                  <SelectTrigger className="h-12 bg-gray-50 border-0 rounded-xl focus:ring-2 focus:ring-blue-500">
+                    <SelectValue placeholder="Où résidez-vous ?" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept.id} value={dept.id}>
+                        {dept.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Fin des champs spécifiques, suite avec les mots de passe */}
 
               {/* Mots de passe */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

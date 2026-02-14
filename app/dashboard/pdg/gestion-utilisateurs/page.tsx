@@ -10,9 +10,12 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Edit, Trash2, Search, UserX, UserCheck, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, Download, MoreVertical, BookOpen, Clock, Calendar, ShieldCheck, Mail, Briefcase, Users, Phone, Save, X, RefreshCw, Maximize2, Minimize2 } from "lucide-react"
 import { CountrySelector } from "@/components/country-selector"
+import { useDisciplines } from "@/hooks/use-disciplines"
+import { useDepartments } from "@/hooks/use-departments"
 import { toast } from "sonner"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
+import type { Discipline as ApiDiscipline } from "@/lib/types/api"
 import {
   Dialog,
   DialogContent,
@@ -62,15 +65,14 @@ interface User {
   pendingWorksCount?: number
 }
 
-interface Discipline {
-  id: string
-  name: string
-}
+// On utilise le type Discipline importé de l'API
+type Discipline = ApiDiscipline
 
 export default function GestionUtilisateursPage() {
   const { user, isLoading: userLoading } = useCurrentUser()
   const [users, setUsers] = useState<User[]>([])
   const [disciplines, setDisciplines] = useState<Discipline[]>([])
+  const [departments, setDepartments] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [roleFilter, setRoleFilter] = useState("all")
@@ -87,14 +89,16 @@ export default function GestionUtilisateursPage() {
     try {
       setIsLoading(true)
 
-      const [usersData, disciplinesData] = await Promise.all([
+      const [usersData, disciplinesData, departmentsData] = await Promise.all([
         apiClient.getUsers(),
-        apiClient.getDisciplines()
+        apiClient.getDisciplines(),
+        apiClient.getDepartments()
       ])
 
 
       const usersArray = Array.isArray(usersData) ? usersData : []
       const disciplinesArray = Array.isArray(disciplinesData) ? disciplinesData : []
+      const departmentsArray = Array.isArray(departmentsData) ? departmentsData : []
 
       // Enrichir les utilisateurs avec les statistiques d'œuvres pour les auteurs
       const enrichedUsers = await Promise.all(
@@ -122,6 +126,7 @@ export default function GestionUtilisateursPage() {
 
       setUsers(enrichedUsers)
       setDisciplines(disciplinesArray)
+      setDepartments(departmentsArray)
 
     } catch (error: any) {
       console.error("❌ Error fetching data:", error)
@@ -401,6 +406,7 @@ export default function GestionUtilisateursPage() {
             </DialogHeader>
             <CreateUserForm
               disciplines={disciplines}
+              departments={departments}
               onSubmit={handleCreateUser}
               onCancel={() => setIsCreateDialogOpen(false)}
             />
@@ -421,6 +427,7 @@ export default function GestionUtilisateursPage() {
             <EditUserForm
               user={selectedUser}
               disciplines={disciplines}
+              departments={departments}
               onSubmit={handleSaveUser}
               onCancel={() => {
                 setIsEditDialogOpen(false)
@@ -949,9 +956,10 @@ export default function GestionUtilisateursPage() {
 }
 
 // Composant pour modifier un utilisateur
-function EditUserForm({ user, disciplines, onSubmit, onCancel }: {
+function EditUserForm({ user, disciplines, departments, onSubmit, onCancel }: {
   user: User
   disciplines: Discipline[]
+  departments: any[]
   onSubmit: (data: any) => void
   onCancel: () => void
 }) {
@@ -961,7 +969,8 @@ function EditUserForm({ user, disciplines, onSubmit, onCancel }: {
     phone: user.phone || '',
     role: user.role,
     status: user.status,
-    disciplineId: user.disciplineId || ''
+    disciplineId: user.disciplineId || '',
+    departmentId: (user as any).departmentId || ''
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1032,15 +1041,33 @@ function EditUserForm({ user, disciplines, onSubmit, onCancel }: {
         </Select>
       </div>
 
-      {formData.role === 'CONCEPTEUR' && (
+      {/* Lieu géographique (Département) - OBLIGATOIRE */}
+      <div>
+        <label className="text-sm font-medium">Département (Lieu) *</label>
+        <Select value={formData.departmentId} onValueChange={(value) => setFormData({ ...formData, departmentId: value })} required>
+          <SelectTrigger>
+            <SelectValue placeholder="Sélectionner un département" />
+          </SelectTrigger>
+          <SelectContent>
+            {departments.filter(d => d.isActive).map(dept => (
+              <SelectItem key={dept.id} value={dept.id}>
+                {dept.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Spécialité académique (Discipline) - Pour concepteurs/auteurs */}
+      {(formData.role === 'CONCEPTEUR' || formData.role === 'AUTEUR') && (
         <div>
-          <label className="text-sm font-medium">Discipline</label>
-          <Select value={formData.disciplineId} onValueChange={(value) => setFormData({ ...formData, disciplineId: value })}>
+          <label className="text-sm font-medium">Discipline (Matière) *</label>
+          <Select value={formData.disciplineId} onValueChange={(value) => setFormData({ ...formData, disciplineId: value })} required>
             <SelectTrigger>
               <SelectValue placeholder="Sélectionner une discipline" />
             </SelectTrigger>
             <SelectContent>
-              {disciplines.map(discipline => (
+              {disciplines.filter(d => d.isActive).map(discipline => (
                 <SelectItem key={discipline.id} value={discipline.id}>
                   {discipline.name}
                 </SelectItem>
@@ -1063,51 +1090,37 @@ function EditUserForm({ user, disciplines, onSubmit, onCancel }: {
 }
 
 // Composant pour créer un utilisateur
-function CreateUserForm({ disciplines, onSubmit, onCancel }: {
+function CreateUserForm({ disciplines, departments, onSubmit, onCancel }: {
   disciplines: Discipline[]
+  departments: any[]
   onSubmit: (data: any) => void
   onCancel: () => void
 }) {
+  // departments are passed as props
   const [formData, setFormData] = useState({
-    lastName: '',
-    firstName: '',
+    name: '',
     email: '',
     phone: '',
     role: 'CLIENT',
-    disciplineId: ''
+    disciplineId: '',
+    departmentId: ''
   })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // Concatténer Prénom et Nom pour le champ name de la BD
-    const fullName = `${formData.firstName} ${formData.lastName}`.trim()
-    onSubmit({
-      ...formData,
-      name: fullName
-    })
+    onSubmit(formData)
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="text-sm font-medium">Nom</label>
-          <Input
-            value={formData.lastName}
-            onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-            placeholder="Nom"
-            required
-          />
-        </div>
-        <div>
-          <label className="text-sm font-medium">Prénoms</label>
-          <Input
-            value={formData.firstName}
-            onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-            placeholder="Prénoms"
-            required
-          />
-        </div>
+      <div>
+        <label className="text-sm font-medium">Nom complet</label>
+        <Input
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          placeholder="Nom complet"
+          required
+        />
       </div>
 
       <div>
@@ -1148,23 +1161,22 @@ function CreateUserForm({ disciplines, onSubmit, onCancel }: {
         </Select>
       </div>
 
-      {formData.role === 'CONCEPTEUR' && (
-        <div>
-          <label className="text-sm font-medium">Discipline</label>
-          <Select value={formData.disciplineId} onValueChange={(value) => setFormData({ ...formData, disciplineId: value })}>
-            <SelectTrigger>
-              <SelectValue placeholder="Sélectionner une discipline" />
-            </SelectTrigger>
-            <SelectContent>
-              {disciplines.map(discipline => (
-                <SelectItem key={discipline.id} value={discipline.id}>
-                  {discipline.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
+      {/* Lieu géographique (Département) - OBLIGATOIRE */}
+      <div>
+        <label className="text-sm font-medium">Département (Lieu) *</label>
+        <Select value={formData.departmentId} onValueChange={(value) => setFormData({ ...formData, departmentId: value })} required>
+          <SelectTrigger>
+            <SelectValue placeholder="Choisir un département" />
+          </SelectTrigger>
+          <SelectContent>
+            {departments.filter(d => d.isActive).map(dept => (
+              <SelectItem key={dept.id} value={dept.id}>
+                {dept.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       <div className="flex justify-end space-x-2 pt-4">
         <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center">

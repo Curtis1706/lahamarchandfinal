@@ -62,10 +62,27 @@ export function CountrySelector({
   const [selectedCountry, setSelectedCountry] = useState<Country>(propSelectedCountry || countries[0])
   const [open, setOpen] = useState(false)
 
+  // Extraire le numéro sans l'indicatif pour l'affichage interne si nécessaire
+  // Mais ici, on va gérer la valeur passée pour qu'elle soit "propre"
+  const displayValue = value ? value.replace(selectedCountry.dialCode, "").replace(/\s+/g, '') : ""
+
   const handleCountrySelect = (country: Country) => {
     setSelectedCountry(country)
     onCountryChange?.(country)
+    
+    // Si on change de pays, on met à jour la valeur parente avec le nouvel indicatif
+    if (displayValue && onChange) {
+      onChange(country.dialCode + displayValue)
+    }
+    
     setOpen(false)
+  }
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawVal = e.target.value.replace(/\D/g, "") // Garder uniquement les chiffres
+    if (onChange) {
+      onChange(selectedCountry.dialCode + rawVal)
+    }
   }
 
   const currentCountry = propSelectedCountry || selectedCountry
@@ -89,6 +106,7 @@ export function CountrySelector({
               {countries.map((country) => (
                 <button
                   key={country.code}
+                  type="button"
                   onClick={() => handleCountrySelect(country)}
                   className="w-full px-4 py-3 text-left hover:bg-gray-100 flex items-center gap-3 transition-colors"
                 >
@@ -101,8 +119,9 @@ export function CountrySelector({
           </PopoverContent>
         </Popover>
         <Input
-          value={value}
-          onChange={(e) => onChange?.(e.target.value)}
+          type="tel"
+          value={displayValue}
+          onChange={handlePhoneChange}
           placeholder={placeholder}
           className="flex-1 h-12 bg-gray-50 border-0 rounded-r-xl rounded-l-none focus:ring-2 focus:ring-blue-500"
         />
