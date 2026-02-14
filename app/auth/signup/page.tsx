@@ -15,6 +15,7 @@ import { useDisciplines } from "@/hooks/use-disciplines"
 import { useDepartments } from "@/hooks/use-departments"
 import { OTPInput } from "@/components/otp-input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { CLIENT_TYPE_LABELS, CLIENT_TYPES } from "@/lib/constants/labels"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -39,7 +40,8 @@ export default function SignupPage() {
     confirmPassword: "",
     role: "",
     disciplineId: "",
-    departmentId: ""
+    departmentId: "",
+    clientType: ""
   })
 
   const handleInputChange = (field: string, value: string) => {
@@ -59,6 +61,11 @@ export default function SignupPage() {
   const validateForm = () => {
     if (!formData.name || !formData.email || !formData.phone || !formData.password || !formData.role || !formData.departmentId) {
       toast.error("Veuillez remplir tous les champs obligatoires (y compris votre département)")
+      return false
+    }
+
+    if (formData.role === 'CLIENT' && !formData.clientType) {
+      toast.error("Veuillez sélectionner votre type de compte client")
       return false
     }
 
@@ -123,6 +130,7 @@ export default function SignupPage() {
         password: formData.password,
         role: formData.role,
         disciplineId: formData.disciplineId || null,
+        clientType: formData.role === 'CLIENT' ? formData.clientType : null,
         otpCode: otpCode // Ajout du code OTP
       })
 
@@ -274,10 +282,10 @@ export default function SignupPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Numéro de téléphone *</label>
                 <div className="relative">
-                  <CountrySelector 
-                    value={formData.phone} 
-                    onChange={(val) => handleInputChange("phone", val)} 
-                    placeholder="06 03 12 34" 
+                  <CountrySelector
+                    value={formData.phone}
+                    onChange={(val) => handleInputChange("phone", val)}
+                    placeholder="06 03 12 34"
                   />
                 </div>
               </div>
@@ -323,12 +331,32 @@ export default function SignupPage() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-gray-500 mt-1">
-                  {formData.role === 'CONCEPTEUR' || formData.role === 'REPRESENTANT'
-                    ? "Votre compte nécessitera une validation par l'administrateur"
-                    : "Votre compte sera activé immédiatement"
-                  }
+                  Votre compte sera activé immédiatement après vérification de votre email.
                 </p>
               </div>
+
+              {/* Type de Client (Affiché uniquement si rôle est CLIENT) */}
+              {formData.role === 'CLIENT' && (
+                <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Type de compte client *</label>
+                  <Select
+                    onValueChange={(value) => handleInputChange("clientType", value)}
+                    required={formData.role === 'CLIENT'}
+                    value={formData.clientType}
+                  >
+                    <SelectTrigger className="h-12 bg-gray-50 border-0 rounded-xl">
+                      <SelectValue placeholder="Sélectionnez votre type de compte" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(CLIENT_TYPE_LABELS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {/* Département / Commune (Géographique) */}
               <div>
@@ -402,10 +430,7 @@ export default function SignupPage() {
               {/* Information de validation */}
               <div className="bg-blue-50 p-4 rounded-xl">
                 <p className="text-sm text-blue-800">
-                  <strong>Note :</strong> {formData.role === 'CONCEPTEUR' || formData.role === 'REPRESENTANT'
-                    ? "Votre compte sera créé en attente de validation. L'équipe Laha Marchand examinera votre demande."
-                    : "Votre compte sera créé et activé immédiatement. Vous pourrez vous connecter dès l'inscription."
-                  }
+                  <strong>Note :</strong> Votre compte sera créé et activé immédiatement. Vous pourrez vous connecter dès l'inscription et accéder à vos services.
                 </p>
               </div>
 

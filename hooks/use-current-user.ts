@@ -11,6 +11,7 @@ export interface CurrentUser {
   status?: string
   createdAt?: string
   disciplineId?: string
+  clientType?: string | null
 }
 
 export function useCurrentUser() {

@@ -124,6 +124,25 @@ export async function calculateAuthorRoyalty(
   authorId: string,
   saleAmount: number
 ): Promise<{ amount: number; rate: number }> {
+  // 1. Vérifier le taux défini directement sur le livre (Priorité maximale)
+  const work = await prisma.work.findUnique({
+    where: { id: workId },
+    select: { royaltyRate: true, royaltyType: true }
+  }) as any;
+
+  if (work && work.royaltyRate > 0) {
+    let amount = 0;
+    if (work.royaltyType === 'PERCENTAGE') {
+      amount = (saleAmount * work.royaltyRate) / 100;
+    } else {
+      // Pour les montants fixes, on retourne le montant directement
+      // Note: On pourrait multiplier par la quantité si saleAmount représente le total d'une ligne
+      amount = work.royaltyRate;
+    }
+    return { amount, rate: work.royaltyRate };
+  }
+
+  // 2. Fallback sur la hiérarchie existante (RebateRate table)
   const rate = await getApplicableRebateRate('AUTHOR', null, authorId, workId)
   const amount = (saleAmount * rate) / 100
 

@@ -34,7 +34,10 @@ export async function POST(request: NextRequest) {
       collectionId,
       coverImage,
       isbn,
-      internalCode
+      internalCode,
+      royaltyRate = 0,
+      royaltyType = "PERCENTAGE",
+      prices = [] // Array of { clientType, price }
     } = body;
 
     // Utiliser 'price' si fourni, sinon 'estimatedPrice'
@@ -182,7 +185,17 @@ export async function POST(request: NextRequest) {
         author: { connect: { id: authorId } },
         project: projectId ? { connect: { id: projectId } } : undefined,
         // Assignation au concepteur (du projet, fourni explicitement, ou utilisateur connecté si concepteur)
-        concepteur: finalConcepteurId ? { connect: { id: finalConcepteurId } } : undefined
+        concepteur: finalConcepteurId ? { connect: { id: finalConcepteurId } } : undefined,
+
+        // Nouveaux champs de pricing
+        royaltyRate: parseFloat(royaltyRate),
+        royaltyType: royaltyType,
+        prices: {
+          create: prices.map((p: any) => ({
+            clientType: p.clientType,
+            price: parseFloat(p.price)
+          }))
+        },
       },
       include: {
         author: {
@@ -365,7 +378,8 @@ export async function GET(request: NextRequest) {
                   name: true,
                   email: true
                 }
-              }
+              },
+              prices: true
             },
             orderBy: {
               createdAt: 'desc'
@@ -865,7 +879,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { workId, status, validationComment, rejectionReason, ...updateData } = body;
+    const { workId, status, validationComment, rejectionReason, prices, ...updateData } = body;
 
     if (!workId) {
       return NextResponse.json({ error: "ID de l'œuvre requis" }, { status: 400 });
@@ -897,7 +911,7 @@ export async function PUT(request: NextRequest) {
     // Copier les champs simples (non-relationnels)
     const simpleFields = ['title', 'description', 'category', 'targetAudience', 'price', 'tva', 'isbn',
       'internalCode', 'educationalObjectives', 'contentType', 'keywords', 'files',
-      'discountRate', 'stock', 'minStock', 'maxStock', 'physicalStock'];
+      'discountRate', 'stock', 'minStock', 'maxStock', 'physicalStock', 'royaltyRate', 'royaltyType'];
 
     for (const field of simpleFields) {
       if (updateData[field] !== undefined) {
@@ -982,6 +996,17 @@ export async function PUT(request: NextRequest) {
       if (status === "REJECTED" && rejectionReason) {
         dataToUpdate.rejectionReason = rejectionReason;
       }
+    }
+
+    // Gestion des multi-prix dans PUT
+    if (prices && Array.isArray(prices)) {
+      dataToUpdate.prices = {
+        deleteMany: {},
+        create: prices.map((p: any) => ({
+          clientType: p.clientType,
+          price: parseFloat(p.price)
+        }))
+      };
     }
 
     // Mettre à jour l'œuvre

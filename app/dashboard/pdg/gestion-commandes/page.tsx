@@ -522,6 +522,13 @@ export default function GestionCommandesPage() {
     setCartItems(prev => prev.filter(item => item.workId !== workId))
   }, [])
 
+  // Mettre à jour le prix d'un article - mémorisé avec useCallback
+  const handleUpdateItemPrice = useCallback((workId: string, newPrice: number) => {
+    setCartItems(prev => prev.map(item =>
+      item.workId === workId ? { ...item, price: newPrice } : item
+    ))
+  }, [])
+
   // Calculer le total - mémorisé pour éviter les recalculs
   const calculateTotal = useCallback(() => {
     return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0)
@@ -1900,7 +1907,7 @@ export default function GestionCommandesPage() {
                         <CommandInput
                           placeholder="Rechercher un livre..."
                           value={bookSearchTerm}
-                          onValueChange={(value) => setBookSearchTerm(value)}
+                          onValueChange={(value: string) => setBookSearchTerm(value)}
                           className="h-9"
                         />
                         <CommandList className="max-h-[300px]">
@@ -2009,7 +2016,17 @@ export default function GestionCommandesPage() {
                       cartItems.map((item) => (
                         <TableRow key={item.workId}>
                           <TableCell>{item.title}</TableCell>
-                          <TableCell>{item.price.toLocaleString()} XOF</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                className="w-24 h-8 text-right p-1"
+                                value={item.price}
+                                onChange={(e) => handleUpdateItemPrice(item.workId, parseFloat(e.target.value) || 0)}
+                              />
+                              <span className="text-xs text-muted-foreground w-8">XOF</span>
+                            </div>
+                          </TableCell>
                           <TableCell>{item.quantity}</TableCell>
                           <TableCell>{(item.price * item.quantity).toLocaleString()} XOF</TableCell>
                           <TableCell>

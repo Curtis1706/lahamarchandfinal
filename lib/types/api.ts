@@ -18,6 +18,7 @@ export interface User {
     createdAt?: string
     updatedAt?: string
     lastLoginAt?: string
+    clientType?: string | null
 }
 
 export interface UsersResponse {
@@ -33,6 +34,7 @@ export interface CreateUserRequest {
     disciplineId?: string | null
     password?: string
     otpCode?: string
+    clientType?: string | null
 }
 
 export interface UpdateUserRequest {
@@ -111,6 +113,7 @@ export interface Work {
     discipline?: Discipline
     author?: User
     concepteur?: User
+    prices?: Array<{ clientType: string; price: number }>
 }
 
 export interface WorksResponse {

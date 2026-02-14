@@ -5,6 +5,8 @@ import { OrderStatus } from "@prisma/client"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { calculatePartnerRebate, calculateAuthorRoyalty } from "@/lib/rebate-calculator"
+import { getWorkPrice, validateOrderMinima } from "@/lib/pricing"
+import { ClientType } from "@prisma/client"
 
 // GET /api/orders - Liste des commandes
 export async function GET(request: NextRequest) {
@@ -142,6 +144,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Au moins un article est requis" }, { status: 400 })
     }
 
+    // Récupérer le type de client de l'utilisateur
+    const userWithClient = await prisma.user.findUnique({
+      where: { id: finalUserId },
+      include: {
+        clients: {
+          select: { type: true },
+          take: 1
+        }
+      }
+    });
+
+    const clientType = userWithClient?.clients[0]?.type || "particulier";
+
     // Vérifier que tous les items ont les champs requis
     for (const item of items) {
       if (!item.workId) {
@@ -188,6 +203,16 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
+    // 🚀 VALIDATION STOCKS AVANT TRANSACTION
+    for (const item of items) {
+      const work = works.find(w => w.id === item.workId)
+      if (work && work.stock < item.quantity) {
+        return NextResponse.json({
+          error: `Stock insuffisant pour "${work.title}". Disponible: ${work.stock}, Demandé: ${item.quantity}`
+        }, { status: 400 })
+      }
+    }
+
     // Calculer le total de la commande avec la TVA spécifique de chaque œuvre
     let subtotal = 0
     let tax = 0
@@ -198,7 +223,9 @@ export async function POST(request: NextRequest) {
           error: `Œuvre ${item.workId} introuvable`
         }, { status: 400 })
       }
-      const itemPrice = item.price || work.price || 0
+
+      // Utiliser le multi-pricing si le prix n'est pas forcé (override)
+      const itemPrice = item.price || await getWorkPrice(item.workId, clientType);
       const itemSubtotal = itemPrice * item.quantity
       const itemTax = itemSubtotal * (work.tva !== undefined ? work.tva : 0.18)
 
@@ -212,6 +239,13 @@ export async function POST(request: NextRequest) {
     logger.debug(`📦 Création de commande pour l'utilisateur ${finalUserId}`)
     logger.debug(`📦 Items: ${items.length}, Subtotal: ${subtotal}, Tax: ${tax}, Total: ${total}`)
 
+    // 🚀 Validation des minima de commande
+    const totalQuantity = items.reduce((sum: number, item: any) => sum + item.quantity, 0);
+    const minimaValidation = await validateOrderMinima(clientType, totalQuantity, total);
+    if (!minimaValidation.valid) {
+      return NextResponse.json({ error: minimaValidation.error }, { status: 400 });
+    }
+
     // Préparer la date de livraison avec les heures si fournies
     let finalDeliveryDate: Date | null = null
     if (deliveryDate) {
@@ -224,6 +258,35 @@ export async function POST(request: NextRequest) {
         logger.warn("Erreur lors du parsing de la date de livraison:", e)
       }
     }
+
+    // Résoudre tous les prix avant de créer la commande
+    const itemsWithPrices = await Promise.all(items.map(async (item: any) => {
+      const work = works.find(w => w.id === item.workId)!
+
+      // 1. Récupérer le prix de référence pour ce type de client (ex: prix grossiste)
+      const referencePrice = await getWorkPrice(item.workId, clientType)
+
+      let finalPrice = referencePrice;
+      let isOverride = false;
+
+      // 2. Vérifier si un prix spécifique est envoyé (Override)
+      if (item.price !== undefined && item.price !== null) {
+        const sentPrice = parseFloat(item.price);
+        // On considère un override si le prix envoyé est différent du prix de référence (à 0.01 près)
+        if (Math.abs(sentPrice - referencePrice) > 0.01) {
+          finalPrice = sentPrice;
+          isOverride = true;
+        }
+      }
+
+      return {
+        workId: item.workId,
+        quantity: item.quantity,
+        price: finalPrice,
+        originalPrice: referencePrice, // Prix qu'il aurait dû payer
+        isPriceOverride: isOverride
+      }
+    }))
 
     const newOrder = await prisma.order.create({
       data: {
@@ -256,14 +319,7 @@ export async function POST(request: NextRequest) {
           paymentProof: paymentProof || null
         }),
         items: {
-          create: items.map((item: any) => {
-            const work = works.find(w => w.id === item.workId)!
-            return {
-              workId: item.workId,
-              quantity: item.quantity,
-              price: item.price || work.price || 0
-            }
-          })
+          create: itemsWithPrices
         }
       },
       include: {
@@ -433,6 +489,15 @@ export async function PUT(request: NextRequest) {
               userId = pdg.id
             } else {
               throw new Error("Aucun utilisateur PDG trouvé pour créer le bon de sortie")
+            }
+          }
+
+          // 🚀 PRE-CHECK STOCK AVANT TRANSACTION (PUT)
+          for (const item of updatedOrder.items) {
+            if (item.work.stock < item.quantity) {
+              return NextResponse.json({
+                error: `Stock insuffisant pour "${item.work.title}". Disponible: ${item.work.stock}, Demandé: ${item.quantity}`
+              }, { status: 400 })
             }
           }
 

@@ -165,7 +165,33 @@ function ClientCommandePageContent() {
         const classesArray = Array.isArray(classesResponse) ? classesResponse : (classesResponse?.error ? [] : classesResponse || [])
 
 
-        setWorks(publishedWorks)
+        // Déterminer le type de client effectif pour la tarification
+        const userClientType = user?.clientType || 'INDIVIDUAL';
+
+        // Ajuster les prix des livres en fonction du type de client
+        const worksWithClientPrices = publishedWorks.map((work: any) => {
+          let price = work.price || 0;
+
+          if (work.prices && work.prices.length > 0) {
+            const clientPrice = work.prices.find((p: any) => p.clientType === userClientType);
+            if (clientPrice) {
+              price = clientPrice.price;
+            } else if (userClientType !== 'INDIVIDUAL') {
+              const individualPrice = work.prices.find((p: any) => p.clientType === 'INDIVIDUAL');
+              if (individualPrice) {
+                price = individualPrice.price;
+              }
+            }
+          }
+
+          return {
+            ...work,
+            price: price,
+            originalPublicPrice: work.price || 0
+          };
+        });
+
+        setWorks(worksWithClientPrices)
         setCategories(categoriesArray)
         setDisciplines(disciplinesData || [])
         setClasses(classesArray)

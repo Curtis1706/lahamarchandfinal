@@ -1,17 +1,35 @@
-import { logger } from '@/lib/logger'
-export const dynamic = 'force-dynamic'
-
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { allowGuest } from "@/lib/auth-guard"
+import { ClientType } from "@prisma/client"
+import { logger } from '@/lib/logger'
+
+export const dynamic = 'force-dynamic'
 
 // GET /api/discounts/applicable/public - Récupérer les remises applicables (accessible en mode invité)
-export async function GET(request: NextRequest) {
+export const GET = allowGuest(async (request: NextRequest, context) => {
   try {
     const { searchParams } = new URL(request.url)
     const workId = searchParams.get('workId')
     const workTitle = searchParams.get('workTitle')
-    const clientType = searchParams.get('clientType') || 'Client' // Par défaut "Client" pour les invités
     const quantity = parseInt(searchParams.get('quantity') || '1')
+
+    // Déterminer le type de client
+    // 1. Priorité: Contexte administrateur/sécurisé (si connecté)
+    // 2. Fallback: Paramètre URL (pour simulation ou invité explicite)
+    // 3. Défaut: 'particulier' (standard pour invité)
+    // Note: Le paramètre 'Client' envoyé par le frontend est mappé à 'particulier' ou ignoré si authentifié
+
+    let clientType = 'particulier'; // Défaut
+
+    if (context.isAuthenticated && context.user.clientType) {
+      clientType = context.user.clientType;
+    } else {
+      const paramType = searchParams.get('clientType');
+      if (paramType && paramType !== 'Client') { // 'Client' est la valeur hardcodée du frontend invité
+        clientType = paramType;
+      }
+    }
 
     if (!workId && !workTitle) {
       return NextResponse.json({ error: "workId ou workTitle requis" }, { status: 400 })
@@ -36,7 +54,7 @@ export async function GET(request: NextRequest) {
     const discounts = await prisma.discount.findMany({
       where: {
         statut: "ACTIF",
-        client: clientType,
+        client: clientType, // Utilise le type réel (ex: 'grossiste')
         quantiteMin: { lte: quantity },
         OR: finalWorkTitle ? [
           { livre: finalWorkTitle },
@@ -71,10 +89,10 @@ export async function GET(request: NextRequest) {
 
   } catch (error: any) {
     logger.error("Error fetching applicable discounts:", error)
-    return NextResponse.json({ 
-      error: error.message || "Erreur lors de la récupération des remises" 
+    return NextResponse.json({
+      error: error.message || "Erreur lors de la récupération des remises"
     }, { status: 500 })
   }
-}
+})
 
 

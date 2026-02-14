@@ -10,7 +10,7 @@ import { getWelcomeEmailHTML, getWelcomeEmailText } from '@/lib/simple-email-tem
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, email, password, role, phone, disciplineId, otpCode } = body
+    const { name, email, password, role, phone, disciplineId, otpCode, clientType } = body
 
     // Ne logger que le rôle, pas les données personnelles
     logger.info("Nouvelle inscription", { role })
@@ -105,7 +105,16 @@ export async function POST(request: NextRequest) {
         role: role as Role,
         status: initialStatus,
         disciplineId: disciplineId || null,
-      },
+        clients: role === 'CLIENT' ? {
+          create: {
+            nom: name.trim(),
+            email: email.toLowerCase().trim(),
+            telephone: phone?.trim() || null,
+            type: (clientType as any) || 'particulier',
+            statut: 'ACTIF'
+          }
+        } : undefined
+      } as any,
       select: {
         id: true,
         name: true,
@@ -171,7 +180,7 @@ export async function POST(request: NextRequest) {
                 newUserName: newUser.name,
                 newUserEmail: newUser.email,
                 newUserRole: newUser.role,
-                disciplineName: newUser.discipline?.name || null
+                disciplineName: (newUser as any).discipline?.name || null
               })
             }
           })

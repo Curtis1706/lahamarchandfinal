@@ -24,6 +24,7 @@ import { Plus, Upload, Edit, Trash2, Image as ImageIcon, X, CheckCircle, Loader2
 import Image from "next/image";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { CLIENT_TYPE_LABELS, ROYALTY_TYPE_LABELS, ROYALTY_TYPES, CLIENT_TYPES } from "@/lib/constants/labels";
 
 interface Livre {
   id: string
@@ -43,6 +44,9 @@ interface Livre {
   disciplineId: string
   authorId?: string
   status?: string // Statut brut (DRAFT, PUBLISHED, etc.)
+  prices?: any[]
+  royaltyRate?: number
+  royaltyType?: string
 }
 
 export default function LivresListePage() {
@@ -67,7 +71,10 @@ export default function LivresListePage() {
     tva: "18",
     auteurId: "",
     concepteurId: "",
-    disciplineId: ""
+    disciplineId: "",
+    royaltyRate: "0",
+    royaltyType: "PERCENTAGE",
+    prices: [] as { clientType: string, price: string }[]
   });
   const [collections, setCollections] = useState<any[]>([]);
   const [coverImage, setCoverImage] = useState<File | null>(null);
@@ -169,7 +176,10 @@ export default function LivresListePage() {
             concepteur: work.concepteur?.name || "-",
             disciplineId: work.disciplineId || "",
             authorId: work.authorId || "",
-            status: work.status
+            status: work.status,
+            prices: work.prices || [],
+            royaltyRate: work.royaltyRate || 0,
+            royaltyType: work.royaltyType || "PERCENTAGE"
           };
         });
         setLivres(livresData);
@@ -448,7 +458,13 @@ export default function LivresListePage() {
         status: 'DRAFT', // Le PDG crée en DRAFT, puis peut publier
         isbn: newLivre.isbn,
         collectionId: newLivre.collectionId || null,
-        coverImage: coverImageUrl
+        coverImage: coverImageUrl,
+        royaltyRate: parseFloat(newLivre.royaltyRate),
+        royaltyType: newLivre.royaltyType,
+        prices: newLivre.prices.map(p => ({
+          clientType: p.clientType,
+          price: parseFloat(p.price)
+        }))
       };
 
 
@@ -479,7 +495,13 @@ export default function LivresListePage() {
           tva: "18",
           auteurId: "",
           concepteurId: "",
-          disciplineId: ""
+          disciplineId: "",
+          royaltyRate: "0",
+          royaltyType: "PERCENTAGE",
+          prices: Object.keys(CLIENT_TYPES).map(type => ({
+            clientType: type,
+            price: ""
+          }))
         });
         setCoverImage(null);
         setCoverImagePreview(null);
@@ -558,7 +580,16 @@ export default function LivresListePage() {
           tva: String(work.tva ? (work.tva * 100) : livre.tva),
           auteurId: work.authorId || "",
           concepteurId: work.concepteurId || "",
-          disciplineId: work.disciplineId || livre.disciplineId
+          disciplineId: work.disciplineId || livre.disciplineId,
+          royaltyRate: String(work.royaltyRate || 0),
+          royaltyType: work.royaltyType || "PERCENTAGE",
+          prices: Object.keys(CLIENT_TYPES).map(type => {
+            const existing = (work.prices || []).find((p: any) => p.clientType === type);
+            return {
+              clientType: type,
+              price: existing ? String(existing.price) : ""
+            };
+          })
         });
         setShowEditModal(true);
       } else {
@@ -635,7 +666,13 @@ export default function LivresListePage() {
         price: parseFloat(newLivre.prix),
         tva: parseFloat(newLivre.tva) / 100,
         isbn: newLivre.isbn,
-        collectionId: newLivre.collectionId || null
+        collectionId: newLivre.collectionId || null,
+        royaltyRate: parseFloat(newLivre.royaltyRate),
+        royaltyType: newLivre.royaltyType,
+        prices: newLivre.prices.map(p => ({
+          clientType: p.clientType,
+          price: parseFloat(p.price)
+        }))
       };
 
       // 3. Ajouter l'image de couverture si elle a été uploadée
@@ -1086,7 +1123,13 @@ export default function LivresListePage() {
             tva: "18",
             auteurId: "",
             concepteurId: "",
-            disciplineId: ""
+            disciplineId: "",
+            royaltyRate: "0",
+            royaltyType: "PERCENTAGE",
+            prices: Object.keys(CLIENT_TYPES).map(type => ({
+              clientType: type,
+              price: ""
+            }))
           });
           setCoverImage(null);
           setCoverImagePreview(null);
@@ -1242,6 +1285,82 @@ export default function LivresListePage() {
                   max="100"
                   step="0.01"
                 />
+              </div>
+            </div>
+
+            {/* Section Royautés */}
+            <div className="border-t pt-4 mt-2">
+              <h3 className="text-sm font-semibold mb-3 text-indigo-600">Configuration des Royautés</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="block text-sm font-medium mb-1">
+                    Type de royauté :
+                  </Label>
+                  <Select
+                    value={newLivre.royaltyType}
+                    onValueChange={(value) => setNewLivre({ ...newLivre, royaltyType: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(ROYALTY_TYPE_LABELS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="block text-sm font-medium mb-1">
+                    Valeur de la royauté ({newLivre.royaltyType === 'PERCENTAGE' ? '%' : 'F CFA'}) :
+                  </Label>
+                  <Input
+                    type="number"
+                    value={newLivre.royaltyRate}
+                    onChange={(e) => setNewLivre({ ...newLivre, royaltyRate: e.target.value })}
+                    min="0"
+                    step={newLivre.royaltyType === 'PERCENTAGE' ? "0.1" : "1"}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Section Tarification Multi-Prix */}
+            <div className="border-t pt-4 mt-2">
+              <h3 className="text-sm font-semibold mb-2 text-indigo-600">Tarification par type de client (optionnel)</h3>
+              <p className="text-[10px] text-gray-500 mb-3">
+                Laissez vide pour utiliser le prix public par défaut pour ce type de client.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
+                {Object.entries(CLIENT_TYPE_LABELS).filter(([type]) => type !== 'INDIVIDUAL').map(([type, label]) => {
+                  const priceEntry = newLivre.prices.find(p => p.clientType === type);
+                  return (
+                    <div key={type} className="flex flex-col space-y-1">
+                      <Label htmlFor={`price-${type}`} className="text-xs font-medium">
+                        Prix {label} (F CFA) :
+                      </Label>
+                      <Input
+                        id={`price-${type}`}
+                        type="number"
+                        placeholder={newLivre.prix || "0"}
+                        value={priceEntry?.price || ""}
+                        onChange={(e) => {
+                          const newPrices = [...newLivre.prices];
+                          const index = newPrices.findIndex(p => p.clientType === type);
+                          if (index >= 0) {
+                            newPrices[index].price = e.target.value;
+                          } else {
+                            newPrices.push({ clientType: type, price: e.target.value });
+                          }
+                          setNewLivre({ ...newLivre, prices: newPrices });
+                        }}
+                        min="0"
+                        step="100"
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

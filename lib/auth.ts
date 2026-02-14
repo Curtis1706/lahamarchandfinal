@@ -22,6 +22,7 @@ declare module "next-auth" {
       id: string
       role: Role
       status?: string
+      clientType?: string | null
     }
   }
 }
@@ -31,6 +32,7 @@ declare module "next-auth/jwt" {
     id: string
     role: Role
     status?: string
+    clientType?: string | null
   }
 }
 
@@ -124,8 +126,13 @@ export const authOptions: NextAuthOptions = {
       if (trigger === "update" || token.id) {
         // Fetch fresh user data from database
         const freshUser = await prisma.user.findUnique({
-          where: { id: token.id },
-          select: { name: true, email: true, image: true, role: true, status: true }
+          where: { id: token.id as string },
+          include: {
+            clients: {
+              select: { type: true },
+              take: 1
+            }
+          }
         })
 
         if (freshUser) {
@@ -141,6 +148,7 @@ export const authOptions: NextAuthOptions = {
           token.picture = freshUser.image
           token.role = freshUser.role
           token.status = freshUser.status
+          token.clientType = freshUser.clients?.[0]?.type || null
         }
       }
 
@@ -151,6 +159,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id
         session.user.role = token.role
         session.user.status = token.status
+        session.user.clientType = token.clientType
         session.user.name = token.name as string
         session.user.email = token.email as string
         session.user.image = token.picture as string | null

@@ -30,6 +30,7 @@ interface Work {
   stock: number
   disciplineId: string
   status: string
+  prices?: { clientType: string, price: number }[]
 }
 
 interface Discipline {
@@ -122,24 +123,52 @@ export default function ClientCataloguePage() {
         // Filtrer uniquement les livres PUBLISHED (sécurité supplémentaire)
         const publishedWorks = worksArray.filter((work: any) => work.status === 'PUBLISHED')
 
-        // Charger les remises pour chaque livre
+        // Déterminer le type de client effectif
+        const userClientType = user?.clientType || 'particulier';
+
+        // Transformer les œuvres pour inclure le prix spécifique au client
+        const worksWithTypedPrices = publishedWorks.map((work: any) => {
+          let price = work.price || 0;
+
+          // Chercher le prix spécifique au type de client
+          if (work.prices && work.prices.length > 0) {
+            const clientPrice = work.prices.find((p: any) => p.clientType === userClientType);
+            if (clientPrice) {
+              price = clientPrice.price;
+            } else if (userClientType !== 'particulier') {
+              // Fallback vers le prix particulier si on n'est pas particulier
+              const individualPrice = work.prices.find((p: any) => p.clientType === 'particulier');
+              if (individualPrice) {
+                price = individualPrice.price;
+              }
+            }
+          }
+
+          return {
+            ...work,
+            price: price, // On remplace le prix public par le prix spécifique au client
+            originalPublicPrice: work.price || 0
+          };
+        });
+
+        // Charger les remises pour chaque livre (si des remises globales existent encore)
         setLoadingDiscounts(true)
-        const worksWithDiscounts = await Promise.all(
-          publishedWorks.map(async (work: any) => {
+        const finalWorks = await Promise.all(
+          worksWithTypedPrices.map(async (work: any) => {
             try {
-              // Déterminer le type de client (CLIENT par défaut)
-              const clientType = user?.role === 'PARTENAIRE' ? 'Partenaire' :
+              // On utilise le libellé pour l'API des remises (car c'est ainsi que c'était fait)
+              const clientLabel = user?.role === 'PARTENAIRE' ? 'Partenaire' :
                 user?.role === 'REPRESENTANT' ? 'Représentant' : 'Client'
 
               const discountResponse = await fetch(
-                `/api/discounts/applicable/public?workId=${work.id}&workTitle=${encodeURIComponent(work.title)}&clientType=${clientType}&quantity=1`
+                `/api/discounts/applicable/public?workId=${work.id}&workTitle=${encodeURIComponent(work.title)}&clientType=${clientLabel}&quantity=1`
               )
 
               if (discountResponse.ok) {
                 const discountData = await discountResponse.json()
                 const discount = discountData.applicable
 
-                // Calculer le prix final avec remise
+                // Calculer le prix final avec remise (sur le prix déjà ajusté par type de client)
                 let finalPrice = work.price || 0
                 if (discount && work.price) {
                   if (discount.type === 'Pourcentage') {
@@ -172,7 +201,7 @@ export default function ClientCataloguePage() {
           })
         )
 
-        setWorks(worksWithDiscounts)
+        setWorks(finalWorks)
         setDisciplines(disciplinesData)
         setLoadingDiscounts(false)
       } catch (error: any) {

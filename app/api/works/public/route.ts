@@ -2,6 +2,8 @@ import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { allowGuest } from "@/lib/auth-guard"
+import { ClientType } from "@prisma/client"
+import { getWorkPrice } from "@/lib/pricing"
 
 export const dynamic = 'force-dynamic'
 
@@ -100,12 +102,32 @@ export const GET = allowGuest(async (request: NextRequest, context) => {
       prisma.work.count({ where: whereClause })
     ])
 
-    return NextResponse.json({
-      works: works.map(work => ({
+    // Get clientType from context (if authenticated) or query param
+    const clientTypeParam = searchParams.get('clientType');
+    let clientType: ClientType | undefined = undefined;
+
+    if (context.isAuthenticated && context.user.clientType) {
+      // Authenticated user: force their client type
+      if (Object.values(ClientType).includes(context.user.clientType as ClientType)) {
+        clientType = context.user.clientType as ClientType;
+      }
+    } else if (clientTypeParam && Object.values(ClientType).includes(clientTypeParam as ClientType)) {
+      // Guest/Unauthenticated: allow query param (e.g. for preview)
+      clientType = clientTypeParam as ClientType;
+    }
+
+    // Calculate dynamic prices
+    const worksWithDynamicPrices = await Promise.all(works.map(async (work) => {
+      // Use getWorkPrice from lib/pricing to get the specific price for clientType
+      // This handles the hierarchy: Specific Price -> Default Price
+      const dynamicPrice = await getWorkPrice(work.id, clientType);
+
+      return {
         id: work.id,
         title: work.title,
         isbn: work.isbn,
-        price: work.price,
+        price: dynamicPrice, // Dynamic price
+        originalPrice: work.price, // Base price for reference/strikethrough
         tva: work.tva || 0.18,
         stock: work.stock || 0,
         files: work.files,
@@ -114,7 +136,11 @@ export const GET = allowGuest(async (request: NextRequest, context) => {
         author: work.author,
         status: work.status,
         createdAt: work.createdAt.toISOString()
-      })),
+      };
+    }));
+
+    return NextResponse.json({
+      works: worksWithDynamicPrices,
       pagination: {
         total,
         page,

@@ -16,13 +16,13 @@ model User {
   image                            String?
   password                         String
   role                             Role
-  status                           UserStatus               @default(PENDING)
+  status                           UserStatus               @default(ACTIVE)
   disciplineId                     String?
-  departmentId                     String?
   createdAt                        DateTime                 @default(now())
   updatedAt                        DateTime                 @updatedAt
   lastLoginAt                      DateTime?
   representantId                   String?
+  departmentId                     String?
   accounts                         Account[]
   updatedAdvancedSettings          AdvancedSetting[]        @relation("UpdatedAdvancedSettings")
   controlledDeliveryNotes          DeliveryNote[]           @relation("ControlledDeliveryNotes")
@@ -57,8 +57,8 @@ model User {
   createdReports                   StockReport[]
   approvedStockRequests            StockRequest[]           @relation("ApprovedStockRequests")
   stockRequests                    StockRequest[]           @relation("StockRequests")
-  discipline                       Discipline?              @relation(fields: [disciplineId], references: [id])
   department                       Department?              @relation(fields: [departmentId], references: [id])
+  discipline                       Discipline?              @relation(fields: [disciplineId], references: [id])
   representant                     User?                    @relation("RepresentantAuthors", fields: [representantId], references: [id])
   managedAuthors                   User[]                   @relation("RepresentantAuthors")
   authorWithdrawals                Withdrawal[]             @relation("AuthorWithdrawals")
@@ -136,7 +136,6 @@ model Project {
   expectedDeliverables String?
   requiredResources    String?
   timeline             String?
-  files                String?       // JSON string of file URLs
   rejectionReason      String?
   disciplineId         String
   status               ProjectStatus @default(DRAFT)
@@ -146,6 +145,7 @@ model Project {
   updatedAt            DateTime      @updatedAt
   concepteurId         String
   reviewerId           String?
+  files                String?
   concepteur           User          @relation("ConceptorProjects", fields: [concepteurId], references: [id])
   discipline           Discipline    @relation(fields: [disciplineId], references: [id])
   reviewer             User?         @relation("ReviewedProjects", fields: [reviewerId], references: [id])
@@ -186,6 +186,8 @@ model Work {
   reviewerId            String?
   concepteurId          String?
   projectId             String?
+  royaltyRate           Float              @default(0)
+  royaltyType           RoyaltyType        @default(PERCENTAGE)
   orderItems            OrderItem[]
   partnerRebates        PartnerRebate[]    @relation("WorkPartnerRebates")
   partnerStocks         PartnerStock[]
@@ -202,6 +204,7 @@ model Work {
   project               Project?           @relation("ProjectWorks", fields: [projectId], references: [id])
   reviewer              User?              @relation("ReviewedWorks", fields: [reviewerId], references: [id])
   workDistributions     WorkDistribution[]
+  prices                WorkPrice[]        @relation("WorkPrices")
   workSales             WorkSale[]
   versions              WorkVersion[]
   workViews             WorkView[]
@@ -267,8 +270,8 @@ model Department {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  users       User[]
   clients     Client[] @relation("DepartmentClients")
+  users       User[]
 }
 
 model Sale {
@@ -375,13 +378,15 @@ model Order {
 }
 
 model OrderItem {
-  id       String @id @default(cuid())
-  orderId  String
-  workId   String
-  quantity Int
-  price    Float
-  order    Order  @relation(fields: [orderId], references: [id])
-  work     Work   @relation(fields: [workId], references: [id])
+  id              String  @id @default(cuid())
+  orderId         String
+  workId          String
+  quantity        Int
+  price           Float
+  isPriceOverride Boolean @default(false)
+  originalPrice   Float?
+  order           Order   @relation(fields: [orderId], references: [id])
+  work            Work    @relation(fields: [workId], references: [id])
 
   @@index([orderId])
   @@index([workId])
@@ -417,13 +422,13 @@ model DeliveryNote {
   status         DeliveryNoteStatus @default(PENDING)
   period         String?
   notes          String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
   motif          String?
   destination    String?
   etatLivres     String?
   transport      String?
   datePrevue     DateTime?
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
   controlledBy   User?              @relation("ControlledDeliveryNotes", fields: [controlledById], references: [id])
   generatedBy    User               @relation("GeneratedDeliveryNotes", fields: [generatedById], references: [id])
   order          Order              @relation(fields: [orderId], references: [id])
@@ -600,7 +605,6 @@ model Withdrawal {
   userId          String
   amount          Float
   method          WithdrawalMethod
-  momoProvider    String? // "mtn", "moov", "orange", etc.
   momoNumber      String?
   bankName        String?
   bankAccount     String?
@@ -614,6 +618,7 @@ model Withdrawal {
   notes           String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+  momoProvider    String?
   user            User             @relation("AuthorWithdrawals", fields: [userId], references: [id])
   validatedBy     User?            @relation("ValidatedWithdrawals", fields: [validatedById], references: [id])
 
@@ -627,7 +632,6 @@ model RepresentantWithdrawal {
   userId          String
   amount          Float
   method          WithdrawalMethod
-  momoProvider    String?
   momoNumber      String?
   bankName        String?
   bankAccount     String?
@@ -641,6 +645,7 @@ model RepresentantWithdrawal {
   notes           String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+  momoProvider    String?
   user            User             @relation("RepresentantWithdrawals", fields: [userId], references: [id])
   validatedBy     User?            @relation("ValidatedRepresentantWithdrawals", fields: [validatedById], references: [id])
 
@@ -981,21 +986,14 @@ model Promotion {
   createdBy        String
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
-
-  // Nouveaux champs pour la V2
+  applyToAll       Boolean         @default(false)
   rateType         RateType        @default(PERCENTAGE)
   rateValue        Float?
   timeZone         String          @default("UTC")
   works            Work[]          @relation("WorkPromotions")
-  applyToAll       Boolean         @default(false)
-  
+
   @@index([code])
   @@index([statut])
-}
-
-enum RateType {
-  PERCENTAGE
-  AMOUNT
 }
 
 model Category {
@@ -1048,12 +1046,10 @@ model Client {
   nom            String
   telephone      String?
   email          String?
-  type           String
-  departmentId   String?
   address        String?
   city           String?
   contact        String?
-  statut         ClientStatus @default(EN_ATTENTE)
+  statut         ClientStatus @default(ACTIF)
   dette          Float        @default(0)
   notes          String?
   representantId String?
@@ -1063,8 +1059,10 @@ model Client {
   createdBy      String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+  departmentId   String?
+  type           ClientType   @default(particulier)
   department     Department?  @relation("DepartmentClients", fields: [departmentId], references: [id])
-  user           User[]       @relation("UserDepartments")
+  users          User[]       @relation("UserDepartments")
 
   @@index([statut])
   @@index([type])
@@ -1140,6 +1138,49 @@ model OtpCode {
 
   @@unique([email, type])
   @@index([email, type])
+}
+
+model WorkPrice {
+  id              String     @id @default(cuid())
+  workId          String
+  clientType      ClientType
+  price           Float
+  minimumQuantity Int        @default(1)
+  work            Work       @relation("WorkPrices", fields: [workId], references: [id], onDelete: Cascade)
+
+  @@unique([workId, clientType])
+  @@index([workId])
+}
+
+model ClientTypeConfig {
+  id                   String     @id @default(cuid())
+  clientType           ClientType @unique
+  label                String
+  description          String?
+  minimumOrderQuantity Int        @default(1)
+  minimumOrderAmount   Float      @default(0)
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+}
+
+enum RateType {
+  PERCENTAGE
+  AMOUNT
+}
+
+enum ClientType {
+  particulier
+  boutique
+  grossiste
+  ecole_contractuelle
+  ecole_non_contractuelle
+  partenaire
+  bibliotheque
+}
+
+enum RoyaltyType {
+  PERCENTAGE
+  FIXED_AMOUNT
 }
 
 enum WithdrawalMethod {
@@ -1421,4 +1462,3 @@ enum CommunicationStatus {
   SENT
   CANCELLED
 }
-
