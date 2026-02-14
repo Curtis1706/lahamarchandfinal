@@ -8,22 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import {
-  Users,
-  Plus,
-  Search,
-  Edit,
-  Trash2,
-  UserCheck,
-  UserX,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Minimize2,
-  RefreshCw,
-  Maximize2
-} from "lucide-react"
+import { Plus, Edit, Trash2, Search, UserX, UserCheck, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, Download, MoreVertical, BookOpen, Clock, Calendar, ShieldCheck, Mail, Briefcase, Users, Phone, Save, X, RefreshCw, Maximize2, Minimize2 } from "lucide-react"
+import { CountrySelector } from "@/components/country-selector"
 import { toast } from "sonner"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
@@ -1008,12 +994,10 @@ function EditUserForm({ user, disciplines, onSubmit, onCancel }: {
 
       <div>
         <label className="text-sm font-medium">Téléphone</label>
-        <Input
-          value={formData.phone}
-          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-          placeholder="+229 40 76 76 76"
-          pattern="[+]?[0-9\s\-\(\)]+"
-          title="Format: +229 40 76 76 76 ou 22940767676"
+        <CountrySelector 
+          value={formData.phone} 
+          onChange={(val) => setFormData({ ...formData, phone: val })} 
+          placeholder="01 90 01 12 34" 
         />
       </div>
 
@@ -1085,29 +1069,45 @@ function CreateUserForm({ disciplines, onSubmit, onCancel }: {
   onCancel: () => void
 }) {
   const [formData, setFormData] = useState({
-    name: '',
+    lastName: '',
+    firstName: '',
     email: '',
     phone: '',
-    password: '',
     role: 'CLIENT',
     disciplineId: ''
   })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSubmit(formData)
+    // Concatténer Prénom et Nom pour le champ name de la BD
+    const fullName = `${formData.firstName} ${formData.lastName}`.trim()
+    onSubmit({
+      ...formData,
+      name: fullName
+    })
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="text-sm font-medium">Nom complet</label>
-        <Input
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          placeholder="Nom complet"
-          required
-        />
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="text-sm font-medium">Nom</label>
+          <Input
+            value={formData.lastName}
+            onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+            placeholder="Nom"
+            required
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium">Prénoms</label>
+          <Input
+            value={formData.firstName}
+            onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+            placeholder="Prénoms"
+            required
+          />
+        </div>
       </div>
 
       <div>
@@ -1122,27 +1122,11 @@ function CreateUserForm({ disciplines, onSubmit, onCancel }: {
       </div>
 
       <div>
-        <label className="text-sm font-medium">Téléphone *</label>
-        <Input
-          value={formData.phone}
-          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-          placeholder="+229 40 76 76 76"
-          pattern="[+]?[0-9\s\-\(\)]+"
-          title="Format: +229 40 76 76 76 ou 22940767676"
-          required
-        />
-      </div>
-
-      <div>
-        <label className="text-sm font-medium">
-          Mot de passe *
-        </label>
-        <Input
-          type="password"
-          value={formData.password}
-          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-          placeholder="Mot de passe"
-          required
+        <label className="text-sm font-medium">Téléphone</label>
+        <CountrySelector 
+          value={formData.phone} 
+          onChange={(val) => setFormData({ ...formData, phone: val })} 
+          placeholder="01 90 01 12 34" 
         />
       </div>
 
@@ -1150,7 +1134,7 @@ function CreateUserForm({ disciplines, onSubmit, onCancel }: {
         <label className="text-sm font-medium">Rôle</label>
         <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
           <SelectTrigger>
-            <SelectValue />
+            <SelectValue placeholder="Choisir un rôle" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="PDG">PDG</SelectItem>
@@ -1182,12 +1166,13 @@ function CreateUserForm({ disciplines, onSubmit, onCancel }: {
         </div>
       )}
 
-      <div className="flex justify-end space-x-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Annuler
+      <div className="flex justify-end space-x-2 pt-4">
+        <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center">
+          <Save className="h-4 w-4 mr-2" />
+          Enregistrer
         </Button>
-        <Button type="submit">
-          Créer l'utilisateur
+        <Button type="button" variant="outline" onClick={onCancel} className="border-indigo-600 text-indigo-600 hover:bg-indigo-50">
+          Fermer <X className="h-4 w-4 ml-2" />
         </Button>
       </div>
     </form>

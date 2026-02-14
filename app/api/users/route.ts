@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { generateRandomPassword, sendCredentialsSMS } from '@/lib/sms';
 
 export const dynamic = 'force-dynamic'
 
@@ -34,9 +35,11 @@ export async function POST(request: NextRequest) {
 
 
     // Validation des champs obligatoires
-    if (!name || !email || !role || !password) {
+    // password est désormais optionnel car il sera généré si absent (cas PDG)
+    // Mais ici le PDG peut toujours en fournir un s'il veut, sinon on génère.
+    if (!name || !email || !role) {
       return NextResponse.json(
-        { error: "Le nom, l'email, le rôle et le mot de passe sont obligatoires" },
+        { error: "Le nom, l'email et le rôle sont obligatoires" },
         { status: 400 }
       );
     }
@@ -91,8 +94,11 @@ export async function POST(request: NextRequest) {
     }
 
 
+    // Générer un mot de passe si non fourni
+    const finalPassword = password || generateRandomPassword(8);
+
     // Hasher le mot de passe
-    const hashedPassword = await bcrypt.hash(password, 12);
+    const hashedPassword = await bcrypt.hash(finalPassword, 12);
 
     // Créer l'utilisateur
     // Pour les comptes invités, le statut est ACTIVE mais avec des permissions limitées
@@ -144,6 +150,15 @@ export async function POST(request: NextRequest) {
       }
     } catch (notificationError) {
       console.error("⚠️ Erreur création notification:", notificationError);
+    }
+
+    // Envoi des identifiants par SMS si un numéro est fourni
+    if (user.phone) {
+      try {
+        await sendCredentialsSMS(user.phone, finalPassword, user.role);
+      } catch (smsError) {
+        console.error("⚠️ Erreur lors de l'envoi du SMS de bienvenue:", smsError);
+      }
     }
 
     // Créer une notification pour l'utilisateur
