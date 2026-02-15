@@ -25,6 +25,7 @@ export interface Order {
   paymentStatus: 'UNPAID' | 'PAID' | 'FAILED'
   amountPaid?: number
   remainingAmount?: number
+  paymentDueDate?: string | null
   deliveryAddress: string
   items: OrderItem[]
   customerInfo: {
@@ -130,6 +131,7 @@ export const useOrders = (): UseOrdersResult => {
           paymentStatus: order.paymentStatus || 'UNPAID',
           amountPaid: order.amountPaid,
           remainingAmount: order.remainingAmount,
+          paymentDueDate: order.paymentDueDate,
           deliveryAddress: deliveryAddress || 'Adresse non spécifiée',
           receivedAt: order.receivedAt,
           paymentReference: order.paymentReference,
