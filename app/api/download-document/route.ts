@@ -5,6 +5,9 @@ const ALLOWED_DOMAINS = ['res.cloudinary.com', 'cloudinary.com']
 const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
 const TIMEOUT_MS = 60000 // 60 secondes pour fichiers larges
 
+
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url)
