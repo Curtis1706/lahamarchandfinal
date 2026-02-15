@@ -279,9 +279,10 @@ export default function ClientDashboard() {
                   <User className="w-6 h-6" />
                 </div>
                 <div>
-                  <p className="text-indigo-200">+22952734444</p>
-                  <span className="inline-block mt-2 px-3 py-1 bg-yellow-500 text-yellow-900 rounded-full text-xs font-medium">
-                    Client
+                  <p className="text-indigo-200">{user?.name || 'Client'}</p>
+                  <p className="text-sm text-indigo-100 font-medium mb-1">{user?.phone || '-'}</p>
+                  <span className="inline-block px-3 py-1 bg-yellow-500 text-yellow-900 rounded-full text-xs font-medium uppercase">
+                    {user?.clientType?.replace(/_/g, ' ') || 'Client'}
                   </span>
                 </div>
               </div>

@@ -131,8 +131,14 @@ export default function AuteurDashboardPage() {
   const fetchUserProfile = async () => {
     try {
       const profile = await apiClient.getUserProfile();
+      // @ts-ignore - The API returns the relation but the type might be missing it
       if (profile.discipline) {
+        // @ts-ignore
         setUserDiscipline(profile.discipline);
+      } else if (profile.disciplineId) {
+        // Fallback: try to find discipline in the list if we have it
+        const found = disciplines.find(d => d.id === profile.disciplineId);
+        if (found) setUserDiscipline(found);
       }
     } catch (error) {
       console.error("❌ Erreur lors du chargement du profil:", error);
@@ -142,7 +148,7 @@ export default function AuteurDashboardPage() {
   const fetchDashboardData = async () => {
     try {
       const data = await apiClient.getAuthorDashboard();
-      setDashboardData(data);
+      setDashboardData(data as unknown as DashboardData);
     } catch (error) {
       console.error("❌ Erreur lors du chargement du dashboard:", error);
     }
@@ -157,8 +163,14 @@ export default function AuteurDashboardPage() {
         apiClient.getDisciplines()
       ]);
 
+      // Check if worksData is directly an array or has a works property
+      const worksList = Array.isArray(worksData) 
+        ? worksData 
+        : (worksData && 'works' in worksData && Array.isArray((worksData as any).works)) 
+          ? (worksData as any).works 
+          : [];
       
-      setWorks(Array.isArray(worksData.works) ? worksData.works : []);
+      setWorks(worksList as Work[]);
       setDisciplines(Array.isArray(disciplinesData) ? disciplinesData : []);
     } catch (error) {
       console.error("❌ Erreur lors du chargement des données:", error);

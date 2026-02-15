@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { 
   Plus, Edit, Trash2, Search, User, Filter, 
-  Download, ChevronDown, ChevronRight, Eye, RefreshCw
+  Download, ChevronDown, ChevronRight, Eye, RefreshCw, X
 } from "lucide-react"
 import {
   Table,
@@ -27,11 +27,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout"
-import { CreateUserForm } from "../gestion-utilisateurs/page" // Assurez-vous que ce composant est exporté depuis gestion-utilisateurs/page.tsx
+import { CreateUserForm } from "../gestion-utilisateurs/page"
 
 // Adapter l'interface User pour inclure les propriétés spécifiques client
 interface User {
@@ -53,6 +59,7 @@ interface User {
     type: string
     dette: number
     statut: string
+    city?: string
   }[]
   image?: string
 }
@@ -66,10 +73,21 @@ export default function ClientsPage() {
   const [itemsPerPage, setItemsPerPage] = useState(20)
   const [currentPage, setCurrentPage] = useState(1)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
   
-  // États pour les données nécessaires au formulaire (si on réutilise CreateUserForm)
+  // États pour les filtres
+  const [filters, setFilters] = useState({
+    type: "all",
+    department: "all",
+    zone: "all",
+    vip: "all",
+    status: "all"
+  })
+
+  // États pour les données nécessaires
   const [disciplines, setDisciplines] = useState<any[]>([])
   const [departments, setDepartments] = useState<any[]>([])
+  const [availableZones, setAvailableZones] = useState<string[]>([])
 
   // Chargement des données
   const loadClients = async () => {
@@ -82,12 +100,23 @@ export default function ClientsPage() {
         apiClient.getDepartments()
       ])
 
+      const validUsers: User[] = []
+      const zones = new Set<string>()
+
       if (Array.isArray(usersData)) {
         // Filtrer uniquement les CLIENTS
         const clients = usersData.filter((u: any) => u.role === 'CLIENT')
-        setUsers(clients)
+        clients.forEach((c: any) => {
+             validUsers.push(c)
+             // Collecter les zones (villes)
+             if (c.clients && c.clients[0]?.city) {
+                 zones.add(c.clients[0].city)
+             }
+        })
       }
       
+      setUsers(validUsers)
+      setAvailableZones(Array.from(zones))
       setDisciplines(Array.isArray(disciplinesData) ? disciplinesData : [])
       setDepartments(Array.isArray(departmentsData) ? departmentsData : [])
 
@@ -134,14 +163,51 @@ export default function ClientsPage() {
     })
   }
 
-  // Filtrage
+  const resetFilters = () => {
+      setFilters({
+        type: "all",
+        department: "all",
+        zone: "all",
+        vip: "all",
+        status: "all"
+      })
+      setSearchTerm("")
+      setIsFilterOpen(false)
+  }
+
+  // Filtrage complet
   const filteredUsers = users.filter(user => {
+    // 1. Recherche Textuelle
     const searchLower = searchTerm.toLowerCase()
     const matchesSearch = user.name.toLowerCase().includes(searchLower) ||
       user.email.toLowerCase().includes(searchLower) ||
       (user.phone && user.phone.includes(searchLower))
     
-    return matchesSearch
+    if (!matchesSearch) return false
+
+    // 2. Filtres Avancés
+    // Type
+    const clientType = user.clientType || user.clients?.[0]?.type
+    if (filters.type !== "all" && clientType !== filters.type) return false
+
+    // Département
+    if (filters.department !== "all" && user.department?.id !== filters.department) return false
+
+    // Zone (City)
+    const clientCity = user.clients?.[0]?.city
+    if (filters.zone !== "all" && clientCity !== filters.zone) return false
+
+    // Statut
+    if (filters.status !== "all" && user.status !== filters.status) return false
+    
+    // VIP (Mock logic as field doesn't exist yet)
+    if (filters.vip !== "all") {
+        // If filtering by VIP, currently no logic matches so return false (or true if everyone is VIP?)
+        // Let's assume no one is VIP for now unless we add a specific check
+        return false 
+    }
+
+    return true
   })
 
   // Pagination
@@ -155,11 +221,11 @@ export default function ClientsPage() {
     let colorClass = "bg-gray-100 text-gray-800"
     
     switch(type) {
-      case 'particulier': colorClass = "bg-indigo-100 text-indigo-800"; break; // Modifié pour correspondre à l'image (violet/indigo)
+      case 'particulier': colorClass = "bg-indigo-100 text-indigo-800"; break; 
       case 'boutique': colorClass = "bg-purple-100 text-purple-800"; break;
-      case 'grossiste': colorClass = "bg-blue-100 text-blue-800"; break; // Modifié (bleu foncé sur l'image)
-      case 'ecole_contractuelle': colorClass = "bg-indigo-600 text-white"; break; // Modifié (fond foncé)
-      case 'ecole_non_contractuelle': colorClass = "bg-indigo-500 text-white"; break; // Modifié
+      case 'grossiste': colorClass = "bg-blue-100 text-blue-800"; break; 
+      case 'ecole_contractuelle': colorClass = "bg-indigo-600 text-white"; break; 
+      case 'ecole_non_contractuelle': colorClass = "bg-indigo-500 text-white"; break; 
       case 'auteur': colorClass = "bg-indigo-400 text-white"; break;
       default: colorClass = "bg-gray-100 text-gray-800";
     }
@@ -178,7 +244,7 @@ export default function ClientsPage() {
       const cleanPhone = phone.replace(/[^\d+]/g, '')
       if (cleanPhone.startsWith('229')) return '+' + cleanPhone
       if (cleanPhone.startsWith('+')) return cleanPhone
-      return '+' + cleanPhone // Assumption for display
+      return '+' + cleanPhone 
     }
 
   if (userLoading || isLoading) {
@@ -194,19 +260,6 @@ export default function ClientsPage() {
 
   return (
     <div className="bg-gray-50 min-h-screen"> 
-      {/* On n'utilise pas DynamicDashboardLayout ici car il gère déjà le layout global, 
-          on rend juste le contenu. Le layout parent wrap déjà cette page. 
-          SAUF si DynamicDashboardLayout est utilisé dans chaque page.
-          D'après page.tsx de gestion-utilisateurs, il semble qu'on n'utilise PAS DynamicDashboardLayout 
-          à l'intérieur de la page, mais plutôt le layout par défaut du dossier dashboard.
-          Cependant, le code de gestion-utilisateurs ne l'importait pas. 
-          Vérifions si on doit wrapper. Le user a dit "c'est dynamic-dashboard-layout.tsx qui est utilisé".
-          Si c'est un layout Next.js global, pas besoin de wrapper.
-          Si c'est un composant wrapper manuel, il faut wrapper.
-          Dans gestion-utilisateurs, il n'y a pas de wrap. Donc le layout est probablement géré par layout.tsx du dossier.
-          MAIS le layout.tsx du dossier dashboard utilise probablement DynamicDashboardLayout.
-          Donc ici, on rend juste le contenu.
-      */}
       
       <div className="p-6 space-y-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Les clients</h1>
@@ -215,9 +268,109 @@ export default function ClientsPage() {
             {/* Top Controls */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex gap-2">
-                <Button className="bg-indigo-600 text-white hover:bg-indigo-700">
-                    Filtre <Filter className="w-4 h-4 ml-2" />
-                </Button>
+                <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+                    <PopoverTrigger asChild>
+                        <Button className="bg-indigo-600 text-white hover:bg-indigo-700">
+                            Filtre <Filter className="w-4 h-4 ml-2" />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[800px] p-6" align="start">
+                        <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <Label>Type de client :</Label>
+                                <Select value={filters.type} onValueChange={(v) => setFilters({...filters, type: v})}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Tous les clients" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Tous les clients</SelectItem>
+                                        <SelectItem value="particulier">Particulier</SelectItem>
+                                        <SelectItem value="boutique">Boutique</SelectItem>
+                                        <SelectItem value="grossiste">Grossiste</SelectItem>
+                                        <SelectItem value="ecole_contractuelle">École Contractuelle</SelectItem>
+                                        <SelectItem value="ecole_non_contractuelle">École Non Contractuelle</SelectItem>
+                                        <SelectItem value="partenaire">Partenaire</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Département :</Label>
+                                <Select value={filters.department} onValueChange={(v) => setFilters({...filters, department: v})}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Tous les départements" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Tous les départements</SelectItem>
+                                        {departments.map((dept) => (
+                                            <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Zone :</Label>
+                                <Select value={filters.zone} onValueChange={(v) => setFilters({...filters, zone: v})}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Toutes les zones" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Toutes les zones</SelectItem>
+                                        {availableZones.map(zone => (
+                                            <SelectItem key={zone} value={zone}>{zone}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>VIP :</Label>
+                                    <Select value={filters.vip} onValueChange={(v) => setFilters({...filters, vip: v})}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Tous" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Tous</SelectItem>
+                                            <SelectItem value="yes">Oui</SelectItem>
+                                            <SelectItem value="no">Non</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Statut :</Label>
+                                    <Select value={filters.status} onValueChange={(v) => setFilters({...filters, status: v})}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Tous les statuts" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Tous les statuts</SelectItem>
+                                            <SelectItem value="ACTIVE">Actif</SelectItem>
+                                            <SelectItem value="INACTIVE">Inactif</SelectItem>
+                                            <SelectItem value="SUSPENDED">Suspendu</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2 mt-6">
+                            <Button 
+                                className="bg-indigo-600 text-white hover:bg-indigo-700" 
+                                onClick={() => setIsFilterOpen(false)}
+                            >
+                                Appliquer
+                            </Button>
+                            <Button 
+                                variant="outline" 
+                                className="text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                                onClick={resetFilters}
+                            >
+                                Remise à zéro <X className="w-4 h-4 ml-2" />
+                            </Button>
+                        </div>
+                    </PopoverContent>
+                </Popover>
             </div>
             
             <div className="flex gap-2">
