@@ -396,14 +396,30 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Order ID is required" }, { status: 400 })
     }
 
+    // 1. Récupérer la commande actuelle AVANT modification
+    const currentOrder = await prisma.order.findUnique({
+      where: { id },
+      include: {
+        items: {
+          include: {
+            work: true
+          }
+        },
+        partner: true,
+        user: true
+      }
+    })
+
+    if (!currentOrder) {
+      return NextResponse.json({ error: "Commande non trouvée" }, { status: 404 })
+    }
+
     // 🔹 Logique spécifique Airtel Money Gabon : Si validation, marquer comme payé si preuve fournie
     if (status === "VALIDATED") {
-      const currentOrder = await prisma.order.findUnique({ where: { id } })
-      if (currentOrder && (
-        currentOrder.paymentMethod === 'airtel-money-gabon' ||
+      if (currentOrder.paymentMethod === 'airtel-money-gabon' ||
         currentOrder.paymentMethod === 'mobile_money' ||
         currentOrder.paymentMethod === 'mobile-money'
-      )) {
+      ) {
         try {
           const paymentRef = currentOrder.paymentReference ? JSON.parse(currentOrder.paymentReference) : {}
           if (paymentRef.transactionId) {
@@ -419,105 +435,69 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    const updatedOrder = await prisma.order.update({
-      where: { id },
-      data: {
-        status: status as OrderStatus,
-        updatedAt: new Date(),
-        ...updateData
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
-          }
-        },
-        partner: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          }
-        },
-        items: {
-          include: {
-            work: {
-              select: {
-                id: true,
-                title: true,
-                price: true,
-                stock: true,
-                physicalStock: true,
-                discipline: {
-                  select: {
-                    name: true
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    })
+    // Préparer les données de mise à jour de base
+    const baseUpdateData = {
+      status: status as OrderStatus,
+      updatedAt: new Date(),
+      ...updateData
+    }
 
-    // Variable pour stocker la référence du bon de sortie
-    let createdReference: string | null = null
+    // ✨ TRANSACTION START
+    // Si la commande passe à VALIDATED, on exécute tout dans une transaction
+    if (status === "VALIDATED" && currentOrder.status !== "VALIDATED") {
 
-    // 🔹 Créer automatiquement un Bon de Sortie et réduire le stock si la commande est validée
-    if (status === "VALIDATED") {
       try {
-        // Vérifier qu'un bon de sortie n'existe pas déjà
-        const existingDeliveryNote = await prisma.deliveryNote.findUnique({
-          where: { orderId: id }
-        })
+        const result = await prisma.$transaction(async (tx) => {
 
-        if (existingDeliveryNote) {
-          createdReference = existingDeliveryNote.reference
-        }
+          // A. Vérifier le stock AVANT tout changement
+          for (const item of currentOrder.items) {
+            // Re-vérifier le stock frais dans la transaction (optional but safe)
+            const work = await tx.work.findUnique({ where: { id: item.workId } })
+            if (!work) throw new Error(`Œuvre introuvable: ${item.workId}`)
 
-        if (!existingDeliveryNote) {
-          // Récupérer l'ID de l'utilisateur (PDG ou utilisateur de la session)
-          let userId = session?.user?.id
-          if (!userId) {
-            // Si pas de session, trouver le PDG
-            const pdg = await prisma.user.findFirst({
-              where: { role: 'PDG' },
-              select: { id: true }
-            })
-            if (pdg) {
-              userId = pdg.id
-            } else {
-              throw new Error("Aucun utilisateur PDG trouvé pour créer le bon de sortie")
+            if (work.stock < item.quantity) {
+              throw new Error(`Stock insuffisant pour "${work.title}". Disponible: ${work.stock}, Demandé: ${item.quantity}`)
             }
           }
 
-          // 🚀 PRE-CHECK STOCK AVANT TRANSACTION (PUT)
-          for (const item of updatedOrder.items) {
-            if (item.work.stock < item.quantity) {
-              return NextResponse.json({
-                error: `Stock insuffisant pour "${item.work.title}". Disponible: ${item.work.stock}, Demandé: ${item.quantity}`
-              }, { status: 400 })
+          // B. Mettre à jour la commande
+          const updatedOrder = await tx.order.update({
+            where: { id },
+            data: baseUpdateData,
+            include: {
+              items: { include: { work: true } },
+              user: true,
+              partner: true
             }
-          }
+          })
 
-          // Utiliser une transaction pour garantir la cohérence
-          await prisma.$transaction(async (tx) => {
-            // 1. Générer une référence unique pour le bon de sortie
+          // C. Gérer le Bon de Sortie
+          // Vérifier qu'un bon de sortie n'existe pas déjà
+          const existingDeliveryNote = await tx.deliveryNote.findUnique({
+            where: { orderId: id }
+          })
+
+          let deliveryNoteReference = existingDeliveryNote?.reference || null
+
+          if (!existingDeliveryNote) {
+            // Récupérer l'ID de l'utilisateur (PDG ou session)
+            let userId = session?.user?.id
+            if (!userId) {
+              const pdg = await tx.user.findFirst({ where: { role: 'PDG' }, select: { id: true } })
+              userId = pdg?.id
+            }
+
+            if (!userId) throw new Error("Impossible d'identifier l'utilisateur pour le bon de sortie")
+
+            // Générer référence
             const year = new Date().getFullYear()
             const count = await tx.deliveryNote.count({
-              where: {
-                reference: {
-                  startsWith: `BS-${year}-`
-                }
-              }
+              where: { reference: { startsWith: `BS-${year}-` } }
             })
             const reference = `BS-${year}-${String(count + 1).padStart(4, '0')}`
 
-            // 2. Créer le bon de sortie
-            const deliveryNote = await tx.deliveryNote.create({
+            // Créer le bon
+            await tx.deliveryNote.create({
               data: {
                 reference,
                 orderId: id,
@@ -525,74 +505,51 @@ export async function PUT(request: NextRequest) {
                 status: 'PENDING'
               }
             })
+            deliveryNoteReference = reference
 
-            // Sauvegarder la référence pour la réponse API
-            createdReference = reference
-
-            // 3. Réduire le stock pour chaque item et créer des mouvements de stock
+            // D. Mettre à jour les stocks
             for (const item of updatedOrder.items) {
               const work = item.work
-              const quantity = item.quantity
 
-              // Vérifier que le stock est suffisant
-              if (work.stock < quantity) {
-                throw new Error(
-                  `Stock insuffisant pour "${work.title}". Disponible: ${work.stock}, Demandé: ${quantity}`
-                )
-              }
-
-              // Réduire le stock
-              const updatedWork = await tx.work.update({
+              await tx.work.update({
                 where: { id: work.id },
                 data: {
-                  stock: {
-                    decrement: quantity
-                  },
-                  physicalStock: {
-                    decrement: quantity
-                  }
-                },
-                select: {
-                  stock: true,
-                  physicalStock: true
+                  stock: { decrement: item.quantity },
+                  physicalStock: { decrement: item.quantity }
                 }
               })
 
-              // Créer un mouvement de stock pour tracer l'historique
               await tx.stockMovement.create({
                 data: {
                   workId: work.id,
                   type: 'OUTBOUND',
-                  quantity: -quantity, // Négatif car c'est une sortie
+                  quantity: -item.quantity,
                   reason: `Bon de sortie ${reference} - Commande ${id}`,
                   reference: reference,
                   performedBy: userId,
                   partnerId: updatedOrder.partnerId || null,
                   unitPrice: item.price,
-                  totalAmount: item.price * quantity
+                  totalAmount: item.price * item.quantity
                 }
               })
             }
-          })
-        }
+          }
 
-        // 🔹 Calculer automatiquement les ristournes si la commande est validée
+          return { updatedOrder, deliveryNoteReference }
+        })
+
+        // E. Post-Transaction : Calculs financiers (Ristournes / Royalties)
+        // Ces calculs sont faits après la validation réussie de la commande et du stock
+        // On ne bloque pas la transaction pour ça, mais on les traite
         try {
-          // Calculer les ristournes partenaires si c'est une commande partenaire
-          if (updatedOrder.partnerId && updatedOrder.partner) {
+          const { updatedOrder } = result
+          // Calculer les ristournes partenaires
+          if (updatedOrder.partnerId) {
             const totalAmount = updatedOrder.total || updatedOrder.subtotal || 0
-            const { amount, rate } = await calculatePartnerRebate(
-              id,
-              updatedOrder.partnerId,
-              totalAmount
-            )
+            const { amount, rate } = await calculatePartnerRebate(id, updatedOrder.partnerId, totalAmount)
 
-            // Vérifier si une ristourne existe déjà
             const existingRebate = await prisma.partnerRebate.findFirst({
-              where: {
-                orderId: id,
-                partnerId: updatedOrder.partnerId
-              }
+              where: { orderId: id, partnerId: updatedOrder.partnerId }
             })
 
             if (!existingRebate) {
@@ -608,71 +565,82 @@ export async function PUT(request: NextRequest) {
             }
           }
 
-          // Calculer les droits d'auteur pour chaque item
+          // Calculer les droits d'auteur
           for (const item of updatedOrder.items) {
             const work = item.work
-            if (!work) continue
-
-            // Récupérer l'auteur de l'œuvre
             const workWithAuthor = await prisma.work.findUnique({
               where: { id: work.id },
               select: { authorId: true }
             })
 
-            if (!workWithAuthor?.authorId) continue
+            if (workWithAuthor?.authorId) {
+              const saleAmount = item.price * item.quantity
+              const { amount, rate } = await calculateAuthorRoyalty(work.id, workWithAuthor.authorId, saleAmount)
 
-            const saleAmount = item.price * item.quantity
-            const { amount, rate } = await calculateAuthorRoyalty(
-              work.id,
-              workWithAuthor.authorId,
-              saleAmount
-            )
-
-            // Vérifier si une royalty existe déjà
-            const existingRoyalty = await prisma.royalty.findFirst({
-              where: {
-                orderId: id,
-                workId: work.id,
-                userId: workWithAuthor.authorId
-              }
-            })
-
-            if (!existingRoyalty) {
-              await prisma.royalty.create({
-                data: {
-                  workId: work.id,
-                  userId: workWithAuthor.authorId,
-                  orderId: id,
-                  amount,
-                  rate,
-                  paid: false
-                }
+              const existingRoyalty = await prisma.royalty.findFirst({
+                where: { orderId: id, workId: work.id, userId: workWithAuthor.authorId }
               })
+
+              if (!existingRoyalty) {
+                await prisma.royalty.create({
+                  data: {
+                    workId: work.id,
+                    userId: workWithAuthor.authorId,
+                    orderId: id,
+                    amount,
+                    rate,
+                    paid: false
+                  }
+                })
+              }
             }
           }
-        } catch (rebateError: any) {
-          logger.error("❌ Error calculating rebates:", rebateError)
-          logger.warn("⚠️ Order validated but rebate calculation failed:", rebateError.message)
+        } catch (financialError) {
+          logger.error("⚠️ Erreur calculs financiers post-validation:", financialError)
+          // On ne fail pas la request car la commande est validée et le stock sorti
         }
-      } catch (deliveryNoteError: any) {
-        logger.error("❌❌ Error creating delivery note or reducing stock:", deliveryNoteError)
-        logger.error("❌❌ Error stack:", deliveryNoteError.stack)
-        // Ne pas faire échouer la validation si la création du bon échoue
-        // Mais on log l'erreur pour investigation
-        logger.warn("⚠️⚠️ Order validated but delivery note creation failed:", deliveryNoteError.message)
+
+        return NextResponse.json({
+          ...result.updatedOrder,
+          deliveryNoteReference: result.deliveryNoteReference
+        })
+
+      } catch (transactionError: any) {
+        logger.error("❌ Erreur validation commande (Transaction):", transactionError)
+        return NextResponse.json(
+          { error: transactionError.message || "Erreur lors de la validation de la commande" },
+          { status: 400 } // Bad Request car souvent dû au stock
+        )
       }
+
+    } else {
+      // Cas mise à jour simple (pas de validation ou déjà validé)
+      const updatedOrder = await prisma.order.update({
+        where: { id },
+        data: baseUpdateData,
+        include: {
+          items: { include: { work: true } },
+          user: true,
+          partner: true
+        }
+      })
+
+      // Si on est déjà validé, on essaie de récupérer le bon de sortie existant pour l'info
+      let deliveryNoteReference = null
+      if (updatedOrder.status === 'VALIDATED') {
+        const dn = await prisma.deliveryNote.findUnique({ where: { orderId: id } })
+        deliveryNoteReference = dn?.reference
+      }
+
+      return NextResponse.json({
+        ...updatedOrder,
+        deliveryNoteReference
+      })
     }
 
-    // Retourner la commande mise à jour avec la référence du bon de sortie (si créé)
-    const result = {
-      ...updatedOrder,
-      deliveryNoteReference: createdReference
-    }
-
-    return NextResponse.json(result)
-  } catch (error) {
+  } catch (error: any) {
     logger.error("Error updating order:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    return NextResponse.json({ error: "Internal Server Error: " + error.message }, { status: 500 })
   }
 }
 

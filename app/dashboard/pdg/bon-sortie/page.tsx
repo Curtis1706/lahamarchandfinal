@@ -109,7 +109,7 @@ export default function BonSortiePage() {
       if (periodFilter !== "toutes") params.append("period", periodFilter);
       if (searchTerm) params.append("search", searchTerm);
 
-      const response = await fetch(`/api/pdg/bon-sortie?${params}`);
+      const response = await fetch(`/api/pdg/bon-sortie?${params}`, { cache: 'no-store' });
       if (!response.ok) throw new Error("Erreur lors du chargement");
 
       const data = await response.json();
@@ -126,15 +126,18 @@ export default function BonSortiePage() {
 
   const loadOrders = async () => {
     try {
-      const response = await fetch("/api/orders?status=VALIDATED");
+      const response = await fetch("/api/orders?status=VALIDATED", { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
-        setOrders(data.orders?.map((o: any) => ({
+        // L'API retourne directement un tableau
+        const ordersArray = Array.isArray(data) ? data : (data.orders || []);
+        
+        setOrders(ordersArray.map((o: any) => ({
           id: o.id,
           reference: o.reference,
           client: o.user?.name || o.clientEmail || "Client",
           total: o.total || 0
-        })) || []);
+        })));
       }
     } catch (error) {
       console.error("Error loading orders:", error);
