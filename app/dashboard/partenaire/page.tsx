@@ -17,7 +17,8 @@ import {
   RotateCcw,
   Eye,
   ShoppingBag,
-  Activity
+  Activity,
+  User
 } from "lucide-react"
 import { toast } from "sonner"
 import { format } from "date-fns"
@@ -135,6 +136,47 @@ export default function PartenaireDashboard() {
 
   return (
     <div className="p-6">
+      {/* Card Informations Personnelles */}
+      <Card className="border-2 border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50 mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="h-5 w-5 text-orange-600" />
+            Mes Informations
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex items-center gap-3 bg-white rounded-lg p-3 border border-orange-200">
+              <div className="p-2 bg-orange-100 rounded-lg">
+                <User className="h-5 w-5 text-orange-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Nom complet</p>
+                <p className="font-semibold text-gray-900">{user?.name || 'Non renseigné'}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 bg-white rounded-lg p-3 border border-orange-200">
+              <div className="p-2 bg-orange-100 rounded-lg">
+                <Package className="h-5 w-5 text-orange-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Rôle</p>
+                <Badge className="bg-orange-600 text-white">Partenaire</Badge>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 bg-white rounded-lg p-3 border border-orange-200">
+              <div className="p-2 bg-orange-100 rounded-lg">
+                <Activity className="h-5 w-5 text-orange-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Téléphone</p>
+                <p className="font-semibold text-gray-900">{user?.phone || 'Non renseigné'}</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Tableau de bord Partenaire</h1>

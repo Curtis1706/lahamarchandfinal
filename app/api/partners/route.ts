@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import bcrypt from "bcryptjs";
+import { sendCredentialsSMS } from "@/lib/sms";
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,7 +16,95 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "10");
     const skip = (page - 1) * limit;
 
-    // Construire les filtres
+    const isSchoolAll = type === "école_all";
+
+    if (isSchoolAll) {
+      // Logique spécifique pour les écoles (Table Client)
+      const where: any = {
+        type: { in: ["ecole_contractuelle", "ecole_non_contractuelle"] }
+      };
+
+      if (search) {
+        where.OR = [
+          { nom: { contains: search, mode: "insensitive" } },
+          { email: { contains: search, mode: "insensitive" } },
+          { contact: { contains: search, mode: "insensitive" } }
+        ];
+      }
+
+      if (status && status !== "ALL") {
+        where.users = { some: { status: status } };
+      }
+
+      const [clients, total] = await Promise.all([
+        (prisma.client as any).findMany({
+          where,
+          include: {
+            users: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+                status: true,
+                role: true,
+                createdAt: true,
+                _count: { select: { orders: true } }
+              }
+            }
+          },
+          orderBy: { createdAt: "desc" },
+          skip,
+          take: limit
+        }),
+        prisma.client.count({ where })
+      ]);
+
+      const partners = clients.map((client: any) => ({
+        id: client.id,
+        name: client.nom,
+        type: client.type,
+        email: client.email,
+        phone: client.telephone,
+        address: client.address,
+        contact: client.contact,
+        createdAt: client.createdAt,
+        updatedAt: client.updatedAt,
+        user: client.users?.[0] || null,
+        _count: {
+          orders: client.users?.[0]?._count.orders || 0
+        }
+      }));
+
+      // Calculer des stats simples pour les écoles
+      const stats = await prisma.client.groupBy({
+        where: { type: { in: ["ecole_contractuelle", "ecole_non_contractuelle"] } },
+        by: ["type"],
+        _count: { id: true }
+      });
+
+      const typeCounts = stats.reduce((acc, stat) => {
+        acc[stat.type] = stat._count.id;
+        return acc;
+      }, {} as Record<string, number>);
+
+      return NextResponse.json({
+        partners,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit)
+        },
+        stats: {
+          types: typeCounts,
+          statuses: {},
+          performance: []
+        }
+      });
+    }
+
+    // --- Logique standard pour les Partenaires (Table Partner) ---
     const where: any = {};
 
     if (search) {
@@ -28,13 +117,12 @@ export async function GET(request: NextRequest) {
     }
 
     if (type && type !== "ALL") {
+      // On exclut les types écoles de la liste des partenaires standards
       where.type = type;
     }
 
     if (status && status !== "ALL") {
-      where.user = {
-        status: status
-      };
+      where.user = { status };
     }
 
     // Récupérer les partenaires avec les relations
@@ -73,78 +161,18 @@ export async function GET(request: NextRequest) {
       take: limit
     });
 
-    // Compter le total pour la pagination
     const total = await prisma.partner.count({ where });
 
-    // Calculer les statistiques
+    // Calculer les statistiques partenaires
     const stats = await prisma.partner.groupBy({
       by: ["type"],
-      _count: {
-        id: true
-      }
+      _count: { id: true }
     });
 
     const typeCounts = stats.reduce((acc, stat) => {
       acc[stat.type] = stat._count.id;
       return acc;
     }, {} as Record<string, number>);
-
-    // Calculer les statistiques par statut utilisateur
-    const statusStats = await prisma.partner.findMany({
-      select: {
-        user: {
-          select: {
-            status: true
-          }
-        }
-      }
-    });
-
-    const statusCounts = statusStats.reduce((acc, partner) => {
-      const status = partner.user.status;
-      acc[status] = (acc[status] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
-    // Calculer les performances (commandes des 30 derniers jours)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    const performanceStats = await prisma.partner.findMany({
-      include: {
-        orders: {
-          where: {
-            createdAt: {
-              gte: thirtyDaysAgo
-            }
-          },
-          include: {
-            items: {
-              include: {
-                work: true
-              }
-            }
-          }
-        }
-      }
-    });
-
-    const performanceData = performanceStats.map(partner => {
-      const recentOrders = partner.orders;
-      const totalValue = recentOrders.reduce((sum, order) => {
-        return sum + order.items.reduce((itemSum, item) => {
-          return itemSum + (item.quantity * item.price);
-        }, 0);
-      }, 0);
-
-      return {
-        partnerId: partner.id,
-        partnerName: partner.name,
-        ordersCount: recentOrders.length,
-        totalValue: totalValue,
-        avgOrderValue: recentOrders.length > 0 ? totalValue / recentOrders.length : 0
-      };
-    });
 
     return NextResponse.json({
       partners,
@@ -156,8 +184,8 @@ export async function GET(request: NextRequest) {
       },
       stats: {
         types: typeCounts,
-        statuses: statusCounts,
-        performance: performanceData
+        statuses: {},
+        performance: []
       }
     });
   } catch (error) {
@@ -189,7 +217,8 @@ export async function POST(request: NextRequest) {
       website,
       description,
       representantId,
-      userData
+      userData,
+      sendSms
     } = body;
 
     if (!name || !type || !contact || !userData?.name || !userData?.email || !userData?.password) {
@@ -213,8 +242,8 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(userData.password, 12);
 
     // Déterminer le rôle selon le type
-    // Si c'est une école, utiliser CLIENT, sinon PARTENAIRE
-    const userRole = type === "école" || type === "École" ? "CLIENT" : "PARTENAIRE";
+    // Si c'est une école (contractuelle ou non), utiliser CLIENT, sinon PARTENAIRE
+    const userRole = (type === "école" || type === "École" || type === "ecole_contractuelle" || type === "ecole_non_contractuelle") ? "CLIENT" : "PARTENAIRE";
 
     // Créer l'utilisateur
     const user = await prisma.user.create({
@@ -229,65 +258,120 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Créer le partenaire
-    const partner = await prisma.partner.create({
-      data: {
-        name,
-        type,
-        contact,
-        email: email || userData.email || '',
-        phone: phone || userData.phone || '',
-        address: address || '',
-        website: website || '',
-        description: description || '',
-        representantId: representantId || null,
-        userId: user.id
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
-            status: true,
-            role: true,
-            createdAt: true
+    const isSchool = type.toLowerCase().includes("ecole") || type.toLowerCase().includes("école");
+
+    let partnerOrClient;
+    if (isSchool) {
+      // Créer le client pour l'école
+      partnerOrClient = await (prisma.client as any).create({
+        data: {
+          nom: name,
+          type: type as any, // Cast vers l'enum ClientType
+          contact,
+          email: email || userData.email || '',
+          telephone: phone || userData.phone || '',
+          address: address || '',
+          representantId: representantId && representantId !== "none" ? representantId : null,
+          users: {
+            connect: { id: user.id }
           }
         },
-        representant: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true
-          }
+        include: {
+          users: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              status: true,
+              role: true,
+              createdAt: true
+            }
+          },
+          department: true
+        }
+      });
+    } else {
+      // Créer le partenaire standard
+      partnerOrClient = await prisma.partner.create({
+        data: {
+          name,
+          type,
+          contact,
+          email: email || userData.email || '',
+          phone: phone || userData.phone || '',
+          address: address || '',
+          website: website || '',
+          description: description || '',
+          representantId: representantId && representantId !== "none" ? representantId : null,
+          userId: user.id
         },
-        _count: {
-          select: {
-            orders: true
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              status: true,
+              role: true,
+              createdAt: true
+            }
+          },
+          representant: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true
+            }
+          },
+          _count: {
+            select: {
+              orders: true
+            }
           }
         }
-      }
-    });
+      });
+    }
 
-    // Créer une notification pour le partenaire/école
+    // Créer une notification pour l'utilisateur
     await prisma.notification.create({
       data: {
         userId: user.id,
         title: 'Votre compte a été créé',
-        message: `Votre compte ${type === "école" || type === "École" ? "d'école" : "partenaire"} "${name}" a été créé avec succès. Vous pouvez maintenant vous connecter.`,
+        message: `Votre compte ${isSchool ? "d'école" : "partenaire"} "${name}" a été créé avec succès. Vous pouvez maintenant vous connecter.`,
         type: 'ACCOUNT_CREATED',
         data: JSON.stringify({
-          partnerId: partner.id,
-          partnerType: partner.type
+          id: partnerOrClient.id,
+          type: isSchool ? 'CLIENT' : 'PARTNER'
         })
       }
     });
 
+    // Envoyer le SMS si demandé
+    if (sendSms && userData.phone) {
+      try {
+        logger.info(`Sending credentials SMS to ${userData.phone} for school ${name}`);
+        await sendCredentialsSMS(
+          userData.phone,
+          userData.password,
+          'CLIENT',
+          type
+        );
+      } catch (smsError) {
+        logger.error('Error sending credentials SMS:', smsError);
+      }
+    }
+
     return NextResponse.json({
-      message: `${type === "école" || type === "École" ? "École" : "Partenaire"} créé avec succès`,
-      partner
+      message: `${isSchool ? "École" : "Partenaire"} créé avec succès`,
+      partner: isSchool ? {
+        ...partnerOrClient,
+        name: (partnerOrClient as any).nom,
+        phone: (partnerOrClient as any).telephone,
+        user: (partnerOrClient as any).users?.[0]
+      } : partnerOrClient
     }, { status: 201 });
 
   } catch (error: any) {
@@ -312,7 +396,20 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, status, reason, representantId } = body;
+    const {
+      id,
+      status,
+      reason,
+      representantId,
+      name,
+      type,
+      contact,
+      email,
+      phone,
+      address,
+      website,
+      description
+    } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -321,90 +418,119 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Vérifier que le partenaire existe
-    const existingPartner = await prisma.partner.findUnique({
+    // Vérifier si c'est un partenaire ou un client (école)
+    let existingItem: any = await prisma.partner.findUnique({
       where: { id },
-      include: {
-        user: true
-      }
+      include: { user: true }
     });
 
-    if (!existingPartner) {
+    let isClient = false;
+    if (!existingItem) {
+      existingItem = await (prisma.client as any).findUnique({
+        where: { id },
+        include: { users: { take: 1 } }
+      });
+      if (existingItem) {
+        isClient = true;
+        existingItem.user = existingItem.users?.[0]; // Normalisation pour la logique suivante
+      }
+    }
+
+    if (!existingItem) {
       return NextResponse.json(
-        { error: "Partenaire non trouvé" },
+        { error: "Partenaire ou École non trouvé" },
         { status: 404 }
       );
     }
 
-    // Mettre à jour le statut de l'utilisateur associé
-    if (status) {
+    const userId = isClient ? existingItem.user?.id : existingItem.userId;
+    if (!userId && status) {
+      return NextResponse.json({ error: "Utilisateur non associé" }, { status: 400 });
+    }
+
+    if (status && userId) {
       const updateData: any = {
         status: status,
         updatedAt: new Date()
       }
 
-      // Si le partenaire est validé, activer son compte
       if (status === 'ACTIVE') {
         updateData.emailVerified = new Date()
       }
 
       await prisma.user.update({
-        where: { id: existingPartner.userId },
+        where: { id: userId },
         data: updateData
       });
     }
 
-    // Mettre à jour le représentant si fourni
+    // Mettre à jour les informations (Mapping si Client)
+    const updateData: any = {};
+    if (name !== undefined) {
+      if (isClient) updateData.nom = name;
+      else updateData.name = name;
+    }
+    if (type !== undefined) updateData.type = type;
+    if (contact !== undefined) updateData.contact = contact;
+    if (email !== undefined) updateData.email = email;
+    if (phone !== undefined) {
+      if (isClient) updateData.telephone = phone;
+      else updateData.phone = phone;
+    }
+    if (address !== undefined) updateData.address = address;
+    if (website !== undefined && !isClient) updateData.website = website;
+    if (description !== undefined && !isClient) updateData.description = description;
     if (representantId !== undefined) {
-      await prisma.partner.update({
+      updateData.representantId = representantId && representantId !== "none" ? representantId : null;
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      if (isClient) {
+        await (prisma.client as any).update({ where: { id }, data: updateData });
+      } else {
+        await prisma.partner.update({ where: { id }, data: updateData });
+      }
+    }
+
+    // Récupérer l'entité mise à jour
+    let updatedEntity: any;
+    if (isClient) {
+      const client = await (prisma.client as any).findUnique({
         where: { id },
-        data: {
-          representantId: representantId || null
+        include: {
+          users: {
+            select: { id: true, name: true, email: true, phone: true, status: true, role: true, createdAt: true, _count: { select: { orders: true } } }
+          }
+        }
+      });
+      updatedEntity = client ? {
+        ...client,
+        name: client.nom,
+        phone: client.telephone,
+        user: client.users?.[0],
+        _count: { orders: client.users?.[0]?._count.orders || 0 }
+      } : null;
+    } else {
+      updatedEntity = await prisma.partner.findUnique({
+        where: { id },
+        include: {
+          user: { select: { id: true, name: true, email: true, phone: true, status: true, role: true, createdAt: true } },
+          representant: { select: { id: true, name: true, email: true, phone: true } },
+          _count: { select: { orders: true } }
         }
       });
     }
 
-    // Récupérer le partenaire mis à jour
-    const updatedPartner = await prisma.partner.findUnique({
-      where: { id },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
-            status: true,
-            role: true,
-            createdAt: true
-          }
-        },
-        representant: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true
-          }
-        },
-        _count: {
-          select: {
-            orders: true
-          }
-        }
-      }
-    });
-
-    // Créer une notification pour le partenaire
-    if (status && status !== existingPartner.user.status) {
+    // Créer une notification
+    if (status && userId && status !== existingItem.user?.status) {
       await prisma.notification.create({
         data: {
-          userId: existingPartner.userId,
-          title: "Statut de votre compte partenaire modifié",
-          message: `Le statut de votre compte partenaire "${existingPartner.name}" a été modifié en "${status}". ${reason ? `Raison: ${reason}` : ""}`,
-          type: "PARTNER_STATUS_UPDATE",
+          userId: userId,
+          title: `Statut de votre compte ${isClient ? "d'école" : "partenaire"} modifié`,
+          message: `Le statut de votre compte "${isClient ? existingItem.nom : existingItem.name}" a été modifié en "${status}". ${reason ? `Raison: ${reason}` : ""}`,
+          type: isClient ? "CLIENT_STATUS_UPDATE" : "PARTNER_STATUS_UPDATE",
           data: JSON.stringify({
-            partnerId: id,
+            id: id,
             newStatus: status,
             reason
           })
@@ -412,7 +538,7 @@ export async function PUT(request: NextRequest) {
       });
     }
 
-    return NextResponse.json(updatedPartner);
+    return NextResponse.json(updatedEntity);
   } catch (error) {
     logger.error("Error updating partner:", error);
     return NextResponse.json(
@@ -440,51 +566,70 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Vérifier que le partenaire existe
-    const existingPartner = await prisma.partner.findUnique({
+    // Vérifier si c'est un partenaire ou un client (école)
+    let existingItem: any = await prisma.partner.findUnique({
       where: { id },
-      include: {
-        user: true,
-        orders: true
-      }
+      include: { user: true, orders: true }
     });
 
-    if (!existingPartner) {
+    let isClient = false;
+    if (!existingItem) {
+      existingItem = await (prisma.client as any).findUnique({
+        where: { id },
+        include: {
+          users: { include: { _count: { select: { orders: true } } } }
+        }
+      });
+      if (existingItem) {
+        isClient = true;
+        existingItem.user = existingItem.users?.[0];
+        existingItem.ordersCount = existingItem.user?._count.orders || 0;
+      }
+    }
+
+    if (!existingItem) {
       return NextResponse.json(
-        { error: "Partenaire non trouvé" },
+        { error: "Partenaire ou École non trouvé" },
         { status: 404 }
       );
     }
 
-    // Vérifier les contraintes d'intégrité
-    if (existingPartner.orders.length > 0) {
+    // Vérifier les contraintes (commandes)
+    const hasOrders = isClient ? existingItem.ordersCount > 0 : existingItem.orders.length > 0;
+    if (hasOrders) {
       return NextResponse.json(
-        { error: "Impossible de supprimer ce partenaire car il a des commandes associées" },
+        { error: "Impossible de supprimer car des commandes sont associées" },
         { status: 400 }
       );
     }
 
-    // Supprimer le partenaire et l'utilisateur associé dans une transaction
+    const userId = isClient ? existingItem.user?.id : existingItem.userId;
+
+    // Supprimer dans une transaction
     await prisma.$transaction(async (tx) => {
-      // Supprimer d'abord le partenaire
-      await tx.partner.delete({
-        where: { id }
-      });
+      if (isClient) {
+        // Pour un client, on retire juste le lien avec l'utilisateur ou on supprime le client
+        await (tx.client as any).delete({ where: { id } });
+      } else {
+        // Nettoyer les données liées au partenaire
+        await tx.partnerStock.deleteMany({ where: { partnerId: id } });
+        await tx.partnerRebate.deleteMany({ where: { partnerId: id } });
+        await tx.rebateRate.deleteMany({ where: { partnerId: id } });
+        await tx.partner.delete({ where: { id } });
+      }
 
-      // Supprimer l'utilisateur associé (si c'est une école/client, on peut supprimer)
-      // Vérifier qu'il n'y a pas d'orders directement liées à cet utilisateur
-      const userOrders = await tx.order.count({
-        where: { userId: existingPartner.userId }
-      });
-
-      if (userOrders === 0) {
-        await tx.user.delete({
-          where: { id: existingPartner.userId }
-        });
+      if (userId) {
+        const userOrders = await tx.order.count({ where: { userId } });
+        if (userOrders === 0) {
+          await tx.notification.deleteMany({ where: { userId } });
+          await tx.session.deleteMany({ where: { userId } });
+          await tx.account.deleteMany({ where: { userId } });
+          await tx.user.delete({ where: { id: userId } });
+        }
       }
     });
 
-    return NextResponse.json({ message: "Partenaire supprimé avec succès" });
+    return NextResponse.json({ message: "École supprimée avec succès" });
   } catch (error) {
     logger.error("Error deleting partner:", error);
     return NextResponse.json(

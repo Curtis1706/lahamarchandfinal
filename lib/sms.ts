@@ -45,10 +45,8 @@ export async function sendCredentialsSMS(phone: string, password: string, role: 
 
     const text = `Bienvenue ! Vous avez été ajouté en tant que ${displayRole} sur LAHA Marchand Gabon.\n\nVos identifiants :\nNuméro : ${cleanPhone}\nMot de passe : ${password}`;
 
-    if (process.env.NODE_ENV === 'development') {
-        const anonymizedPhone = cleanPhone.replace(/(\d{3})\d+(\d{2})/, "$1****$2");
-        console.log(`📡 Tentative d'envoi SMS à ${anonymizedPhone} via Fastermessage...`);
-    }
+    const anonymizedPhone = cleanPhone.replace(/(\d{3})\d+(\d{2})/, "$1****$2");
+    console.log(`📡 [SMS] Tentative d'envoi à ${anonymizedPhone} (Type: ${displayRole})...`);
 
     try {
         const response = await fetch("https://api.fastermessage.com/v1/sms/send", {
@@ -68,13 +66,17 @@ export async function sendCredentialsSMS(phone: string, password: string, role: 
 
         const data = await response.json();
 
-        if (process.env.NODE_ENV === 'development') {
-            console.log("📨 Résultat envoi SMS Fastermessage:", data);
+        const isSuccess = response.ok && (data.status === "success" || data.status === true || data.code === 'SUBMITTED');
+
+        if (isSuccess) {
+            console.log(`✅ [SMS] Envoyé avec succès à ${anonymizedPhone} (ID: ${data.messageId || data.message_id || 'N/A'})`);
+        } else {
+            console.error(`❌ [SMS] Échec de l'envoi à ${anonymizedPhone}. Réponse API:`, data);
         }
 
         return data;
     } catch (error) {
-        console.error("❌ Erreur lors de l'envoi du SMS Fastermessage:", error);
+        console.error(`❌ [SMS] Erreur critique lors de l'envoi à ${anonymizedPhone}:`, error);
         return { status: false, error };
     }
 }

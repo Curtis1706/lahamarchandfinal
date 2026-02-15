@@ -83,16 +83,22 @@ export default function ClientDashboard() {
   const [disciplines, setDisciplines] = useState<Discipline[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentBookIndex, setCurrentBookIndex] = useState(0);
+  const [clientProfile, setClientProfile] = useState<any>(null);
 
   // Charger les données réelles
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const [worksData, disciplinesData] = await Promise.all([
+        const [worksData, disciplinesData, profileData] = await Promise.all([
           apiClient.getWorks(),
-          apiClient.getDisciplines()
+          apiClient.getDisciplines(),
+          fetch('/api/users/profile').then(res => res.json())
         ]);
+
+        if (profileData && !profileData.error) {
+          setClientProfile(profileData);
+        }
 
         // L'API retourne un objet avec works, pagination, stats
         // ou directement un tableau selon le contexte
@@ -273,20 +279,64 @@ export default function ClientDashboard() {
           {/* Grille générale */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {/* Card Client */}
-            <div className="bg-[#6967CE] rounded-2xl p-6 text-white flex items-center justify-between shadow-lg h-40">
+            <div className="bg-[#6967CE] rounded-2xl p-6 text-white flex items-center justify-between shadow-lg min-h-[160px]">
               <div className="flex items-center space-x-4">
                 <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
                   <User className="w-6 h-6" />
                 </div>
                 <div>
-                  <p className="text-indigo-200">{user?.name || 'Client'}</p>
-                  <p className="text-sm text-indigo-100 font-medium mb-1">{user?.phone || '-'}</p>
-                  <span className="inline-block px-3 py-1 bg-yellow-500 text-yellow-900 rounded-full text-xs font-medium uppercase">
+                  <p className="text-sm text-indigo-200 uppercase tracking-wider font-bold">Profil Personnel</p>
+                  <p className="text-xl font-bold">{user?.name || 'Client'}</p>
+                  <p className="text-sm text-indigo-100 font-medium mb-1">{user?.phone || user?.email || '-'}</p>
+                  <span className="inline-block px-3 py-1 bg-yellow-500 text-yellow-900 rounded-full text-xs font-bold uppercase">
                     {user?.clientType?.replace(/_/g, ' ') || 'Client'}
                   </span>
                 </div>
               </div>
             </div>
+
+            {/* Card Établissement (Si c'est une école) */}
+            {clientProfile?.clients?.length > 0 && (
+              <div className="bg-white border border-gray-100 rounded-2xl p-6 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow min-h-[160px]">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center">
+                      <BookOpen className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-wider font-bold">Mon Établissement</p>
+                      <h3 className="text-xl font-bold text-gray-900 leading-tight">
+                        {clientProfile.clients[0].nom}
+                      </h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="outline" className="text-[10px] uppercase border-indigo-200 text-indigo-700 bg-indigo-50">
+                          {clientProfile.clients[0].type?.replace(/_/g, ' ')}
+                        </Badge>
+                        <p className="text-xs text-gray-500">
+                          {clientProfile.clients[0].city || clientProfile.clients[0].address || 'Gabon'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {clientProfile.clients[0].representant && (
+                  <div className="mt-4 pt-3 border-t border-gray-50 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 bg-green-100 text-green-700 rounded-full flex items-center justify-center">
+                        <User className="w-3 h-3" />
+                      </div>
+                      <p className="text-xs text-gray-600">
+                        Représentant : <span className="font-bold">{clientProfile.clients[0].representant.name}</span>
+                      </p>
+                    </div>
+                    <Link href="/dashboard/client/notifications" className="text-[10px] text-indigo-600 font-bold hover:underline">
+                      CONTACTER
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Ligne stats */}

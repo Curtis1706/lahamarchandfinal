@@ -269,6 +269,47 @@ export default function AuteurDashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* Card Informations Personnelles */}
+      <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="h-5 w-5 text-purple-600" />
+            Mes Informations
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex items-center gap-3 bg-white rounded-lg p-3 border border-purple-200">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <User className="h-5 w-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Nom complet</p>
+                <p className="font-semibold text-gray-900">{user?.name || 'Non renseigné'}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 bg-white rounded-lg p-3 border border-purple-200">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <GraduationCap className="h-5 w-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Rôle</p>
+                <Badge className="bg-purple-600 text-white">Auteur</Badge>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 bg-white rounded-lg p-3 border border-purple-200">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <Bell className="h-5 w-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Téléphone</p>
+                <p className="font-semibold text-gray-900">{user?.phone || 'Non renseigné'}</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Section Droits d'Auteur - En haut - TOUJOURS VISIBLE */}
       <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
         <CardHeader>
