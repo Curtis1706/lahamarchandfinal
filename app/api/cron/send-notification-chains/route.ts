@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
         if (!isCronSecretValid && !isPdgSession) {
             console.error('❌ [CRON] Tentative d\'accès non autorisée');
-            return NextResponse.json({ error: 'Accès non autorisé', message: 'Session PDG ou Token requis' }, { status: 401 });
+            return NextResponse.json({ error: 'Accès non autorisé ', message: 'Session PDG ou Token requis' }, { status: 401 });
         }
 
         const now = new Date();
