@@ -1090,7 +1090,7 @@ function EditUserForm({ user, disciplines, departments, onSubmit, onCancel }: {
 }
 
 // Composant pour créer un utilisateur
-function CreateUserForm({ disciplines, departments, onSubmit, onCancel }: {
+export function CreateUserForm({ disciplines, departments, onSubmit, onCancel }: {
   disciplines: Discipline[]
   departments: any[]
   onSubmit: (data: any) => void

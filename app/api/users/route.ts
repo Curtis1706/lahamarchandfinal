@@ -285,7 +285,14 @@ export async function GET(request: NextRequest) {
             id: true,
             name: true
           }
-        }
+        },
+        department: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        clients: true
       },
       orderBy: {
         createdAt: 'desc'

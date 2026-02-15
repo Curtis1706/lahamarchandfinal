@@ -84,6 +84,7 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           label: "Utilisateurs",
           children: [
             { href: `${basePath}/gestion-utilisateurs`, label: "Tous les Utilisateurs" },
+            { href: `${basePath}/clients`, label: "Clients" },
             { href: `${basePath}/gestion-utilisateurs/gestion-partenaires`, label: "Partenaires" },
             { href: `${basePath}/gestion-utilisateurs/gestion-ecoles`, label: "Écoles" }
           ]
