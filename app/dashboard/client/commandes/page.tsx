@@ -1026,8 +1026,8 @@ function ClientCommandePageContent() {
                             </span>
                           </div>
 
-                          {/* Bouton de Paiement si Validée et Non Payée */}
-                          {(order.status === 'confirmed' && order.paymentStatus !== 'PAID') && (() => {
+                          {/* Bouton de Paiement si Validée et Non Payée, OU si Dépôt (peu importe le statut sauf annulé) */}
+                          {((order.status === 'confirmed' || order.paymentMethod === 'depot') && order.status !== 'cancelled' && order.paymentStatus !== 'PAID') && (() => {
                             // Vérifier si c'est Airtel Money avec une preuve déjà soumise
                             let isAirtelWithProof = false;
                             if (order.paymentMethod &&

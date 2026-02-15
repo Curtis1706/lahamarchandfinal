@@ -69,7 +69,7 @@ export default function VentesRetoursPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState("all-status")
   const [methodFilter, setMethodFilter] = useState("all-methods")
-  const [dateRange, setDateRange] = useState<{from: Date | undefined, to: Date | undefined}>({
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined, to: Date | undefined }>({
     from: undefined,
     to: undefined
   })
@@ -87,7 +87,8 @@ export default function VentesRetoursPage() {
   const [selectedWork, setSelectedWork] = useState("")
   const [saleQuantity, setSaleQuantity] = useState("0")
   const [saleObservation, setSaleObservation] = useState("")
-  const [salePaymentMethod, setSalePaymentMethod] = useState("")
+  // const [salePaymentMethod, setSalePaymentMethod] = useState("") // Removed
+  const [paymentDueDate, setPaymentDueDate] = useState<Date | undefined>(undefined) // Added
   const [works, setWorks] = useState<Work[]>([])
   const [clients, setClients] = useState<any[]>([])
   const [partners, setPartners] = useState<any[]>([])
@@ -113,7 +114,7 @@ export default function VentesRetoursPage() {
     try {
       setIsLoading(true)
       const params = new URLSearchParams()
-      
+
       if (dateRange.from) params.append("startDate", dateRange.from.toISOString())
       if (dateRange.to) params.append("endDate", dateRange.to.toISOString())
       if (statusFilter !== "all-status") params.append("status", statusFilter)
@@ -131,7 +132,7 @@ export default function VentesRetoursPage() {
       } else {
         toast({
           title: "Erreur",
-          description: "Impossible de charger les ventes et retours",
+          description: "Impossible de charger les dépôts et retours",
           variant: "destructive"
         })
       }
@@ -157,7 +158,7 @@ export default function VentesRetoursPage() {
         apiClient.getDisciplines(),
         fetch("/api/pdg/classes").then(r => r.json()).catch(() => [])
       ])
-      
+
       setWorks(worksData || [])
       // Extract users from response (could be array or object with users property)
       const clientsList = Array.isArray(clientsResponse) ? clientsResponse : (clientsResponse?.users || [])
@@ -232,15 +233,24 @@ export default function VentesRetoursPage() {
       return
     }
 
+    if (!paymentDueDate) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez définir une date limite de paiement",
+        variant: "destructive"
+      })
+      return
+    }
+
     try {
       const response = await fetch("/api/pdg/ventes-retours", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: "vente",
+          type: "vente", // Will be treated as deposit by backend
           items: saleItems,
           clientId: selectedClient,
-          paymentMethod: salePaymentMethod,
+          paymentDueDate: paymentDueDate.toISOString(),
           observation: saleObservation
         })
       })
@@ -248,7 +258,7 @@ export default function VentesRetoursPage() {
       if (response.ok) {
         toast({
           title: "Succès",
-          description: "Vente enregistrée avec succès"
+          description: "Dépôt enregistré avec succès"
         })
         setShowSaleModal(false)
         resetSaleForm()
@@ -378,7 +388,7 @@ export default function VentesRetoursPage() {
           </div>
         </div>
       </div>
-      
+
       <div className="p-6">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
@@ -420,7 +430,7 @@ export default function VentesRetoursPage() {
         <div className="bg-white rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
-              <button 
+              <button
                 className="p-2 hover:bg-gray-100 rounded"
                 onClick={loadVentesRetours}
                 title="Actualiser"
@@ -494,7 +504,7 @@ export default function VentesRetoursPage() {
                       </div>
                     </div>
                     <div className="flex justify-end space-x-2">
-                      <Button 
+                      <Button
                         className="bg-indigo-600 hover:bg-indigo-700"
                         onClick={() => {
                           loadVentesRetours()
@@ -503,7 +513,7 @@ export default function VentesRetoursPage() {
                       >
                         Appliquer ✓
                       </Button>
-                      <Button 
+                      <Button
                         variant="outline"
                         onClick={() => {
                           setAccountFilter("all")
@@ -641,15 +651,15 @@ export default function VentesRetoursPage() {
                       </div>
                       <div>
                         <Label>Quantité</Label>
-                        <Input 
-                          type="number" 
-                          value={saleQuantity} 
+                        <Input
+                          type="number"
+                          value={saleQuantity}
                           onChange={(e) => setSaleQuantity(e.target.value)}
                           min="1"
                         />
                       </div>
                       <div className="flex items-end">
-                        <Button 
+                        <Button
                           className="bg-indigo-600 hover:bg-indigo-700 w-full"
                           onClick={handleAddSaleItem}
                         >
@@ -706,35 +716,53 @@ export default function VentesRetoursPage() {
 
                     <div>
                       <Label>Observation</Label>
-                      <Textarea 
-                        className="mt-1" 
+                      <Textarea
+                        className="mt-1"
                         rows={3}
                         value={saleObservation}
                         onChange={(e) => setSaleObservation(e.target.value)}
                       />
                     </div>
 
-                    <div>
-                      <Label>Mode de paiement</Label>
-                      <Select value={salePaymentMethod} onValueChange={setSalePaymentMethod}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sélectionnez une méthode" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Espèces">Espèces</SelectItem>
-                          <SelectItem value="Carte">Carte</SelectItem>
-                          <SelectItem value="Virement">Virement</SelectItem>
-                          <SelectItem value="Mobile Money">Mobile Money</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    {/* Date limite de paiement */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Date limite de paiement <span className="text-red-500">*</span></Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full justify-start text-left font-normal mt-1",
+                                !paymentDueDate && "text-muted-foreground"
+                              )}
+                            >
+                              <Calendar className="mr-2 h-4 w-4" />
+                              {paymentDueDate ? (
+                                format(paymentDueDate, "dd MMM yyyy", { locale: fr })
+                              ) : (
+                                <span>Choisir une date</span>
+                              )}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <CalendarComponent
+                              mode="single"
+                              selected={paymentDueDate}
+                              onSelect={setPaymentDueDate}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                     </div>
 
                     <div className="flex justify-end space-x-2">
-                      <Button 
+                      <Button
                         className="bg-indigo-600 hover:bg-indigo-700"
                         onClick={handleCreateSale}
                       >
-                        Enregistrer
+                        Enregistrer Dépôt
                       </Button>
                       <Button variant="outline" onClick={() => setShowSaleModal(false)}>
                         Fermer
@@ -867,15 +895,15 @@ export default function VentesRetoursPage() {
                       </div>
                       <div>
                         <Label>Quantité</Label>
-                        <Input 
-                          type="number" 
-                          value={saleQuantity} 
+                        <Input
+                          type="number"
+                          value={saleQuantity}
                           onChange={(e) => setSaleQuantity(e.target.value)}
                           min="1"
                         />
                       </div>
                       <div className="flex items-end">
-                        <Button 
+                        <Button
                           className="bg-indigo-600 hover:bg-indigo-700 w-full"
                           onClick={handleAddSaleItem}
                         >
@@ -932,8 +960,8 @@ export default function VentesRetoursPage() {
 
                     <div>
                       <Label>Observation</Label>
-                      <Textarea 
-                        className="mt-1" 
+                      <Textarea
+                        className="mt-1"
                         rows={3}
                         value={saleObservation}
                         onChange={(e) => setSaleObservation(e.target.value)}
@@ -941,7 +969,7 @@ export default function VentesRetoursPage() {
                     </div>
 
                     <div className="flex justify-end space-x-2">
-                      <Button 
+                      <Button
                         className="bg-indigo-600 hover:bg-indigo-700"
                         onClick={handleCreateReturn}
                       >
@@ -1022,7 +1050,7 @@ export default function VentesRetoursPage() {
           </div>
 
           <div className="flex justify-end mb-6">
-            <Button 
+            <Button
               className="bg-indigo-600 hover:bg-indigo-700"
               onClick={loadVentesRetours}
             >
@@ -1050,11 +1078,11 @@ export default function VentesRetoursPage() {
 
             <div className="flex items-center space-x-2">
               <span className="text-sm text-gray-600">Rechercher:</span>
-              <Input 
-                type="text" 
-                value={searchTerm} 
-                onChange={(e) => setSearchTerm(e.target.value)} 
-                className="w-64" 
+              <Input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-64"
               />
             </div>
           </div>
@@ -1097,12 +1125,11 @@ export default function VentesRetoursPage() {
                       <td className="py-3 px-4">{vente.qty}</td>
                       <td className="py-3 px-4">{formatCurrency(vente.montant)} XOF</td>
                       <td className="py-3 px-4">
-                        <span className={`inline-block px-2 py-1 text-xs rounded ${
-                          vente.statut === "Validée" ? "bg-green-100 text-green-800" :
+                        <span className={`inline-block px-2 py-1 text-xs rounded ${vente.statut === "Validée" ? "bg-green-100 text-green-800" :
                           vente.statut === "En cours" ? "bg-blue-100 text-blue-800" :
-                          vente.statut === "En attente" ? "bg-yellow-100 text-yellow-800" :
-                          "bg-red-100 text-red-800"
-                        }`}>
+                            vente.statut === "En attente" ? "bg-yellow-100 text-yellow-800" :
+                              "bg-red-100 text-red-800"
+                          }`}>
                           {vente.statut}
                         </span>
                       </td>
@@ -1130,16 +1157,16 @@ export default function VentesRetoursPage() {
               Affichage de {ventesRetours.length > 0 ? startIndex + 1 : 0} à {Math.min(endIndex, ventesRetours.length)} sur {ventesRetours.length} éléments
             </p>
             <div className="flex items-center space-x-2">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={() => setCurrentPage(1)}
                 disabled={currentPage === 1}
               >
                 Premier
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
@@ -1149,16 +1176,16 @@ export default function VentesRetoursPage() {
               <Button variant="outline" size="sm" className="bg-indigo-600 text-white">
                 {currentPage}
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                 disabled={currentPage === totalPages || totalPages === 0}
               >
                 Suivant
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={() => setCurrentPage(totalPages)}
                 disabled={currentPage === totalPages || totalPages === 0}

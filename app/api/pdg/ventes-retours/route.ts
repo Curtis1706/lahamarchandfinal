@@ -36,7 +36,6 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Filtrer par compte (client ou partenaire)
     if (accountFilter && accountFilter !== 'all') {
       if (accountFilter === 'client') {
         whereClause.partnerId = null
@@ -45,33 +44,23 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Force filtering by 'depot' payment method for this page
+    whereClause.paymentMethod = 'depot'
+
     // Récupérer toutes les commandes (ventes)
     const orders = await prisma.order.findMany({
       where: whereClause,
       include: {
         user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true
-          }
+          select: { name: true, email: true }
         },
         partner: {
-          select: {
-            id: true,
-            name: true
-          }
+          select: { name: true }
         },
         items: {
           include: {
             work: {
-              select: {
-                id: true,
-                title: true,
-                isbn: true,
-                price: true
-              }
+              select: { title: true, price: true }
             }
           }
         }
@@ -83,20 +72,22 @@ export async function GET(request: NextRequest) {
     const ventesRetours = orders.map(order => {
       const totalQty = order.items.reduce((sum, item) => sum + item.quantity, 0)
       const totalAmount = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-      
+
       // Déterminer le type (vente ou retour basé sur le statut)
-      const type = order.status === 'CANCELLED' ? 'retour' : 'vente'
-      
+      // Pour les dépôts, un retour est souvent une annulation ou un retour partiel
+      const type = order.status === 'CANCELLED' ? 'retour' : 'depot'
+
       // Déterminer le compte
       const compte = order.partner ? 'Partenaire' : 'Client'
-      
+
       // Déterminer le statut
       let statut = 'En attente'
       if (order.status === 'DELIVERED') statut = 'Validée'
       else if (order.status === 'SHIPPED') statut = 'En cours'
       else if (order.status === 'PROCESSING') statut = 'En traitement'
-      else if (order.status === 'CANCELLED') statut = 'Annulée'
+      else if (order.status === 'CANCELLED') statut = 'Retourné'
       else if (order.status === 'VALIDATED') statut = 'Validée'
+      else if (order.status === 'PENDING') statut = 'En attente'
 
       return {
         id: order.id,
@@ -105,8 +96,8 @@ export async function GET(request: NextRequest) {
         montant: totalAmount,
         statut: statut,
         compte: compte,
-        paiements: order.status === 'DELIVERED' || order.status === 'VALIDATED' ? 'Payé' : 'En attente',
-        methode: order.paymentMethod || 'Non spécifié',
+        paiements: order.paymentStatus === 'PAID' ? 'Payé' : 'Non Payé',
+        methode: order.paymentMethod || 'depot',
         creeLe: format(new Date(order.createdAt), 'dd MMM yyyy, HH:mm', { locale: fr }),
         validePar: (order.status === 'VALIDATED' || order.status === 'DELIVERED') ? 'PDG' : '-',
         modifieLe: format(new Date(order.updatedAt), 'dd MMM yyyy, HH:mm', { locale: fr }),
@@ -130,9 +121,9 @@ export async function GET(request: NextRequest) {
       filtered = filtered.filter(v => v.statut === statusFilter)
     }
 
-    // Filtrer par méthode de paiement
+    // Filtrer par méthode de paiement (Redundant if we force depot, but keep for safety/reuse)
     if (methodFilter && methodFilter !== 'all' && methodFilter !== 'all-methods') {
-      filtered = filtered.filter(v => 
+      filtered = filtered.filter(v =>
         v.methode.toLowerCase().includes(methodFilter.toLowerCase())
       )
     }
@@ -148,14 +139,15 @@ export async function GET(request: NextRequest) {
 
     // Calculer les statistiques
     const commandes = filtered.length
-    const ventes = filtered.filter(v => v.type === 'vente')
+    const depots = filtered.filter(v => v.type === 'depot')
     const retours = filtered.filter(v => v.type === 'retour')
-    const enDepots = filtered.filter(v => v.statut === 'En attente' || v.statut === 'En traitement')
+    // En dépôts (Non payé et non annulé)
+    const enDepots = filtered.filter(v => (v.statut !== 'Retourné' && v.paiements !== 'Payé'))
 
     const montantCommandes = filtered.reduce((sum, v) => sum + v.montant, 0)
-    const montantVentes = ventes.reduce((sum, v) => sum + v.montant, 0)
+    const montantDepots = depots.reduce((sum, v) => sum + v.montant, 0)
     const montantRetours = retours.reduce((sum, v) => sum + v.montant, 0)
-    const montantDepots = enDepots.reduce((sum, v) => sum + v.montant, 0)
+    const montantEnDepots = enDepots.reduce((sum, v) => sum + (v.type === 'retour' ? 0 : v.montant), 0)
 
     // Pagination
     const paginated = filtered.slice(skip, skip + limit)
@@ -165,9 +157,9 @@ export async function GET(request: NextRequest) {
       ventesRetours: paginated,
       stats: {
         commandes: { count: commandes, montant: montantCommandes },
-        ventes: { count: ventes.length, montant: montantVentes },
+        ventes: { count: depots.length, montant: montantDepots },
         retours: { count: retours.length, montant: montantRetours },
-        enDepots: { count: enDepots.length, montant: montantDepots }
+        enDepots: { count: enDepots.length, montant: montantEnDepots }
       },
       totalItems,
       currentPage: page,
@@ -180,7 +172,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/pdg/ventes-retours - Créer une vente ou un retour
+// POST /api/pdg/ventes-retours - Créer une vente (Dépôt) ou un retour
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -189,7 +181,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { items, clientId, partnerId, paymentMethod, observation, type } = body
+    const { items, clientId, partnerId, observation, type, paymentDueDate } = body
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'Les items sont requis' }, { status: 400 })
@@ -222,8 +214,8 @@ export async function POST(request: NextRequest) {
       }
 
       if (type === 'vente' && work.stock < item.quantity) {
-        return NextResponse.json({ 
-          error: `Stock insuffisant pour ${work.title}. Disponible: ${work.stock}, Demandé: ${item.quantity}` 
+        return NextResponse.json({
+          error: `Stock insuffisant pour ${work.title}. Disponible: ${work.stock}, Demandé: ${item.quantity}`
         }, { status: 400 })
       }
     }
@@ -234,7 +226,7 @@ export async function POST(request: NextRequest) {
         if (item.price) {
           return item
         }
-        const work = await prisma.work.findUnique({ 
+        const work = await prisma.work.findUnique({
           where: { id: item.workId },
           select: { price: true }
         })
@@ -248,7 +240,7 @@ export async function POST(request: NextRequest) {
     // Récupérer le userId du partenaire si nécessaire
     let finalUserId = clientId || session.user.id
     if (partnerId && !clientId) {
-      const partner = await prisma.partner.findUnique({ 
+      const partner = await prisma.partner.findUnique({
         where: { id: partnerId },
         select: { userId: true }
       })
@@ -258,11 +250,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Créer la commande
+    // Force paymentMethod = 'depot' for sales here
+    const finalPaymentMethod = type === 'vente' ? 'depot' : null
+
     const order = await prisma.order.create({
       data: {
         userId: finalUserId,
         partnerId: partnerId || null,
-        paymentMethod: paymentMethod || null,
+        paymentMethod: finalPaymentMethod,
+        paymentDueDate: paymentDueDate ? new Date(paymentDueDate) : null, // Set the due date
         status: type === 'retour' ? 'CANCELLED' : 'PENDING',
         items: {
           create: itemsWithPrices.map((item: any) => ({
@@ -281,7 +277,7 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Mettre à jour le stock si c'est une vente
+    // Mettre à jour le stock
     if (type === 'vente') {
       for (const item of items) {
         await prisma.work.update({
@@ -299,8 +295,38 @@ export async function POST(request: NextRequest) {
             workId: item.workId,
             type: 'DIRECT_SALE',
             quantity: -item.quantity,
-            reason: `Vente directe - ${observation || 'Vente PDG'}`,
+            reason: `Dépôt - ${observation || 'Créé par PDG'}`,
             reference: `SALE_${order.id}`,
+            performedBy: session.user.id
+          }
+        })
+      }
+    } else if (type === 'retour') {
+      // Pour un retour, on ré-incrémente le stock
+      for (const item of items) {
+        await prisma.work.update({
+          where: { id: item.workId },
+          data: {
+            stock: {
+              increment: item.quantity
+            }
+          }
+        })
+
+        // Créer un mouvement de stock (Retour)
+        // Note: Using DIRECT_SALE with positive quantity to represent return/correction based on schema discussion
+        // ideally PARTNER_RETURN or CORRECTION could be used if strictly defined, but DIRECT_SALE inverse is safe for net calculations.
+        // Let's use CORRECTION for clarity in logs if available, or DIRECT_SALE. 
+        // Available: DIRECT_SALE, CORRECTION, PARTNER_RETURN. 
+        // Let's use CORRECTION as it's general purpose return/fix.
+
+        await prisma.stockMovement.create({
+          data: {
+            workId: item.workId,
+            type: 'CORRECTION',
+            quantity: item.quantity,
+            reason: `Retour produit - ${observation || 'Retour Dépôt'}`,
+            reference: `RET_${order.id}`,
             performedBy: session.user.id
           }
         })
@@ -309,7 +335,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: type === 'vente' ? 'Vente enregistrée avec succès' : 'Retour enregistré avec succès',
+      message: type === 'vente' ? 'Dépôt enregistré avec succès' : 'Retour enregistré avec succès',
       order: {
         id: order.id,
         reference: `ORD-${order.id.slice(-8).toUpperCase()}`,
@@ -320,8 +346,8 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     logger.error('Error creating vente/retour:', error)
-    return NextResponse.json({ 
-      error: error.message || 'Erreur interne du serveur' 
+    return NextResponse.json({
+      error: error.message || 'Erreur interne du serveur'
     }, { status: 500 })
   }
 }
