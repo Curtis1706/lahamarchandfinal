@@ -5,7 +5,7 @@ import { signIn, getSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { User, Eye, EyeOff, Lock } from "lucide-react"
+import { User, Eye, EyeOff, Lock, Loader2 } from "lucide-react"
 import { CountrySelector } from "@/components/country-selector"
 import { SuspensionModal } from "@/components/suspension-modal"
 import Link from "next/link"
@@ -239,12 +239,19 @@ export default function LoginPage() {
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full h-14 text-white font-semibold text-lg rounded-2xl border-0"
+              className="w-full h-14 text-white font-semibold text-lg rounded-2xl border-0 transition-all active:scale-95 disabled:opacity-80"
               style={{
                 background: "linear-gradient(90deg, #00d4ff 0%, #5b9bd5 25%, #8b5fbf 50%, #b83dba 75%, #e91e63 100%)",
               }}
             >
-              {isLoading ? "CONNEXION..." : "CONNEXION"}
+              {isLoading ? (
+                <div className="flex items-center justify-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>CONNEXION EN COURS...</span>
+                </div>
+              ) : (
+                "CONNEXION"
+              )}
             </Button>
 
             {/* Créer un compte */}

@@ -15,12 +15,29 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
 
-    const user = await prisma.user.findUnique({
+    const user: any = await (prisma.user as any).findUnique({
       where: { id: session.user.id },
       include: {
-        discipline: { select: { id: true, name: true } }
+        discipline: { select: { id: true, name: true } },
+        clients: {
+          include: {
+            department: { select: { id: true, name: true } }
+          }
+        }
       }
     })
+
+    // Si c'est un client, on récupère aussi les infos de son représentant s'il en a un
+    if (user && user.role === 'CLIENT' && user.clients && user.clients.length > 0) {
+      for (const client of user.clients) {
+        if (client.representantId) {
+          (client as any).representant = await (prisma.user as any).findUnique({
+            where: { id: client.representantId },
+            select: { id: true, name: true, email: true, phone: true }
+          })
+        }
+      }
+    }
 
     if (!user) {
       return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 })
