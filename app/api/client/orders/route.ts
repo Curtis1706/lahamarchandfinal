@@ -233,6 +233,74 @@ export async function PATCH(request: NextRequest) {
       })
     }
 
+    if (action === "submit_payment_proof") {
+      const { transactionId, paymentProof } = body;
+
+      if (!transactionId) {
+        return NextResponse.json({ error: "Transaction ID is required" }, { status: 400 });
+      }
+
+      // Retrieve existing payment reference to preserve other data (address, etc.)
+      let currentRef = {};
+      try {
+        if (existingOrder.paymentReference) {
+          currentRef = JSON.parse(existingOrder.paymentReference);
+        }
+      } catch (e) {
+        // If not JSON, we might lose old string data, but usually it's JSON now
+        logger.warn(`Could not parse existing payment reference for order ${orderId}`);
+      }
+
+      const updatedRef = {
+        ...currentRef,
+        transactionId,
+        paymentProof,
+        submittedAt: new Date().toISOString()
+      };
+
+      const updatedOrder = await prisma.order.update({
+        where: { id: orderId },
+        data: {
+          paymentReference: JSON.stringify(updatedRef),
+          // We don't change paymentStatus to PAID yet, the PDG must confirm
+          // But we can rely on the presence of transactionId in UI to show "Pending"
+        },
+        include: {
+          items: {
+            include: {
+              work: {
+                include: {
+                  discipline: true,
+                  author: { select: { name: true } }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // Format response (reuse logic)
+      let deliveryAddress = null;
+      try {
+        const parsed = JSON.parse(updatedOrder.paymentReference || "{}");
+        deliveryAddress = parsed.address || null;
+      } catch (e) {
+        deliveryAddress = updatedOrder.paymentReference;
+      }
+
+      return NextResponse.json({
+        id: updatedOrder.id,
+        date: updatedOrder.createdAt,
+        status: updatedOrder.status,
+        total: updatedOrder.total,
+        itemsCount: updatedOrder.items.reduce((sum, item) => sum + item.quantity, 0),
+        paymentMethod: updatedOrder.paymentMethod || null,
+        deliveryAddress: deliveryAddress || null,
+        paymentReference: updatedOrder.paymentReference,
+        items: [] // Simplified for response
+      });
+    }
+
     // Traiter l'action "cancel" ou le changement de statut directement
     if (action === "cancel" || status === "CANCELLED") {
       // Seules les commandes PENDING peuvent être annulées

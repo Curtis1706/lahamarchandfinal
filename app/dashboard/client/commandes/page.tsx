@@ -301,6 +301,42 @@ function ClientCommandePageContent() {
     }
   }
 
+  const handleConfirmPayment = async (orderId: string) => {
+    if (!transactionId) {
+      toast.error("Veuillez saisir l'ID de transaction")
+      return
+    }
+
+    try {
+      const response = await fetch('/api/client/orders', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          orderId,
+          action: 'submit_payment_proof',
+          transactionId,
+          paymentProof: paymentProofUrl
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Erreur lors de la soumission de la preuve");
+      }
+
+      toast.success("Preuve de paiement envoyée avec succès !");
+      setTransactionId("");
+      setPaymentProofUrl("");
+      refreshOrders();
+    } catch (error: any) {
+      console.error("Erreur paiement:", error);
+      toast.error(error.message || "Une erreur est survenue");
+    }
+  }
+
   const getPaymentStatusBadge = (status: Order['paymentStatus']) => {
     switch (status) {
       case 'PAID':
@@ -815,6 +851,8 @@ function ClientCommandePageContent() {
                     <Dialog open={openOrderId === order.id} onOpenChange={(open) => {
                       if (open) {
                         setOpenOrderId(order.id)
+                        setTransactionId("")
+                        setPaymentProofUrl("")
                       } else {
                         setOpenOrderId(null)
                       }
@@ -991,10 +1029,11 @@ function ClientCommandePageContent() {
                           {/* Bouton de Paiement si Validée et Non Payée */}
                           {(order.status === 'confirmed' && order.paymentStatus !== 'PAID') && (() => {
                             // Vérifier si c'est Airtel Money avec une preuve déjà soumise
-                            let isAirtelWithProof = false
+                            let isAirtelWithProof = false;
                             if (order.paymentMethod &&
                               (order.paymentMethod.toLowerCase().includes('airtel') ||
-                                order.paymentMethod.toLowerCase().includes('mobile'))) {
+                                order.paymentMethod.toLowerCase().includes('mobile') ||
+                                order.paymentMethod === 'depot')) { // On vérifie aussi pour dépôt
                               try {
                                 const ref = order.paymentReference ? JSON.parse(order.paymentReference) : {}
                                 if (ref.transactionId) {
@@ -1017,6 +1056,183 @@ function ClientCommandePageContent() {
                               )
                             }
 
+                            // Si c'est Airtel Money DIRECTEMENT (lors de la commande)
+                            if (order.paymentMethod === 'airtel-money-gabon' || order.paymentMethod === 'mobile-money') {
+                              return (
+                                <div className="mt-6 space-y-4">
+                                  <div className="bg-red-50 border border-red-100 rounded-lg p-4 space-y-4">
+                                    <div className="flex items-center gap-2 text-red-700 font-medium text-sm">
+                                      <div className="bg-red-600 text-white px-1 rounded">AM</div>
+                                      <span>Instructions Airtel Money</span>
+                                    </div>
+
+                                    <div className="text-sm text-gray-700 space-y-1 border-l-2 border-red-200 pl-4">
+                                      <p>1. Ouvrez l'app <span className="font-bold">My Airtel</span> ou composez <span className="font-bold">*150#</span></p>
+                                      <p>2. Sélectionnez <span className="font-bold">2 - Envoyer de l'argent</span> &gt; <span className="font-bold">1 - Vers un autre compte Airtel Money</span></p>
+                                      <p>3. Entrez le numéro <span className="font-bold text-red-700">074019185</span></p>
+                                      <p>4. Destinataire : <span className="font-bold text-red-700">LALEYE ABDEL HAKIM</span></p>
+                                      <p>5. Montant : <span className="font-bold">{order.total.toLocaleString()} XOF</span></p>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      <div className="space-y-1">
+                                        <Label className="text-xs">ID de Transaction *</Label>
+                                        <Input
+                                          placeholder="Ex: 8XF34..."
+                                          value={transactionId}
+                                          onChange={(e) => setTransactionId(e.target.value)}
+                                          className="h-8 text-xs"
+                                        />
+                                      </div>
+                                      <div className="space-y-1">
+                                        <Label className="text-xs">Preuve (Optionnel)</Label>
+                                        <Input
+                                          type="file"
+                                          accept="image/*"
+                                          onChange={handleFileUpload}
+                                          disabled={isUploadingProof}
+                                          className="h-8 text-xs cursor-pointer"
+                                        />
+                                        {paymentProofUrl && <p className="text-[10px] text-green-600 font-medium">✓ Téléchargée</p>}
+                                      </div>
+                                    </div>
+
+                                    <Button
+                                      onClick={() => handleConfirmPayment(order.id)}
+                                      className="w-full bg-red-600 hover:bg-red-700 text-white"
+                                      disabled={!transactionId || isUploadingProof}
+                                    >
+                                      <Save className="h-4 w-4 mr-2" />
+                                      Confirmer le paiement
+                                    </Button>
+                                  </div>
+                                </div>
+                              )
+                            }
+
+                            // Si c'est un DÉPÔT (Paiement différé)
+                            if (order.paymentMethod === 'depot') {
+                              return (
+                                <div className="mt-6 space-y-4">
+                                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 space-y-4">
+                                    <div className="flex items-center gap-2 text-blue-700 font-medium">
+                                      <Clock className="h-5 w-5" />
+                                      <span>Régularisation de Dépôt</span>
+                                    </div>
+
+                                    <div className="flex justify-between items-center text-sm border-b border-blue-200 pb-2">
+                                      <span className="text-gray-600">Date limite :</span>
+                                      <span className="font-bold text-red-600">
+                                        {order.paymentDueDate ? new Date(order.paymentDueDate).toLocaleDateString('fr-FR') : "Non définie"}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm pb-2">
+                                      <span className="text-gray-600">Reste à payer :</span>
+                                      <span className="font-bold text-blue-800 text-lg">
+                                        {(order.remainingAmount || order.total).toLocaleString()} XOF
+                                      </span>
+                                    </div>
+
+                                    <Dialog>
+                                      <DialogTrigger asChild>
+                                        <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                                          <CreditCard className="h-4 w-4 mr-2" />
+                                          Régler le solde
+                                        </Button>
+                                      </DialogTrigger>
+                                      <DialogContent className="max-w-md">
+                                        <DialogHeader>
+                                          <DialogTitle>Moyen de paiement</DialogTitle>
+                                          <DialogDescription>Choisissez comment vous souhaitez régler le solde.</DialogDescription>
+                                        </DialogHeader>
+                                        <div className="space-y-4 pt-4">
+
+                                          {/* Option Airtel Money */}
+                                          <div className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer space-y-4">
+                                            <div className="font-semibold flex items-center gap-2 text-red-600">
+                                              <div className="bg-red-100 p-1 rounded">AM</div>
+                                              Airtel Money
+                                            </div>
+                                            <div className="text-sm text-gray-600 pl-2 border-l-2 border-red-200">
+                                              Envoyez {(order.remainingAmount || order.total).toLocaleString()} XOF au <strong>074019185</strong> (LALEYE ABDEL HAKIM)
+                                            </div>
+                                            <div className="grid gap-2">
+                                              <Input
+                                                placeholder="ID Transaction"
+                                                value={transactionId}
+                                                onChange={(e) => setTransactionId(e.target.value)}
+                                                className="text-sm"
+                                              />
+                                              <Input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={handleFileUpload}
+                                                className="text-sm"
+                                              />
+                                              <Button
+                                                onClick={() => handleConfirmPayment(order.id)}
+                                                disabled={!transactionId || isUploadingProof}
+                                                className="w-full bg-red-600 hover:bg-red-700 text-white"
+                                              >
+                                                Envoyer preuve
+                                              </Button>
+                                            </div>
+                                          </div>
+
+                                          {/* Option Virement (Similaire à Airtel pour l'instant) */}
+                                          <div className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer space-y-4">
+                                            <div className="font-semibold flex items-center gap-2 text-gray-800">
+                                              <div className="bg-gray-200 p-1 rounded">VB</div>
+                                              Virement Bancaire
+                                            </div>
+                                            <div className="text-xs text-gray-500">
+                                              IBAN: ... (Contacter le support)
+                                            </div>
+                                            <div className="grid gap-2">
+                                              <Input
+                                                placeholder="Référence virement"
+                                                value={transactionId}
+                                                onChange={(e) => setTransactionId(e.target.value)}
+                                                className="text-sm"
+                                              />
+                                              <Input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={handleFileUpload}
+                                                className="text-sm"
+                                              />
+                                              <Button
+                                                onClick={() => handleConfirmPayment(order.id)}
+                                                disabled={!transactionId || isUploadingProof}
+                                                className="w-full bg-gray-800 hover:bg-gray-900 text-white"
+                                              >
+                                                Envoyer preuve
+                                              </Button>
+                                            </div>
+                                          </div>
+
+                                          {/* Option Carte Bancaire */}
+                                          <Link href={`/orders/${order.id}/checkout`} className="block">
+                                            <Button variant="outline" className="w-full justify-start h-auto p-4 border-2 hover:border-blue-500">
+                                              <div className="flex items-center gap-3">
+                                                <CreditCard className="h-6 w-6 text-blue-600" />
+                                                <div className="text-left">
+                                                  <div className="font-semibold">Carte Bancaire</div>
+                                                  <div className="text-xs text-gray-500">Paiement sécurisé en ligne</div>
+                                                </div>
+                                              </div>
+                                            </Button>
+                                          </Link>
+
+                                        </div>
+                                      </DialogContent>
+                                    </Dialog>
+                                  </div>
+                                </div>
+                              )
+                            }
+
+                            // Autres méthodes de paiement (Stripe, etc.) checkout classique
                             return (
                               <div className="mt-6">
                                 <Link href={`/orders/${order.id}/checkout`}>

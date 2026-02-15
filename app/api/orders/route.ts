@@ -416,10 +416,12 @@ export async function PUT(request: NextRequest) {
 
     // 🔹 Logique spécifique Airtel Money Gabon : Si validation, marquer comme payé si preuve fournie
     if (status === "VALIDATED") {
-      if (currentOrder.paymentMethod === 'airtel-money-gabon' ||
+      // Cas 1: Airtel Money / Mobile Money classique
+      if (currentOrder && (
+        currentOrder.paymentMethod === 'airtel-money-gabon' ||
         currentOrder.paymentMethod === 'mobile_money' ||
         currentOrder.paymentMethod === 'mobile-money'
-      ) {
+      )) {
         try {
           const paymentRef = currentOrder.paymentReference ? JSON.parse(currentOrder.paymentReference) : {}
           if (paymentRef.transactionId) {
@@ -431,6 +433,23 @@ export async function PUT(request: NextRequest) {
           }
         } catch (e) {
           logger.error(`Error parsing paymentReference for auto-pay:`, e)
+        }
+      }
+
+      // Cas 2: Dépôt (Paiement différé réglé par le client)
+      if (currentOrder && currentOrder.paymentMethod === 'depot') {
+        try {
+          const paymentRef = currentOrder.paymentReference ? JSON.parse(currentOrder.paymentReference) : {}
+          // Si on a un transactionId, c'est que le client a soumis une preuve
+          if (paymentRef.transactionId) {
+            updateData.paymentStatus = 'PAID'
+            updateData.amountPaid = currentOrder.total
+            updateData.remainingAmount = 0
+            updateData.fullPaymentDate = new Date()
+            logger.info(`💰 Auto-marking Deposit order ${id} as PAID upon validation (proof submitted)`)
+          }
+        } catch (e) {
+          logger.error(`Error parsing paymentReference for deposit auto-pay:`, e)
         }
       }
     }
@@ -484,7 +503,10 @@ export async function PUT(request: NextRequest) {
             let userId = session?.user?.id
             if (!userId) {
               const pdg = await tx.user.findFirst({ where: { role: 'PDG' }, select: { id: true } })
-              userId = pdg?.id
+              if (!pdg) {
+                throw new Error("Impossible d'identifier l'utilisateur pour le bon de sortie (Aucun PDG trouvé)")
+              }
+              userId = pdg.id
             }
 
             if (!userId) throw new Error("Impossible d'identifier l'utilisateur pour le bon de sortie")
