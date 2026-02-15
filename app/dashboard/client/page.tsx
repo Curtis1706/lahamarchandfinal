@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { User, BookOpen, ShoppingCart, Bell, TrendingUp, TrendingDown } from "lucide-react";
+import { User, BookOpen, ShoppingCart, Bell, TrendingUp, TrendingDown, Banknote, Hourglass } from "lucide-react";
 import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useNotifications } from "@/hooks/use-notifications";
@@ -61,6 +61,7 @@ interface WorkWithDiscipline extends Work {
   discipline?: Discipline
   image?: string
 }
+
 
 const dataQuantites = [
   { name: "Commandes validées", value: 2 },
@@ -185,8 +186,19 @@ export default function ClientDashboard() {
 
   // Calculer les statistiques réelles
   const totalOrders = orders.length;
+
   // Total réellement dépensé (payé)
-  const totalValuePaid = orders.filter(o => o.paymentStatus === 'PAID').reduce((sum, o) => sum + o.total, 0);
+  // On ne compte QUE ce qui est marqué comme PAYÉ
+  const totalValuePaid = orders
+    .filter(o => o.paymentStatus === 'PAID')
+    .reduce((sum, o) => sum + (o.amountPaid || o.total), 0);
+
+  // Calcul des dettes (Commandes en dépôt non payées)
+  // On prend les commandes en 'depot' qui ne sont pas 'PAID'
+  const totalDebt = orders
+    .filter(o => (o.paymentMethod === 'depot' || o.paymentType === 'DEPOSIT') && o.paymentStatus !== 'PAID')
+    .reduce((sum, o) => sum + (o.remainingAmount || o.total), 0);
+
   // Valeur des commandes livrées
   const totalValueDelivered = orders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + o.total, 0);
 
@@ -202,9 +214,9 @@ export default function ClientDashboard() {
   ];
 
   const dataMontants = [
-    { name: "Commandes validées", value: orders.filter(o => o.status === 'confirmed').reduce((sum, o) => sum + o.total, 0) },
-    { name: "Livraisons en cours", value: orders.filter(o => o.status === 'shipped').reduce((sum, o) => sum + o.total, 0) },
-    { name: "Livrées/Réceptionnées", value: totalValueDelivered },
+    { name: "Payé", value: totalValuePaid },
+    { name: "Dettes (Dépôt)", value: totalDebt },
+    { name: "Valeur Livrée", value: totalValueDelivered },
   ];
 
 
@@ -329,39 +341,56 @@ export default function ClientDashboard() {
           </div>
 
           {/* Ligne stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-            <div className="bg-[#FA626B] rounded-2xl p-6 text-white shadow-lg h-40 flex items-center">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+            
+            {/* Total Commandes global */}
+            <div className="bg-[#6967CE] rounded-2xl p-6 text-white shadow-lg h-40 flex items-center">
               <ShoppingCart className="w-8 h-8 mr-4 opacity-80" />
               <div>
-                <h3 className="text-lg font-semibold mb-2">Total des commandes</h3>
+                <h3 className="text-lg font-semibold mb-2">Total Commandes</h3>
                 <p className="text-2xl font-bold">
-                  {totalOrders} <span className="text-base">Commande(s)</span>
+                  {totalOrders}
                 </p>
-                <p className="text-red-100">{totalValuePaid.toLocaleString()} F CFA</p>
+                <p className="text-indigo-100 text-sm">Toutes catégories confondues</p>
               </div>
             </div>
 
+            {/* Dépenses (Payé) */}
+            <div className="bg-[#FA626B] rounded-2xl p-6 text-white shadow-lg h-40 flex items-center">
+              <Banknote className="w-8 h-8 mr-4 opacity-80" />
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Dépenses Réelles</h3>
+                <p className="text-2xl font-bold">
+                  {totalValuePaid.toLocaleString()} <span className="text-sm font-normal">XOF</span>
+                </p>
+                <p className="text-red-100 text-sm">Montant effectivement payé</p>
+              </div>
+            </div>
+
+            {/* Dettes (Dépôt) - NOUVEAU */}
+            <div className="bg-orange-500 rounded-2xl p-6 text-white shadow-lg h-40 flex items-center">
+              <Hourglass className="w-8 h-8 mr-4 opacity-80" />
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Dettes (Dépôt)</h3>
+                <p className="text-2xl font-bold">
+                  {totalDebt.toLocaleString()} <span className="text-sm font-normal">XOF</span>
+                </p>
+                <p className="text-orange-100 text-sm">Restant à payer</p>
+              </div>
+            </div>
+
+            {/* Livres Commandés */}
             <div className="bg-gray-700 rounded-2xl p-6 text-white shadow-lg h-40 flex items-center">
               <BookOpen className="w-8 h-8 mr-4 opacity-80" />
               <div>
-                <h3 className="text-lg font-semibold mb-2">Livres commandés</h3>
+                <h3 className="text-lg font-semibold mb-2">Volume Livres</h3>
                 <p className="text-2xl font-bold">
-                  {totalBooksOrdered} <span className="text-base">Livre(s)</span>
+                  {totalBooksOrdered}
                 </p>
-                <p className="text-gray-300">{pendingOrders} en cours</p>
+                <p className="text-gray-300 text-sm">{pendingOrders} commandes en cours</p>
               </div>
             </div>
 
-            <div className="bg-[#5ED84F] rounded-2xl p-6 text-white shadow-lg h-40 flex items-center">
-              <ShoppingCart className="w-8 h-8 mr-4 opacity-80" />
-              <div>
-                <h3 className="text-lg font-semibold mb-2">Commandes livrées</h3>
-                <p className="text-2xl font-bold">
-                  {deliveredOrders} <span className="text-base">Commande(s)</span>
-                </p>
-                <p className="text-green-100">{totalValueDelivered.toLocaleString()} F CFA</p>
-              </div>
-            </div>
           </div>
 
           {/* Graphiques circulaires */}

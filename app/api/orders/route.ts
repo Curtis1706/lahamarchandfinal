@@ -543,10 +543,34 @@ export async function PUT(request: NextRequest) {
         // On ne bloque pas la transaction pour ça, mais on les traite
         try {
           const { updatedOrder } = result
+
+          // Calculer le ratio de réduction
+          // total est le montant net à payer, subtotal le montant brut avant réduction
+          let discountRatio = 1
+          let effectiveSubtotal = updatedOrder.subtotal || 0
+
+          // Si subtotal est 0 ou invalide, on le recalcule depuis les items
+          if (effectiveSubtotal <= 0 && updatedOrder.items && updatedOrder.items.length > 0) {
+            effectiveSubtotal = updatedOrder.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+          }
+
+          if (effectiveSubtotal > 0) {
+            discountRatio = updatedOrder.total / effectiveSubtotal
+          }
+
+          // Sécurité : Si un discount est appliqué (ex: subtotal > total), le ratio doit être < 1.
+          // Si subtotal < total (ex: taxes ajoutées mais pas de discount affiché dans subtotal), le ratio pourrait être > 1.
+          // Mais attention, subtotal est HT et total est TTC-Discount.
+          // Si Tax > Discount, Total > Subtotal. Ratio > 1.
+          // Si on applique ce ratio > 1, on augmente la commission (base TTC). C'est correct si on commissionne le TTC.
+          // Mais si le but est "montant payé", c'est correct.
+          // Si Discount est énorme, Total < Subtotal. Ratio < 1. Commission réduite. Correct.
+
           // Calculer les ristournes partenaires
           if (updatedOrder.partnerId) {
-            const totalAmount = updatedOrder.total || updatedOrder.subtotal || 0
-            const { amount, rate } = await calculatePartnerRebate(id, updatedOrder.partnerId, totalAmount)
+            // On utilise le total net de la commande
+            const totalAmount = updatedOrder.total || 0
+            const { amount, rate } = await calculatePartnerRebate(id, updatedOrder.partnerId, totalAmount, discountRatio)
 
             const existingRebate = await prisma.partnerRebate.findFirst({
               where: { orderId: id, partnerId: updatedOrder.partnerId }
@@ -574,8 +598,11 @@ export async function PUT(request: NextRequest) {
             })
 
             if (workWithAuthor?.authorId) {
-              const saleAmount = item.price * item.quantity
-              const { amount, rate } = await calculateAuthorRoyalty(work.id, workWithAuthor.authorId, saleAmount)
+              // Calculer le montant de vente net pour cet item
+              // Prix unitaire * Quantité * Ratio de réduction
+              const saleAmount = item.price * item.quantity * discountRatio
+
+              const { amount, rate } = await calculateAuthorRoyalty(work.id, workWithAuthor.authorId, saleAmount, discountRatio)
 
               const existingRoyalty = await prisma.royalty.findFirst({
                 where: { orderId: id, workId: work.id, userId: workWithAuthor.authorId }

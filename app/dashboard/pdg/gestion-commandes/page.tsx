@@ -1263,7 +1263,7 @@ export default function GestionCommandesPage() {
 
                   {/* Montant */}
                   <TableCell className="font-medium">
-                    {order.items.reduce((total, item) => total + (item.price * item.quantity), 0).toFixed(0)} FCFA
+                    {order.total.toLocaleString()} FCFA
                   </TableCell>
 
                   {/* Date */}
