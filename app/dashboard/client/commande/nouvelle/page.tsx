@@ -497,20 +497,16 @@ function NouvelleCommandePageContent() {
 
         // Champs spécifiques Airtel Money
         if (newOrderData.paymentMethod === 'airtel-money-gabon') {
+          // Validation retirée : le paiement se fait après validation par le PDG
+          /*
           if (!transactionId) {
             toast.error("Veuillez saisir l'ID de transaction")
             setIsSubmitting(false)
             return
           }
-          /*
-          if (!paymentProofUrl) {
-            toast.error("Veuillez télécharger la preuve de paiement")
-            setIsSubmitting(false)
-            return
-          }
-          */
           orderData.transactionId = transactionId
           orderData.paymentProof = paymentProofUrl
+          */
         }
 
         // Champs spécifiques Paiement en Dépôt
@@ -1026,47 +1022,16 @@ function NouvelleCommandePageContent() {
                     </Select>
                   </div>
 
-                  {/* Section Airtel Money */}
+                  {/* Section Airtel Money - Instructions déplacées après validation */}
                   {newOrderData.paymentMethod === 'airtel-money-gabon' && (
-                    <div className="bg-red-50 border border-red-100 rounded-lg p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
-                      <div className="flex items-center gap-2 text-red-700 font-medium">
-                        <div className="bg-red-600 text-white p-1 rounded">AM</div>
-                        <span>Instructions de paiement Airtel Money</span>
+                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
+                      <div className="flex items-center gap-2 text-blue-700 font-medium">
+                        <div className="bg-blue-600 text-white p-1 rounded-sm text-xs">INFO</div>
+                        <span>Instructions de paiement</span>
                       </div>
-
-                      <div className="text-sm text-gray-700 space-y-2 ml-1 pl-4 border-l-2 border-red-200">
-                        <p>1. Ouvrez l'app <span className="font-bold">My Airtel</span> ou composez <span className="font-bold">*150#</span></p>
-                        <p>2. Sélectionnez <span className="font-bold">2 - Envoyer de l'argent</span> &gt; <span className="font-bold">1 - Vers un autre compte Airtel Money</span></p>
-                        <p>3. Entrez le numéro <span className="font-bold text-red-700">074019185</span></p>
-                        <p>4. Nom du destinataire : <span className="font-bold text-red-700">LALEYE ABDEL HAKIM</span></p>
-                        <p>5. Entrez le montant à payer : <span className="font-bold">{calculateTotal().toLocaleString("fr-FR")} XOF</span></p>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                        <div className="space-y-2">
-                          <Label>Référence ou ID contenu dans le SMS reçu</Label>
-                          <Input
-                            placeholder="Référence ou ID contenu dans le SMS reçu"
-                            value={transactionId}
-                            onChange={(e) => setTransactionId(e.target.value)}
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label>Preuve de paiement (Capture d'écran du SMS reçu)</Label>
-                          <div className="flex gap-2">
-                            <Input
-                              type="file"
-                              accept="image/*"
-                              onChange={handleFileUpload}
-                              disabled={isUploadingProof}
-                              className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
-                            />
-                          </div>
-                          {isUploadingProof && <p className="text-xs text-muted-foreground animate-pulse">Téléchargement...</p>}
-                          {paymentProofUrl && <p className="text-xs text-green-600 font-medium">✓ Preuve téléchargée</p>}
-                        </div>
-                      </div>
+                      <p className="text-sm text-blue-800">
+                        Les instructions de paiement vous seront communiquées <strong>après validation de votre commande</strong> par notre équipe.
+                      </p>
                     </div>
                   )}
 

@@ -185,7 +185,11 @@ export default function ClientDashboard() {
 
   // Calculer les statistiques réelles
   const totalOrders = orders.length;
-  const totalSpent = orders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + o.total, 0);
+  // Total réellement dépensé (payé)
+  const totalValuePaid = orders.filter(o => o.paymentStatus === 'PAID').reduce((sum, o) => sum + o.total, 0);
+  // Valeur des commandes livrées
+  const totalValueDelivered = orders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + o.total, 0);
+
   const totalBooksOrdered = orders.reduce((sum, o) => sum + o.itemCount, 0);
   const deliveredOrders = orders.filter(o => o.status === 'delivered').length;
   const pendingOrders = orders.filter(o => ['pending', 'confirmed', 'shipped'].includes(o.status)).length;
@@ -200,7 +204,7 @@ export default function ClientDashboard() {
   const dataMontants = [
     { name: "Commandes validées", value: orders.filter(o => o.status === 'confirmed').reduce((sum, o) => sum + o.total, 0) },
     { name: "Livraisons en cours", value: orders.filter(o => o.status === 'shipped').reduce((sum, o) => sum + o.total, 0) },
-    { name: "Livrées/Réceptionnées", value: totalSpent },
+    { name: "Livrées/Réceptionnées", value: totalValueDelivered },
   ];
 
 
@@ -319,7 +323,7 @@ export default function ClientDashboard() {
                     </div>
                   </div>
                 </div>
-                
+
               </div>
             )}
           </div>
@@ -333,7 +337,7 @@ export default function ClientDashboard() {
                 <p className="text-2xl font-bold">
                   {totalOrders} <span className="text-base">Commande(s)</span>
                 </p>
-                <p className="text-red-100">{totalSpent.toLocaleString()} F CFA</p>
+                <p className="text-red-100">{totalValuePaid.toLocaleString()} F CFA</p>
               </div>
             </div>
 
@@ -355,7 +359,7 @@ export default function ClientDashboard() {
                 <p className="text-2xl font-bold">
                   {deliveredOrders} <span className="text-base">Commande(s)</span>
                 </p>
-                <p className="text-green-100">{totalSpent.toLocaleString()} F CFA</p>
+                <p className="text-green-100">{totalValueDelivered.toLocaleString()} F CFA</p>
               </div>
             </div>
           </div>
