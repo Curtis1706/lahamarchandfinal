@@ -43,6 +43,21 @@ export async function POST(request: NextRequest) {
     // Utiliser 'price' si fourni, sinon 'estimatedPrice'
     const finalPrice = price !== undefined && price !== null ? price : estimatedPrice;
 
+    // Récupérer la TVA par défaut depuis les paramètres si non fournie
+    let defaultTva = 0.18;
+    if (tva === undefined || tva === null) {
+      const setting = await prisma.advancedSetting.findUnique({
+        where: { key: 'business.defaultTva' }
+      });
+      if (setting && setting.value) {
+        const val = parseFloat(setting.value);
+        if (!isNaN(val)) {
+          defaultTva = val;
+        }
+      }
+    }
+    const finalTva = tva !== undefined && tva !== null ? parseFloat(tva) : defaultTva;
+
 
 
     // Validation des champs obligatoires
@@ -160,7 +175,7 @@ export async function POST(request: NextRequest) {
         isbn: workIsbn,
         internalCode: internalCode?.trim() || null,
         price: finalPrice || 0,
-        tva: tva !== undefined ? parseFloat(tva) : 0.18,
+        tva: finalTva,
         stock: 0,
         minStock: 0,
 

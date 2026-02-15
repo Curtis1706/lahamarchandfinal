@@ -236,6 +236,14 @@ export default function GestionStockPage() {
   const [pendingOperations, setPendingOperations] = useState<PendingOperation[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
+  // États pour les commandes en dépôt
+  const [depotOrders, setDepotOrders] = useState<any[]>([])
+  const [depotStats, setDepotStats] = useState<any>(null)
+  const [depotLoading, setDepotLoading] = useState(false)
+  const [depotPage, setDepotPage] = useState(1)
+  const [depotLimit, setDepotLimit] = useState(20)
+  const [depotTotalPages, setDepotTotalPages] = useState(1)
+
   // États pour les statistiques
   const [statisticsData, setStatisticsData] = useState<any>(null)
   const [statisticsLoading, setStatisticsLoading] = useState(false)
@@ -249,6 +257,13 @@ export default function GestionStockPage() {
   const [stockStatusFilter, setStockStatusFilter] = useState<string>('all')
   const [movementTypeFilter, setMovementTypeFilter] = useState<string>('all')
 
+  // Filtres pour les dépôts
+  const [depotSearchTerm, setDepotSearchTerm] = useState('')
+  const [depotPaymentStatus, setDepotPaymentStatus] = useState<string>('all')
+  const [depotCategory, setDepotCategory] = useState<string>('all')
+  const [depotClasse, setDepotClasse] = useState<string>('all')
+  const [depotDiscipline, setDepotDiscipline] = useState<string>('all')
+
   // État pour les disciplines
   const [disciplines, setDisciplines] = useState<Array<{ id: string, name: string }>>([])
 
@@ -258,7 +273,7 @@ export default function GestionStockPage() {
   const [selectedOperation, setSelectedOperation] = useState<PendingOperation | null>(null)
   const [isValidationOpen, setIsValidationOpen] = useState(false)
   const [isVersionModalOpen, setIsVersionModalOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<'overview' | 'inventory' | 'movements' | 'alerts' | 'pending' | 'versions' | 'statistics' | 'automation'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'inventory' | 'movements' | 'alerts' | 'pending' | 'versions' | 'statistics' | 'automation' | 'depot'>('overview')
 
   // États pour les règles d'alerte
   const [alertRules, setAlertRules] = useState<any[]>([])
@@ -546,6 +561,45 @@ export default function GestionStockPage() {
     }
   }
 
+  // Charger les commandes en dépôt
+  const loadDepotOrders = async () => {
+    try {
+      setDepotLoading(true)
+
+      const params = new URLSearchParams({
+        page: depotPage.toString(),
+        limit: depotLimit.toString(),
+        search: depotSearchTerm,
+        paymentStatus: depotPaymentStatus,
+        category: depotCategory,
+        classe: depotClasse,
+        discipline: depotDiscipline
+      })
+
+      const response = await fetch(`/api/orders/depot?${params.toString()}`)
+
+      if (!response.ok) {
+        throw new Error('Erreur lors du chargement des commandes en dépôt')
+      }
+
+      const data = await response.json()
+      setDepotOrders(data.orders)
+      setDepotStats(data.stats)
+      setDepotTotalPages(data.pagination.totalPages)
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors du chargement des commandes en dépôt")
+    } finally {
+      setDepotLoading(false)
+    }
+  }
+
+  // Charger les données dépôt quand l'onglet est actif ou les filtres changent
+  useEffect(() => {
+    if (activeTab === 'depot') {
+      loadDepotOrders()
+    }
+  }, [activeTab, depotPage, depotLimit, depotSearchTerm, depotPaymentStatus, depotCategory, depotClasse, depotDiscipline])
+
 
   // Filtrage des données
   const filteredWorks = works.filter(work => {
@@ -606,6 +660,7 @@ export default function GestionStockPage() {
         {[
           { id: 'overview', label: 'Vue d\'ensemble', icon: BarChart3 },
           { id: 'inventory', label: 'Inventaire', icon: Package },
+          { id: 'depot', label: 'Dépôts', icon: Warehouse },
           { id: 'movements', label: 'Mouvements', icon: Activity },
           { id: 'alerts', label: 'Alertes', icon: AlertTriangle },
           { id: 'statistics', label: 'Statistiques', icon: BarChart3 }
@@ -984,6 +1039,342 @@ export default function GestionStockPage() {
                     </Button>
                   </div>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Onglet Dépôts */}
+      {activeTab === 'depot' && (
+        <div className="space-y-6">
+          {/* Statistiques des dépôts */}
+          {depotStats && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Commandes</CardTitle>
+                  <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{depotStats.totalOrders}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Commandes en dépôt
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Montant Total</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{depotStats.totalAmount.toLocaleString()} FCFA</div>
+                  <p className="text-xs text-muted-foreground">
+                    En attente de paiement
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Paiements en Retard</CardTitle>
+                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-red-600">{depotStats.overdueOrders}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {depotStats.overdueAmount.toLocaleString()} FCFA
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">À venir (7 jours)</CardTitle>
+                  <AlertCircle className="h-4 w-4 text-orange-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-orange-600">{depotStats.upcomingOrders}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {depotStats.upcomingAmount.toLocaleString()} FCFA
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Filtres */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Filtres</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    placeholder="Rechercher client ou livre..."
+                    value={depotSearchTerm}
+                    onChange={(e) => setDepotSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+
+                <Select value={depotPaymentStatus} onValueChange={setDepotPaymentStatus}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Statut de paiement" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les statuts</SelectItem>
+                    <SelectItem value="UNPAID">En attente</SelectItem>
+                    <SelectItem value="overdue">En retard</SelectItem>
+                    <SelectItem value="upcoming">À venir (7j)</SelectItem>
+                    <SelectItem value="PAID">Payé</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={depotCategory} onValueChange={setDepotCategory}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Catégorie" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Toutes les catégories</SelectItem>
+                    <SelectItem value="RENTREE_SCOLAIRE">Rentrée scolaire</SelectItem>
+                    <SelectItem value="VACANCES">Vacances</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={depotClasse} onValueChange={setDepotClasse}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Classe" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Toutes les classes</SelectItem>
+                    <SelectItem value="6EME">6ème</SelectItem>
+                    <SelectItem value="5EME">5ème</SelectItem>
+                    <SelectItem value="4EME">4ème</SelectItem>
+                    <SelectItem value="3EME">3ème</SelectItem>
+                    <SelectItem value="2NDE">2nde</SelectItem>
+                    <SelectItem value="1ERE">1ère</SelectItem>
+                    <SelectItem value="TERMINALE">Terminale</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={depotDiscipline} onValueChange={setDepotDiscipline}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Discipline" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Toutes les disciplines</SelectItem>
+                    {disciplines.map((discipline) => (
+                      <SelectItem key={discipline.id} value={discipline.id}>
+                        {discipline.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tableau des commandes en dépôt */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Commandes en Dépôt</CardTitle>
+                <div className="flex items-center space-x-2">
+                  <Select value={depotLimit.toString()} onValueChange={(value) => setDepotLimit(parseInt(value))}>
+                    <SelectTrigger className="w-[100px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" size="sm">
+                    <Download className="h-4 w-4 mr-2" />
+                    Exporter
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {depotLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+                    <p className="mt-2 text-gray-600">Chargement...</p>
+                  </div>
+                </div>
+              ) : depotOrders.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  Aucune commande en dépôt trouvée
+                </div>
+              ) : (
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Client</TableHead>
+                        <TableHead>Livres</TableHead>
+                        <TableHead>Montant</TableHead>
+                        <TableHead>Date Commande</TableHead>
+                        <TableHead>Date Livraison</TableHead>
+                        <TableHead>Date Rappel</TableHead>
+                        <TableHead>Statut</TableHead>
+                        <TableHead>Retard/Restant</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {depotOrders.map((order) => (
+                        <TableRow key={order.id}>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{order.user.name}</p>
+                              <p className="text-xs text-gray-500">{order.user.email}</p>
+                              {order.user.phone && (
+                                <p className="text-xs text-gray-500">{order.user.phone}</p>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              {order.items.slice(0, 2).map((item: any) => (
+                                <div key={item.id} className="text-sm">
+                                  <p className="font-medium">{item.work.title}</p>
+                                  <p className="text-xs text-gray-500">Qté: {item.quantity}</p>
+                                </div>
+                              ))}
+                              {order.items.length > 2 && (
+                                <p className="text-xs text-gray-500">
+                                  +{order.items.length - 2} autre(s)
+                                </p>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <p className="font-bold">{order.total.toLocaleString()} FCFA</p>
+                              {order.remainingAmount > 0 && (
+                                <p className="text-xs text-orange-600">
+                                  Reste: {order.remainingAmount.toLocaleString()} FCFA
+                                </p>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <p className="text-sm">
+                              {new Date(order.createdAt).toLocaleDateString('fr-FR')}
+                            </p>
+                          </TableCell>
+                          <TableCell>
+                            <p className="text-sm">
+                              {order.deliveryDate
+                                ? new Date(order.deliveryDate).toLocaleDateString('fr-FR')
+                                : '-'}
+                            </p>
+                          </TableCell>
+                          <TableCell>
+                            <p className="text-sm font-medium">
+                              {order.paymentDueDate
+                                ? new Date(order.paymentDueDate).toLocaleDateString('fr-FR')
+                                : '-'}
+                            </p>
+                          </TableCell>
+                          <TableCell>
+                            {order.paymentStatus === 'PAID' ? (
+                              <Badge className="bg-green-100 text-green-800">Payé</Badge>
+                            ) : order.isOverdue ? (
+                              <Badge variant="destructive">En retard</Badge>
+                            ) : order.isUpcoming ? (
+                              <Badge className="bg-orange-100 text-orange-800">À venir</Badge>
+                            ) : (
+                              <Badge variant="secondary">En attente</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {order.daysRemaining !== null && order.paymentStatus !== 'PAID' && (
+                              <div className={`text-sm font-medium ${order.isOverdue ? 'text-red-600' :
+                                  order.isUpcoming ? 'text-orange-600' : 'text-gray-600'
+                                }`}>
+                                {order.isOverdue
+                                  ? `${Math.abs(order.daysRemaining)} jour(s) de retard`
+                                  : `${order.daysRemaining} jour(s) restant(s)`
+                                }
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Voir les détails"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              {order.paymentStatus !== 'PAID' && (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-green-600"
+                                    title="Marquer comme payé"
+                                  >
+                                    <CheckCircle className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-blue-600"
+                                    title="Envoyer un rappel"
+                                  >
+                                    <AlertCircle className="h-4 w-4" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+
+                  {/* Pagination */}
+                  {depotTotalPages > 1 && (
+                    <div className="flex items-center justify-between mt-4">
+                      <p className="text-sm text-gray-700">
+                        Page {depotPage} sur {depotTotalPages}
+                      </p>
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setDepotPage(prev => Math.max(prev - 1, 1))}
+                          disabled={depotPage === 1}
+                        >
+                          Précédent
+                        </Button>
+                        <span className="flex items-center px-3 py-1 text-sm">
+                          {depotPage} / {depotTotalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setDepotPage(prev => Math.min(prev + 1, depotTotalPages))}
+                          disabled={depotPage === depotTotalPages}
+                        >
+                          Suivant
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>

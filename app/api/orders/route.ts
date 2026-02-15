@@ -130,7 +130,8 @@ export async function POST(request: NextRequest) {
       paymentMethod,
       orderType,
       transactionId,
-      paymentProof
+      paymentProof,
+      paymentDueDate
     } = body
 
     // Utiliser l'ID de la session si userId n'est pas fourni
@@ -304,6 +305,7 @@ export async function POST(request: NextRequest) {
         amountPaid: 0,
         remainingAmount: total,
         paymentMethod: paymentMethod || null,
+        paymentDueDate: paymentDueDate ? new Date(paymentDueDate) : null,
         // Champs de livraison
         deliveryStatus: "PENDING",
         deliveryDate: finalDeliveryDate,
@@ -719,3 +721,4 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
+

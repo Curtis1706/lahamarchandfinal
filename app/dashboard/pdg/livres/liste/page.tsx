@@ -38,7 +38,6 @@ interface Livre {
   matiere: string
   code: string
   prix: number
-  tva: number
   auteur: string
   concepteur: string
   disciplineId: string
@@ -68,7 +67,6 @@ export default function LivresListePage() {
     isbn: "",
     courteDescription: "",
     prix: "",
-    tva: "18",
     auteurId: "",
     concepteurId: "",
     disciplineId: "",
@@ -171,7 +169,6 @@ export default function LivresListePage() {
             matiere: work.discipline?.name || "Non définie",
             code: work.isbn || "-",
             prix: work.price || 0,
-            tva: work.tva ? (work.tva * 100) : 18, // Convertir en pourcentage
             auteur: work.author?.name || "Non assigné",
             concepteur: work.concepteur?.name || "-",
             disciplineId: work.disciplineId || "",
@@ -453,7 +450,7 @@ export default function LivresListePage() {
         targetAudience: newLivre.classes,
         contentType: 'MANUAL',
         price: parseFloat(newLivre.prix),
-        tva: parseFloat(newLivre.tva) / 100, // Convertir le pourcentage en décimal
+        // tva supprimé, géré par l'API
         estimatedPrice: parseFloat(newLivre.prix),
         status: 'DRAFT', // Le PDG crée en DRAFT, puis peut publier
         isbn: newLivre.isbn,
@@ -492,7 +489,6 @@ export default function LivresListePage() {
           isbn: "",
           courteDescription: "",
           prix: "",
-          tva: "18",
           auteurId: "",
           concepteurId: "",
           disciplineId: "",
@@ -577,7 +573,6 @@ export default function LivresListePage() {
           isbn: work.isbn || livre.code,
           courteDescription: work.description || "",
           prix: String(work.price || livre.prix || 0),
-          tva: String(work.tva ? (work.tva * 100) : livre.tva),
           auteurId: work.authorId || "",
           concepteurId: work.concepteurId || "",
           disciplineId: work.disciplineId || livre.disciplineId,
@@ -664,7 +659,7 @@ export default function LivresListePage() {
         category: newLivre.categorie,
         targetAudience: newLivre.classes,
         price: parseFloat(newLivre.prix),
-        tva: parseFloat(newLivre.tva) / 100,
+        // tva supprimé, géré par l'API (modif préserve l'existant)
         isbn: newLivre.isbn,
         collectionId: newLivre.collectionId || null,
         royaltyRate: parseFloat(newLivre.royaltyRate),
@@ -877,7 +872,6 @@ export default function LivresListePage() {
                     <th className="text-left py-3 px-2">Concepteur</th>
                     <th className="text-left py-3 px-2">Discipline</th>
                     <th className="text-left py-3 px-2">Prix (F CFA)</th>
-                    <th className="text-left py-3 px-2">TVA (%)</th>
                     <th className="text-left py-3 px-2">Statut</th>
                     <th className="text-left py-3 px-2">Collection</th>
                     <th className="text-left py-3 px-2">Classe(s)</th>
@@ -933,9 +927,6 @@ export default function LivresListePage() {
                         </td>
                         <td className="py-3 px-2 text-sm font-semibold text-gray-900">
                           {livre.prix > 0 ? `${livre.prix.toLocaleString('fr-FR')} F CFA` : "Non défini"}
-                        </td>
-                        <td className="py-3 px-2 text-sm text-gray-600">
-                          {typeof livre.tva === 'number' ? `${livre.tva.toFixed(1)}%` : "18.0%"}
                         </td>
                         <td className="py-3 px-2">
                           <Badge
@@ -1120,7 +1111,6 @@ export default function LivresListePage() {
             isbn: "",
             courteDescription: "",
             prix: "",
-            tva: "18",
             auteurId: "",
             concepteurId: "",
             disciplineId: "",
@@ -1205,7 +1195,7 @@ export default function LivresListePage() {
                         </SelectItem>
                       ))
                     ) : (
-                      <SelectItem value="" disabled>Aucune catégorie disponible</SelectItem>
+                      <SelectItem value="no-category" disabled>Aucune catégorie disponible</SelectItem>
                     )}
                   </SelectContent>
                 </Select>
@@ -1257,7 +1247,7 @@ export default function LivresListePage() {
               </div>
             </div>
 
-            {/* Section Prix et TVA */}
+            {/* Section Prix */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label className="block text-sm font-medium mb-1">
@@ -1272,47 +1262,41 @@ export default function LivresListePage() {
                   step="100"
                 />
               </div>
-              <div>
-                <Label className="block text-sm font-medium mb-1">
-                  TVA (%) * :
-                </Label>
-                <Input
-                  type="number"
-                  placeholder="18"
-                  value={newLivre.tva}
-                  onChange={(e) => setNewLivre({ ...newLivre, tva: e.target.value })}
-                  min="0"
-                  max="100"
-                  step="0.01"
-                />
-              </div>
             </div>
 
-            {/* Section Royautés */}
+            {/* Section Droit d'auteur (Style Input Group) */}
             <div className="border-t pt-4 mt-2">
-              <h3 className="text-sm font-semibold mb-3 text-indigo-600">Configuration des Royautés</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="block text-sm font-medium mb-1">
-                    Type de royauté :
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                {/* Groupe Droit d'auteur + Type */}
+                <div className="flex flex-col gap-1">
+                  <Label className="text-sm font-medium text-indigo-900">
+                    Droit d'auteur
                   </Label>
-                  <Select
-                    value={newLivre.royaltyType}
-                    onValueChange={(value) => setNewLivre({ ...newLivre, royaltyType: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(ROYALTY_TYPE_LABELS).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>{label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center">
+                    <div className="bg-slate-100 border border-r-0 border-gray-300 rounded-l-md px-3 py-2 text-sm text-gray-500 whitespace-nowrap">
+                      Droit d'auteur
+                    </div>
+                    <Select
+                      value={newLivre.royaltyType}
+                      onValueChange={(value) => setNewLivre({ ...newLivre, royaltyType: value })}
+                    >
+                      <SelectTrigger className="rounded-l-none border-l-0 focus:ring-0 focus:ring-offset-0">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PERCENTAGE">%</SelectItem>
+                        <SelectItem value="FIXED_AMOUNT">F CFA</SelectItem>
+                        {/* Option Annuel désactivée pour le moment car non supportée par le backend */}
+                        {/* <SelectItem value="ANNUAL">Annuel</SelectItem> */}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div>
-                  <Label className="block text-sm font-medium mb-1">
-                    Valeur de la royauté ({newLivre.royaltyType === 'PERCENTAGE' ? '%' : 'F CFA'}) :
+
+                {/* Valeur */}
+                <div className="flex flex-col gap-1">
+                  <Label className="text-sm font-medium text-indigo-900">
+                    Valeur ({newLivre.royaltyType === 'PERCENTAGE' ? '%' : 'F CFA'})
                   </Label>
                   <Input
                     type="number"
@@ -1320,6 +1304,7 @@ export default function LivresListePage() {
                     onChange={(e) => setNewLivre({ ...newLivre, royaltyRate: e.target.value })}
                     min="0"
                     step={newLivre.royaltyType === 'PERCENTAGE' ? "0.1" : "1"}
+                    placeholder={newLivre.royaltyType === 'PERCENTAGE' ? "Ex: 10" : "Ex: 500"}
                   />
                 </div>
               </div>

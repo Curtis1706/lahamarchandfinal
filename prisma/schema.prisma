@@ -337,22 +337,23 @@ model Order {
   subtotal           Float               @default(0)
   tax                Float               @default(0)
   total              Float               @default(0)
-  discount           Float               @default(0)
-  promoCode          String?
   amountPaid         Float               @default(0)
   deliveryDate       DateTime?
   deliveryStatus     DeliveryStatus      @default(PENDING)
   depositAmount      Float?
   depositDate        DateTime?
+  discount           Float               @default(0)
   fullPaymentDate    DateTime?
-  paymentStatus      PaymentStatus       @default(UNPAID)
-  paymentType        PaymentType         @default(CASH)
-  receivedAt         DateTime?
-  receivedBy         String?
-  remainingAmount    Float               @default(0)
   monerooPaymentId   String?             @unique
   monerooStatus      String?
   paidAt             DateTime?
+  paymentDueDate     DateTime?
+  paymentStatus      PaymentStatus       @default(UNPAID)
+  paymentType        PaymentType         @default(CASH)
+  promoCode          String?
+  receivedAt         DateTime?
+  receivedBy         String?
+  remainingAmount    Float               @default(0)
   deliveryNote       DeliveryNote?
   notificationChains NotificationChain[] @relation("NotificationChainOrders")
   partner            Partner?            @relation("PartnerOrders", fields: [partnerId], references: [id])
@@ -580,12 +581,12 @@ model Royalty {
   amount     Float
   paid       Boolean   @default(false)
   createdAt  DateTime  @default(now())
+  approved   Boolean   @default(false)
+  approvedAt DateTime?
   orderId    String?
   paidAt     DateTime?
   rate       Float?
   saleId     String?
-  approved   Boolean   @default(false)
-  approvedAt DateTime?
   order      Order?    @relation("OrderRoyalties", fields: [orderId], references: [id])
   user       User      @relation(fields: [userId], references: [id])
   work       Work      @relation(fields: [workId], references: [id])

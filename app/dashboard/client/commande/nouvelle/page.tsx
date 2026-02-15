@@ -77,6 +77,7 @@ function NouvelleCommandePageContent() {
     deliveryTimeTo: '19:00',
     deliveryAddress: '',
     paymentMethod: '',
+    paymentDueDate: undefined as Date | undefined,
   })
 
   const [appliedPromo, setAppliedPromo] = useState<{ code: string; discountAmount: number; libelle: string } | null>(null)
@@ -510,6 +511,16 @@ function NouvelleCommandePageContent() {
           */
           orderData.transactionId = transactionId
           orderData.paymentProof = paymentProofUrl
+        }
+
+        // Champs spécifiques Paiement en Dépôt
+        if (newOrderData.paymentMethod === 'depot') {
+          if (!newOrderData.paymentDueDate) {
+            toast.error("Veuillez sélectionner une date limite de paiement")
+            setIsSubmitting(false)
+            return
+          }
+          orderData.paymentDueDate = newOrderData.paymentDueDate.toISOString()
         }
       }
 
@@ -1010,6 +1021,7 @@ function NouvelleCommandePageContent() {
                         <SelectItem value="airtel-money-gabon">Airtel Money Gabon</SelectItem>
                         <SelectItem value="virement">Virement bancaire</SelectItem>
                         <SelectItem value="carte">Carte bancaire</SelectItem>
+                        <SelectItem value="depot">Dépôt</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1054,6 +1066,86 @@ function NouvelleCommandePageContent() {
                           {isUploadingProof && <p className="text-xs text-muted-foreground animate-pulse">Téléchargement...</p>}
                           {paymentProofUrl && <p className="text-xs text-green-600 font-medium">✓ Preuve téléchargée</p>}
                         </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Section Paiement en Dépôt */}
+                  {newOrderData.paymentMethod === 'depot' && (
+                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
+                      <div className="flex items-center gap-2 text-blue-700 font-medium">
+                        <Clock className="h-5 w-5" />
+                        <span>Paiement en dépôt</span>
+                      </div>
+
+                      <div className="text-sm text-gray-700 space-y-2 ml-1 pl-4 border-l-2 border-blue-200">
+                        <p className="font-medium">Comment ça fonctionne ?</p>
+                        <p>• Vous recevez la commande dans votre établissement (école, boutique, etc.)</p>
+                        <p>• Vous payez ultérieurement selon la date de rappel choisie</p>
+                        <p>• Un rappel vous sera envoyé avant la date limite</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Date limite de paiement *</Label>
+                        <div className="text-xs text-muted-foreground mb-2">
+                          Pour toute information, veuillez contacter le +22951825358
+                        </div>
+
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !newOrderData.paymentDueDate && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {newOrderData.paymentDueDate ? (
+                                format(newOrderData.paymentDueDate, "PPP", { locale: fr })
+                              ) : (
+                                <span>Sélectionnez une date de rappel</span>
+                              )}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <div className="p-3 border-b">
+                              <p className="text-sm font-medium mb-2">Dates prédéfinies</p>
+                              <div className="grid grid-cols-2 gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    const date = new Date(2026, 8, 30) // 30 Septembre 2026
+                                    setNewOrderData(prev => ({ ...prev, paymentDueDate: date }))
+                                  }}
+                                  className="text-xs"
+                                >
+                                  30 Septembre
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    const date = new Date(2026, 11, 15) // 15 Décembre 2026
+                                    setNewOrderData(prev => ({ ...prev, paymentDueDate: date }))
+                                  }}
+                                  className="text-xs"
+                                >
+                                  15 Décembre
+                                </Button>
+                              </div>
+                            </div>
+                            <Calendar
+                              mode="single"
+                              selected={newOrderData.paymentDueDate}
+                              onSelect={(date) => setNewOrderData(prev => ({ ...prev, paymentDueDate: date }))}
+                              disabled={(date) => date < new Date()}
+                              initialFocus
+                              locale={fr}
+                            />
+                          </PopoverContent>
+                        </Popover>
                       </div>
                     </div>
                   )}
