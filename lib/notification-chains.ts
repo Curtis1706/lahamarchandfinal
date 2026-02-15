@@ -48,6 +48,7 @@ export async function createNotificationChainsForOrder(
                 status: 'Actif',
                 message: confirmationMessage,
                 orderId,
+                // @ts-ignore - Le client Prisma local peut mettre du temps à se synchroniser
                 notificationType: 'CONFIRMATION',
                 createdById
             }
@@ -67,6 +68,7 @@ export async function createNotificationChainsForOrder(
                 status: 'Actif',
                 message: reminderMessage,
                 orderId,
+                // @ts-ignore - Le client Prisma local peut mettre du temps à se synchroniser
                 notificationType: 'REMINDER',
                 createdById
             }

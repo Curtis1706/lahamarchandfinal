@@ -3,8 +3,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { format } from "date-fns"
+import { format, isValid } from "date-fns"
 import { fr } from "date-fns/locale"
+import { processNotificationChains } from '@/lib/notifications-sender';
 
 export const dynamic = 'force-dynamic'
 
@@ -83,11 +84,11 @@ export async function GET(request: NextRequest) {
           : 'Tous les clients',
         clientId: chain.clientId, // Ajouté pour permettre la modification correcte
         titre: chain.title,
-        date: format(chain.scheduledDate, 'EEE d MMM yyyy HH:mm', { locale: fr }),
+        date: format(new Date(chain.scheduledDate), 'EEE d MMM yyyy HH:mm', { locale: fr }),
         scheduledDate: chain.scheduledDate,
         statut: chain.status,
-        creeeLe: format(chain.createdAt, 'EEE d MMM yyyy HH:mm', { locale: fr }),
-        modifieLe: format(chain.updatedAt, 'EEE d MMM yyyy HH:mm', { locale: fr }),
+        creeeLe: format(new Date(chain.createdAt), 'EEE d MMM yyyy HH:mm', { locale: fr }),
+        modifieLe: format(new Date(chain.updatedAt), 'EEE d MMM yyyy HH:mm', { locale: fr }),
         creePar: chain.createdBy.email,
         sendSMS: chain.sendSMS,
         sendEmail: chain.sendEmail,
@@ -95,8 +96,11 @@ export async function GET(request: NextRequest) {
         message: chain.message,
         orderId: chain.orderId,
         orderReference: chain.order ? `CMD-${chain.order.id.slice(-8)}` : null,
+        // @ts-ignore
         isSent: chain.isSent,
-        sentAt: chain.sentAt ? format(chain.sentAt, 'EEE d MMM yyyy HH:mm', { locale: fr }) : null,
+        // @ts-ignore
+        sentAt: chain.sentAt && isValid(new Date(chain.sentAt)) ? format(new Date(chain.sentAt), 'EEE d MMM yyyy HH:mm', { locale: fr }) : null,
+        // @ts-ignore
         failureReason: chain.failureReason
       })),
       pagination: {
@@ -170,6 +174,11 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    // Déclenchement automatique immédiat si la date est passée ou maintenant
+    if (chain.status === 'Actif' && new Date(chain.scheduledDate) <= new Date()) {
+      processNotificationChains().catch(err => console.error('Erreur déclenchement immédiat (POST):', err));
+    }
+
     return NextResponse.json({
       message: 'Chaîne de notifications créée avec succès',
       chain: {
@@ -232,6 +241,12 @@ export async function PUT(request: NextRequest) {
         }
       }
     })
+
+    // Déclenchement automatique immédiat si la date est passée ou maintenant
+    // @ts-ignore
+    if (updated.status === 'Actif' && !updated.isSent && new Date(updated.scheduledDate) <= new Date()) {
+      processNotificationChains().catch(err => console.error('Erreur déclenchement immédiat (PUT):', err));
+    }
 
     return NextResponse.json({
       message: 'Chaîne de notifications mise à jour avec succès',

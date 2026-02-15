@@ -231,12 +231,18 @@ importers:
       '@types/nodemailer':
         specifier: ^7.0.9
         version: 7.0.9
+      '@types/pako':
+        specifier: ^2.0.4
+        version: 2.0.4
       '@types/react':
         specifier: ^18.3.12
         version: 18.3.28
       '@types/react-dom':
         specifier: ^18.3.1
         version: 18.3.7(@types/react@18.3.28)
+      '@types/trusted-types':
+        specifier: ^2.0.7
+        version: 2.0.7
       glob:
         specifier: ^13.0.0
         version: 13.0.1
@@ -4089,8 +4095,7 @@ snapshots:
       '@types/prop-types': 15.7.15
       csstype: 3.2.3
 
-  '@types/trusted-types@2.0.7':
-    optional: true
+  '@types/trusted-types@2.0.7': {}
 
   '@types/yauzl@2.10.3':
     dependencies:
