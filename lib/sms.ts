@@ -123,6 +123,7 @@ export async function sendNotificationChainSMS(
 
     const anonymizedPhone = cleanPhone.replace(/(\d{3})\d+(\d{2})/, "$1****$2");
     console.log(`📡 [SMS Chaîne] Tentative d'envoi ${notificationType} à ${anonymizedPhone}...`);
+    console.log(`💬 [SMS Chaîne] Contenu : "${text}"`);
 
     try {
         const response = await fetch("https://api.fastermessage.com/v1/sms/send", {
@@ -145,9 +146,9 @@ export async function sendNotificationChainSMS(
         const isSuccess = response.ok && (data.status === "success" || data.status === true || data.code === 'SUBMITTED');
 
         if (isSuccess) {
-            console.log(`✅ [SMS Chaîne] ${notificationType} envoyé avec succès à ${anonymizedPhone} (ID: ${data.messageId || data.message_id || 'N/A'})`);
+            console.log(`✅ [SMS Chaîne] ${notificationType} envoyé avec succès à ${anonymizedPhone} (ID Message: ${data.messageId || data.message_id || 'N/A'})`);
         } else {
-            console.error(`❌ [SMS Chaîne] Échec de l'envoi ${notificationType} à ${anonymizedPhone}. Réponse API:`, data);
+            console.error(`❌ [SMS Chaîne] Échec de l'envoi ${notificationType} à ${anonymizedPhone}. Réponse API:`, JSON.stringify(data));
         }
 
         return data;

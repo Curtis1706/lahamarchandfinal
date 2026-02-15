@@ -78,20 +78,26 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       chains: chains.map(chain => ({
         id: chain.id,
-        client: chain.client 
+        client: chain.client
           ? `${chain.client.name} (${chain.client.phone || chain.client.email})`
           : 'Tous les clients',
+        clientId: chain.clientId, // Ajouté pour permettre la modification correcte
         titre: chain.title,
         date: format(chain.scheduledDate, 'EEE d MMM yyyy HH:mm', { locale: fr }),
+        scheduledDate: chain.scheduledDate,
         statut: chain.status,
         creeeLe: format(chain.createdAt, 'EEE d MMM yyyy HH:mm', { locale: fr }),
+        modifieLe: format(chain.updatedAt, 'EEE d MMM yyyy HH:mm', { locale: fr }),
         creePar: chain.createdBy.email,
         sendSMS: chain.sendSMS,
         sendEmail: chain.sendEmail,
         daysBefore: chain.daysBefore,
         message: chain.message,
         orderId: chain.orderId,
-        orderReference: chain.order ? `CMD-${chain.order.id.slice(-8)}` : null
+        orderReference: chain.order ? `CMD-${chain.order.id.slice(-8)}` : null,
+        isSent: chain.isSent,
+        sentAt: chain.sentAt ? format(chain.sentAt, 'EEE d MMM yyyy HH:mm', { locale: fr }) : null,
+        failureReason: chain.failureReason
       })),
       pagination: {
         total,
@@ -104,7 +110,7 @@ export async function GET(request: NextRequest) {
     logger.error('Error fetching notification chains:', error)
     logger.error('Stack trace:', error.stack)
     return NextResponse.json(
-      { 
+      {
         error: 'Erreur lors de la récupération des chaînes de notifications',
         message: process.env.NODE_ENV === 'development' ? error.message : undefined
       },
@@ -262,6 +268,8 @@ export async function DELETE(request: NextRequest) {
     await prisma.notificationChain.delete({
       where: { id }
     })
+
+    console.log(`🗑️ [API] Chaîne de notification ${id} supprimée par l'utilisateur ${session.user.id}`)
 
     return NextResponse.json({
       message: 'Chaîne de notifications supprimée avec succès'
