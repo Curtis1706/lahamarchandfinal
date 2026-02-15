@@ -71,11 +71,19 @@ export async function GET(request: NextRequest) {
     // Transformer les commandes en format vente/retour
     const ventesRetours = orders.map(order => {
       const totalQty = order.items.reduce((sum, item) => sum + item.quantity, 0)
+<<<<<<< HEAD
       const totalAmount = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
 
       // Déterminer le type (vente ou retour basé sur le statut)
       // Pour les dépôts, un retour est souvent une annulation ou un retour partiel
       const type = order.status === 'CANCELLED' ? 'retour' : 'depot'
+=======
+      // Utiliser order.total qui contient le montant net après réductions
+      const totalAmount = order.total
+
+      // Déterminer le type (vente ou retour basé sur le statut)
+      const type = order.status === 'CANCELLED' ? 'retour' : 'vente'
+>>>>>>> 0038c41ccba84ab078e777a00e6862fa9efe38c5
 
       // Déterminer le compte
       const compte = order.partner ? 'Partenaire' : 'Client'
