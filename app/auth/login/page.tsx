@@ -26,9 +26,48 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      // ÉTAPE 1: Vérifier le statut du compte AVANT la connexion
-      const identifier = loginMethod === "email" ? emailValue : phoneValue
+      // VALIDATION STRICTE selon la méthode de connexion
+      let identifier = ""
+      
+      if (loginMethod === "email") {
+        // Valider que c'est bien un email
+        const emailTrimmed = emailValue.trim()
+        if (!emailTrimmed) {
+          toast.error("Veuillez entrer votre email")
+          setIsLoading(false)
+          return
+        }
+        if (!emailTrimmed.includes('@') || !emailTrimmed.includes('.')) {
+          toast.error("Veuillez entrer un email valide")
+          setIsLoading(false)
+          return
+        }
+        identifier = emailTrimmed
+      } else {
+        // Valider que c'est bien un téléphone
+        const phoneTrimmed = phoneValue.trim()
+        if (!phoneTrimmed) {
+          toast.error("Veuillez entrer votre numéro de téléphone")
+          setIsLoading(false)
+          return
+        }
+        // Vérifier que ça ne contient pas de @ (pas un email)
+        if (phoneTrimmed.includes('@')) {
+          toast.error("Veuillez entrer un numéro de téléphone valide, pas un email")
+          setIsLoading(false)
+          return
+        }
+        identifier = phoneTrimmed
+      }
 
+      // Valider le mot de passe
+      if (!password || password.trim().length < 3) {
+        toast.error("Veuillez entrer votre mot de passe")
+        setIsLoading(false)
+        return
+      }
+
+      // ÉTAPE 1: Vérifier le statut du compte AVANT la connexion
       const checkResponse = await fetch('/api/auth/check-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -65,7 +104,9 @@ export default function LoginPage() {
       })
 
       if (result?.error) {
-        toast.error("Email ou mot de passe incorrect")
+        toast.error(loginMethod === "email" 
+          ? "Email ou mot de passe incorrect" 
+          : "Téléphone ou mot de passe incorrect")
         setIsLoading(false)
         return
       }

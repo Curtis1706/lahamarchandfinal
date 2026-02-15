@@ -53,9 +53,16 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Email et mot de passe requis");
         }
 
-        // Rechercher l'utilisateur
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email.toLowerCase() }
+        const identifier = credentials.email.trim();
+
+        // Détecter si c'est un email ou un téléphone
+        const isEmail = identifier.includes('@');
+
+        // Rechercher l'utilisateur par email OU par téléphone
+        const user = await prisma.user.findFirst({
+          where: isEmail
+            ? { email: identifier.toLowerCase() }
+            : { phone: identifier }
         });
 
         if (!user) {
