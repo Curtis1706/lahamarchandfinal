@@ -10,7 +10,10 @@ interface DashboardStats {
   totalUsers: number
   totalWorks: number
   totalOrders: number
+  totalWorks: number
+  totalOrders: number
   totalRevenue: number
+  totalDebt: number
   validatedToClients: {
     books: number
     amount: number
@@ -49,6 +52,7 @@ export default function PDGDashboard() {
     totalWorks: 0,
     totalOrders: 0,
     totalRevenue: 0,
+    totalDebt: 0,
     validatedToClients: { books: 0, amount: 0 },
     toCollaborators: { books: 0, amount: 0 },
     totalValidated: { books: 0, amount: 0 }
@@ -95,6 +99,7 @@ export default function PDGDashboard() {
         totalWorks: data.stats.totalWorks || 0,
         totalOrders: data.stats.totalOrders || 0,
         totalRevenue: data.stats.totalRevenue || 0,
+        totalDebt: data.stats.totalDebt || 0,
         validatedToClients: {
           books: data.stats.validatedToClients?.books || 0,
           amount: data.stats.validatedToClients?.amount || 0
@@ -223,15 +228,15 @@ export default function PDGDashboard() {
         </div>
 
         {/* Ligne stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-          <div className="bg-[#FA626B] rounded-2xl p-6 text-white shadow-lg h-40 flex items-center">
-            <ShoppingCart className="w-8 h-8 mr-4 opacity-80" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+          <div className="bg-[#6967CE] rounded-2xl p-6 text-white shadow-lg h-40 flex items-center">
+            <User className="w-8 h-8 mr-4 opacity-80" />
             <div>
               <h3 className="text-lg font-semibold mb-2">Utilisateurs</h3>
               <p className="text-2xl font-bold">
                 {stats.totalUsers} <span className="text-base">Utilisateur(s)</span>
               </p>
-              <p className="text-red-100">Total inscrits</p>
+              <p className="text-indigo-100">Total inscrits</p>
             </div>
           </div>
 
@@ -249,11 +254,22 @@ export default function PDGDashboard() {
           <div className="bg-[#5ED84F] rounded-2xl p-6 text-white shadow-lg h-40 flex items-center">
             <ShoppingCart className="w-8 h-8 mr-4 opacity-80" />
             <div>
-              <h3 className="text-lg font-semibold mb-2">Revenus totaux</h3>
+              <h3 className="text-lg font-semibold mb-2">Revenus Totaux</h3>
               <p className="text-2xl font-bold">
-                {stats.totalRevenue.toLocaleString()} <span className="text-base">F CFA</span>
+                {stats.totalRevenue.toLocaleString()} <span className="text-base">FCFA</span>
               </p>
-              <p className="text-green-100">Ventes cumulées</p>
+              <p className="text-green-100">Payé</p>
+            </div>
+          </div>
+
+          <div className="bg-orange-500 rounded-2xl p-6 text-white shadow-lg h-40 flex items-center">
+             <ShoppingCart className="w-8 h-8 mr-4 opacity-80" />
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Dettes Totales</h3>
+              <p className="text-2xl font-bold">
+                 {stats.totalDebt.toLocaleString()} <span className="text-base">FCFA</span>
+              </p>
+              <p className="text-orange-100">Dépôts (Impayé)</p>
             </div>
           </div>
         </div>

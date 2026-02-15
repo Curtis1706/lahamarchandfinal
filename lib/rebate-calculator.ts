@@ -108,9 +108,13 @@ export async function getApplicableRebateRate(
 export async function calculatePartnerRebate(
   orderId: string,
   partnerId: string,
-  totalAmount: number
+  totalAmount: number,
+  discountRatio: number = 1
 ): Promise<{ amount: number; rate: number }> {
   const rate = await getApplicableRebateRate('PARTNER', partnerId, null, null)
+  // totalAmount est déjà le montant payé (net), done le pourcentage s'applique correctement.
+  // Si totalAmount était le brut, on devrait faire totalAmount * discountRatio.
+  // Par sécurité et cohérence, on assume que totalAmount passé est le montant sur lequel on applique le %.
   const amount = (totalAmount * rate) / 100
 
   return { amount, rate }
@@ -122,7 +126,8 @@ export async function calculatePartnerRebate(
 export async function calculateAuthorRoyalty(
   workId: string,
   authorId: string,
-  saleAmount: number
+  saleAmount: number,
+  discountRatio: number = 1
 ): Promise<{ amount: number; rate: number }> {
   // 1. Vérifier le taux défini directement sur le livre (Priorité maximale)
   const work = await prisma.work.findUnique({
@@ -133,11 +138,12 @@ export async function calculateAuthorRoyalty(
   if (work && work.royaltyRate > 0) {
     let amount = 0;
     if (work.royaltyType === 'PERCENTAGE') {
+      // Pourcentage sur le montant de vente (saleAmount)
       amount = (saleAmount * work.royaltyRate) / 100;
+      // Note: Si saleAmount est déjà réduit, pas besoin d'appliquer discountRatio à nouveau ici.
     } else {
-      // Pour les montants fixes, on retourne le montant directement
-      // Note: On pourrait multiplier par la quantité si saleAmount représente le total d'une ligne
-      amount = work.royaltyRate;
+      // Pour les montants fixes, on doit appliquer le ratio de réduction
+      amount = work.royaltyRate * discountRatio;
     }
     return { amount, rate: work.royaltyRate };
   }

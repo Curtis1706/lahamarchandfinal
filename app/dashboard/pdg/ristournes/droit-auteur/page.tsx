@@ -376,6 +376,7 @@ export default function DroitAuteurPage() {
                   <th className="text-left py-3 px-4 font-medium text-gray-900">AUTEUR</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">VERSEMENT</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">RETRAIT</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">RESTE À PAYER</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">STATUT</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">CRÉÉ LE</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">ACTIONS</th>
@@ -384,13 +385,13 @@ export default function DroitAuteurPage() {
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-8 text-gray-500">
+                    <td colSpan={8} className="text-center py-8 text-gray-500">
                       Chargement des droits d'auteur...
                     </td>
                   </tr>
                 ) : paginatedDroits.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-8 text-gray-500">
+                    <td colSpan={8} className="text-center py-8 text-gray-500">
                       Aucune donnée disponible dans le tableau
                     </td>
                   </tr>
@@ -400,7 +401,10 @@ export default function DroitAuteurPage() {
                       <td className="py-3 px-4 font-medium">{droit.reference}</td>
                       <td className="py-3 px-4">{droit.authorName}</td>
                       <td className="py-3 px-4">{formatCurrency(droit.versement)} XOF</td>
-                      <td className="py-3 px-4">{formatCurrency(droit.retrait)} XOF</td>
+                      <td className="py-3 px-4 text-green-600">{formatCurrency(droit.retrait)} XOF</td>
+                      <td className="py-3 px-4 font-bold text-red-600">
+                        {formatCurrency(droit.versement - droit.retrait)} XOF
+                      </td>
                       <td className="py-3 px-4">
                         <span className={`inline-block px-2 py-1 text-xs rounded ${droit.statut === "Payé"
                           ? "bg-green-100 text-green-800"
@@ -412,7 +416,40 @@ export default function DroitAuteurPage() {
                       <td className="py-3 px-4 text-sm text-gray-600">{droit.creeLe}</td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
-                          {/* Actions à implémenter si nécessaire */}
+                          {/* Bouton Payer uniquement si reste à payer > 0 */}
+                          {(droit.versement - droit.retrait) > 0 && (
+                            <Button
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700 text-white h-8 px-2"
+                              onClick={async () => {
+                                if (!confirm(`Confirmez-vous le paiement de ${formatCurrency(droit.versement - droit.retrait)} XOF à ${droit.authorName} pour "${droit.reference}" ?`)) {
+                                  return;
+                                }
+
+                                try {
+                                  const response = await fetch('/api/pdg/ristournes/droit-auteur/pay', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      authorId: droit.authorId,
+                                      workId: droit.id.split('-')[0] // id format is workId-authorId
+                                    })
+                                  });
+
+                                  if (response.ok) {
+                                    toast({ title: "Paiement effectué", description: "Les droits d'auteur ont été marqués comme payés." });
+                                    loadDroitsAuteur(); // Recharger la liste
+                                  } else {
+                                    throw new Error("Erreur serveur");
+                                  }
+                                } catch (e) {
+                                  toast({ title: "Erreur", description: "Impossible d'effectuer le paiement.", variant: "destructive" });
+                                }
+                              }}
+                            >
+                              <span className="text-xs">Payer</span>
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>

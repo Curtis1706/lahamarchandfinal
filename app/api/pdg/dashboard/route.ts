@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       // Total commandes
       prisma.order.count(),
 
-      // Récupérer les commandes validées/livrées avec leurs items pour calculer les totaux
+      // Récupérer les commandes validées/livrées pour calculer les totaux financiers
       prisma.order.findMany({
         where: {
           status: {
@@ -153,17 +153,47 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Calculer le chiffre d'affaires total
-    const totalRevenueAmount = Array.isArray(totalRevenue)
-      ? totalRevenue.reduce((sum, order) => {
-        const orderTotal = calculateOrderTotal(order)
-        return sum + orderTotal
+    // 💰 Calcul du Revenu Total (Uniquement ce qui est PAYÉ)
+    // validatedOrders contient toutes les commandes validées/livrées (clients + partenaires)
+    const totalRevenueAmount = Array.isArray(validatedOrders)
+      ? validatedOrders.reduce((sum, order) => {
+        // Si la commande est entièrement payée, on prend le total
+        if (order.paymentStatus === 'PAID') {
+          return sum + calculateOrderTotal(order)
+        }
+        // Sinon on prend le montant payé partiel (s'il existe)
+        return sum + (Number(order.amountPaid) || 0)
+      }, 0)
+      : 0
+
+    // ⏳ Calcul de la Dette Totale (Reste à payer sur les commandes validées)
+    // Concerne principalement les dépôts
+    const totalDebtAmount = Array.isArray(validatedOrders)
+      ? validatedOrders.reduce((sum, order) => {
+        // Si payé, pas de dette
+        if (order.paymentStatus === 'PAID') return sum
+
+        // Si dépôt ou crédit, on calcule le reste
+        if (order.paymentType === 'DEPOSIT' || (order as any).paymentMethod === 'depot' || order.paymentType === 'CREDIT') {
+          // Si remainingAmount est fiable
+          if (order.remainingAmount !== null && order.remainingAmount !== undefined) {
+            return sum + Number(order.remainingAmount)
+          }
+          // Sinon on calcule Total - Payé
+          const total = calculateOrderTotal(order)
+          const paid = Number(order.amountPaid) || 0
+          return sum + Math.max(0, total - paid)
+        }
+        return sum
       }, 0)
       : 0
 
     // Calculer les montants pour les clients
+    // validatedClientOrders est utilisé pour le nombre de livres, mais on a besoin des montants
+    // validatedOrders contient tout, mais on veut filtrer pour clients seulement (partnerId === null)
     const validatedToClientsAmount = Array.isArray(validatedOrders)
       ? validatedOrders.reduce((sum, order) => {
+        if (order.partnerId) return sum // Ignorer partenaires
         const orderTotal = calculateOrderTotal(order)
         return sum + orderTotal
       }, 0)
@@ -181,6 +211,7 @@ export async function GET(request: NextRequest) {
         totalWorks,
         totalOrders,
         totalRevenue: totalRevenueAmount,
+        totalDebt: totalDebtAmount, // Nouveau champ
         validatedToClients: {
           books: validatedBooksCount._sum.quantity || 0,
           amount: validatedToClientsAmount

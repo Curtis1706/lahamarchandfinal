@@ -21,7 +21,10 @@ export interface Order {
   total: number
   itemCount: number
   paymentMethod: string
+  paymentType?: string
   paymentStatus: 'UNPAID' | 'PAID' | 'FAILED'
+  amountPaid?: number
+  remainingAmount?: number
   deliveryAddress: string
   items: OrderItem[]
   customerInfo: {
@@ -36,6 +39,7 @@ export interface Order {
   notes?: string
   paymentReference?: string | null
 }
+
 
 export interface UseOrdersResult {
   orders: Order[]
@@ -122,7 +126,10 @@ export const useOrders = (): UseOrdersResult => {
           total: order.total || (order.items ? order.items.reduce((sum: number, item: any) => sum + ((item.price || item.unitPrice || 0) * (item.quantity || 0)), 0) : 0),
           itemCount: order.itemCount || order.itemsCount || (order.items ? order.items.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) : 0),
           paymentMethod: order.paymentMethod || 'Non spécifié',
+          paymentType: order.paymentType,
           paymentStatus: order.paymentStatus || 'UNPAID',
+          amountPaid: order.amountPaid,
+          remainingAmount: order.remainingAmount,
           deliveryAddress: deliveryAddress || 'Adresse non spécifiée',
           receivedAt: order.receivedAt,
           paymentReference: order.paymentReference,
