@@ -167,6 +167,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Forcer le statut PUBLISHED pour le PDG, peu importe ce que le frontend envoie (protection contre cache/vieux code)
+    let finalStatus = status;
+    if (session.user.role === 'PDG') {
+      finalStatus = 'PUBLISHED';
+    }
+
     // Créer l'œuvre
     const work = await prisma.work.create({
       data: {
@@ -192,8 +198,9 @@ export async function POST(request: NextRequest) {
         }) : null,
 
         // Statut et dates
-        status: status,
-        submittedAt: status === "PENDING" ? new Date() : null,
+        status: finalStatus,
+        submittedAt: finalStatus === "PENDING" ? new Date() : null,
+        publishedAt: finalStatus === "PUBLISHED" ? new Date() : null,
 
         // Relations
         discipline: { connect: { id: disciplineId } },

@@ -79,7 +79,7 @@ export default function LivresListePage() {
     disciplineId: "",
     royaltyRate: "0",
     royaltyType: "PERCENTAGE",
-    prices: [] as { clientType: string, price: string }[]
+    prices: Object.values(CLIENT_TYPES).map(type => ({ clientType: type, price: "" }))
   });
   const [collections, setCollections] = useState<any[]>([]);
   const [coverImage, setCoverImage] = useState<File | null>(null);
@@ -472,16 +472,18 @@ export default function LivresListePage() {
         price: parseFloat(newLivre.prix),
         // tva supprimé, géré par l'API
         estimatedPrice: parseFloat(newLivre.prix),
-        status: 'DRAFT', // Le PDG crée en DRAFT, puis peut publier
+        status: 'PUBLISHED', // Le PDG publie directement
         isbn: newLivre.isbn,
         collectionId: newLivre.collectionId || null,
         coverImage: coverImageUrl,
         royaltyRate: parseFloat(newLivre.royaltyRate),
         royaltyType: newLivre.royaltyType,
-        prices: newLivre.prices.map(p => ({
-          clientType: p.clientType,
-          price: parseFloat(p.price)
-        }))
+        prices: newLivre.prices
+          .filter(p => p.price && !isNaN(parseFloat(p.price)))
+          .map(p => ({
+            clientType: p.clientType,
+            price: parseFloat(p.price)
+          }))
       };
 
 
@@ -514,7 +516,7 @@ export default function LivresListePage() {
           disciplineId: "",
           royaltyRate: "0",
           royaltyType: "PERCENTAGE",
-          prices: Object.keys(CLIENT_TYPES).map(type => ({
+          prices: Object.values(CLIENT_TYPES).map(type => ({
             clientType: type,
             price: ""
           }))
@@ -598,7 +600,7 @@ export default function LivresListePage() {
           disciplineId: work.disciplineId || livre.disciplineId,
           royaltyRate: String(work.royaltyRate || 0),
           royaltyType: work.royaltyType || "PERCENTAGE",
-          prices: Object.keys(CLIENT_TYPES).map(type => {
+          prices: Object.values(CLIENT_TYPES).map(type => {
             const existing = (work.prices || []).find((p: any) => p.clientType === type);
             return {
               clientType: type,
@@ -766,6 +768,18 @@ export default function LivresListePage() {
   };
 
   const handlePublish = async (livreId: string, authorId: string) => {
+    // 1. Sauvegarder l'état actuel pour pouvoir restaurer en cas d'erreur
+    const previousLivres = [...livres];
+
+    // 2. Mise à jour optimiste de l'UI
+    setLivres(currentLivres =>
+      currentLivres.map(livre =>
+        livre.id === livreId
+          ? { ...livre, statut: 'Disponible', status: 'PUBLISHED' }
+          : livre
+      )
+    );
+
     try {
       setIsPublishing(livreId);
       const response = await fetch('/api/works/publish', {
@@ -785,8 +799,11 @@ export default function LivresListePage() {
           title: "Succès",
           description: "Livre publié avec succès. Il est maintenant visible dans le catalogue."
         });
+        // On recharge les données en arrière-plan pour être sûr, mais l'UI est déjà à jour
         loadLivres();
       } else {
+        // En cas d'erreur API, on restaure l'état précédent
+        setLivres(previousLivres);
         const errorData = await response.json();
         toast({
           title: "Erreur",
@@ -795,6 +812,8 @@ export default function LivresListePage() {
         });
       }
     } catch (error) {
+      // En cas d'erreur réseau, on restaure l'état précédent
+      setLivres(previousLivres);
       console.error("Error publishing livre:", error);
       toast({
         title: "Erreur",
@@ -1136,7 +1155,7 @@ export default function LivresListePage() {
             disciplineId: "",
             royaltyRate: "0",
             royaltyType: "PERCENTAGE",
-            prices: Object.keys(CLIENT_TYPES).map(type => ({
+            prices: Object.values(CLIENT_TYPES).map(type => ({
               clientType: type,
               price: ""
             }))
@@ -1337,7 +1356,8 @@ export default function LivresListePage() {
                 Laissez vide pour utiliser le prix public par défaut pour ce type de client.
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
-                {Object.entries(CLIENT_TYPE_LABELS).filter(([type]) => type !== 'INDIVIDUAL').map(([type, label]) => {
+                {Object.values(CLIENT_TYPES).filter(type => type !== CLIENT_TYPES.INDIVIDUAL).map(type => {
+                  const label = CLIENT_TYPE_LABELS[type] || type;
                   const priceEntry = newLivre.prices.find(p => p.clientType === type);
                   return (
                     <div key={type} className="flex flex-col space-y-1">

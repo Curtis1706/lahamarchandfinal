@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
 // POST /api/works/publish - Publier un livre (PDG uniquement)
+// POST /api/works/publish - Publier un livre (PDG uniquement)
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -16,12 +17,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Accès refusé. Seul le PDG peut publier un livre." }, { status: 403 })
     }
 
-    const { workId, action, authorId, rejectionReason } = await request.json() // action: "validate", "publish" ou "reject"
+    const body = await request.json();
+    const { workId, action, authorId, rejectionReason } = body;
 
-    logger.info("Publish request received", { workId, action, authorId, role: session.user.role });
+    logger.info("Publish request received", {
+      workId,
+      action,
+      authorId,
+      role: session.user.role,
+      bodyKeys: Object.keys(body)
+    });
 
     if (!workId || !action) {
-      logger.error("Missing workId or action");
+      logger.error("Missing workId or action", { workId, action });
       return NextResponse.json({ error: "ID du livre et action requis" }, { status: 400 })
     }
 
@@ -48,7 +56,8 @@ export async function POST(request: NextRequest) {
     // Validation : PENDING → VALIDATED
     if (action === "validate") {
       if (work.status !== "PENDING") {
-        return NextResponse.json({ error: "Seules les œuvres en attente peuvent être validées" }, { status: 400 })
+        logger.warn(`Invalid status for validation: ${work.status}`, { workId });
+        return NextResponse.json({ error: `Seules les œuvres en attente peuvent être validées (Statut actuel: ${work.status})` }, { status: 400 })
       }
 
       let updateData: any = {
@@ -128,6 +137,8 @@ export async function POST(request: NextRequest) {
       // Publication : VALIDATED → PUBLISHED
     } else if (action === "publish") {
       // Le PDG peut publier directement un brouillon, une œuvre en attente ou une œuvre validée
+      // Ajout de ON_SALE et PUBLISHED pour permettre la republiation/modification de statut si besoin (mais attention aux règles métier)
+      // Pour l'instant, on garde la logique stricte mais avec un message clair
       if (work.status !== "VALIDATED" && work.status !== "DRAFT" && work.status !== "PENDING") {
         logger.warn("Invalid status for publication", { workId, status: work.status });
         return NextResponse.json({ error: `Seules les œuvres validées, en attente ou brouillons peuvent être publiées (Statut actuel: ${work.status})` }, { status: 400 })
@@ -189,7 +200,7 @@ export async function POST(request: NextRequest) {
       // Refus : PENDING → REJECTED
     } else if (action === "reject") {
       if (work.status !== "PENDING") {
-        return NextResponse.json({ error: "Seules les œuvres en attente peuvent être refusées" }, { status: 400 })
+        return NextResponse.json({ error: `Seules les œuvres en attente peuvent être refusées (Statut actuel: ${work.status})` }, { status: 400 })
       }
 
       // Refuser le livre
@@ -239,7 +250,8 @@ export async function POST(request: NextRequest) {
       }, { status: 200 })
 
     } else {
-      return NextResponse.json({ error: "Action invalide. Utilisez 'validate', 'publish' ou 'reject'" }, { status: 400 })
+      logger.warn("Invalid action received", { action });
+      return NextResponse.json({ error: `Action invalide: ${action}. Utilisez 'validate', 'publish' ou 'reject'` }, { status: 400 })
     }
 
   } catch (error: any) {
