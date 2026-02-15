@@ -14,6 +14,14 @@ import { useToast } from "@/hooks/use-toast"
 import { apiClient } from "@/lib/api-client"
 import { useCurrentUser } from "@/hooks/use-current-user"
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
   Plus,
   Package,
   TrendingUp,
@@ -28,7 +36,8 @@ import {
   RotateCcw,
   Loader2,
   Edit,
-  Trash2
+  Trash2,
+  RefreshCw
 } from "lucide-react"
 
 interface Work {
@@ -437,114 +446,127 @@ export default function StockOperationsPage() {
       <div className="bg-slate-700 text-white p-6 rounded-b-xl shadow-lg">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-bold mb-2">📦 Opérations de stock</h2>
+            <div className="flex items-center gap-3 mb-2">
+              <Package className="w-8 h-8 text-blue-200" />
+              <h2 className="text-3xl font-bold">Opérations de stock</h2>
+            </div>
             <p className="text-slate-300 text-lg">Gestion complète des entrées et sorties de stock</p>
           </div>
 
-          <Dialog
-            open={showOperationDialog}
-            onOpenChange={(open) => {
-              // Ne pas permettre la fermeture pendant l'exécution
-              if (isExecuting) {
-                return
-              }
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={loadData}
+              className="bg-white/10 text-white hover:bg-white/20 border-white/20"
+              disabled={isLoading}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Actualiser
+            </Button>
 
-              setShowOperationDialog(open)
+            <Dialog
+              open={showOperationDialog}
+              onOpenChange={(open) => {
+                // Ne pas permettre la fermeture pendant l'exécution
+                if (isExecuting) {
+                  return
+                }
 
-              // Réinitialiser le formulaire quand le dialogue se ferme
-              if (!open) {
-                setFormData({
-                  workId: '',
-                  quantity: '',
-                  source: '',
-                  destination: '',
-                  partnerId: '',
-                  reason: '',
-                  notes: '',
-                  unitPrice: '',
-                  transferDestinationId: ''
-                })
-                setSelectedOperation('')
-                setSelectedSubType('')
-              }
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button
-                onClick={() => setShowOperationDialog(true)}
-                className="bg-white text-slate-700 hover:bg-slate-50 border-2 border-white shadow-lg hover:shadow-xl transition-all duration-200"
-              >
-                <Plus className="w-5 h-5 mr-2" />
-                Nouvelle opération
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Nouvelle opération de stock</DialogTitle>
-                <DialogDescription>
-                  Créer une nouvelle opération d'entrée, sortie, transfert ou correction de stock
-                </DialogDescription>
-              </DialogHeader>
+                setShowOperationDialog(open)
 
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                // Réinitialiser le formulaire quand le dialogue se ferme
+                if (!open) {
+                  setFormData({
+                    workId: '',
+                    quantity: '',
+                    source: '',
+                    destination: '',
+                    partnerId: '',
+                    reason: '',
+                    notes: '',
+                    unitPrice: '',
+                    transferDestinationId: ''
+                  })
+                  setSelectedOperation('')
+                  setSelectedSubType('')
+                }
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button
+                  onClick={() => setShowOperationDialog(true)}
+                  className="bg-white text-slate-700 hover:bg-slate-50 border-2 border-white shadow-lg hover:shadow-xl transition-all duration-200"
+                >
+                  <Plus className="w-5 h-5 mr-2" />
+                  Nouvelle opération
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Nouvelle opération de stock</DialogTitle>
+                  <DialogDescription>
+                    Créer une nouvelle opération d'entrée, sortie, transfert ou correction de stock
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="operationType">Type d'opération</Label>
+                      <Select value={selectedOperation} onValueChange={setSelectedOperation}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionner le type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ENTRY">Entrée de stock</SelectItem>
+                          <SelectItem value="EXIT">Sortie de stock</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="subType">Sous-type</Label>
+                      <Select value={selectedSubType} onValueChange={setSelectedSubType}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionner le sous-type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {selectedOperation === 'ENTRY' && (
+                            <>
+                              <SelectItem value="APPROVISIONNEMENT">Approvisionnement</SelectItem>
+                              <SelectItem value="RETOUR_PARTENAIRE">Retour partenaire</SelectItem>
+                              <SelectItem value="CORRECTION">Correction manuelle</SelectItem>
+                            </>
+                          )}
+                          {selectedOperation === 'EXIT' && (
+                            <>
+                              <SelectItem value="VENTE_DIRECTE">Vente directe</SelectItem>
+                              <SelectItem value="DEPOT_PARTENAIRE">Dépôt partenaire</SelectItem>
+                              <SelectItem value="PERTE">Perte/Casse</SelectItem>
+                              <SelectItem value="TRANSFERT">Transfert interne</SelectItem>
+                            </>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
                   <div>
-                    <Label htmlFor="operationType">Type d'opération</Label>
-                    <Select value={selectedOperation} onValueChange={setSelectedOperation}>
+                    <Label htmlFor="workId">Œuvre *</Label>
+                    <Select value={formData.workId} onValueChange={(value) => setFormData({ ...formData, workId: value })}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Sélectionner le type" />
+                        <SelectValue placeholder="Sélectionner une œuvre" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="ENTRY">Entrée de stock</SelectItem>
-                        <SelectItem value="EXIT">Sortie de stock</SelectItem>
+                        {works.map((work) => (
+                          <SelectItem key={work.id} value={work.id}>
+                            {work.title} - Stock: {work.stock}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
 
-                  <div>
-                    <Label htmlFor="subType">Sous-type</Label>
-                    <Select value={selectedSubType} onValueChange={setSelectedSubType}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sélectionner le sous-type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {selectedOperation === 'ENTRY' && (
-                          <>
-                            <SelectItem value="APPROVISIONNEMENT">Approvisionnement</SelectItem>
-                            <SelectItem value="RETOUR_PARTENAIRE">Retour partenaire</SelectItem>
-                            <SelectItem value="CORRECTION">Correction manuelle</SelectItem>
-                          </>
-                        )}
-                        {selectedOperation === 'EXIT' && (
-                          <>
-                            <SelectItem value="VENTE_DIRECTE">Vente directe</SelectItem>
-                            <SelectItem value="DEPOT_PARTENAIRE">Dépôt partenaire</SelectItem>
-                            <SelectItem value="PERTE">Perte/Casse</SelectItem>
-                            <SelectItem value="TRANSFERT">Transfert interne</SelectItem>
-                          </>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="workId">Œuvre *</Label>
-                  <Select value={formData.workId} onValueChange={(value) => setFormData({ ...formData, workId: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner une œuvre" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {works.map((work) => (
-                        <SelectItem key={work.id} value={work.id}>
-                          {work.title} - Stock: {work.stock}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="quantity">Quantité *</Label>
                     <Input
@@ -556,124 +578,113 @@ export default function StockOperationsPage() {
                     />
                   </div>
 
+                  {(selectedSubType === 'DEPOT_PARTENAIRE' || selectedSubType === 'RETOUR_PARTENAIRE') && (
+                    <div>
+                      <Label htmlFor="partnerId">Partenaire</Label>
+                      <Select value={formData.partnerId} onValueChange={(value) => setFormData({ ...formData, partnerId: value })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionner un partenaire" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {partners.map((partner) => (
+                            <SelectItem key={partner.id} value={partner.id}>
+                              {partner.name} ({partner.type})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="source">Source</Label>
+                      <Input
+                        id="source"
+                        value={formData.source}
+                        onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                        placeholder="Ex: Imprimerie Centrale"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="destination">Destination</Label>
+                      <Input
+                        id="destination"
+                        value={formData.destination}
+                        onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
+                        placeholder="Ex: Client final"
+                      />
+                    </div>
+                  </div>
+
                   <div>
-                    <Label htmlFor="unitPrice">Prix unitaire (optionnel)</Label>
+                    <Label htmlFor="reason">Raison</Label>
                     <Input
-                      id="unitPrice"
-                      type="number"
-                      value={formData.unitPrice}
-                      onChange={(e) => setFormData({ ...formData, unitPrice: e.target.value })}
-                      placeholder="Prix unitaire"
+                      id="reason"
+                      value={formData.reason}
+                      onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                      placeholder="Raison de l'opération"
                     />
                   </div>
-                </div>
 
-                {(selectedSubType === 'DEPOT_PARTENAIRE' || selectedSubType === 'RETOUR_PARTENAIRE') && (
                   <div>
-                    <Label htmlFor="partnerId">Partenaire</Label>
-                    <Select value={formData.partnerId} onValueChange={(value) => setFormData({ ...formData, partnerId: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sélectionner un partenaire" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {partners.map((partner) => (
-                          <SelectItem key={partner.id} value={partner.id}>
-                            {partner.name} ({partner.type})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="source">Source</Label>
-                    <Input
-                      id="source"
-                      value={formData.source}
-                      onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-                      placeholder="Ex: Imprimerie Centrale"
+                    <Label htmlFor="notes">Notes</Label>
+                    <Textarea
+                      id="notes"
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      placeholder="Notes supplémentaires"
                     />
                   </div>
 
-                  <div>
-                    <Label htmlFor="destination">Destination</Label>
-                    <Input
-                      id="destination"
-                      value={formData.destination}
-                      onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
-                      placeholder="Ex: Client final"
-                    />
+                  <div className="flex justify-end space-x-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowOperationDialog(false)
+                        setFormData({
+                          workId: '',
+                          quantity: '',
+                          source: '',
+                          destination: '',
+                          partnerId: '',
+                          reason: '',
+                          notes: '',
+                          unitPrice: '',
+                          transferDestinationId: ''
+                        })
+                        setSelectedOperation('')
+                        setSelectedSubType('')
+                      }}
+                      disabled={isExecuting}
+                    >
+                      Annuler
+                    </Button>
+                    <Button
+                      onClick={async (e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        await handleExecuteOperation()
+                      }}
+                      disabled={isExecuting}
+                      className="bg-black hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                      type="button"
+                    >
+                      {isExecuting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Exécution...
+                        </>
+                      ) : (
+                        "Exécuter l'opération"
+                      )}
+                    </Button>
                   </div>
                 </div>
-
-                <div>
-                  <Label htmlFor="reason">Raison</Label>
-                  <Input
-                    id="reason"
-                    value={formData.reason}
-                    onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                    placeholder="Raison de l'opération"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="notes">Notes</Label>
-                  <Textarea
-                    id="notes"
-                    value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    placeholder="Notes supplémentaires"
-                  />
-                </div>
-
-                <div className="flex justify-end space-x-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setShowOperationDialog(false)
-                      setFormData({
-                        workId: '',
-                        quantity: '',
-                        source: '',
-                        destination: '',
-                        partnerId: '',
-                        reason: '',
-                        notes: '',
-                        unitPrice: '',
-                        transferDestinationId: ''
-                      })
-                      setSelectedOperation('')
-                      setSelectedSubType('')
-                    }}
-                    disabled={isExecuting}
-                  >
-                    Annuler
-                  </Button>
-                  <Button
-                    onClick={async (e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      await handleExecuteOperation()
-                    }}
-                    disabled={isExecuting}
-                    className="bg-black hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                    type="button"
-                  >
-                    {isExecuting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Exécution...
-                      </>
-                    ) : (
-                      "Exécuter l'opération"
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
       </div>
 
@@ -743,67 +754,81 @@ export default function StockOperationsPage() {
                 <p className="text-gray-400">Commencez par créer votre première opération de stock</p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-100">
-                {operations.map((operation) => (
-                  <div key={operation.id} className="p-6 hover:bg-slate-50/50 transition-colors duration-200">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="p-3 rounded-full bg-slate-100">
-                          {getOperationIcon(operation.type)}
-                        </div>
-                        <div>
-                          <div className="font-semibold text-gray-900">{operation.work.title}</div>
-                          <div className="text-sm text-gray-600 flex items-center space-x-2">
-                            <span>{operation.work.isbn}</span>
-                            <span>•</span>
-                            <span>{operation.reason}</span>
-                            {operation.partner && (
-                              <>
-                                <span>•</span>
-                                <span className="text-slate-600">{operation.partner.name}</span>
-                              </>
-                            )}
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Œuvre</TableHead>
+                      <TableHead>Quantité</TableHead>
+                      <TableHead>Détails</TableHead>
+                      <TableHead>Auteur / Date</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {operations.map((operation) => (
+                      <TableRow key={operation.id}>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            {getOperationIcon(operation.type)}
+                            {getOperationBadge(operation.type)}
                           </div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            Par {operation.performedByUser?.name || 'Utilisateur inconnu'} • {new Date(operation.createdAt).toLocaleString()}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center space-x-4">
-                        {getOperationBadge(operation.type)}
-                        <div className="text-right mr-4">
-                          <div className={`font-bold text-lg ${operation.quantity > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium">{operation.work.title}</div>
+                          <div className="text-xs text-muted-foreground">{operation.work.isbn}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className={`font-bold ${operation.quantity > 0 ? 'text-green-600' : 'text-red-600'}`}>
                             {operation.quantity > 0 ? '+' : ''}{operation.quantity}
                           </div>
                           {operation.totalAmount && (
-                            <div className="text-sm text-gray-600">
+                            <div className="text-xs text-muted-foreground">
                               {operation.totalAmount.toLocaleString()} F CFA
                             </div>
                           )}
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEdit(operation)}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDelete(operation)}
-                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {operation.reason}
+                            {operation.partner && (
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                Partenaire: {operation.partner.name}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">{operation.performedByUser?.name || 'Inconnu'}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(operation.createdAt).toLocaleString()}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end space-x-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEdit(operation)}
+                              className="h-8 w-8"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(operation)}
+                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             )}
           </CardContent>
@@ -878,28 +903,15 @@ export default function StockOperationsPage() {
                   </Select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="edit-quantity">Quantité *</Label>
-                    <Input
-                      id="edit-quantity"
-                      type="number"
-                      value={formData.quantity}
-                      onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                      placeholder="Quantité"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="edit-unitPrice">Prix unitaire (optionnel)</Label>
-                    <Input
-                      id="edit-unitPrice"
-                      type="number"
-                      value={formData.unitPrice}
-                      onChange={(e) => setFormData({ ...formData, unitPrice: e.target.value })}
-                      placeholder="Prix unitaire"
-                    />
-                  </div>
+                <div>
+                  <Label htmlFor="edit-quantity">Quantité *</Label>
+                  <Input
+                    id="edit-quantity"
+                    type="number"
+                    value={formData.quantity}
+                    onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                    placeholder="Quantité"
+                  />
                 </div>
 
                 {(selectedSubType === 'DEPOT_PARTENAIRE' || selectedSubType === 'RETOUR_PARTENAIRE') && (
@@ -1037,6 +1049,6 @@ export default function StockOperationsPage() {
           </DialogContent>
         </Dialog>
       </div>
-    </div>
+    </div >
   )
 }

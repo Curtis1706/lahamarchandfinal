@@ -686,10 +686,12 @@ export default function LivresListePage() {
         collectionId: newLivre.collectionId || null,
         royaltyRate: parseFloat(newLivre.royaltyRate),
         royaltyType: newLivre.royaltyType,
-        prices: newLivre.prices.map(p => ({
-          clientType: p.clientType,
-          price: parseFloat(p.price)
-        }))
+        prices: newLivre.prices
+          .filter(p => p.price && !isNaN(parseFloat(p.price)))
+          .map(p => ({
+            clientType: p.clientType,
+            price: parseFloat(p.price)
+          }))
       };
 
       // 3. Ajouter l'image de couverture si elle a été uploadée
@@ -735,6 +737,10 @@ export default function LivresListePage() {
   };
 
   const handleDelete = async (livreId: string) => {
+    // Optimistic UI update
+    const previousLivres = [...livres];
+    setLivres(livres.filter(l => l.id !== livreId));
+
     try {
       setIsDeleting(livreId);
       const response = await fetch(`/api/works?id=${livreId}`, {
@@ -746,8 +752,10 @@ export default function LivresListePage() {
           title: "Succès",
           description: "Livre supprimé avec succès"
         });
-        loadLivres();
+        // Pas besoin de recharger, l'UI est déjà à jour
       } else {
+        // En cas d'erreur, on restaure
+        setLivres(previousLivres);
         const errorData = await response.json();
         toast({
           title: "Erreur",
@@ -756,6 +764,7 @@ export default function LivresListePage() {
         });
       }
     } catch (error) {
+      setLivres(previousLivres);
       console.error("Error deleting livre:", error);
       toast({
         title: "Erreur",

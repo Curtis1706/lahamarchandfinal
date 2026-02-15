@@ -1138,28 +1138,35 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Vérifier les permissions
+    // Le PDG peut tout supprimer
+    // L'auteur ne peut supprimer que ses propres œuvres
     const isOwner = existingWork.authorId === session.user.id;
-    const isPDG = session.user.role === "PDG";
+    const isPDG = session.user.role === "PDG" || session.user.role === "ADMIN";
 
     if (!isOwner && !isPDG) {
       return NextResponse.json({ error: "Vous ne pouvez supprimer que vos propres œuvres" }, { status: 403 });
     }
 
-    // Vérifier que l'œuvre peut être supprimée
-    if (existingWork.status === "PUBLISHED" && !isPDG) {
-      return NextResponse.json({ error: "Une œuvre publiée ne peut être supprimée que par un PDG" }, { status: 400 });
-    }
-
+    // Vérifier que l'œuvre peut être supprimée (pas de commandes/ventes)
     if (existingWork.orderItems.length > 0 || existingWork.sales.length > 0) {
       return NextResponse.json({ error: "Cette œuvre ne peut pas être supprimée car elle a des commandes ou ventes associées" }, { status: 400 });
     }
 
-    // Supprimer l'œuvre
-    await prisma.work.delete({
-      where: { id: workId }
+    // Supprimer l'œuvre et ses relations (prix)
+    // Utiliser une transaction pour garantir l'intégrité
+    await prisma.$transaction(async (tx) => {
+      // 1. Supprimer les prix associés
+      await tx.workPrice.deleteMany({
+        where: { workId: workId }
+      });
+
+      // 2. Supprimer l'œuvre
+      await tx.work.delete({
+        where: { id: workId }
+      });
     });
 
-    return NextResponse.json({ message: "Œuvre supprimée avec succès" }, { status: 200 });
+    return NextResponse.json({ success: true, message: "Œuvre supprimée avec succès" }, { status: 200 });
 
   } catch (error: any) {
     console.error("❌ Erreur lors de la suppression de l'œuvre:", error);
