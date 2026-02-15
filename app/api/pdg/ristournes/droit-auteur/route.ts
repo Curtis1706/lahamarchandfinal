@@ -56,54 +56,62 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' }
     })
 
-    // Grouper les royalties par auteur
-    const royaltiesByAuthor = royalties.reduce((acc, royalty) => {
-      const authorId = royalty.userId
-      if (!acc[authorId]) {
-        acc[authorId] = {
-          authorId: authorId,
+    // Grouper les royalties par œuvre (livre) et auteur
+    const royaltiesByWork = royalties.reduce((acc, royalty) => {
+      // Safety check for relations
+      if (!royalty.work || !royalty.user) {
+        return acc
+      }
+
+      const key = `${royalty.workId}-${royalty.userId}`
+
+      if (!acc[key]) {
+        acc[key] = {
+          workId: royalty.workId,
+          workTitle: royalty.work.title,
+          workIsbn: royalty.work.isbn,
+          authorId: royalty.userId,
           authorName: royalty.user.name,
           authorEmail: royalty.user.email,
           royalties: [],
-          totalVersement: 0,
-          totalRetrait: 0,
-          totalPending: 0 // Total des royalties en attente
+          totalGenerated: 0, // Total généré (Versement)
+          totalPaid: 0,      // Total payé (Retrait)
+          totalPending: 0    // Total en attente
         }
       }
-      
-      acc[authorId].royalties.push(royalty)
+
+      acc[key].royalties.push(royalty)
+
+      // Versement = Total généré (toutes les royalties)
+      acc[key].totalGenerated += royalty.amount
+
       if (royalty.paid) {
-        acc[authorId].totalVersement += royalty.amount
+        // Retrait = Royalties payées
+        acc[key].totalPaid += royalty.amount
       } else {
-        acc[authorId].totalPending += royalty.amount
+        acc[key].totalPending += royalty.amount
       }
-      // Pour l'instant, pas de retraits
-      acc[authorId].totalRetrait = 0
-      
+
       return acc
     }, {} as Record<string, any>)
 
     // Transformer en format pour l'affichage
-    const droitsAuteur = Object.values(royaltiesByAuthor).map((authorData: any) => {
-      const latestRoyalty = authorData.royalties[0]
-      const totalRoyalties = authorData.totalVersement + authorData.totalPending
-      const statut = authorData.royalties.some((r: any) => r.paid) ? "Payé" : "En attente"
-      
+    const droitsAuteur = Object.values(royaltiesByWork).map((data: any) => {
+      const latestRoyalty = data.royalties[0]
+      const statut = data.totalPending > 0 ? "En attente" : "Payé"
+
       return {
-        id: authorData.authorId,
-        reference: `DA-${authorData.authorId.slice(-8).toUpperCase()}`,
-        authorId: authorData.authorId,
-        authorName: authorData.authorName,
-        versement: totalRoyalties, // Afficher le total (payé + en attente)
-        retrait: authorData.totalRetrait,
+        id: `${data.workId}-${data.authorId}`,
+        reference: data.workTitle, // Afficher le titre du livre comme référence
+        authorId: data.authorId,
+        authorName: data.authorName,
+        versement: data.totalGenerated, // Total généré par le livre
+        retrait: data.totalPaid,        // Total déjà payé à l'auteur pour ce livre
         statut: statut,
         creeLe: latestRoyalty.createdAt.toLocaleDateString('fr-FR', {
-          weekday: 'short',
           day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
+          month: '2-digit',
+          year: 'numeric'
         }),
         createdAt: latestRoyalty.createdAt
       }
@@ -127,10 +135,10 @@ export async function GET(request: NextRequest) {
     // Le versement inclut maintenant toutes les royalties (payées + en attente)
     const totalVersements = filteredDroits
       .reduce((sum, d) => sum + d.versement, 0)
-    
+
     const totalRetraits = filteredDroits
       .reduce((sum, d) => sum + d.retrait, 0)
-    
+
     const solde = totalVersements - totalRetraits
 
     return NextResponse.json({

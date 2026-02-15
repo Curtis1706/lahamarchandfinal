@@ -739,7 +739,7 @@ function ClientCommandePageContent() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {orders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + o.total, 0).toLocaleString()} F CFA
+                {orders.filter(o => o.paymentStatus === 'PAID').reduce((sum, o) => sum + o.total, 0).toLocaleString()} F CFA
               </div>
             </CardContent>
           </Card>
