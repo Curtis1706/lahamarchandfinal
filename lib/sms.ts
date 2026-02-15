@@ -66,8 +66,10 @@ export async function sendCredentialsSMS(phone: string, password: string, role: 
 
         const data = await response.json();
 
-        if (response.ok && data.status === "success") {
-            console.log(`✅ [SMS] Envoyé avec succès à ${anonymizedPhone} (ID: ${data.message_id || 'N/A'})`);
+        const isSuccess = response.ok && (data.status === "success" || data.status === true || data.code === 'SUBMITTED');
+
+        if (isSuccess) {
+            console.log(`✅ [SMS] Envoyé avec succès à ${anonymizedPhone} (ID: ${data.messageId || data.message_id || 'N/A'})`);
         } else {
             console.error(`❌ [SMS] Échec de l'envoi à ${anonymizedPhone}. Réponse API:`, data);
         }

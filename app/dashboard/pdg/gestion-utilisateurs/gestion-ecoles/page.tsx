@@ -171,9 +171,9 @@ export default function GestionEcolesPage() {
 
         // Calculer les statistiques pour les écoles
         const total = data.partners.length;
-        const active = data.partners.filter((school: School) => school.user.status === "ACTIVE").length;
-        const pending = data.partners.filter((school: School) => school.user.status === "PENDING").length;
-        const totalOrders = data.partners.reduce((sum: number, school: School) => sum + school._count.orders, 0);
+        const active = data.partners.filter((school: School) => school.user?.status === "ACTIVE" || school.user?.status === "ACTIF").length;
+        const pending = data.partners.filter((school: School) => school.user?.status === "PENDING" || school.user?.status === "EN_ATTENTE").length;
+        const totalOrders = data.partners.reduce((sum: number, school: School) => sum + (school._count?.orders || 0), 0);
 
         // Calculer le chiffre d'affaires (simulation)
         const totalRevenue = totalOrders * 100000; // Estimation moyenne de 100000 FCFA par commande
