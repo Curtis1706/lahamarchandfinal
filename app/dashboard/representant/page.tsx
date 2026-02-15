@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Building2, Briefcase, TrendingUp, ShoppingCart, Package, MessageSquare, FileText } from "lucide-react";
+import { Building2, Briefcase, TrendingUp, ShoppingCart, Package, MessageSquare, FileText, User } from "lucide-react";
 import Link from "next/link";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { apiClient } from "@/lib/api-client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 interface DashboardStats {
   partners: {
@@ -52,22 +54,27 @@ export default function RepresentantDashboard() {
         apiClient.getRepresentantPartnerOrders()
       ]);
 
+      // Assertions de type pour éviter les erreurs TypeScript
+      const conversations = (conversationsData || []) as any[];
+      const partners = (partnersData || []) as any[];
+      const orders = (ordersData || []) as any[];
+
       // Calculer les statistiques des partenaires
       const partnersStats = {
-        total: partnersData.length || 0,
-        active: partnersData.filter((p: any) => p.user?.status === 'ACTIVE').length || 0,
-        pending: partnersData.filter((p: any) => p.user?.status === 'PENDING').length || 0
+        total: partners.length || 0,
+        active: partners.filter((p: any) => p.user?.status === 'ACTIVE').length || 0,
+        pending: partners.filter((p: any) => p.user?.status === 'PENDING').length || 0
       };
 
       // Calculer les statistiques des commandes des partenaires
       const ordersStats = {
-        total: ordersData.length || 0,
-        active: ordersData.filter((o: any) => ['PENDING', 'VALIDATED', 'PROCESSING'].includes(o.status)).length || 0,
-        completed: ordersData.filter((o: any) => o.status === 'DELIVERED').length || 0
+        total: orders.length || 0,
+        active: orders.filter((o: any) => ['PENDING', 'VALIDATED', 'PROCESSING'].includes(o.status)).length || 0,
+        completed: orders.filter((o: any) => o.status === 'DELIVERED').length || 0
       };
 
       // Calculer le chiffre d'affaires
-      const completedOrders = ordersData.filter((o: any) => o.status === 'DELIVERED') || [];
+      const completedOrders = orders.filter((o: any) => o.status === 'DELIVERED') || [];
       const totalRevenue = completedOrders.reduce((sum: number, order: any) => {
         return sum + (order.total || 0);
       }, 0);
@@ -85,8 +92,8 @@ export default function RepresentantDashboard() {
 
       // Calculer les statistiques des messages
       const messagesStats = {
-        unread: conversationsData.reduce((sum: number, conv: any) => sum + (conv.unreadCount || 0), 0),
-        total: conversationsData.length || 0
+        unread: conversations.reduce((sum: number, conv: any) => sum + (conv.unreadCount || 0), 0),
+        total: conversations.length || 0
       };
 
       setStats({
@@ -108,6 +115,47 @@ export default function RepresentantDashboard() {
 
   return (
     <div className="p-6">
+      {/* Card Informations Personnelles */}
+      <Card className="border-2 border-yellow-200 bg-gradient-to-br from-yellow-50 to-orange-50 mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="h-5 w-5 text-yellow-600" />
+            Mes Informations
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex items-center gap-3 bg-white rounded-lg p-3 border border-yellow-200">
+              <div className="p-2 bg-yellow-100 rounded-lg">
+                <User className="h-5 w-5 text-yellow-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Nom complet</p>
+                <p className="font-semibold text-gray-900">{user?.name || 'Non renseigné'}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 bg-white rounded-lg p-3 border border-yellow-200">
+              <div className="p-2 bg-yellow-100 rounded-lg">
+                <Briefcase className="h-5 w-5 text-yellow-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Rôle</p>
+                <Badge className="bg-yellow-600 text-white">Représentant</Badge>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 bg-white rounded-lg p-3 border border-yellow-200">
+              <div className="p-2 bg-yellow-100 rounded-lg">
+                <MessageSquare className="h-5 w-5 text-yellow-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Téléphone</p>
+                <p className="font-semibold text-gray-900">{user?.phone || 'Non renseigné'}</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
         {/* Welcome Section */}
         <div className="bg-gradient-to-r from-yellow-600 to-orange-600 rounded-2xl p-6 text-white mb-6">
           <div className="flex items-center space-x-4">
