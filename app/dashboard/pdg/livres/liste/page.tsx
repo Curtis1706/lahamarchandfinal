@@ -25,6 +25,13 @@ import Image from "next/image";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { CLIENT_TYPE_LABELS, ROYALTY_TYPE_LABELS, ROYALTY_TYPES, CLIENT_TYPES } from "@/lib/constants/labels";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Livre {
   id: string
@@ -81,6 +88,7 @@ export default function LivresListePage() {
   const [auteurs, setAuteurs] = useState<any[]>([]);
   const [concepteurs, setConcepteurs] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [schoolClasses, setSchoolClasses] = useState<any[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
   const { toast } = useToast();
 
@@ -92,15 +100,15 @@ export default function LivresListePage() {
     loadConcepteurs();
     loadCollections();
     loadCategories();
+    loadSchoolClasses();
   }, []);
 
   // Vérifier si les données sont chargées
   useEffect(() => {
-    if (disciplines.length > 0 && auteurs.length > 0) {
+    if (disciplines.length > 0 && auteurs.length > 0 && schoolClasses.length > 0) {
       setDataLoaded(true);
-    } else {
     }
-  }, [disciplines, auteurs, concepteurs]);
+  }, [disciplines, auteurs, concepteurs, schoolClasses]);
 
   const loadLivres = async () => {
     try {
@@ -318,6 +326,18 @@ export default function LivresListePage() {
         description: "Impossible de charger les catégories",
         variant: "destructive"
       });
+    }
+  };
+
+  const loadSchoolClasses = async () => {
+    try {
+      const response = await fetch('/api/pdg/classes');
+      if (response.ok) {
+        const data = await response.json();
+        setSchoolClasses(data);
+      }
+    } catch (error) {
+      console.error("Error loading school classes:", error);
     }
   };
 
@@ -1376,11 +1396,70 @@ export default function LivresListePage() {
                 <Label className="block text-sm font-medium mb-1">
                   Classes cibles :
                 </Label>
-                <Input
-                  placeholder="Ex: 6ème, 5ème"
-                  value={newLivre.classes}
-                  onChange={(e) => setNewLivre({ ...newLivre, classes: e.target.value })}
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between font-normal h-10 bg-white"
+                    >
+                      <span className="truncate">
+                        {newLivre.classes || "Sélectionner les classes"}
+                      </span>
+                      <Plus className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[400px] p-0" align="start">
+                    <div className="p-2 border-b">
+                      <div className="flex items-center space-x-2 px-2 py-1">
+                        <Checkbox
+                          id="select-all-classes"
+                          checked={schoolClasses.length > 0 && newLivre.classes.split(', ').filter(c => c).length === schoolClasses.length}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              const allClassNames = schoolClasses.map(c => c.classe).join(', ');
+                              setNewLivre({ ...newLivre, classes: allClassNames });
+                            } else {
+                              setNewLivre({ ...newLivre, classes: "" });
+                            }
+                          }}
+                        />
+                        <label htmlFor="select-all-classes" className="text-sm font-medium cursor-pointer">
+                          Toutes les classes
+                        </label>
+                      </div>
+                    </div>
+                    <ScrollArea className="h-72 p-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        {schoolClasses.map((classe) => {
+                          const isSelected = newLivre.classes.split(', ').includes(classe.classe);
+                          return (
+                            <div key={classe.id} className="flex items-center space-x-2 px-2 py-1 hover:bg-gray-50 rounded text-left">
+                              <Checkbox
+                                id={`class-${classe.id}`}
+                                checked={isSelected}
+                                onCheckedChange={(checked) => {
+                                  let currentClasses = newLivre.classes ? newLivre.classes.split(', ').filter(c => c) : [];
+                                  if (checked) {
+                                    if (!currentClasses.includes(classe.classe)) {
+                                      currentClasses.push(classe.classe);
+                                    }
+                                  } else {
+                                    currentClasses = currentClasses.filter(c => c !== classe.classe);
+                                  }
+                                  // Trier les classes pour un affichage cohérent (optionnel)
+                                  setNewLivre({ ...newLivre, classes: currentClasses.join(', ') });
+                                }}
+                              />
+                              <label htmlFor={`class-${classe.id}`} className="text-sm cursor-pointer truncate">
+                                {classe.classe}
+                              </label>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
 

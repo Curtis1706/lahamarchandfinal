@@ -142,18 +142,86 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     logger.error("Error creating collection:", error)
-    
+
     // Gérer l'erreur de contrainte unique (P2002)
     if (error.code === 'P2002') {
-      return NextResponse.json({ 
-        error: "Cette collection existe déjà dans le système" 
+      return NextResponse.json({
+        error: "Cette collection existe déjà dans le système"
       }, { status: 409 })
     }
-    
-    return NextResponse.json({ 
+
+    return NextResponse.json({
       error: "Erreur lors de la création de la collection",
       details: error instanceof Error ? error.message : "Unknown error"
     }, { status: 500 })
   }
 }
 
+// PATCH /api/pdg/collections - Modifier une collection
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    if (session.user.role !== "PDG" && session.user.role !== "AUTEUR") {
+      return NextResponse.json({ error: "Forbidden - PDG or AUTEUR role required" }, { status: 403 })
+    }
+
+    const { id, nom, description, statut } = await request.json()
+
+    if (!id) {
+      return NextResponse.json({ error: "ID requis pour la modification" }, { status: 400 })
+    }
+
+    // Garder le préfixe "Collection " si ce n'est pas déjà le cas
+    const cleanNom = nom.startsWith("Collection ") ? nom : `Collection ${nom}`
+
+    const collection = await prisma.discipline.update({
+      where: { id },
+      data: {
+        name: cleanNom,
+        description: description || "",
+        isActive: statut === 'Disponible'
+      }
+    })
+
+    const formattedCollection = {
+      id: collection.id,
+      nom: collection.name,
+      description: collection.description || "",
+      statut: collection.isActive ? 'Disponible' : 'Indisponible',
+      creeLe: collection.createdAt.toLocaleDateString('fr-FR', {
+        weekday: 'short',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      creePar: "PDG Administrateur",
+      modifieLe: collection.updatedAt.toLocaleDateString('fr-FR', {
+        weekday: 'short',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    }
+
+    return NextResponse.json(formattedCollection)
+
+  } catch (error: any) {
+    logger.error("Error updating collection:", error)
+    if (error.code === 'P2002') {
+      return NextResponse.json({
+        error: "Cette collection existe déjà dans le système"
+      }, { status: 409 })
+    }
+    return NextResponse.json({
+      error: "Erreur lors de la modification de la collection"
+    }, { status: 500 })
+  }
+}

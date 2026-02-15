@@ -36,6 +36,7 @@ export default function CategoriesPage() {
     description: "",
     statut: "Disponible"
   })
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const { toast } = useToast()
 
   // Charger les catégories depuis l'API
@@ -69,7 +70,7 @@ export default function CategoriesPage() {
     }
   }
 
-  const handleCreateCategory = async () => {
+  const handleSaveCategory = async () => {
     if (!newCategory.nom.trim()) {
       toast({
         title: "Erreur",
@@ -80,46 +81,61 @@ export default function CategoriesPage() {
     }
 
     try {
-      const response = await fetch('/api/pdg/categories', {
-        method: 'POST',
+      const isEditing = !!editingCategory
+      const url = '/api/pdg/categories'
+      const method = isEditing ? 'PUT' : 'POST'
+      const body = isEditing 
+        ? { ...newCategory, id: editingCategory.id }
+        : newCategory
+
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newCategory),
+        body: JSON.stringify(body),
       })
 
       if (response.ok) {
-        const data = await response.json()
-                
         toast({
           title: "Succès",
-          description: "Catégorie créée avec succès"
+          description: isEditing ? "Catégorie modifiée avec succès" : "Catégorie créée avec succès"
         })
         
-        // Réinitialiser le formulaire
-        setNewCategory({ nom: "", description: "", statut: "Disponible" })
+        resetForm()
         setIsModalOpen(false)
-        
-        // Recharger les catégories
         await loadCategories()
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Erreur inconnue' }))
-        console.error("❌ Erreur API:", errorData)
-        
         toast({
           title: "Erreur",
-          description: errorData.error || "Impossible de créer la catégorie",
+          description: errorData.error || "Impossible d'enregistrer la catégorie",
           variant: "destructive"
         })
       }
     } catch (error: any) {
-      console.error("❌ Error creating category:", error)
+      console.error("❌ Error saving category:", error)
       toast({
         title: "Erreur",
-        description: error.message || "Erreur lors de la création de la catégorie",
+        description: error.message || "Erreur lors de l'enregistrement de la catégorie",
         variant: "destructive"
       })
     }
+  }
+
+  const handleEdit = (category: Category) => {
+    setEditingCategory(category)
+    setNewCategory({
+      nom: category.nom,
+      description: category.description,
+      statut: category.statut
+    })
+    setIsModalOpen(true)
+  }
+
+  const resetForm = () => {
+    setEditingCategory(null)
+    setNewCategory({ nom: "", description: "", statut: "Disponible" })
   }
 
   const handleRefresh = () => {
@@ -169,17 +185,25 @@ export default function CategoriesPage() {
         {/* Ouvre la modale */}
         <Button
           className="bg-indigo-600 hover:bg-indigo-700"
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            resetForm();
+            setIsModalOpen(true);
+          }}
         >
-          Coatégorie +
+          Catégorie +
         </Button>
       </div>
 
       {/* --- MODALE --- */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <Dialog open={isModalOpen} onOpenChange={(open) => {
+        setIsModalOpen(open);
+        if (!open) resetForm();
+      }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-xl font-semibold">Ajouter une catégorie</DialogTitle>
+            <DialogTitle className="text-xl font-semibold">
+              {editingCategory ? "Modifier la catégorie" : "Ajouter une catégorie"}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 mt-2">
@@ -222,17 +246,17 @@ export default function CategoriesPage() {
               variant="outline" 
               onClick={() => {
                 setIsModalOpen(false)
-                setNewCategory({ nom: "", description: "", statut: "Disponible" })
+                resetForm()
               }}
             >
               Fermer
             </Button>
             <Button 
               className="bg-indigo-600 hover:bg-indigo-700"
-              onClick={handleCreateCategory}
+              onClick={handleSaveCategory}
               disabled={!newCategory.nom.trim()}
             >
-              Enregistrer
+              {editingCategory ? "Mettre à jour" : "Enregistrer"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -316,7 +340,10 @@ export default function CategoriesPage() {
                         <td className="py-3 px-2 text-sm text-gray-600">{category.modifieLe}</td>
                         <td className="py-3 px-2">
                           <div className="flex items-center gap-2">
-                            <button className="p-1 hover:bg-gray-100 rounded">
+                            <button 
+                              className="p-1 hover:bg-gray-100 rounded"
+                              onClick={() => handleEdit(category)}
+                            >
                               <Edit className="w-4 h-4 text-orange-500" />
                             </button>
                             <button className="p-1 hover:bg-gray-100 rounded">

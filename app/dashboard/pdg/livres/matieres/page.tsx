@@ -40,6 +40,7 @@ export default function MatieresPage() {
     matiere: "",
     statut: "Disponible"
   });
+  const [editingMatiere, setEditingMatiere] = useState<Matiere | null>(null);
   const { toast } = useToast();
 
   // Charger les matières depuis l'API
@@ -73,40 +74,61 @@ export default function MatieresPage() {
     }
   };
 
-  const handleCreateMatiere = async () => {
+  const handleSaveMatiere = async () => {
     try {
-      const response = await fetch('/api/pdg/matieres', {
-        method: 'POST',
+      const isEditing = !!editingMatiere;
+      const url = '/api/pdg/matieres';
+      const method = isEditing ? 'PATCH' : 'POST';
+      const body = isEditing 
+        ? { ...newMatiere, id: editingMatiere.id }
+        : newMatiere;
+
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newMatiere),
+        body: JSON.stringify(body),
       });
 
       if (response.ok) {
         toast({
           title: "Succès",
-          description: "Matière créée avec succès"
+          description: isEditing ? "Matière modifiée avec succès" : "Matière créée avec succès"
         });
-        setNewMatiere({ matiere: "", statut: "Disponible" });
+        resetForm();
         setIsModalOpen(false);
         loadMatieres();
       } else {
         const errorData = await response.json();
         toast({
           title: "Erreur",
-          description: errorData.error || "Impossible de créer la matière",
+          description: errorData.error || "Impossible d'enregistrer la matière",
           variant: "destructive"
         });
       }
     } catch (error) {
-      console.error("Error creating matiere:", error);
+      console.error("Error saving matiere:", error);
       toast({
         title: "Erreur",
-        description: "Erreur lors de la création de la matière",
+        description: "Erreur lors de l'enregistrement de la matière",
         variant: "destructive"
       });
     }
+  };
+
+  const handleEdit = (matiere: Matiere) => {
+    setEditingMatiere(matiere);
+    setNewMatiere({
+      matiere: matiere.matiere,
+      statut: matiere.statut
+    });
+    setIsModalOpen(true);
+  };
+
+  const resetForm = () => {
+    setEditingMatiere(null);
+    setNewMatiere({ matiere: "", statut: "Disponible" });
   };
 
   const handleRefresh = () => {
@@ -159,18 +181,24 @@ export default function MatieresPage() {
               {/* Ouvre la modale */}
               <Button
                 className="bg-indigo-600 hover:bg-indigo-700"
-                onClick={() => setIsModalOpen(true)}
+                onClick={() => {
+                  resetForm();
+                  setIsModalOpen(true);
+                }}
               >
                 Matière +
               </Button>
             </div>
 
             {/* --- MODALE --- */}
-            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+            <Dialog open={isModalOpen} onOpenChange={(open) => {
+              setIsModalOpen(open);
+              if (!open) resetForm();
+            }}>
               <DialogContent className="max-w-lg">
                 <DialogHeader>
                   <DialogTitle className="text-xl font-semibold">
-                    Ajouter une matière
+                    {editingMatiere ? "Modifier la matière" : "Ajouter une matière"}
                   </DialogTitle>
                 </DialogHeader>
 
@@ -209,16 +237,19 @@ export default function MatieresPage() {
                 <DialogFooter className="flex justify-end gap-2 mt-6">
                   <Button
                     variant="outline"
-                    onClick={() => setIsModalOpen(false)}
+                    onClick={() => {
+                      setIsModalOpen(false);
+                      resetForm();
+                    }}
                   >
                     Fermer
                   </Button>
                   <Button 
                     className="bg-indigo-600 hover:bg-indigo-700"
-                    onClick={handleCreateMatiere}
+                    onClick={handleSaveMatiere}
                     disabled={!newMatiere.matiere.trim()}
                   >
-                    Enregistrer
+                    {editingMatiere ? "Mettre à jour" : "Enregistrer"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -298,7 +329,10 @@ export default function MatieresPage() {
                         </td>
                         <td className="py-3 px-2">
                           <div className="flex items-center gap-2">
-                            <button className="p-1 hover:bg-gray-100 rounded">
+                            <button 
+                              className="p-1 hover:bg-gray-100 rounded"
+                              onClick={() => handleEdit(matiere)}
+                            >
                               <Edit className="w-4 h-4 text-orange-500" />
                             </button>
                             <button className="p-1 hover:bg-gray-100 rounded">

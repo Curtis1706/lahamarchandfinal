@@ -42,6 +42,7 @@ export default function CollectionsPage() {
     description: "",
     statut: "Disponible"
   });
+  const [editingCollection, setEditingCollection] = useState<Collection | null>(null);
   const { toast } = useToast();
 
   // Charger les collections depuis l'API
@@ -75,39 +76,68 @@ export default function CollectionsPage() {
     }
   };
 
-  const handleCreateCollection = async () => {
+  const handleSaveCollection = async () => {
     try {
-      const response = await fetch('/api/pdg/collections', {
-        method: 'POST',
+      const isEditing = !!editingCollection;
+      const url = '/api/pdg/collections';
+      const method = isEditing ? 'PATCH' : 'POST';
+      const body = isEditing 
+        ? { ...newCollection, id: editingCollection.id }
+        : newCollection;
+
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newCollection),
+        body: JSON.stringify(body),
       });
 
       if (response.ok) {
         toast({
           title: "Succès",
-          description: "Collection créée avec succès"
+          description: isEditing ? "Collection modifiée avec succès" : "Collection créée avec succès"
         });
-        setNewCollection({ nom: "", description: "", statut: "Disponible" });
+        resetForm();
         setIsModalOpen(false);
         loadCollections();
       } else {
+        const errorData = await response.json().catch(() => ({ error: 'Erreur inconnue' }));
         toast({
           title: "Erreur",
-          description: "Impossible de créer la collection",
+          description: errorData.error || "Impossible d'enregistrer la collection",
           variant: "destructive"
         });
       }
     } catch (error) {
-      console.error("Error creating collection:", error);
+      console.error("Error saving collection:", error);
       toast({
         title: "Erreur",
-        description: "Erreur lors de la création de la collection",
+        description: "Erreur lors de l'enregistrement de la collection",
         variant: "destructive"
       });
     }
+  };
+
+  const handleEdit = (collection: Collection) => {
+    setEditingCollection(collection);
+    // Enlever le préfixe "Collection " pour l'édition si présent, 
+    // l'API le rajoutera ou on le gère à l'enregistrement
+    const displayNom = collection.nom.startsWith("Collection ") 
+      ? collection.nom.replace("Collection ", "") 
+      : collection.nom;
+      
+    setNewCollection({
+      nom: displayNom,
+      description: collection.description,
+      statut: collection.statut
+    });
+    setIsModalOpen(true);
+  };
+
+  const resetForm = () => {
+    setEditingCollection(null);
+    setNewCollection({ nom: "", description: "", statut: "Disponible" });
   };
 
   const handleRefresh = () => {
@@ -142,7 +172,7 @@ export default function CollectionsPage() {
       <div className="p-4 lg:p-6">
         <div className="bg-white rounded-2xl shadow-sm">
           <div className="p-4 lg:p-6">
-            {/* Header Actions */}
+            {/* Ouvre la modale */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
               <div className="flex items-center gap-4">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -160,18 +190,24 @@ export default function CollectionsPage() {
               {/* Ouvre la modale */}
               <Button
                 className="bg-indigo-600 hover:bg-indigo-700"
-                onClick={() => setIsModalOpen(true)}
+                onClick={() => {
+                  resetForm();
+                  setIsModalOpen(true);
+                }}
               >
                 Collection +
               </Button>
             </div>
 
             {/* --- MODALE --- */}
-            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+            <Dialog open={isModalOpen} onOpenChange={(open) => {
+              setIsModalOpen(open);
+              if (!open) resetForm();
+            }}>
               <DialogContent className="max-w-lg">
                 <DialogHeader>
                   <DialogTitle className="text-xl font-semibold">
-                    Ajouter une collection
+                    {editingCollection ? "Modifier la collection" : "Ajouter une collection"}
                   </DialogTitle>
                 </DialogHeader>
 
@@ -221,16 +257,19 @@ export default function CollectionsPage() {
                 <DialogFooter className="flex justify-end gap-2 mt-6">
                   <Button
                     variant="outline"
-                    onClick={() => setIsModalOpen(false)}
+                    onClick={() => {
+                      setIsModalOpen(false);
+                      resetForm();
+                    }}
                   >
                     Fermer
                   </Button>
                   <Button 
                     className="bg-indigo-600 hover:bg-indigo-700"
-                    onClick={handleCreateCollection}
+                    onClick={handleSaveCollection}
                     disabled={!newCollection.nom.trim()}
                   >
-                    Enregistrer
+                    {editingCollection ? "Mettre à jour" : "Enregistrer"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -319,7 +358,10 @@ export default function CollectionsPage() {
                         </td>
                         <td className="py-3 px-2">
                           <div className="flex items-center gap-2">
-                            <button className="p-1 hover:bg-gray-100 rounded">
+                            <button 
+                              className="p-1 hover:bg-gray-100 rounded"
+                              onClick={() => handleEdit(collection)}
+                            >
                               <Edit className="w-4 h-4 text-orange-500" />
                             </button>
                             <button className="p-1 hover:bg-gray-100 rounded">

@@ -117,3 +117,66 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// PATCH /api/pdg/matieres - Modifier une matière (discipline)
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    if (session.user.role !== "PDG") {
+      return NextResponse.json({ error: "Forbidden - PDG role required" }, { status: 403 })
+    }
+
+    const { id, matiere, statut } = await request.json()
+
+    if (!id) {
+      return NextResponse.json({ error: "ID requis pour la modification" }, { status: 400 })
+    }
+
+    const updatedDiscipline = await prisma.discipline.update({
+      where: { id },
+      data: {
+        name: matiere,
+        isActive: statut === 'Disponible'
+      }
+    })
+
+    const formattedMatiere = {
+      id: updatedDiscipline.id,
+      matiere: updatedDiscipline.name,
+      statut: updatedDiscipline.isActive ? "Disponible" : "Indisponible",
+      creeLe: updatedDiscipline.createdAt.toLocaleDateString('fr-FR', {
+        weekday: 'short',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      creePar: "PDG Administrateur",
+      modifieLe: updatedDiscipline.updatedAt.toLocaleDateString('fr-FR', {
+        weekday: 'short',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    }
+
+    return NextResponse.json(formattedMatiere)
+
+  } catch (error: any) {
+    logger.error("Error updating matiere:", error)
+    if (error.code === 'P2002') {
+      return NextResponse.json({
+        error: "Cette matière existe déjà dans le système"
+      }, { status: 409 })
+    }
+    return NextResponse.json({
+      error: "Erreur lors de la modification de la matière"
+    }, { status: 500 })
+  }
+}
