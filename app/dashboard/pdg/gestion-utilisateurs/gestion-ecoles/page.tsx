@@ -59,6 +59,11 @@ interface School {
   contact?: string;
   website?: string;
   description?: string;
+  departmentId?: string;
+  department?: {
+    id: string;
+    name: string;
+  };
   createdAt: string;
   updatedAt: string;
   user: {
@@ -97,6 +102,7 @@ export default function GestionEcolesPage() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [departments, setDepartments] = useState<any[]>([]);
   const [schoolStats, setSchoolStats] = useState<SchoolStats>({
     total: 0,
     active: 0,
@@ -122,6 +128,7 @@ export default function GestionEcolesPage() {
     address: "",
     website: "",
     description: "",
+    departmentId: "",
     representantId: "",
     schoolType: "ecole_contractuelle"
   });
@@ -133,6 +140,7 @@ export default function GestionEcolesPage() {
     address: "",
     website: "",
     description: "",
+    departmentId: "",
     representantId: "",
     schoolType: "ecole_contractuelle",
     userData: {
@@ -148,6 +156,7 @@ export default function GestionEcolesPage() {
   useEffect(() => {
     fetchSchools();
     fetchRepresentants();
+    fetchDepartments();
   }, [currentPage, searchTerm, statusFilter]);
 
   const fetchSchools = async () => {
@@ -206,6 +215,18 @@ export default function GestionEcolesPage() {
     }
   };
 
+  const fetchDepartments = async () => {
+    try {
+      const response = await fetch("/api/departments");
+      const data = await response.json();
+      if (response.ok) {
+        setDepartments(data);
+      }
+    } catch (error) {
+      console.error("Error fetching departments:", error);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       PENDING: { label: "En attente", variant: "secondary" as const },
@@ -241,7 +262,7 @@ export default function GestionEcolesPage() {
         body: JSON.stringify({
           id: selectedSchool.id,
           status: statusToUse,
-          representantId: (newRepresentantId && newRepresentantId !== "none") ? newRepresentantId : undefined
+          departmentId: (newStatus === "APPROVED" || newStatus === "ACTIVE") ? selectedSchool.departmentId : undefined
         })
       });
 
@@ -286,6 +307,7 @@ export default function GestionEcolesPage() {
           address: editSchoolData.address,
           website: editSchoolData.website,
           description: editSchoolData.description,
+          departmentId: editSchoolData.departmentId && editSchoolData.departmentId !== "none" ? editSchoolData.departmentId : null,
           representantId: editSchoolData.representantId
         })
       });
@@ -364,6 +386,7 @@ export default function GestionEcolesPage() {
           address: newSchoolData.address || '',
           website: newSchoolData.website || '',
           description: newSchoolData.description || '',
+          departmentId: newSchoolData.departmentId && newSchoolData.departmentId !== "none" ? newSchoolData.departmentId : null,
           representantId: newSchoolData.representantId && newSchoolData.representantId !== "none" ? newSchoolData.representantId : null,
           userData: {
             name: newSchoolData.userData.name,
@@ -391,6 +414,7 @@ export default function GestionEcolesPage() {
           address: "",
           website: "",
           description: "",
+          departmentId: "",
           representantId: "",
           schoolType: "ecole_contractuelle",
           userData: {
@@ -550,8 +574,8 @@ export default function GestionEcolesPage() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>École</TableHead>
-                          <TableHead>Contact</TableHead>
-                          <TableHead>Représentant</TableHead>
+                          <TableHead>Département</TableHead>
+                          <TableHead>Gestionnaire du compte</TableHead>
                           <TableHead>Statut</TableHead>
                           <TableHead>Commandes</TableHead>
                           <TableHead>Inscription</TableHead>
@@ -570,22 +594,17 @@ export default function GestionEcolesPage() {
                               </div>
                             </TableCell>
                             <TableCell>
+                              <span className="text-sm font-medium text-indigo-600">
+                                {school.department?.name || "-"}
+                              </span>
+                            </TableCell>
+                            <TableCell>
                               <div className="space-y-1">
                                 <div className="text-sm">{school.user?.name || "N/A"}</div>
                                 {school.user?.phone && (
                                   <div className="text-xs text-gray-500">{school.user.phone}</div>
                                 )}
                               </div>
-                            </TableCell>
-                            <TableCell>
-                              {school.representant ? (
-                                <div className="space-y-1">
-                                  <div className="text-sm">{school.representant.name}</div>
-                                  <div className="text-xs text-gray-500">{school.representant.email}</div>
-                                </div>
-                              ) : (
-                                <span className="text-gray-500 text-sm">Non assigné</span>
-                              )}
                             </TableCell>
                             <TableCell>{getStatusBadge(school.user?.status || "INACTIVE")}</TableCell>
                             <TableCell>
@@ -626,6 +645,7 @@ export default function GestionEcolesPage() {
                                       address: school.address || "",
                                       website: school.website || "",
                                       description: school.description || "",
+                                      departmentId: school.departmentId || "none",
                                       representantId: school.representant?.id || "none",
                                       schoolType: school.type as any
                                     });
@@ -1058,6 +1078,25 @@ export default function GestionEcolesPage() {
                       />
                     </div>
                   </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="school-department" className="text-xs font-semibold text-gray-600">Département d'implantation</Label>
+                      <Select 
+                        value={newSchoolData.departmentId || "none"} 
+                        onValueChange={(value) => setNewSchoolData({...newSchoolData, departmentId: value})}
+                      >
+                        <SelectTrigger className="border-gray-200 focus:ring-indigo-500">
+                          <SelectValue placeholder="Choisir un département" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Non précisé (N/A)</SelectItem>
+                          {departments.map((dept) => (
+                            <SelectItem key={dept.id} value={dept.id}>
+                              {dept.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   <div className="space-y-2">
                     <Label htmlFor="school-email" className="text-xs font-semibold text-gray-600">Email de l'école</Label>
                     <div className="relative">
@@ -1091,25 +1130,6 @@ export default function GestionEcolesPage() {
                         placeholder="Quartier, Rue, Ville..."
                       />
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="school-representant" className="text-xs font-semibold text-gray-600">Représentant assigné</Label>
-                    <Select 
-                      value={newSchoolData.representantId} 
-                      onValueChange={(value) => setNewSchoolData({...newSchoolData, representantId: value})}
-                    >
-                      <SelectTrigger className="border-gray-200 focus:ring-indigo-500">
-                        <SelectValue placeholder="Sélectionner un représentant" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Aucun représentant</SelectItem>
-                        {representants.map((rep) => (
-                          <SelectItem key={rep.id} value={rep.id}>
-                            {rep.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="school-website" className="text-xs font-semibold text-gray-600">Lien site web / Facebook</Label>
@@ -1307,6 +1327,25 @@ export default function GestionEcolesPage() {
                       />
                     </div>
                   </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-school-department" className="text-xs font-semibold text-gray-600">Département d'implantation</Label>
+                      <Select 
+                        value={editSchoolData.departmentId || "none"} 
+                        onValueChange={(value) => setEditSchoolData({...editSchoolData, departmentId: value})}
+                      >
+                        <SelectTrigger className="border-gray-200 focus:ring-amber-500">
+                          <SelectValue placeholder="Choisir un département" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Non précisé (N/A)</SelectItem>
+                          {departments.map((dept) => (
+                            <SelectItem key={dept.id} value={dept.id}>
+                              {dept.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   <div className="space-y-2">
                     <Label htmlFor="edit-school-email" className="text-xs font-semibold text-gray-600">Email de l'école</Label>
                     <div className="relative">
@@ -1340,25 +1379,6 @@ export default function GestionEcolesPage() {
                         placeholder="Quartier, Rue, Ville..."
                       />
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-school-representant" className="text-xs font-semibold text-gray-600">Représentant assigné</Label>
-                    <Select 
-                      value={editSchoolData.representantId} 
-                      onValueChange={(value) => setEditSchoolData({...editSchoolData, representantId: value})}
-                    >
-                      <SelectTrigger className="border-gray-200 focus:ring-amber-500">
-                        <SelectValue placeholder="Sélectionner un représentant" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Aucun représentant</SelectItem>
-                        {representants.map((rep) => (
-                          <SelectItem key={rep.id} value={rep.id}>
-                            {rep.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="edit-school-website" className="text-xs font-semibold text-gray-600">Lien site web / Facebook</Label>

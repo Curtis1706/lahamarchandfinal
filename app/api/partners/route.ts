@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
         (prisma.client as any).findMany({
           where,
           include: {
+            department: true,
             users: {
               select: {
                 id: true,
@@ -70,6 +71,8 @@ export async function GET(request: NextRequest) {
         contact: client.contact,
         createdAt: client.createdAt,
         updatedAt: client.updatedAt,
+        department: client.department,
+        departmentId: client.departmentId,
         user: client.users?.[0] || null,
         _count: {
           orders: client.users?.[0]?._count.orders || 0
@@ -126,7 +129,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Récupérer les partenaires avec les relations
-    const partners = await prisma.partner.findMany({
+    const partners = await (prisma.partner as any).findMany({
       where,
       include: {
         user: {
@@ -137,7 +140,8 @@ export async function GET(request: NextRequest) {
             phone: true,
             status: true,
             role: true,
-            createdAt: true
+            createdAt: true,
+            department: true
           }
         },
         representant: {
@@ -216,6 +220,7 @@ export async function POST(request: NextRequest) {
       address,
       website,
       description,
+      departmentId,
       representantId,
       userData,
       sendSms
@@ -253,9 +258,10 @@ export async function POST(request: NextRequest) {
         phone: userData.phone || '',
         password: hashedPassword,
         role: userRole,
-        status: 'ACTIVE', // Le PDG peut créer directement en ACTIVE
-        emailVerified: new Date()
-      }
+        status: 'ACTIVE',
+        emailVerified: new Date(),
+        departmentId: departmentId && departmentId !== "none" ? departmentId : null
+      } as any
     });
 
     const isSchool = type.toLowerCase().includes("ecole") || type.toLowerCase().includes("école");
@@ -271,6 +277,7 @@ export async function POST(request: NextRequest) {
           email: email || userData.email || '',
           telephone: phone || userData.phone || '',
           address: address || '',
+          departmentId: departmentId && departmentId !== "none" ? departmentId : null,
           representantId: representantId && representantId !== "none" ? representantId : null,
           users: {
             connect: { id: user.id }
@@ -305,7 +312,7 @@ export async function POST(request: NextRequest) {
           description: description || '',
           representantId: representantId && representantId !== "none" ? representantId : null,
           userId: user.id
-        },
+        } as any,
         include: {
           user: {
             select: {
@@ -315,7 +322,8 @@ export async function POST(request: NextRequest) {
               phone: true,
               status: true,
               role: true,
-              createdAt: true
+              createdAt: true,
+              department: true
             }
           },
           representant: {
@@ -331,7 +339,7 @@ export async function POST(request: NextRequest) {
               orders: true
             }
           }
-        }
+        } as any,
       });
     }
 
@@ -407,6 +415,7 @@ export async function PUT(request: NextRequest) {
       email,
       phone,
       address,
+      departmentId,
       website,
       description
     } = body;
@@ -444,51 +453,61 @@ export async function PUT(request: NextRequest) {
     }
 
     const userId = isClient ? existingItem.user?.id : existingItem.userId;
-    if (!userId && status) {
-      return NextResponse.json({ error: "Utilisateur non associé" }, { status: 400 });
-    }
+    const effectiveType = type || existingItem.type;
+    const isSchool = effectiveType?.toLowerCase().includes("ecole") || effectiveType?.toLowerCase().includes("école");
 
-    if (status && userId) {
+    // Mise à jour de l'utilisateur (statut et/ou département)
+    if (userId && (status || departmentId !== undefined)) {
       const updateData: any = {
-        status: status,
         updatedAt: new Date()
+      };
+
+      if (status) {
+        updateData.status = status;
+        if (status === 'ACTIVE') {
+          updateData.emailVerified = new Date();
+        }
       }
 
-      if (status === 'ACTIVE') {
-        updateData.emailVerified = new Date()
+      if (departmentId !== undefined) {
+        updateData.departmentId = departmentId && departmentId !== "none" ? departmentId : null;
       }
 
       await prisma.user.update({
         where: { id: userId },
-        data: updateData
+        data: updateData as any
       });
     }
 
     // Mettre à jour les informations (Mapping si Client)
-    const updateData: any = {};
+    const updateDataInfo: any = {};
     if (name !== undefined) {
-      if (isClient) updateData.nom = name;
-      else updateData.name = name;
+      if (isClient) updateDataInfo.nom = name;
+      else updateDataInfo.name = name;
     }
-    if (type !== undefined) updateData.type = type;
-    if (contact !== undefined) updateData.contact = contact;
-    if (email !== undefined) updateData.email = email;
+    if (type !== undefined) updateDataInfo.type = type;
+    if (contact !== undefined) updateDataInfo.contact = contact;
+    if (email !== undefined) updateDataInfo.email = email;
     if (phone !== undefined) {
-      if (isClient) updateData.telephone = phone;
-      else updateData.phone = phone;
+      if (isClient) updateDataInfo.telephone = phone;
+      else updateDataInfo.phone = phone;
     }
-    if (address !== undefined) updateData.address = address;
-    if (website !== undefined && !isClient) updateData.website = website;
-    if (description !== undefined && !isClient) updateData.description = description;
+    if (address !== undefined) updateDataInfo.address = address;
+    if (departmentId !== undefined && isClient) {
+      updateDataInfo.departmentId = departmentId && departmentId !== "none" ? departmentId : null;
+    }
+    if (website !== undefined && !isClient) updateDataInfo.website = website;
+    if (description !== undefined && !isClient) updateDataInfo.description = description;
+
     if (representantId !== undefined) {
-      updateData.representantId = representantId && representantId !== "none" ? representantId : null;
+      updateDataInfo.representantId = representantId && representantId !== "none" ? representantId : null;
     }
 
-    if (Object.keys(updateData).length > 0) {
+    if (Object.keys(updateDataInfo).length > 0) {
       if (isClient) {
-        await (prisma.client as any).update({ where: { id }, data: updateData });
+        await (prisma.client as any).update({ where: { id }, data: updateDataInfo });
       } else {
-        await prisma.partner.update({ where: { id }, data: updateData });
+        await prisma.partner.update({ where: { id }, data: updateDataInfo as any });
       }
     }
 
@@ -498,6 +517,7 @@ export async function PUT(request: NextRequest) {
       const client = await (prisma.client as any).findUnique({
         where: { id },
         include: {
+          department: true,
           users: {
             select: { id: true, name: true, email: true, phone: true, status: true, role: true, createdAt: true, _count: { select: { orders: true } } }
           }
@@ -511,10 +531,10 @@ export async function PUT(request: NextRequest) {
         _count: { orders: client.users?.[0]?._count.orders || 0 }
       } : null;
     } else {
-      updatedEntity = await prisma.partner.findUnique({
+      updatedEntity = await (prisma.partner as any).findUnique({
         where: { id },
         include: {
-          user: { select: { id: true, name: true, email: true, phone: true, status: true, role: true, createdAt: true } },
+          user: { select: { id: true, name: true, email: true, phone: true, status: true, role: true, createdAt: true, department: true } },
           representant: { select: { id: true, name: true, email: true, phone: true } },
           _count: { select: { orders: true } }
         }
