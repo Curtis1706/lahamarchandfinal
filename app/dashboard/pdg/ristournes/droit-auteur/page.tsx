@@ -37,7 +37,7 @@ export default function DroitAuteurPage() {
   const [stats, setStats] = useState<Stats>({ versements: 0, retraits: 0, solde: 0 })
   const [isLoading, setIsLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState("all")
-  const [dateRange, setDateRange] = useState<{from: Date | undefined, to: Date | undefined}>({
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined, to: Date | undefined }>({
     from: undefined,
     to: undefined
   })
@@ -68,7 +68,7 @@ export default function DroitAuteurPage() {
     try {
       setIsLoading(true)
       const params = new URLSearchParams()
-      
+
       if (dateRange.from) {
         params.append("startDate", dateRange.from.toISOString())
       }
@@ -121,14 +121,14 @@ export default function DroitAuteurPage() {
     try {
       setIsChecking(true)
       const response = await fetch("/api/pdg/ristournes/check-orders")
-      
+
       if (!response.ok) {
         throw new Error("Erreur lors de la vérification")
       }
 
       const data = await response.json()
       setCheckResults(data)
-      
+
       if (data.stats.ordersNeedingRoyaltyCalculation > 0) {
         toast({
           title: "Diagnostic",
@@ -160,7 +160,7 @@ export default function DroitAuteurPage() {
   }
 
   const handleRecalculateAll = async () => {
-    if (!confirm("Voulez-vous recalculer les droits d'auteur pour toutes les commandes validées ? Cette opération peut prendre quelques instants.")) {
+    if (!confirm("Voulez-vous actualiser et recalculer les droits d'auteur ?")) {
       return
     }
 
@@ -227,7 +227,7 @@ export default function DroitAuteurPage() {
           </div>
         </div>
       </div>
-      
+
       <div className="p-6">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -255,14 +255,14 @@ export default function DroitAuteurPage() {
         <div className="bg-white rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
-              <button 
+              <button
                 className="p-2 hover:bg-gray-100 rounded"
                 onClick={loadDroitsAuteur}
                 title="Actualiser"
               >
                 <RefreshCw className="w-4 h-4 text-gray-400" />
               </button>
-              <button 
+              <button
                 className="p-2 hover:bg-gray-100 rounded"
                 onClick={handleResetFilters}
                 title="Réinitialiser les filtres"
@@ -272,70 +272,18 @@ export default function DroitAuteurPage() {
             </div>
             <div className="flex items-center space-x-2">
               <Button
-                onClick={handleCheckOrders}
-                disabled={isChecking}
-                variant="outline"
-                className="flex items-center space-x-2"
-              >
-                <RefreshCw className={`w-4 h-4 ${isChecking ? 'animate-spin' : ''}`} />
-                <span>{isChecking ? "Vérification..." : "Vérifier les commandes"}</span>
-              </Button>
-              <Button
                 onClick={handleRecalculateAll}
                 disabled={isRecalculating}
                 variant="default"
                 className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700"
               >
-                <Calculator className="w-4 h-4" />
-                <span>{isRecalculating ? "Calcul en cours..." : "Recalculer tous les droits d'auteur"}</span>
+                <RefreshCw className={`w-4 h-4 ${isRecalculating ? 'animate-spin' : ''}`} />
+                <span>{isRecalculating ? "Actualisation..." : "Actualiser"}</span>
               </Button>
             </div>
           </div>
 
-          {/* Résultats de la vérification */}
-          {checkResults && (
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <h3 className="font-semibold text-blue-900 mb-3">📊 Diagnostic des commandes validées</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                <div>
-                  <div className="text-sm text-blue-700">Commandes validées</div>
-                  <div className="text-lg font-bold text-blue-900">{checkResults.stats.totalValidatedOrders}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-blue-700">Avec auteurs</div>
-                  <div className="text-lg font-bold text-blue-900">{checkResults.stats.ordersWithAuthors}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-blue-700">Items avec auteurs</div>
-                  <div className="text-lg font-bold text-blue-900">{checkResults.stats.totalItemsWithAuthors}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-blue-700">Nécessitent calcul</div>
-                  <div className={`text-lg font-bold ${checkResults.stats.ordersNeedingRoyaltyCalculation > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    {checkResults.stats.ordersNeedingRoyaltyCalculation}
-                  </div>
-                </div>
-              </div>
-              {checkResults.stats.ordersNeedingRoyaltyCalculation > 0 && (
-                <div className="mt-3">
-                  <p className="text-sm text-blue-800 mb-2">
-                    ⚠️ {checkResults.stats.ordersNeedingRoyaltyCalculation} commande(s) validée(s) nécessitent le calcul des droits d'auteur.
-                  </p>
-                  <p className="text-xs text-blue-600">
-                    Cliquez sur "Recalculer tous les droits d'auteur" pour générer les royalties manquantes.
-                  </p>
-                </div>
-              )}
-              {checkResults.stats.totalItemsWithAuthors === 0 && (
-                <div className="mt-3">
-                  <p className="text-sm text-blue-800">
-                    ℹ️ Aucune commande validée ne contient d'œuvres avec des auteurs associés. 
-                    Vérifiez que les œuvres ont bien un auteur (authorId) défini.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+
 
           {/* Filters */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -387,7 +335,7 @@ export default function DroitAuteurPage() {
           </div>
 
           <div className="flex justify-end mb-6">
-            <Button 
+            <Button
               className="bg-indigo-600 hover:bg-indigo-700"
               onClick={handleApplyFilters}
             >
@@ -454,11 +402,10 @@ export default function DroitAuteurPage() {
                       <td className="py-3 px-4">{formatCurrency(droit.versement)} XOF</td>
                       <td className="py-3 px-4">{formatCurrency(droit.retrait)} XOF</td>
                       <td className="py-3 px-4">
-                        <span className={`inline-block px-2 py-1 text-xs rounded ${
-                          droit.statut === "Payé"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}>
+                        <span className={`inline-block px-2 py-1 text-xs rounded ${droit.statut === "Payé"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-yellow-100 text-yellow-800"
+                          }`}>
                           {droit.statut}
                         </span>
                       </td>
@@ -481,16 +428,16 @@ export default function DroitAuteurPage() {
               Affichage de {droitsAuteur.length > 0 ? startIndex + 1 : 0} à {Math.min(endIndex, droitsAuteur.length)} sur {droitsAuteur.length} éléments
             </p>
             <div className="flex items-center space-x-2">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={() => setCurrentPage(1)}
                 disabled={currentPage === 1}
               >
                 Premier
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
@@ -500,16 +447,16 @@ export default function DroitAuteurPage() {
               <Button variant="outline" size="sm" className="bg-indigo-600 text-white">
                 {currentPage}
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                 disabled={currentPage === totalPages || totalPages === 0}
               >
                 Suivant
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={() => setCurrentPage(totalPages)}
                 disabled={currentPage === totalPages || totalPages === 0}

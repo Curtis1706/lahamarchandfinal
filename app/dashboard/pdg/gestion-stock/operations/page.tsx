@@ -691,49 +691,57 @@ export default function StockOperationsPage() {
       {/* Statistiques rapides */}
       <div className="p-6 -mt-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-green-500">
+          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Entrées totales</p>
-                <p className="text-2xl font-bold text-green-600">
+                <p className="text-sm font-medium text-gray-500">Entrées totales</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">
                   {operations.filter(op => op.quantity > 0).reduce((sum, op) => sum + op.quantity, 0)}
                 </p>
               </div>
-              <TrendingUp className="w-8 h-8 text-green-500" />
+              <div className="p-3 bg-green-50 rounded-full">
+                <TrendingUp className="w-6 h-6 text-green-600" />
+              </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-red-500">
+          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Sorties totales</p>
-                <p className="text-2xl font-bold text-red-600">
+                <p className="text-sm font-medium text-gray-500">Sorties totales</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">
                   {Math.abs(operations.filter(op => op.quantity < 0).reduce((sum, op) => sum + op.quantity, 0))}
                 </p>
               </div>
-              <TrendingDown className="w-8 h-8 text-red-500" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-slate-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Opérations</p>
-                <p className="text-2xl font-bold text-slate-600">{operations.length}</p>
+              <div className="p-3 bg-red-50 rounded-full">
+                <TrendingDown className="w-6 h-6 text-red-600" />
               </div>
-              <Package className="w-8 h-8 text-slate-500" />
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-purple-500">
+          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Valeur totale</p>
-                <p className="text-2xl font-bold text-purple-600">
+                <p className="text-sm font-medium text-gray-500">Opérations</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{operations.length}</p>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-full">
+                <Package className="w-6 h-6 text-slate-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500">Valeur totale</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">
                   {operations.reduce((sum, op) => sum + (op.totalAmount || 0), 0).toLocaleString()} F CFA
                 </p>
               </div>
-              <CheckCircle className="w-8 h-8 text-purple-500" />
+              <div className="p-3 bg-purple-50 rounded-full">
+                <CheckCircle className="w-6 h-6 text-purple-600" />
+              </div>
             </div>
           </div>
         </div>

@@ -334,6 +334,11 @@ export async function GET(request: NextRequest) {
       whereClause.projectId = projectId;
     }
 
+    const isSubmitted = searchParams.get('submitted');
+    if (isSubmitted === 'true') {
+      whereClause.submittedAt = { not: null };
+    }
+
     // Si l'utilisateur n'est pas PDG, appliquer des restrictions
     if (session.user.role !== "PDG") {
       if (session.user.role === "AUTEUR") {
@@ -497,101 +502,10 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Si toujours 0 works, essayer une requête complètement sans filtres avec SQL brut
-      if (works.length === 0 && session.user.role === "PDG") {
-        try {
-          // Utiliser SQL brut pour éviter les problèmes d'enum
-          const allWorksRaw = await prisma.$queryRawUnsafe<any[]>(
-            `SELECT 
-              w.*,
-              u1.id as "author_id", u1.name as "author_name", u1.email as "author_email", u1.role as "author_role",
-              d.id as "discipline_id", d.name as "discipline_name",
-              u2.id as "concepteur_id", u2.name as "concepteur_name", u2.email as "concepteur_email",
-              u3.id as "reviewer_id", u3.name as "reviewer_name", u3.email as "reviewer_email",
-              p.id as "project_id", p.title as "project_title", p.status as "project_status"
-            FROM "Work" w
-            LEFT JOIN "User" u1 ON w."authorId" = u1.id
-            LEFT JOIN "Discipline" d ON w."disciplineId" = d.id
-            LEFT JOIN "User" u2 ON w."concepteurId" = u2.id
-            LEFT JOIN "User" u3 ON w."reviewerId" = u3.id
-            LEFT JOIN "Project" p ON w."projectId" = p.id
-            ORDER BY w."createdAt" DESC
-            LIMIT $1`,
-            limit
-          );
-
-          // Transformer les résultats SQL en format Prisma
-          works = allWorksRaw.map((row: any) => ({
-            id: row.id,
-            title: row.title,
-            description: row.description,
-            isbn: row.isbn,
-            internalCode: row.internalCode,
-            price: row.price,
-            tva: row.tva,
-            discountRate: row.discountRate,
-            stock: row.stock,
-            minStock: row.minStock,
-            maxStock: row.maxStock,
-            physicalStock: row.physicalStock,
-            category: row.category,
-            targetAudience: row.targetAudience,
-            educationalObjectives: row.educationalObjectives,
-            contentType: row.contentType,
-            keywords: row.keywords,
-            files: row.files,
-            validationComment: row.validationComment,
-            rejectionReason: row.rejectionReason,
-            disciplineId: row.disciplineId,
-            status: row.status,
-            publishedAt: row.publishedAt,
-            publicationDate: row.publicationDate,
-            version: row.version,
-            submittedAt: row.submittedAt,
-            reviewedAt: row.reviewedAt,
-            createdAt: row.createdAt,
-            updatedAt: row.updatedAt,
-            authorId: row.authorId,
-            reviewerId: row.reviewerId,
-            concepteurId: row.concepteurId,
-            projectId: row.projectId,
-            author: row.author_id ? {
-              id: row.author_id,
-              name: row.author_name,
-              email: row.author_email,
-              role: row.author_role
-            } : null,
-            discipline: row.discipline_id ? {
-              id: row.discipline_id,
-              name: row.discipline_name
-            } : null,
-            concepteur: row.concepteur_id ? {
-              id: row.concepteur_id,
-              name: row.concepteur_name,
-              email: row.concepteur_email
-            } : null,
-            reviewer: row.reviewer_id ? {
-              id: row.reviewer_id,
-              name: row.reviewer_name,
-              email: row.reviewer_email
-            } : null,
-            project: row.project_id ? {
-              id: row.project_id,
-              title: row.project_title,
-              status: row.project_status
-            } : null
-          }));
-
-          if (works.length > 0) {
-            const countResult = await prisma.$queryRawUnsafe<Array<{ count: bigint }>>(
-              `SELECT COUNT(*) as count FROM "Work"`
-            );
-            total = Number(countResult[0]?.count || 0);
-          }
-        } catch (noFilterError) {
-          console.error("❌ Erreur requête SQL brut sans filtres:", noFilterError);
-        }
-      }
+      // Si toujours 0 works, ne PAS essayer une requête sans filtres.
+      // Le fallback précédent (lignes 506-600) était incorrect car il ignorait les filtres (status, submitted, etc.)
+      // et renvoyait TOUS les livres si aucun ne correspondait aux critères, ce qui polluait les listes filtrées.
+      // Si works.length === 0, cela signifie simplement qu'aucun livre ne correspond aux critères.
     } catch (findManyError: any) {
       console.error('❌ Error in work.findMany:', findManyError)
       console.error('❌ Error message:', findManyError.message)
@@ -1141,7 +1055,7 @@ export async function DELETE(request: NextRequest) {
     // Le PDG peut tout supprimer
     // L'auteur ne peut supprimer que ses propres œuvres
     const isOwner = existingWork.authorId === session.user.id;
-    const isPDG = session.user.role === "PDG" || session.user.role === "ADMIN";
+    const isPDG = session.user.role === "PDG";
 
     if (!isOwner && !isPDG) {
       return NextResponse.json({ error: "Vous ne pouvez supprimer que vos propres œuvres" }, { status: 403 });

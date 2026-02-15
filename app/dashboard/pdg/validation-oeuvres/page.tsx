@@ -142,6 +142,9 @@ export default function ValidationOeuvresPage() {
       if (searchTerm) params.append("search", searchTerm);
       if (disciplineFilter && disciplineFilter !== "all") params.append("disciplineId", disciplineFilter);
 
+      // Filter to show only works submitted by authors (exclude works created by PDG)
+      params.append("submitted", "true");
+
       // Filtrer par statut selon l'onglet actif
       switch (activeTab) {
         case "pending":
