@@ -7,6 +7,7 @@ import { authOptions } from "@/lib/auth"
 import { calculatePartnerRebate, calculateAuthorRoyalty } from "@/lib/rebate-calculator"
 import { getWorkPrice, validateOrderMinima } from "@/lib/pricing"
 import { ClientType } from "@prisma/client"
+import { createNotificationChainsForOrder } from "@/lib/notification-chains"
 
 // GET /api/orders - Liste des commandes
 export async function GET(request: NextRequest) {
@@ -157,6 +158,7 @@ export async function POST(request: NextRequest) {
     });
 
     const clientType = userWithClient?.clients[0]?.type || "particulier";
+
 
     // Vérifier que tous les items ont les champs requis
     for (const item of items) {
@@ -647,6 +649,28 @@ export async function PUT(request: NextRequest) {
         } catch (financialError) {
           logger.error("⚠️ Erreur calculs financiers post-validation:", financialError)
           // On ne fail pas la request car la commande est validée et le stock sorti
+        }
+
+        // F. Post-Validation : Créer les chaînes de notification SMS pour les commandes en DEPOSIT
+        try {
+          const { updatedOrder } = result
+
+          // Vérifier si la commande est en mode DEPOSIT et a une date limite de paiement
+          if (updatedOrder.paymentType === 'DEPOSIT' && updatedOrder.paymentDueDate) {
+            logger.info(`📱 Création des chaînes de notification SMS pour la commande ${updatedOrder.id}`)
+
+            await createNotificationChainsForOrder(
+              updatedOrder.id,
+              updatedOrder.userId,
+              updatedOrder.paymentDueDate,
+              session.user.id
+            )
+
+            logger.info(`✅ Chaînes de notification créées pour la commande ${updatedOrder.id}`)
+          }
+        } catch (notificationError) {
+          logger.error("⚠️ Erreur création chaînes de notification:", notificationError)
+          // On ne fail pas la request car la commande est validée
         }
 
         return NextResponse.json({

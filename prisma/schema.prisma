@@ -760,27 +760,33 @@ model NotificationTemplate {
 }
 
 model NotificationChain {
-  id            String   @id @default(cuid())
-  title         String
-  clientId      String?
-  scheduledDate DateTime
-  sendSMS       Boolean  @default(true)
-  sendEmail     Boolean  @default(true)
-  daysBefore    Int      @default(1)
-  status        String   @default("Actif")
-  message       String
-  orderId       String?
-  createdById   String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  client        User?    @relation("NotificationChains", fields: [clientId], references: [id])
-  createdBy     User     @relation("CreatedNotificationChains", fields: [createdById], references: [id])
-  order         Order?   @relation("NotificationChainOrders", fields: [orderId], references: [id])
+  id               String    @id @default(cuid())
+  title            String
+  clientId         String?
+  scheduledDate    DateTime
+  sendSMS          Boolean   @default(true)
+  sendEmail        Boolean   @default(true)
+  daysBefore       Int       @default(1)
+  status           String    @default("Actif")
+  message          String
+  orderId          String?
+  createdById      String
+  notificationType String    @default("REMINDER") // "CONFIRMATION" ou "REMINDER"
+  isSent           Boolean   @default(false) // SMS envoyé ou non
+  sentAt           DateTime? // Date d'envoi effectif
+  failureReason    String? // Raison d'échec si applicable
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  client           User?     @relation("NotificationChains", fields: [clientId], references: [id])
+  createdBy        User      @relation("CreatedNotificationChains", fields: [createdById], references: [id])
+  order            Order?    @relation("NotificationChainOrders", fields: [orderId], references: [id])
 
   @@index([clientId])
   @@index([status])
   @@index([scheduledDate])
   @@index([createdAt])
+  @@index([isSent])
+  @@index([notificationType])
 }
 
 model AdvancedSetting {

@@ -181,7 +181,8 @@ const getNavigationForRole = (role: string, basePath: string): NavigationItem[] 
           label: "Notifications",
           children: [
             { href: `${basePath}/notifications/liste`, label: "Liste" },
-            { href: `${basePath}/notifications/diffusion`, label: "Diffusion" }
+            { href: `${basePath}/notifications/diffusion`, label: "Diffusion" },
+            { href: `${basePath}/notifications/chaine`, label: "Chaînes" }
           ]
         },
         {
