@@ -76,7 +76,6 @@ export async function GET(request: NextRequest) {
 
       // Déterminer le type (vente ou retour basé sur le statut)
       // Pour les dépôts, un retour est souvent une annulation ou un retour partiel
-      // Conflict resolved: using manual status check instead of missing calculateType 
       const type = order.status === 'CANCELLED' ? 'retour' : 'depot'
 
       // Déterminer le compte
