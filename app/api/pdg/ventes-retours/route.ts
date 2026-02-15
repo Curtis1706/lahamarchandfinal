@@ -82,14 +82,15 @@ export async function GET(request: NextRequest) {
     // Transformer les commandes en format vente/retour
     const ventesRetours = orders.map(order => {
       const totalQty = order.items.reduce((sum, item) => sum + item.quantity, 0)
-      const totalAmount = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-      
+      // Utiliser order.total qui contient le montant net après réductions
+      const totalAmount = order.total
+
       // Déterminer le type (vente ou retour basé sur le statut)
       const type = order.status === 'CANCELLED' ? 'retour' : 'vente'
-      
+
       // Déterminer le compte
       const compte = order.partner ? 'Partenaire' : 'Client'
-      
+
       // Déterminer le statut
       let statut = 'En attente'
       if (order.status === 'DELIVERED') statut = 'Validée'
@@ -132,7 +133,7 @@ export async function GET(request: NextRequest) {
 
     // Filtrer par méthode de paiement
     if (methodFilter && methodFilter !== 'all' && methodFilter !== 'all-methods') {
-      filtered = filtered.filter(v => 
+      filtered = filtered.filter(v =>
         v.methode.toLowerCase().includes(methodFilter.toLowerCase())
       )
     }
@@ -222,8 +223,8 @@ export async function POST(request: NextRequest) {
       }
 
       if (type === 'vente' && work.stock < item.quantity) {
-        return NextResponse.json({ 
-          error: `Stock insuffisant pour ${work.title}. Disponible: ${work.stock}, Demandé: ${item.quantity}` 
+        return NextResponse.json({
+          error: `Stock insuffisant pour ${work.title}. Disponible: ${work.stock}, Demandé: ${item.quantity}`
         }, { status: 400 })
       }
     }
@@ -234,7 +235,7 @@ export async function POST(request: NextRequest) {
         if (item.price) {
           return item
         }
-        const work = await prisma.work.findUnique({ 
+        const work = await prisma.work.findUnique({
           where: { id: item.workId },
           select: { price: true }
         })
@@ -248,7 +249,7 @@ export async function POST(request: NextRequest) {
     // Récupérer le userId du partenaire si nécessaire
     let finalUserId = clientId || session.user.id
     if (partnerId && !clientId) {
-      const partner = await prisma.partner.findUnique({ 
+      const partner = await prisma.partner.findUnique({
         where: { id: partnerId },
         select: { userId: true }
       })
@@ -320,8 +321,8 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     logger.error('Error creating vente/retour:', error)
-    return NextResponse.json({ 
-      error: error.message || 'Erreur interne du serveur' 
+    return NextResponse.json({
+      error: error.message || 'Erreur interne du serveur'
     }, { status: 500 })
   }
 }
