@@ -80,3 +80,79 @@ export async function sendCredentialsSMS(phone: string, password: string, role: 
         return { status: false, error };
     }
 }
+
+/**
+ * Envoie un SMS de chaîne de notification (confirmation ou rappel de paiement)
+ */
+export async function sendNotificationChainSMS(
+    phone: string,
+    clientName: string,
+    amount: number,
+    orderId: string,
+    dueDate: string,
+    notificationType: 'CONFIRMATION' | 'REMINDER'
+) {
+    const username = process.env.FASTERMESSAGE_USERNAME;
+    const apikey = process.env.FASTERMESSAGE_API_KEY;
+    const passwordApi = process.env.FASTERMESSAGE_PASSWORD;
+    const sender = process.env.FASTERMESSAGE_SENDER || "LAHA";
+
+    if (!username || !apikey || !passwordApi) {
+        console.warn("⚠️ Configuration SMS Fastermessage manquante");
+        return { status: false, message: "Configuration manquante" };
+    }
+
+    // Nettoyer le numéro de téléphone
+    let cleanPhone = phone.replace(/[^\d+]/g, '');
+
+    if (!cleanPhone.startsWith('+')) {
+        console.warn(`⚠️ Numéro de téléphone sans indicatif (+) détecté : ${cleanPhone}`);
+    }
+
+    // Formater la date
+    const formattedDate = new Date(dueDate).toLocaleDateString('fr-FR');
+    const formattedAmount = amount.toLocaleString('fr-FR');
+
+    // Construire le message selon le type
+    let text = '';
+    if (notificationType === 'CONFIRMATION') {
+        text = `Bonjour ${clientName}, Laha Edition vous confirme la validation de votre commande ${orderId} d'un montant de ${formattedAmount} F CFA. Échéance de paiement : ${formattedDate}. Merci !`;
+    } else {
+        text = `Bonjour ${clientName}, Laha Edition vous rappelle que l'échéance de paiement des ${formattedAmount} F CFA pour la commande ${orderId} arrive le ${formattedDate}. Merci de bien vouloir régulariser dans les délais.`;
+    }
+
+    const anonymizedPhone = cleanPhone.replace(/(\d{3})\d+(\d{2})/, "$1****$2");
+    console.log(`📡 [SMS Chaîne] Tentative d'envoi ${notificationType} à ${anonymizedPhone}...`);
+
+    try {
+        const response = await fetch("https://api.fastermessage.com/v1/sms/send", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                username,
+                apikey,
+                password: passwordApi,
+                from: sender,
+                to: cleanPhone,
+                text: text,
+            }),
+        });
+
+        const data = await response.json();
+
+        const isSuccess = response.ok && (data.status === "success" || data.status === true || data.code === 'SUBMITTED');
+
+        if (isSuccess) {
+            console.log(`✅ [SMS Chaîne] ${notificationType} envoyé avec succès à ${anonymizedPhone} (ID: ${data.messageId || data.message_id || 'N/A'})`);
+        } else {
+            console.error(`❌ [SMS Chaîne] Échec de l'envoi ${notificationType} à ${anonymizedPhone}. Réponse API:`, data);
+        }
+
+        return data;
+    } catch (error) {
+        console.error(`❌ [SMS Chaîne] Erreur critique lors de l'envoi ${notificationType} à ${anonymizedPhone}:`, error);
+        return { status: false, error };
+    }
+}
