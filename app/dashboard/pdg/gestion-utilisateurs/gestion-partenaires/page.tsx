@@ -201,7 +201,6 @@ export default function GestionPartenairesPage() {
 
   const getTypeBadge = (type: string) => {
     const typeConfig = {
-      "ÉCOLE": { label: "École", variant: "default" as const },
       "LIBRAIRIE": { label: "Librairie", variant: "secondary" as const },
       "DISTRIBUTEUR": { label: "Distributeur", variant: "outline" as const },
       "PARTENAIRE": { label: "Partenaire", variant: "default" as const }
@@ -398,7 +397,6 @@ export default function GestionPartenairesPage() {
             </SelectTrigger>
             <SelectContent>
                         <SelectItem value="ALL">Tous les types</SelectItem>
-                        <SelectItem value="ÉCOLE">École</SelectItem>
                         <SelectItem value="LIBRAIRIE">Librairie</SelectItem>
                         <SelectItem value="DISTRIBUTEUR">Distributeur</SelectItem>
                         <SelectItem value="PARTENAIRE">Partenaire</SelectItem>

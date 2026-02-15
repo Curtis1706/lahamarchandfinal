@@ -14,28 +14,40 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import {
   Search,
-  Eye,
   CheckCircle,
   XCircle,
   AlertTriangle,
   GraduationCap,
   Users,
+  Filter,
+  Plus,
+  RefreshCw,
+  MoreVertical,
+  Download,
+  Eye,
+  Trash2,
+  Mail,
+  MapPin,
+  Globe,
+  School,
+  ShieldCheck,
+  Lock,
+  User,
+  Edit,
+  Loader2,
   Package,
   Calendar,
-  MapPin,
   Phone,
-  Mail,
-  Globe,
   BarChart3,
   FileText,
   TrendingUp,
-  Building2,
-  Plus,
-  Trash2
+  Building2
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { CountrySelector } from "@/components/country-selector";
+import { generateRandomPassword, sendCredentialsSMS } from "@/lib/sms";
 
 interface School {
   id: string;
@@ -100,6 +112,19 @@ export default function GestionEcolesPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [schoolToDelete, setSchoolToDelete] = useState<School | null>(null);
   const [showAddSchoolModal, setShowAddSchoolModal] = useState(false);
+  const [showEditSchoolModal, setShowEditSchoolModal] = useState(false);
+  const [editSchoolData, setEditSchoolData] = useState({
+    id: "",
+    name: "",
+    contact: "",
+    email: "",
+    phone: "",
+    address: "",
+    website: "",
+    description: "",
+    representantId: "",
+    schoolType: "ecole_contractuelle"
+  });
   const [newSchoolData, setNewSchoolData] = useState({
     name: "",
     contact: "",
@@ -109,13 +134,15 @@ export default function GestionEcolesPage() {
     website: "",
     description: "",
     representantId: "",
+    schoolType: "ecole_contractuelle",
     userData: {
       name: "",
       email: "",
-      phone: "",
-      password: ""
+      phone: ""
     }
   });
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Charger les données
   useEffect(() => {
@@ -129,7 +156,7 @@ export default function GestionEcolesPage() {
       const params = new URLSearchParams({
         page: currentPage.toString(),
         limit: "10",
-        type: "école" // Filtrer uniquement les écoles
+        type: "école_all" // Nouveau flag pour inclure tous les types d'écoles
       });
 
       if (searchTerm) params.append("search", searchTerm);
@@ -201,8 +228,9 @@ export default function GestionEcolesPage() {
     );
   };
 
-  const handleStatusChange = async () => {
-    if (!selectedSchool || !newStatus) return;
+  const handleStatusChange = async (statusOverride?: string) => {
+    const statusToUse = statusOverride || newStatus;
+    if (!selectedSchool || !statusToUse) return;
 
     try {
       const response = await fetch("/api/partners", {
@@ -212,15 +240,15 @@ export default function GestionEcolesPage() {
         },
         body: JSON.stringify({
           id: selectedSchool.id,
-          status: newStatus,
-          representantId: (newRepresentantId && newRepresentantId !== "none") ? newRepresentantId : null
+          status: statusToUse,
+          representantId: (newRepresentantId && newRepresentantId !== "none") ? newRepresentantId : undefined
         })
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        toast.success(`Statut de l'école modifié en ${newStatus}`);
+        toast.success(`Statut de l'école modifié avec succès`);
         fetchSchools();
         setIsStatusDialogOpen(false);
         setNewStatus("");
@@ -232,6 +260,49 @@ export default function GestionEcolesPage() {
     } catch (error) {
       console.error("Error updating school status:", error);
       toast.error("Erreur lors de la modification du statut");
+    }
+  };
+
+  const handleUpdateSchoolInfo = async () => {
+    if (!editSchoolData.id || !editSchoolData.name || !editSchoolData.contact) {
+      toast.error("Veuillez remplir les champs obligatoires");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const response = await fetch("/api/partners", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          id: editSchoolData.id,
+          name: editSchoolData.name,
+          type: editSchoolData.schoolType,
+          contact: editSchoolData.contact,
+          email: editSchoolData.email,
+          phone: editSchoolData.phone,
+          address: editSchoolData.address,
+          website: editSchoolData.website,
+          description: editSchoolData.description,
+          representantId: editSchoolData.representantId
+        })
+      });
+
+      if (response.ok) {
+        toast.success("Informations de l'école mises à jour");
+        setShowEditSchoolModal(false);
+        fetchSchools();
+      } else {
+        const data = await response.json();
+        toast.error(data.error || "Erreur lors de la mise à jour");
+      }
+    } catch (error) {
+      console.error("Error updating school:", error);
+      toast.error("Erreur lors de la mise à jour");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -262,7 +333,7 @@ export default function GestionEcolesPage() {
   const handleCreateSchool = async () => {
     // Validation
     if (!newSchoolData.name || !newSchoolData.contact || !newSchoolData.userData.name || 
-        !newSchoolData.userData.email || !newSchoolData.userData.password) {
+        !newSchoolData.userData.email) {
       toast.error("Veuillez remplir tous les champs obligatoires");
       return;
     }
@@ -274,13 +345,11 @@ export default function GestionEcolesPage() {
       return;
     }
 
-    // Validation mot de passe (minimum 6 caractères)
-    if (newSchoolData.userData.password.length < 6) {
-      toast.error("Le mot de passe doit contenir au moins 6 caractères");
-      return;
-    }
+    // Générer un mot de passe automatique
+    const generatedPassword = generateRandomPassword(8);
 
     try {
+      setIsSubmitting(true);
       const response = await fetch("/api/partners", {
         method: "POST",
         headers: {
@@ -288,7 +357,7 @@ export default function GestionEcolesPage() {
         },
         body: JSON.stringify({
           name: newSchoolData.name,
-          type: "école", // Type fixe pour les écoles
+          type: newSchoolData.schoolType,
           contact: newSchoolData.contact,
           email: newSchoolData.email || newSchoolData.userData.email,
           phone: newSchoolData.phone || newSchoolData.userData.phone || '',
@@ -300,8 +369,9 @@ export default function GestionEcolesPage() {
             name: newSchoolData.userData.name,
             email: newSchoolData.userData.email,
             phone: newSchoolData.userData.phone || newSchoolData.phone || '',
-            password: newSchoolData.userData.password
-          }
+            password: generatedPassword
+          },
+          sendSms: true // Flag pour demander à l'API d'envoyer le SMS
         })
       });
 
@@ -309,6 +379,8 @@ export default function GestionEcolesPage() {
 
       if (response.ok) {
         toast.success("École créée avec succès");
+        toast.info("Les identifiants sont envoyés par SMS au gestionnaire");
+        
         setShowAddSchoolModal(false);
         // Réinitialiser le formulaire
         setNewSchoolData({
@@ -320,11 +392,11 @@ export default function GestionEcolesPage() {
           website: "",
           description: "",
           representantId: "",
+          schoolType: "ecole_contractuelle",
           userData: {
             name: "",
             email: "",
-            phone: "",
-            password: ""
+            phone: ""
           }
         });
         fetchSchools();
@@ -499,8 +571,8 @@ export default function GestionEcolesPage() {
                             </TableCell>
                             <TableCell>
                               <div className="space-y-1">
-                                <div className="text-sm">{school.user.name}</div>
-                                {school.user.phone && (
+                                <div className="text-sm">{school.user?.name || "N/A"}</div>
+                                {school.user?.phone && (
                                   <div className="text-xs text-gray-500">{school.user.phone}</div>
                                 )}
                               </div>
@@ -515,7 +587,7 @@ export default function GestionEcolesPage() {
                                 <span className="text-gray-500 text-sm">Non assigné</span>
                               )}
                             </TableCell>
-                            <TableCell>{getStatusBadge(school.user.status)}</TableCell>
+                            <TableCell>{getStatusBadge(school.user?.status || "INACTIVE")}</TableCell>
                             <TableCell>
                               <div className="flex items-center space-x-1">
                                 <Package className="h-4 w-4 text-gray-400" />
@@ -530,6 +602,7 @@ export default function GestionEcolesPage() {
                                 <Button
                                   variant="outline"
                                   size="sm"
+                                  className="h-8 w-8 p-0 border-gray-200 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
                                   onClick={() => {
                                     setSelectedSchool(school);
                                     setIsDetailsOpen(true);
@@ -538,30 +611,57 @@ export default function GestionEcolesPage() {
                                 >
                                   <Eye className="h-4 w-4" />
                                 </Button>
+                                
                                 <Button
                                   variant="outline"
                                   size="sm"
+                                  className="h-8 w-8 p-0 border-gray-200 hover:bg-amber-50 hover:text-amber-600 transition-colors"
+                                  onClick={() => {
+                                    setEditSchoolData({
+                                      id: school.id,
+                                      name: school.name,
+                                      contact: school.contact || "",
+                                      email: school.email || "",
+                                      phone: school.phone || "",
+                                      address: school.address || "",
+                                      website: school.website || "",
+                                      description: school.description || "",
+                                      representantId: school.representant?.id || "none",
+                                      schoolType: school.type as any
+                                    });
+                                    setShowEditSchoolModal(true);
+                                  }}
+                                  title="Modifier les informations"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className={`h-8 w-8 p-0 border-gray-200 transition-colors ${school.user?.status === 'ACTIVE' ? 'hover:bg-red-50 hover:text-red-600' : 'hover:bg-green-50 hover:text-green-600'}`}
                                   onClick={() => {
                                     setSelectedSchool(school);
-                                    setNewStatus("");
-                                    setNewRepresentantId(school.representant?.id || "");
-                                    setIsStatusDialogOpen(true);
+                                    // Inverser le statut
+                                    const nextStatus = school.user?.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+                                    handleStatusChange(nextStatus);
                                   }}
-                                  title="Modifier le statut"
+                                  title={school.user?.status === 'ACTIVE' ? "Désactiver l'accès" : "Activer l'accès"}
                                 >
-                                  <CheckCircle className="h-4 w-4" />
+                                  <CheckCircle className={`h-4 w-4 ${school.user?.status === 'ACTIVE' ? 'text-green-500' : 'text-gray-400'}`} />
                                 </Button>
+
                                 <Button
                                   variant="outline"
                                   size="sm"
+                                  className="h-8 w-8 p-0 border-gray-200 hover:bg-red-50 hover:text-red-700 transition-colors"
                                   onClick={() => {
                                     setSchoolToDelete(school);
                                     setIsDeleteDialogOpen(true);
                                   }}
-                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
                                   title="Supprimer l'école"
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Trash2 className="h-4 w-4 text-red-500" />
                                 </Button>
                               </div>
                             </TableCell>
@@ -685,7 +785,7 @@ export default function GestionEcolesPage() {
                   </div>
                   <div>
                     <Label className="font-medium">Statut</Label>
-                    <div>{getStatusBadge(selectedSchool.user.status)}</div>
+                    <div>{getStatusBadge(selectedSchool.user?.status || "INACTIVE")}</div>
                   </div>
                   <div>
                     <Label className="font-medium">Commandes</Label>
@@ -702,13 +802,13 @@ export default function GestionEcolesPage() {
                   <div className="bg-gray-50 p-3 rounded-lg space-y-2">
                     <div className="flex items-center space-x-2">
                       <Users className="h-4 w-4" />
-                      <span>{selectedSchool.user.name}</span>
+                      <span>{selectedSchool.user?.name || "N/A"}</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Mail className="h-4 w-4" />
-                      <span>{selectedSchool.user.email}</span>
+                      <span>{selectedSchool.user?.email || "N/A"}</span>
                     </div>
-                    {selectedSchool.user.phone && (
+                    {selectedSchool.user?.phone && (
                       <div className="flex items-center space-x-2">
                         <Phone className="h-4 w-4" />
                         <span>{selectedSchool.user.phone}</span>
@@ -838,7 +938,7 @@ export default function GestionEcolesPage() {
                   <Button variant="outline" onClick={() => setIsStatusDialogOpen(false)}>
                     Annuler
                   </Button>
-                  <Button onClick={handleStatusChange} disabled={!newStatus}>
+                   <Button onClick={() => handleStatusChange()} disabled={!newStatus}>
                     Modifier
                   </Button>
                 </div>
@@ -868,186 +968,443 @@ export default function GestionEcolesPage() {
 
         {/* Dialog d'ajout d'école */}
         <Dialog open={showAddSchoolModal} onOpenChange={setShowAddSchoolModal}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Ajouter une nouvelle école</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              {/* Informations de l'école */}
-              <div className="space-y-2">
-                <h3 className="font-semibold text-lg">Informations de l'école</h3>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0 border-none shadow-2xl rounded-2xl overflow-hidden">
+            <div className="bg-gradient-to-r from-indigo-600 to-violet-700 p-6 text-white">
+              <DialogHeader>
+                <DialogTitle className="text-2xl font-bold text-white flex items-center gap-2">
+                   <div className="bg-white/20 p-2 rounded-lg">
+                      <School className="h-6 w-6 text-white" />
+                   </div>
+                   Ajouter une nouvelle école
+                </DialogTitle>
+                <p className="text-indigo-100 text-sm mt-1">
+                  Enregistrez une école et ses accès seront générés automatiquement.
+                </p>
+              </DialogHeader>
+            </div>
+
+            <div className="p-8 space-y-8 bg-white">
+              {/* Type d'école */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                   <div className="h-1 w-8 bg-indigo-600 rounded-full" />
+                   <h3 className="font-bold text-gray-800 uppercase tracking-wider text-xs">Type d'engagement</h3>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="school-name">Nom de l'école *</Label>
-                    <Input
-                      id="school-name"
-                      value={newSchoolData.name}
-                      onChange={(e) => setNewSchoolData({...newSchoolData, name: e.target.value})}
-                      placeholder="Ex: École Primaire ABC"
-                    />
+                   <div 
+                      className={`relative flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${newSchoolData.schoolType === 'ecole_contractuelle' ? 'border-indigo-600 bg-indigo-50 shadow-md scale-[1.02]' : 'border-gray-100 hover:border-indigo-200'}`}
+                      onClick={() => setNewSchoolData({...newSchoolData, schoolType: 'ecole_contractuelle'})}
+                   >
+                      <div className={`p-2 rounded-lg mr-3 ${newSchoolData.schoolType === 'ecole_contractuelle' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                         <CheckCircle className="h-5 w-5" />
+                      </div>
+                      <div>
+                         <p className="font-bold text-sm text-gray-900">Contractuelle</p>
+                         <p className="text-xs text-gray-500">Partenariat officiel signé</p>
+                      </div>
+                      {newSchoolData.schoolType === 'ecole_contractuelle' && (
+                        <div className="absolute top-2 right-2 h-2 w-2 bg-indigo-600 rounded-full" />
+                      )}
+                   </div>
+
+                   <div 
+                      className={`relative flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${newSchoolData.schoolType === 'ecole_non_contractuelle' ? 'border-violet-600 bg-violet-50 shadow-md scale-[1.02]' : 'border-gray-100 hover:border-violet-200'}`}
+                      onClick={() => setNewSchoolData({...newSchoolData, schoolType: 'ecole_non_contractuelle'})}
+                   >
+                      <div className={`p-2 rounded-lg mr-3 ${newSchoolData.schoolType === 'ecole_non_contractuelle' ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                         <XCircle className="h-5 w-5" />
+                      </div>
+                      <div>
+                         <p className="font-bold text-sm text-gray-900">Non Contractuelle</p>
+                         <p className="text-xs text-gray-500">Client ponctuel / prospect</p>
+                      </div>
+                      {newSchoolData.schoolType === 'ecole_non_contractuelle' && (
+                        <div className="absolute top-2 right-2 h-2 w-2 bg-violet-600 rounded-full" />
+                      )}
+                   </div>
+                </div>
+              </div>
+
+              {/* Informations de l'école */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                   <div className="h-1 w-8 bg-indigo-600 rounded-full" />
+                   <h3 className="font-bold text-gray-800 uppercase tracking-wider text-xs">Informations de l'école</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-2">
+                    <Label htmlFor="school-name" className="text-xs font-semibold text-gray-600">Nom de l'école *</Label>
+                    <div className="relative">
+                      <School className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        id="school-name"
+                        className="pl-10 border-gray-200 focus:ring-indigo-500"
+                        value={newSchoolData.name}
+                        onChange={(e) => setNewSchoolData({...newSchoolData, name: e.target.value})}
+                        placeholder="Ex: École Primaire ABC"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <Label htmlFor="school-contact">Personne de contact *</Label>
-                    <Input
-                      id="school-contact"
-                      value={newSchoolData.contact}
-                      onChange={(e) => setNewSchoolData({...newSchoolData, contact: e.target.value})}
-                      placeholder="Nom du directeur ou responsable"
-                    />
+                  <div className="space-y-2">
+                    <Label htmlFor="school-contact" className="text-xs font-semibold text-gray-600">Référent / Contact *</Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        id="school-contact"
+                        className="pl-10 border-gray-200 focus:ring-indigo-500"
+                        value={newSchoolData.contact}
+                        onChange={(e) => setNewSchoolData({...newSchoolData, contact: e.target.value})}
+                        placeholder="Nom du responsable"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <Label htmlFor="school-email">Email de l'école</Label>
-                    <Input
-                      id="school-email"
-                      type="email"
-                      value={newSchoolData.email}
-                      onChange={(e) => setNewSchoolData({...newSchoolData, email: e.target.value})}
-                      placeholder="contact@ecole.com"
-                    />
+                  <div className="space-y-2">
+                    <Label htmlFor="school-email" className="text-xs font-semibold text-gray-600">Email de l'école</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        id="school-email"
+                        type="email"
+                        className="pl-10 border-gray-200 focus:ring-indigo-500"
+                        value={newSchoolData.email}
+                        onChange={(e) => setNewSchoolData({...newSchoolData, email: e.target.value})}
+                        placeholder="contact@ecole.com"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <Label htmlFor="school-phone">Téléphone</Label>
-                    <Input
-                      id="school-phone"
+                  <div className="space-y-2">
+                    <Label htmlFor="school-phone" className="text-xs font-semibold text-gray-600">Téléphone École</Label>
+                    <CountrySelector
                       value={newSchoolData.phone}
-                      onChange={(e) => setNewSchoolData({...newSchoolData, phone: e.target.value})}
-                      placeholder="+241 XX XX XX XX"
+                      onChange={(value) => setNewSchoolData({...newSchoolData, phone: value})}
                     />
                   </div>
-                  <div className="md:col-span-2">
-                    <Label htmlFor="school-address">Adresse</Label>
-                    <Input
-                      id="school-address"
-                      value={newSchoolData.address}
-                      onChange={(e) => setNewSchoolData({...newSchoolData, address: e.target.value})}
-                      placeholder="Adresse complète de l'école"
-                    />
+                  <div className="md:col-span-2 space-y-2">
+                    <Label htmlFor="school-address" className="text-xs font-semibold text-gray-600">Adresse géographique</Label>
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        id="school-address"
+                        className="pl-10 border-gray-200 focus:ring-indigo-500"
+                        value={newSchoolData.address}
+                        onChange={(e) => setNewSchoolData({...newSchoolData, address: e.target.value})}
+                        placeholder="Quartier, Rue, Ville..."
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <Label htmlFor="school-website">Site web</Label>
-                    <Input
-                      id="school-website"
-                      value={newSchoolData.website}
-                      onChange={(e) => setNewSchoolData({...newSchoolData, website: e.target.value})}
-                      placeholder="https://www.ecole.com"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="school-representant">Représentant assigné</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="school-representant" className="text-xs font-semibold text-gray-600">Représentant assigné</Label>
                     <Select 
                       value={newSchoolData.representantId} 
                       onValueChange={(value) => setNewSchoolData({...newSchoolData, representantId: value})}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="border-gray-200 focus:ring-indigo-500">
                         <SelectValue placeholder="Sélectionner un représentant" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">Aucun représentant</SelectItem>
                         {representants.map((rep) => (
                           <SelectItem key={rep.id} value={rep.id}>
-                            {rep.name} ({rep.email})
+                            {rep.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="md:col-span-2">
-                    <Label htmlFor="school-description">Description</Label>
-                    <Input
-                      id="school-description"
-                      value={newSchoolData.description}
-                      onChange={(e) => setNewSchoolData({...newSchoolData, description: e.target.value})}
-                      placeholder="Informations complémentaires (optionnel)"
-                    />
+                  <div className="space-y-2">
+                    <Label htmlFor="school-website" className="text-xs font-semibold text-gray-600">Lien site web / Facebook</Label>
+                    <div className="relative">
+                      <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        id="school-website"
+                        className="pl-10 border-gray-200 focus:ring-indigo-500"
+                        value={newSchoolData.website}
+                        onChange={(e) => setNewSchoolData({...newSchoolData, website: e.target.value})}
+                        placeholder="https://..."
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Informations de connexion */}
-              <div className="space-y-2 border-t pt-4">
-                <h3 className="font-semibold text-lg">Compte de connexion</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="user-name">Nom d'utilisateur *</Label>
+              {/* Compte Utilisateur */}
+              <div className="space-y-4 bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100">
+                <div className="flex items-center gap-2 mb-2">
+                   <div className="h-1 w-8 bg-indigo-600 rounded-full" />
+                   <h3 className="font-bold text-gray-800 uppercase tracking-wider text-xs flex items-center gap-2">
+                      Compte Administrateur École
+                      <ShieldCheck className="h-4 w-4 text-indigo-600" />
+                   </h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-2">
+                    <Label htmlFor="user-name" className="text-xs font-semibold text-gray-600">Nom du gestionnaire *</Label>
                     <Input
                       id="user-name"
+                      className="border-gray-200 focus:ring-indigo-500 bg-white"
                       value={newSchoolData.userData.name}
                       onChange={(e) => setNewSchoolData({
                         ...newSchoolData, 
                         userData: {...newSchoolData.userData, name: e.target.value}
                       })}
-                      placeholder="Nom pour le compte de connexion"
+                      placeholder="Nom complet"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="user-email">Email de connexion *</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="user-email" className="text-xs font-semibold text-gray-600">Email de connexion *</Label>
                     <Input
                       id="user-email"
                       type="email"
+                      className="border-gray-200 focus:ring-indigo-500 bg-white"
                       value={newSchoolData.userData.email}
                       onChange={(e) => setNewSchoolData({
                         ...newSchoolData, 
                         userData: {...newSchoolData.userData, email: e.target.value}
                       })}
-                      placeholder="email@exemple.com"
+                      placeholder="email@ecole.com"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="user-phone">Téléphone</Label>
-                    <Input
-                      id="user-phone"
+                  <div className="space-y-2">
+                    <Label htmlFor="user-phone" className="text-xs font-semibold text-gray-600">Téléphone de connexion *</Label>
+                    <CountrySelector
                       value={newSchoolData.userData.phone}
-                      onChange={(e) => setNewSchoolData({
+                      onChange={(value) => setNewSchoolData({
                         ...newSchoolData, 
-                        userData: {...newSchoolData.userData, phone: e.target.value}
+                        userData: {...newSchoolData.userData, phone: value}
                       })}
-                      placeholder="+241 XX XX XX XX"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="user-password">Mot de passe *</Label>
+                  <div className="flex flex-col justify-end">
+                    <div className="bg-white border-2 border-dashed border-indigo-200 p-3 rounded-xl flex items-center gap-3">
+                       <div className="bg-indigo-100 p-2 rounded-lg">
+                          <Lock className="h-4 w-4 text-indigo-600" />
+                       </div>
+                       <p className="text-[10px] text-gray-500 leading-tight">
+                         Le mot de passe sera <strong>généré automatiquement</strong> et envoyé par <strong>SMS</strong> à ce numéro dès la validation.
+                       </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button 
+                  variant="ghost" 
+                  className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl px-6"
+                  onClick={() => {
+                    setShowAddSchoolModal(false);
+                    // Reset will be handled by logic or closure
+                  }}
+                >
+                  Annuler
+                </Button>
+                <Button 
+                  onClick={handleCreateSchool} 
+                  disabled={isSubmitting}
+                  className="bg-gradient-to-r from-indigo-600 to-violet-700 text-white rounded-xl px-8 shadow-lg hover:shadow-indigo-500/30 transition-all font-bold"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Création...
+                    </>
+                  ) : "Valider la création"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog de modification d'école */}
+        <Dialog open={showEditSchoolModal} onOpenChange={setShowEditSchoolModal}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0 border-none shadow-2xl rounded-2xl overflow-hidden">
+            <div className="bg-gradient-to-r from-amber-500 to-orange-600 p-6 text-white">
+              <DialogHeader>
+                <DialogTitle className="text-2xl font-bold text-white flex items-center gap-2">
+                   <div className="bg-white/20 p-2 rounded-lg">
+                      <Edit className="h-6 w-6 text-white" />
+                   </div>
+                   Modifier les informations de l'école
+                </DialogTitle>
+                <p className="text-amber-50 text-sm mt-1">
+                  Mettez à jour les coordonnées et les préférences de l'école.
+                </p>
+              </DialogHeader>
+            </div>
+
+            <div className="p-8 space-y-8 bg-white">
+              {/* Type d'école */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                   <div className="h-1 w-8 bg-amber-500 rounded-full" />
+                   <h3 className="font-bold text-gray-800 uppercase tracking-wider text-xs">Type d'engagement</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   <div 
+                      className={`relative flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${editSchoolData.schoolType === 'ecole_contractuelle' ? 'border-amber-500 bg-amber-50 shadow-md scale-[1.02]' : 'border-gray-100 hover:border-amber-200'}`}
+                      onClick={() => setEditSchoolData({...editSchoolData, schoolType: 'ecole_contractuelle'})}
+                   >
+                      <div className={`p-2 rounded-lg mr-3 ${editSchoolData.schoolType === 'ecole_contractuelle' ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                         <CheckCircle className="h-5 w-5" />
+                      </div>
+                      <div>
+                         <p className="font-bold text-sm text-gray-900">Contractuelle</p>
+                         <p className="text-xs text-gray-500">Partenariat officiel signé</p>
+                      </div>
+                      {editSchoolData.schoolType === 'ecole_contractuelle' && (
+                        <div className="absolute top-2 right-2 h-2 w-2 bg-amber-500 rounded-full" />
+                      )}
+                   </div>
+
+                   <div 
+                      className={`relative flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${editSchoolData.schoolType === 'ecole_non_contractuelle' ? 'border-orange-500 bg-orange-50 shadow-md scale-[1.02]' : 'border-gray-100 hover:border-orange-200'}`}
+                      onClick={() => setEditSchoolData({...editSchoolData, schoolType: 'ecole_non_contractuelle'})}
+                   >
+                      <div className={`p-2 rounded-lg mr-3 ${editSchoolData.schoolType === 'ecole_non_contractuelle' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                         <XCircle className="h-5 w-5" />
+                      </div>
+                      <div>
+                         <p className="font-bold text-sm text-gray-900">Non Contractuelle</p>
+                         <p className="text-xs text-gray-500">Client ponctuel / prospect</p>
+                      </div>
+                      {editSchoolData.schoolType === 'ecole_non_contractuelle' && (
+                        <div className="absolute top-2 right-2 h-2 w-2 bg-orange-500 rounded-full" />
+                      )}
+                   </div>
+                </div>
+              </div>
+
+              {/* Informations de l'école */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                   <div className="h-1 w-8 bg-amber-500 rounded-full" />
+                   <h3 className="font-bold text-gray-800 uppercase tracking-wider text-xs">Informations de l'école</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-school-name" className="text-xs font-semibold text-gray-600">Nom de l'école *</Label>
+                    <div className="relative">
+                      <School className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        id="edit-school-name"
+                        className="pl-10 border-gray-200 focus:ring-amber-500"
+                        value={editSchoolData.name}
+                        onChange={(e) => setEditSchoolData({...editSchoolData, name: e.target.value})}
+                        placeholder="Ex: École Primaire ABC"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-school-contact" className="text-xs font-semibold text-gray-600">Référent / Contact *</Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        id="edit-school-contact"
+                        className="pl-10 border-gray-200 focus:ring-amber-500"
+                        value={editSchoolData.contact}
+                        onChange={(e) => setEditSchoolData({...editSchoolData, contact: e.target.value})}
+                        placeholder="Nom du responsable"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-school-email" className="text-xs font-semibold text-gray-600">Email de l'école</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        id="edit-school-email"
+                        type="email"
+                        className="pl-10 border-gray-200 focus:ring-amber-500"
+                        value={editSchoolData.email}
+                        onChange={(e) => setEditSchoolData({...editSchoolData, email: e.target.value})}
+                        placeholder="contact@ecole.com"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-school-phone" className="text-xs font-semibold text-gray-600">Téléphone École</Label>
+                    <CountrySelector
+                      value={editSchoolData.phone}
+                      onChange={(value) => setEditSchoolData({...editSchoolData, phone: value})}
+                    />
+                  </div>
+                  <div className="md:col-span-2 space-y-2">
+                    <Label htmlFor="edit-school-address" className="text-xs font-semibold text-gray-600">Adresse géographique</Label>
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        id="edit-school-address"
+                        className="pl-10 border-gray-200 focus:ring-amber-500"
+                        value={editSchoolData.address}
+                        onChange={(e) => setEditSchoolData({...editSchoolData, address: e.target.value})}
+                        placeholder="Quartier, Rue, Ville..."
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-school-representant" className="text-xs font-semibold text-gray-600">Représentant assigné</Label>
+                    <Select 
+                      value={editSchoolData.representantId} 
+                      onValueChange={(value) => setEditSchoolData({...editSchoolData, representantId: value})}
+                    >
+                      <SelectTrigger className="border-gray-200 focus:ring-amber-500">
+                        <SelectValue placeholder="Sélectionner un représentant" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Aucun représentant</SelectItem>
+                        {representants.map((rep) => (
+                          <SelectItem key={rep.id} value={rep.id}>
+                            {rep.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-school-website" className="text-xs font-semibold text-gray-600">Lien site web / Facebook</Label>
+                    <div className="relative">
+                      <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        id="edit-school-website"
+                        className="pl-10 border-gray-200 focus:ring-amber-500"
+                        value={editSchoolData.website}
+                        onChange={(e) => setEditSchoolData({...editSchoolData, website: e.target.value})}
+                        placeholder="https://..."
+                      />
+                    </div>
+                  </div>
+                  <div className="md:col-span-2 space-y-2">
+                    <Label htmlFor="edit-school-description" className="text-xs font-semibold text-gray-600">Description / Notes</Label>
                     <Input
-                      id="user-password"
-                      type="password"
-                      value={newSchoolData.userData.password}
-                      onChange={(e) => setNewSchoolData({
-                        ...newSchoolData, 
-                        userData: {...newSchoolData.userData, password: e.target.value}
-                      })}
-                      placeholder="Minimum 6 caractères"
+                       id="edit-school-description"
+                       className="border-gray-200 focus:ring-amber-500"
+                       value={editSchoolData.description}
+                       onChange={(e) => setEditSchoolData({...editSchoolData, description: e.target.value})}
+                       placeholder="Informations complémentaires..."
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-2 pt-4">
+              <div className="flex justify-end gap-3 pt-4">
                 <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setShowAddSchoolModal(false);
-                    setNewSchoolData({
-                      name: "",
-                      contact: "",
-                      email: "",
-                      phone: "",
-                      address: "",
-                      website: "",
-                      description: "",
-                      representantId: "",
-                      userData: {
-                        name: "",
-                        email: "",
-                        phone: "",
-                        password: ""
-                      }
-                    });
-                  }}
+                  variant="ghost" 
+                  className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl px-6"
+                  onClick={() => setShowEditSchoolModal(false)}
                 >
                   Annuler
                 </Button>
-                <Button onClick={handleCreateSchool} className="bg-black hover:bg-gray-800">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Créer l'école
+                <Button 
+                  onClick={handleUpdateSchoolInfo} 
+                  disabled={isSubmitting}
+                  className="bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl px-8 shadow-lg hover:shadow-orange-500/30 transition-all font-bold"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Enregistrement...
+                    </>
+                  ) : "Enregistrer les modifications"}
                 </Button>
               </div>
             </div>
