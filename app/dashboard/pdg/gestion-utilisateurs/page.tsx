@@ -1103,12 +1103,32 @@ function CreateUserForm({ disciplines, departments, onSubmit, onCancel }: {
     phone: '',
     role: 'CLIENT',
     disciplineId: '',
-    departmentId: ''
+    departmentId: '',
+    clientType: 'particulier' // Valeur par défaut
   })
+
+  // Types de clients disponibles (identiques à l'inscription publique)
+  const clientTypes = [
+    { value: 'particulier', label: 'Particulier' },
+    { value: 'boutique', label: 'Boutique / Revendeur' },
+    { value: 'grossiste', label: 'Grossiste' },
+    { value: 'ecole_contractuelle', label: 'École Contractuelle' },
+    { value: 'ecole_non_contractuelle', label: 'École Non-Contractuelle' },
+    { value: 'partenaire', label: 'Partenaire' },
+    { value: 'bibliotheque', label: 'Bibliothèque' }
+  ]
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSubmit(formData)
+    // Nettoyer les données avant envoi
+    const dataToSend = {
+      ...formData,
+      // Si ce n'est pas un client, on n'envoie pas clientType
+      clientType: formData.role === 'CLIENT' ? formData.clientType : undefined,
+      // Si ce n'est pas un auteur/concepteur, on n'envoie pas disciplineId
+      disciplineId: ['AUTEUR', 'CONCEPTEUR', 'REPRESENTANT'].includes(formData.role) ? formData.disciplineId : undefined
+    }
+    onSubmit(dataToSend)
   }
 
   return (
@@ -1143,22 +1163,46 @@ function CreateUserForm({ disciplines, departments, onSubmit, onCancel }: {
         />
       </div>
 
-      <div>
-        <label className="text-sm font-medium">Rôle</label>
-        <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
-          <SelectTrigger>
-            <SelectValue placeholder="Choisir un rôle" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="PDG">PDG</SelectItem>
-            <SelectItem value="AUTEUR">Auteur</SelectItem>
-            <SelectItem value="CONCEPTEUR">Concepteur</SelectItem>
-            <SelectItem value="CLIENT">Client</SelectItem>
-            <SelectItem value="PARTENAIRE">Partenaire</SelectItem>
-            <SelectItem value="REPRESENTANT">Représentant</SelectItem>
-            <SelectItem value="INVITE">Invité</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="text-sm font-medium">Rôle</label>
+          <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
+            <SelectTrigger>
+              <SelectValue placeholder="Choisir un rôle" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="PDG">PDG</SelectItem>
+              <SelectItem value="AUTEUR">Auteur</SelectItem>
+              <SelectItem value="CONCEPTEUR">Concepteur</SelectItem>
+              <SelectItem value="CLIENT">Client</SelectItem>
+              <SelectItem value="PARTENAIRE">Partenaire</SelectItem>
+              <SelectItem value="REPRESENTANT">Représentant</SelectItem>
+              <SelectItem value="INVITE">Invité</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Type de Client - Visible uniquement si Rôle est CLIENT */}
+        {formData.role === 'CLIENT' && (
+          <div>
+            <label className="text-sm font-medium">Type de Client</label>
+            <Select 
+              value={formData.clientType} 
+              onValueChange={(value) => setFormData({ ...formData, clientType: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Type de client" />
+              </SelectTrigger>
+              <SelectContent>
+                {clientTypes.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       {/* Lieu géographique (Département) - OBLIGATOIRE */}
@@ -1177,6 +1221,25 @@ function CreateUserForm({ disciplines, departments, onSubmit, onCancel }: {
           </SelectContent>
         </Select>
       </div>
+
+      {/* Spécialité (Discipline) - Pour concepteurs/auteurs/représentants */}
+      {['AUTEUR', 'CONCEPTEUR', 'REPRESENTANT'].includes(formData.role) && (
+        <div>
+          <label className="text-sm font-medium">Discipline (Matière) *</label>
+          <Select value={formData.disciplineId} onValueChange={(value) => setFormData({ ...formData, disciplineId: value })} required>
+            <SelectTrigger>
+              <SelectValue placeholder="Sélectionner une discipline" />
+            </SelectTrigger>
+            <SelectContent>
+              {disciplines.filter(d => d.isActive).map(discipline => (
+                <SelectItem key={discipline.id} value={discipline.id}>
+                  {discipline.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       <div className="flex justify-end space-x-2 pt-4">
         <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center">

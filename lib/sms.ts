@@ -13,7 +13,7 @@ export function generateRandomPassword(length: number = 8): string {
 /**
  * Envoie les identifiants par SMS via l'API Fastermessage
  */
-export async function sendCredentialsSMS(phone: string, password: string, role: string) {
+export async function sendCredentialsSMS(phone: string, password: string, role: string, clientType?: string) {
     const username = process.env.FASTERMESSAGE_USERNAME;
     const apikey = process.env.FASTERMESSAGE_API_KEY;
     const passwordApi = process.env.FASTERMESSAGE_PASSWORD;
@@ -35,7 +35,15 @@ export async function sendCredentialsSMS(phone: string, password: string, role: 
         console.warn(`⚠️ Numéro de téléphone sans indicatif (+) détecté : ${cleanPhone}`);
     }
 
-    const text = `Bienvenue ! Vous avez été ajouté en tant que ${role.toLowerCase()} sur LAHA Marchand Gabon.\n\nVos identifiants :\nNuméro : ${cleanPhone}\nMot de passe : ${password}`;
+    // Construction du rôle à afficher
+    let displayRole = role.toLowerCase();
+    if (role === 'CLIENT' && clientType) {
+        // Formater le type de client pour l'affichage (ex: "ecole_contractuelle" -> "école contractuelle")
+        const formattedType = clientType.replace(/_/g, ' ').replace('ecole', 'école');
+        displayRole = `client (${formattedType})`;
+    }
+
+    const text = `Bienvenue ! Vous avez été ajouté en tant que ${displayRole} sur LAHA Marchand Gabon.\n\nVos identifiants :\nNuméro : ${cleanPhone}\nMot de passe : ${password}`;
 
     if (process.env.NODE_ENV === 'development') {
         const anonymizedPhone = cleanPhone.replace(/(\d{3})\d+(\d{2})/, "$1****$2");

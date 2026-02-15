@@ -30,7 +30,8 @@ export async function POST(request: NextRequest) {
       phone,
       role,
       disciplineId,
-      password
+      password,
+      clientType // Ajouté du frontend
     } = body;
 
 
@@ -116,6 +117,17 @@ export async function POST(request: NextRequest) {
         department: (body as any).departmentId ? {
           connect: { id: (body as any).departmentId }
         } : undefined,
+        // Création conditionnelle du Client si le rôle est CLIENT
+        clients: role === 'CLIENT' ? {
+          create: {
+            nom: name.trim(),
+            email: email.trim().toLowerCase(),
+            telephone: phone?.trim() || null,
+            type: clientType || 'particulier', // Type par défaut si non fourni
+            statut: 'ACTIF',
+            departmentId: (body as any).departmentId || undefined
+          }
+        } : undefined,
       } as any,
       include: {
         discipline: {
@@ -158,7 +170,12 @@ export async function POST(request: NextRequest) {
     // Envoi des identifiants par SMS si un numéro est fourni
     if (user.phone) {
       try {
-        await sendCredentialsSMS(user.phone, finalPassword, user.role);
+        await sendCredentialsSMS(
+          user.phone,
+          finalPassword,
+          user.role,
+          (user.role === 'CLIENT' ? clientType : undefined)
+        );
       } catch (smsError) {
         console.error("⚠️ Erreur lors de l'envoi du SMS de bienvenue:", smsError);
       }
