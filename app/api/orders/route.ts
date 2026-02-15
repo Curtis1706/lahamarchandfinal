@@ -399,6 +399,8 @@ export async function PUT(request: NextRequest) {
     // 🔹 Logique spécifique Airtel Money Gabon : Si validation, marquer comme payé si preuve fournie
     if (status === "VALIDATED") {
       const currentOrder = await prisma.order.findUnique({ where: { id } })
+
+      // Cas 1: Airtel Money / Mobile Money classique
       if (currentOrder && (
         currentOrder.paymentMethod === 'airtel-money-gabon' ||
         currentOrder.paymentMethod === 'mobile_money' ||
@@ -415,6 +417,23 @@ export async function PUT(request: NextRequest) {
           }
         } catch (e) {
           logger.error(`Error parsing paymentReference for auto-pay:`, e)
+        }
+      }
+
+      // Cas 2: Dépôt (Paiement différé réglé par le client)
+      if (currentOrder && currentOrder.paymentMethod === 'depot') {
+        try {
+          const paymentRef = currentOrder.paymentReference ? JSON.parse(currentOrder.paymentReference) : {}
+          // Si on a un transactionId, c'est que le client a soumis une preuve
+          if (paymentRef.transactionId) {
+            updateData.paymentStatus = 'PAID'
+            updateData.amountPaid = currentOrder.total
+            updateData.remainingAmount = 0
+            updateData.fullPaymentDate = new Date()
+            logger.info(`💰 Auto-marking Deposit order ${id} as PAID upon validation (proof submitted)`)
+          }
+        } catch (e) {
+          logger.error(`Error parsing paymentReference for deposit auto-pay:`, e)
         }
       }
     }
