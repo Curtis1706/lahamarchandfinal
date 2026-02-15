@@ -320,21 +320,6 @@ export default function ClientDashboard() {
                   </div>
                 </div>
                 
-                {clientProfile.clients[0].representant && (
-                  <div className="mt-4 pt-3 border-t border-gray-50 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 bg-green-100 text-green-700 rounded-full flex items-center justify-center">
-                        <User className="w-3 h-3" />
-                      </div>
-                      <p className="text-xs text-gray-600">
-                        Représentant : <span className="font-bold">{clientProfile.clients[0].representant.name}</span>
-                      </p>
-                    </div>
-                    <Link href="/dashboard/client/notifications" className="text-[10px] text-indigo-600 font-bold hover:underline">
-                      CONTACTER
-                    </Link>
-                  </div>
-                )}
               </div>
             )}
           </div>

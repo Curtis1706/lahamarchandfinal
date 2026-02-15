@@ -63,6 +63,11 @@ interface User {
   worksCount?: number
   publishedWorksCount?: number
   pendingWorksCount?: number
+  // Relation avec le client (école)
+  clients?: {
+    nom: string
+    type: string
+  }[]
 }
 
 // On utilise le type Discipline importé de l'API
@@ -518,7 +523,19 @@ export default function GestionUtilisateursPage() {
               <TableHead className="font-semibold">
                 <div className="flex items-center">
                   <span className="mr-1">♦</span>
-                  Nom complet
+                  Gestionnaire du compte
+                </div>
+              </TableHead>
+              <TableHead className="font-semibold">
+                <div className="flex items-center">
+                  <span className="mr-1">♦</span>
+                  Établissement
+                </div>
+              </TableHead>
+              <TableHead className="font-semibold">
+                <div className="flex items-center">
+                  <span className="mr-1">♦</span>
+                  Département
                 </div>
               </TableHead>
               <TableHead className="font-semibold">
@@ -548,12 +565,6 @@ export default function GestionUtilisateursPage() {
               <TableHead className="font-semibold">
                 <div className="flex items-center">
                   <span className="mr-1">♦</span>
-                  Ajoutée le
-                </div>
-              </TableHead>
-              <TableHead className="font-semibold">
-                <div className="flex items-center">
-                  <span className="mr-1">♦</span>
                   Actions
                 </div>
               </TableHead>
@@ -562,7 +573,7 @@ export default function GestionUtilisateursPage() {
           <TableBody>
             {paginatedUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
+                 <TableCell colSpan={8} className="text-center py-8">
                   <div className="text-center">
                     <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                     <p className="text-gray-500 text-lg">Aucun utilisateur trouvé</p>
@@ -606,12 +617,23 @@ export default function GestionUtilisateursPage() {
                       </div>
                     </TableCell>
                     <TableCell>
+                      <span className="text-sm font-medium text-indigo-600">
+                        {(user.role === 'CLIENT' && user.clients && user.clients.length > 0) 
+                          ? user.clients[0].nom 
+                          : "-"}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm text-gray-600">
+                        {(user as any).department?.name || "-"}
+                      </span>
+                    </TableCell>
+                    <TableCell>
                       <span className="text-sm text-gray-900">{formatPhone(user.phone)}</span>
                     </TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>{getRoleBadge(user.role)}</TableCell>
                     <TableCell>{getStatusBadge(user.status)}</TableCell>
-                    <TableCell>{formatDate(user.createdAt)}</TableCell>
                     <TableCell>
                       <div className="flex space-x-1">
                         <Button
@@ -956,7 +978,7 @@ export default function GestionUtilisateursPage() {
 }
 
 // Composant pour modifier un utilisateur
-function EditUserForm({ user, disciplines, departments, onSubmit, onCancel }: {
+export function EditUserForm({ user, disciplines, departments, onSubmit, onCancel }: {
   user: User
   disciplines: Discipline[]
   departments: any[]

@@ -131,12 +131,12 @@ export async function POST(request: NextRequest) {
       } as any,
       include: {
         discipline: {
-          select: {
-            id: true,
-            name: true
-          }
+          select: { id: true, name: true }
+        },
+        department: {
+          select: { id: true, name: true }
         }
-      }
+      } as any
     });
 
 
@@ -293,7 +293,7 @@ export async function GET(request: NextRequest) {
           }
         },
         clients: true
-      },
+      } as any,
       orderBy: {
         createdAt: 'desc'
       }
@@ -381,19 +381,43 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    if (updateData.departmentId !== undefined) {
+      if (updateData.departmentId === "" || updateData.departmentId === null || updateData.departmentId === "none") {
+        updateData.departmentId = null;
+      }
+    }
+
     // Mettre à jour l'utilisateur
     const updatedUser = await prisma.user.update({
       where: { id },
       data: updateData,
       include: {
         discipline: {
-          select: {
-            id: true,
-            name: true
-          }
-        }
-      }
+          select: { id: true, name: true }
+        },
+        department: {
+          select: { id: true, name: true }
+        },
+        clients: true
+      } as any
     });
+
+    // Synchroniser avec la table Client si l'utilisateur est un client
+    const clients = (updatedUser as any).clients;
+    if (updatedUser.role === 'CLIENT' && clients && clients.length > 0) {
+      const clientUpdateData: any = {};
+      if (updateData.name) clientUpdateData.nom = updateData.name;
+      if (updateData.phone !== undefined) clientUpdateData.telephone = updateData.phone;
+      if (updateData.departmentId !== undefined) clientUpdateData.departmentId = updateData.departmentId;
+      if (updateData.clientType) clientUpdateData.type = updateData.clientType;
+
+      if (Object.keys(clientUpdateData).length > 0) {
+        await (prisma.client as any).updateMany({
+          where: { users: { some: { id: updatedUser.id } } },
+          data: clientUpdateData
+        });
+      }
+    }
 
 
     // Retourner sans le mot de passe

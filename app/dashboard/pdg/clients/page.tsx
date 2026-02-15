@@ -37,7 +37,7 @@ import { toast } from "sonner"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import DynamicDashboardLayout from "@/components/dynamic-dashboard-layout"
-import { CreateUserForm } from "../gestion-utilisateurs/page"
+import { CreateUserForm, EditUserForm } from "../gestion-utilisateurs/page"
 
 // Adapter l'interface User pour inclure les propriétés spécifiques client
 interface User {
@@ -73,6 +73,8 @@ export default function ClientsPage() {
   const [itemsPerPage, setItemsPerPage] = useState(20)
   const [currentPage, setCurrentPage] = useState(1)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [isFilterOpen, setIsFilterOpen] = useState(false)
   
   // États pour les filtres
@@ -150,6 +152,36 @@ export default function ClientsPage() {
         toast.error(error.message || "Erreur lors de la création")
       }
     }
+
+  const handleUpdateUser = async (userData: any) => {
+    try {
+      const response = await fetch("/api/users", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedUser?.id,
+          ...userData
+        })
+      })
+
+      if (response.ok) {
+        toast.success("Client mis à jour avec succès")
+        setIsEditDialogOpen(false)
+        setSelectedUser(null)
+        loadClients()
+      } else {
+        const errorData = await response.json()
+        toast.error(errorData.error || "Erreur lors de la mise à jour")
+      }
+    } catch (error: any) {
+      toast.error("Erreur de connexion lors de la mise à jour")
+    }
+  }
+
+  const handleEditClick = (user: User) => {
+    setSelectedUser(user)
+    setIsEditDialogOpen(true)
+  }
 
   const toggleUserExpansion = (userId: string) => {
     setExpandedUsers(prev => {
@@ -400,6 +432,30 @@ export default function ClientsPage() {
                         />
                     </DialogContent>
                 </Dialog>
+
+                {/* Edit User Modal */}
+                <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                    <DialogContent className="max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Modifier le client</DialogTitle>
+                            <DialogDescription>
+                                Modifiez les informations du client
+                            </DialogDescription>
+                        </DialogHeader>
+                        {selectedUser && (
+                            <EditUserForm
+                                user={selectedUser as any}
+                                disciplines={disciplines}
+                                departments={departments}
+                                onSubmit={handleUpdateUser}
+                                onCancel={() => {
+                                    setIsEditDialogOpen(false)
+                                    setSelectedUser(null)
+                                }}
+                            />
+                        )}
+                    </DialogContent>
+                </Dialog>
             </div>
             </div>
 
@@ -436,13 +492,12 @@ export default function ClientsPage() {
                 <TableHeader className="bg-gray-50 text-xs uppercase text-gray-500 font-medium">
                 <TableRow>
                     <TableHead className="w-[40px]"></TableHead>
-                    <TableHead>NOM</TableHead>
+                    <TableHead>ÉTABLISSEMENT / CLIENT</TableHead>
+                    <TableHead>GESTIONNAIRE DU COMPTE</TableHead>
                     <TableHead>TÉLÉPHONE</TableHead>
                     <TableHead>TYPE</TableHead>
                     <TableHead>DÉPARTEMENT</TableHead>
                     <TableHead>STATUT</TableHead>
-                    <TableHead>CRÉÉ LE</TableHead>
-                    <TableHead>CRÉÉ PAR</TableHead>
                     <TableHead>DETTE</TableHead>
                     <TableHead>ACTIONS</TableHead>
                 </TableRow>
@@ -471,27 +526,39 @@ export default function ClientsPage() {
                             </button>
                             </TableCell>
                             <TableCell className="font-medium text-gray-900">
-                            <div className="flex items-center gap-3">
-                                <div className="h-8 w-8 rounded-full bg-gray-200 flex-shrink-0 flex items-center justify-center overflow-hidden">
-                                    {client.image ? <img src={client.image} alt="" className="h-full w-full object-cover" /> : <User className="h-4 w-4 text-gray-500" />}
+                                {['ecole_contractuelle', 'ecole_non_contractuelle'].includes(clientType || '') && clientInfo
+                                    ? (clientInfo as any).nom 
+                                    : client.name}
+                            </TableCell>
+                            <TableCell className="text-gray-600 font-medium">
+                                <div className="flex items-center gap-2">
+                                    <div className="h-6 w-6 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
+                                        {client.image ? <img src={client.image} alt="" className="h-full w-full object-cover" /> : <User className="h-3 w-3 text-gray-400" />}
+                                    </div>
+                                    <span>{client.name}</span>
                                 </div>
-                                {client.name}
-                            </div>
                             </TableCell>
                             <TableCell className="text-gray-500">{formatPhone(client.phone)}</TableCell>
-                            <TableCell>{getClientTypeBadge(clientType)}</TableCell>
-                            <TableCell className="uppercase text-gray-500">{client.department?.name || "-"}</TableCell>
-                            <TableCell>
+                             <TableCell>{getClientTypeBadge(clientType)}</TableCell>
+                             <TableCell>
+                               <span className="text-sm font-medium text-indigo-600">
+                                 {client.department?.name || "-"}
+                               </span>
+                             </TableCell>
+                             <TableCell>
                             <Badge className={client.status === 'ACTIVE' ? "bg-green-500 hover:bg-green-600 text-white border-none rounded" : "bg-red-500 text-white border-none rounded"}>
                                 {client.status === 'ACTIVE' ? 'Actif' : 'Inactif'}
                             </Badge>
                             </TableCell>
-                            <TableCell className="text-gray-500 text-xs">{formatDate(client.createdAt)}</TableCell>
-                            <TableCell className="text-gray-500 text-xs"></TableCell>
-                            <TableCell className="text-gray-500">{clientDette}</TableCell>
+                            <TableCell className="text-gray-500 font-medium text-right">{clientDette.toLocaleString()} F CFA</TableCell>
                             <TableCell>
                             <div className="flex items-center gap-2">
-                                <button className="text-yellow-400 hover:text-yellow-500"><Edit className="h-4 w-4" /></button>
+                                <button 
+                                    className="text-yellow-400 hover:text-yellow-500"
+                                    onClick={() => handleEditClick(client)}
+                                >
+                                    <Edit className="h-4 w-4" />
+                                </button>
                                 <button className="text-blue-400 hover:text-blue-500"><RefreshCw className="h-4 w-4" /></button>
                                 <button className="text-green-500 hover:text-green-600"><Eye className="h-4 w-4" /></button>
                                 <button className="text-red-400 hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
